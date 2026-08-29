@@ -27,13 +27,13 @@ I18N = Path('js/i18n.js')
 TITLE = 'Εγκατάσταση Starlink στην Κρήτη — S. Markakis'
 DESCRIPTION = ('Επαγγελματική εγκατάσταση Starlink σε όλη την Κρήτη — Ηράκλειο, Χανιά, '
                'Ρέθυμνο, Λασίθι. Αυτοψία, τοποθέτηση και πλήρης ενσωμάτωση δικτύου με '
-               'MikroTik multi-WAN failover, ασφάλεια και απομακρυσμένη διαχείριση.')
+               'multi-WAN failover, ασφάλεια και απομακρυσμένη διαχείριση.')
 OG_DESC = ('Ολοκληρωμένη εγκατάσταση Starlink και διαχειριζόμενη σύνδεση σε όλη την Κρήτη '
-           '— αυτοψία, τοποθέτηση και ενσωμάτωση δικτύου MikroTik με failover και '
+           '— αυτοψία, τοποθέτηση και ενσωμάτωση δικτύου με failover και '
            'απομακρυσμένη παρακολούθηση.')
 KEYWORDS = ('Starlink Κρήτη, εγκατάσταση Starlink, Starlink εγκατάσταση Κρήτη, '
             'δορυφορικό ίντερνετ Κρήτη, Starlink Ηράκλειο, Starlink Χανιά, '
-            'Starlink Ρέθυμνο, Starlink Λασίθι, multi-WAN failover, MikroTik')
+            'Starlink Ρέθυμνο, Starlink Λασίθι, multi-WAN failover, Cisco, MikroTik, UniFi')
 
 
 def load_el_translations():
