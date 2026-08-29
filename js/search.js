@@ -4,8 +4,8 @@
 // Keyboard: Ctrl/Cmd+K to open · Esc to close · ↑/↓ to navigate · Enter to open.
 
 (function () {
-  if (window.__noctisSearchInit) return;
-  window.__noctisSearchInit = true;
+  if (window.__sp1r4SearchInit) return;
+  window.__sp1r4SearchInit = true;
 
   const SUGGESTIONS = ['mikrotik', 'hackthebox', 'vlan', 'pentest', 'services'];
 
@@ -51,9 +51,9 @@
   }
 
   function injectStyles() {
-    if (document.getElementById('noctis-search-style')) return;
+    if (document.getElementById('sp1r4-search-style')) return;
     const css = `
-      .noctis-search-overlay {
+      .sp1r4-search-overlay {
         position: fixed; inset: 0; z-index: 10002;
         background: radial-gradient(ellipse at top, rgba(0,0,0,0.55), rgba(0,0,0,0.7));
         backdrop-filter: blur(8px) saturate(1.1);
@@ -63,9 +63,9 @@
         opacity: 0;
         transition: opacity 0.18s ease;
       }
-      .noctis-search-overlay.open { opacity: 1; }
+      .sp1r4-search-overlay.open { opacity: 1; }
 
-      .noctis-search-modal {
+      .sp1r4-search-modal {
         width: 100%; max-width: 640px;
         background: var(--card-bg, #fff);
         border: 0.5px solid var(--card-border, #e0deda);
@@ -80,10 +80,10 @@
         transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.1), opacity 0.18s ease;
         position: relative;
       }
-      .noctis-search-overlay.open .noctis-search-modal {
+      .sp1r4-search-overlay.open .sp1r4-search-modal {
         transform: translateY(0) scale(1); opacity: 1;
       }
-      .noctis-search-modal::before {
+      .sp1r4-search-modal::before {
         content: ''; position: absolute; top: 0; left: 0; right: 0;
         height: 1px;
         background: linear-gradient(90deg,
@@ -95,18 +95,18 @@
         pointer-events: none;
       }
 
-      .noctis-search-input-wrap {
+      .sp1r4-search-input-wrap {
         display: flex; align-items: center; gap: 12px;
         padding: 18px 22px;
         border-bottom: 0.5px solid var(--card-border, #e0deda);
       }
-      .noctis-search-input-wrap > svg {
+      .sp1r4-search-input-wrap > svg {
         width: 18px; height: 18px;
         stroke: var(--text-secondary, #888); fill: none;
         stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
         flex-shrink: 0;
       }
-      .noctis-search-input {
+      .sp1r4-search-input {
         flex: 1; min-width: 0;
         border: none; outline: none; background: transparent;
         font-family: inherit; font-size: 16px; font-weight: 500;
@@ -114,10 +114,10 @@
         padding: 4px 0;
         letter-spacing: -0.01em;
       }
-      .noctis-search-input::placeholder {
+      .sp1r4-search-input::placeholder {
         color: var(--text-muted, #888); font-weight: 400;
       }
-      .noctis-kbd {
+      .sp1r4-kbd {
         display: inline-flex; align-items: center; justify-content: center;
         min-width: 22px; height: 22px;
         padding: 0 7px;
@@ -132,26 +132,26 @@
         flex-shrink: 0;
       }
 
-      .noctis-search-results {
+      .sp1r4-search-results {
         max-height: 56vh;
         overflow-y: auto;
         padding: 6px 6px 4px;
         scrollbar-width: thin;
       }
-      .noctis-search-results::-webkit-scrollbar { width: 8px; }
-      .noctis-search-results::-webkit-scrollbar-thumb {
+      .sp1r4-search-results::-webkit-scrollbar { width: 8px; }
+      .sp1r4-search-results::-webkit-scrollbar-thumb {
         background: var(--card-border, #e0deda);
         border-radius: 4px;
       }
 
-      .noctis-search-section-label {
+      .sp1r4-search-section-label {
         font-size: 9px; font-weight: 700;
         letter-spacing: 0.22em; text-transform: uppercase;
         color: var(--text-muted, #888);
         padding: 14px 16px 8px;
       }
 
-      .noctis-search-result {
+      .sp1r4-search-result {
         display: flex; align-items: flex-start; gap: 14px;
         padding: 12px 14px; border-radius: 8px;
         margin: 2px 0;
@@ -160,20 +160,20 @@
         position: relative;
         transition: background 0.12s, transform 0.18s;
       }
-      .noctis-search-result:hover {
+      .sp1r4-search-result:hover {
         background: var(--icon-bg, #f0efe9);
       }
-      .noctis-search-result.active {
+      .sp1r4-search-result.active {
         background: rgba(198,61,31,0.10);
       }
-      .noctis-search-result.active::before {
+      .sp1r4-search-result.active::before {
         content: '';
         position: absolute; left: 0; top: 10px; bottom: 10px;
         width: 2.5px; border-radius: 2px;
         background: var(--accent, #c63d1f);
       }
 
-      .noctis-search-result-icon {
+      .sp1r4-search-result-icon {
         width: 32px; height: 32px;
         border-radius: 7px;
         background: var(--icon-bg, #f0efe9);
@@ -182,29 +182,29 @@
         flex-shrink: 0;
         transition: background 0.15s, border-color 0.15s;
       }
-      .noctis-search-result-icon svg {
+      .sp1r4-search-result-icon svg {
         width: 15px; height: 15px;
         stroke: var(--icon-stroke, #555); fill: none;
         stroke-width: 1.6;
         stroke-linecap: round; stroke-linejoin: round;
         transition: stroke 0.15s;
       }
-      .noctis-search-result.active .noctis-search-result-icon {
+      .sp1r4-search-result.active .sp1r4-search-result-icon {
         background: var(--accent, #c63d1f);
         border-color: var(--accent, #c63d1f);
       }
-      .noctis-search-result.active .noctis-search-result-icon svg {
+      .sp1r4-search-result.active .sp1r4-search-result-icon svg {
         stroke: #fff;
       }
 
-      .noctis-search-result-body { flex: 1; min-width: 0; }
-      .noctis-search-result-title {
+      .sp1r4-search-result-body { flex: 1; min-width: 0; }
+      .sp1r4-search-result-title {
         font-size: 14px; font-weight: 600;
         color: var(--text-primary, #0f0f0f);
         margin-bottom: 3px;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
-      .noctis-search-result-excerpt {
+      .sp1r4-search-result-excerpt {
         font-size: 12px; font-weight: 400; line-height: 1.5;
         color: var(--text-secondary, #555);
         display: -webkit-box;
@@ -212,40 +212,40 @@
         -webkit-box-orient: vertical;
         overflow: hidden;
       }
-      .noctis-search-result-excerpt mark {
+      .sp1r4-search-result-excerpt mark {
         background: rgba(198,61,31,0.16);
         color: inherit; font-weight: 600;
         padding: 1px 3px; border-radius: 3px;
       }
-      .noctis-search-result-kind {
+      .sp1r4-search-result-kind {
         font-size: 9px; font-weight: 700;
         letter-spacing: 0.16em; text-transform: uppercase;
         color: var(--text-muted, #888);
         margin-bottom: 4px;
       }
-      .noctis-search-result.active .noctis-search-result-kind {
+      .sp1r4-search-result.active .sp1r4-search-result-kind {
         color: var(--accent, #c63d1f);
       }
-      .noctis-search-result-arrow {
+      .sp1r4-search-result-arrow {
         flex-shrink: 0; align-self: center;
         width: 16px; height: 16px;
         opacity: 0;
         transition: opacity 0.15s, transform 0.15s;
       }
-      .noctis-search-result-arrow svg {
+      .sp1r4-search-result-arrow svg {
         width: 14px; height: 14px;
         stroke: var(--accent, #c63d1f); fill: none;
         stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
       }
-      .noctis-search-result.active .noctis-search-result-arrow {
+      .sp1r4-search-result.active .sp1r4-search-result-arrow {
         opacity: 1; transform: translateX(2px);
       }
 
-      .noctis-search-empty, .noctis-search-loading, .noctis-search-error {
+      .sp1r4-search-empty, .sp1r4-search-loading, .sp1r4-search-error {
         padding: 42px 24px;
         text-align: center;
       }
-      .noctis-search-empty-icon {
+      .sp1r4-search-empty-icon {
         width: 52px; height: 52px;
         margin: 0 auto 16px;
         border-radius: 14px;
@@ -253,25 +253,25 @@
         border: 0.5px solid var(--icon-border, #e0deda);
         display: flex; align-items: center; justify-content: center;
       }
-      .noctis-search-empty-icon svg {
+      .sp1r4-search-empty-icon svg {
         width: 22px; height: 22px;
         stroke: var(--text-muted, #888); fill: none;
         stroke-width: 1.6;
       }
-      .noctis-search-empty-text {
+      .sp1r4-search-empty-text {
         font-size: 13px; font-weight: 600;
         color: var(--text-secondary, #555);
         margin-bottom: 4px;
       }
-      .noctis-search-empty-sub {
+      .sp1r4-search-empty-sub {
         font-size: 11px; font-weight: 400;
         color: var(--text-muted, #888);
         margin-bottom: 18px;
       }
-      .noctis-search-suggestions {
+      .sp1r4-search-suggestions {
         display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
       }
-      .noctis-search-suggestion {
+      .sp1r4-search-suggestion {
         font-family: inherit; font-size: 11px; font-weight: 500;
         padding: 6px 14px; border-radius: 999px;
         background: transparent;
@@ -281,77 +281,77 @@
         transition: all 0.15s;
         letter-spacing: 0.02em;
       }
-      .noctis-search-suggestion:hover {
+      .sp1r4-search-suggestion:hover {
         background: var(--accent, #c63d1f);
         border-color: var(--accent, #c63d1f);
         color: #fff;
         transform: translateY(-1px);
       }
-      .noctis-search-loading-dots {
+      .sp1r4-search-loading-dots {
         display: inline-flex; gap: 6px;
         margin-bottom: 8px;
       }
-      .noctis-search-loading-dots span {
+      .sp1r4-search-loading-dots span {
         width: 6px; height: 6px; border-radius: 50%;
         background: var(--accent, #c63d1f);
         opacity: 0.4;
-        animation: noctisSearchPulse 1.1s ease-in-out infinite;
+        animation: sp1r4SearchPulse 1.1s ease-in-out infinite;
       }
-      .noctis-search-loading-dots span:nth-child(2) { animation-delay: 0.18s; }
-      .noctis-search-loading-dots span:nth-child(3) { animation-delay: 0.36s; }
-      @keyframes noctisSearchPulse {
+      .sp1r4-search-loading-dots span:nth-child(2) { animation-delay: 0.18s; }
+      .sp1r4-search-loading-dots span:nth-child(3) { animation-delay: 0.36s; }
+      @keyframes sp1r4SearchPulse {
         0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
         40% { opacity: 1; transform: scale(1); }
       }
 
-      .noctis-search-hint {
+      .sp1r4-search-hint {
         padding: 11px 18px;
         font-size: 10px;
         color: var(--text-muted, #888);
         border-top: 0.5px solid var(--card-border, #e0deda);
         display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
       }
-      .noctis-search-hint-group {
+      .sp1r4-search-hint-group {
         display: inline-flex; align-items: center; gap: 6px;
         letter-spacing: 0.04em;
       }
-      .noctis-search-hint-group .noctis-kbd {
+      .sp1r4-search-hint-group .sp1r4-kbd {
         min-width: 18px; height: 18px;
         font-size: 9px;
         padding: 0 5px;
       }
-      .noctis-search-hint-brand {
+      .sp1r4-search-hint-brand {
         margin-left: auto;
         font-size: 9px; font-weight: 800;
         letter-spacing: 0.22em; color: var(--text-muted, #888);
       }
-      .noctis-search-hint-brand strong {
+      .sp1r4-search-hint-brand strong {
         color: var(--text-secondary, #666);
         font-weight: 900;
       }
 
       @media (max-width: 540px) {
-        .noctis-search-overlay { padding: 8vh 12px 12px; }
-        .noctis-search-modal { border-radius: 10px; }
-        .noctis-search-input-wrap { padding: 14px 16px; }
-        .noctis-search-input { font-size: 15px; }
-        .noctis-search-result { padding: 10px 12px; gap: 11px; }
-        .noctis-search-hint-brand { display: none; }
+        .sp1r4-search-overlay { padding: 8vh 12px 12px; }
+        .sp1r4-search-modal { border-radius: 10px; }
+        .sp1r4-search-input-wrap { padding: 14px 16px; }
+        .sp1r4-search-input { font-size: 15px; }
+        .sp1r4-search-result { padding: 10px 12px; gap: 11px; }
+        .sp1r4-search-hint-brand { display: none; }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .noctis-search-overlay,
-        .noctis-search-modal,
-        .noctis-search-result,
-        .noctis-search-suggestion,
-        .noctis-search-loading-dots span {
+        .sp1r4-search-overlay,
+        .sp1r4-search-modal,
+        .sp1r4-search-result,
+        .sp1r4-search-suggestion,
+        .sp1r4-search-loading-dots span {
           transition: none !important;
           animation: none !important;
         }
       }
     `;
     const s = document.createElement('style');
-    s.id = 'noctis-search-style';
+    s.id = 'sp1r4-search-style';
     s.textContent = css;
     document.head.appendChild(s);
   }
@@ -377,24 +377,24 @@
     injectStyles();
 
     const overlay = document.createElement('div');
-    overlay.className = 'noctis-search-overlay';
+    overlay.className = 'sp1r4-search-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', 'Search NOCTIS');
+    overlay.setAttribute('aria-label', 'Search');
 
     overlay.innerHTML = `
-      <div class="noctis-search-modal">
-        <div class="noctis-search-input-wrap">
+      <div class="sp1r4-search-modal">
+        <div class="sp1r4-search-input-wrap">
           ${ICON.search}
-          <input type="search" class="noctis-search-input" placeholder="Search writeups, pages, anything…" autocomplete="off" spellcheck="false">
-          <span class="noctis-kbd">ESC</span>
+          <input type="search" class="sp1r4-search-input" placeholder="Search writeups, pages, anything…" autocomplete="off" spellcheck="false">
+          <span class="sp1r4-kbd">ESC</span>
         </div>
-        <div class="noctis-search-results"></div>
-        <div class="noctis-search-hint">
-          <span class="noctis-search-hint-group"><span class="noctis-kbd">↑</span><span class="noctis-kbd">↓</span> navigate</span>
-          <span class="noctis-search-hint-group"><span class="noctis-kbd">↵</span> open</span>
-          <span class="noctis-search-hint-group"><span class="noctis-kbd">esc</span> close</span>
-          <span class="noctis-search-hint-brand"><strong>NOCTIS</strong> · SEARCH</span>
+        <div class="sp1r4-search-results"></div>
+        <div class="sp1r4-search-hint">
+          <span class="sp1r4-search-hint-group"><span class="sp1r4-kbd">↑</span><span class="sp1r4-kbd">↓</span> navigate</span>
+          <span class="sp1r4-search-hint-group"><span class="sp1r4-kbd">↵</span> open</span>
+          <span class="sp1r4-search-hint-group"><span class="sp1r4-kbd">esc</span> close</span>
+          <span class="sp1r4-search-hint-brand"><strong>S. MARKAKIS</strong> · SEARCH</span>
         </div>
       </div>
     `;
@@ -403,8 +403,8 @@
       if (e.target === overlay) close();
     });
 
-    input = overlay.querySelector('.noctis-search-input');
-    results = overlay.querySelector('.noctis-search-results');
+    input = overlay.querySelector('.sp1r4-search-input');
+    results = overlay.querySelector('.sp1r4-search-results');
     showEmptyState();
 
     input.addEventListener('input', () => {
@@ -440,16 +440,16 @@
   function showEmptyState() {
     currentResults = []; activeIndex = -1;
     const chips = SUGGESTIONS.map(s =>
-      '<button type="button" class="noctis-search-suggestion" data-suggest="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>'
+      '<button type="button" class="sp1r4-search-suggestion" data-suggest="' + escapeHtml(s) + '">' + escapeHtml(s) + '</button>'
     ).join('');
     results.innerHTML =
-      '<div class="noctis-search-empty">' +
-        '<div class="noctis-search-empty-icon">' + ICON.search + '</div>' +
-        '<div class="noctis-search-empty-text">Search NOCTIS</div>' +
-        '<div class="noctis-search-empty-sub">Find writeups, services, and pages.</div>' +
-        '<div class="noctis-search-suggestions">' + chips + '</div>' +
+      '<div class="sp1r4-search-empty">' +
+        '<div class="sp1r4-search-empty-icon">' + ICON.search + '</div>' +
+        '<div class="sp1r4-search-empty-text">Search</div>' +
+        '<div class="sp1r4-search-empty-sub">Find writeups, services, and pages.</div>' +
+        '<div class="sp1r4-search-suggestions">' + chips + '</div>' +
       '</div>';
-    results.querySelectorAll('.noctis-search-suggestion').forEach(btn => {
+    results.querySelectorAll('.sp1r4-search-suggestion').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!input) return;
         input.value = btn.dataset.suggest;
@@ -460,15 +460,15 @@
   }
   function showLoading() {
     results.innerHTML =
-      '<div class="noctis-search-loading">' +
-        '<div class="noctis-search-loading-dots"><span></span><span></span><span></span></div>' +
-        '<div class="noctis-search-empty-sub">Searching the index…</div>' +
+      '<div class="sp1r4-search-loading">' +
+        '<div class="sp1r4-search-loading-dots"><span></span><span></span><span></span></div>' +
+        '<div class="sp1r4-search-empty-sub">Searching the index…</div>' +
       '</div>';
   }
   function showError(msg) {
     results.innerHTML =
-      '<div class="noctis-search-error">' +
-        '<div class="noctis-search-empty-text">' + escapeHtml(msg) + '</div>' +
+      '<div class="sp1r4-search-error">' +
+        '<div class="sp1r4-search-empty-text">' + escapeHtml(msg) + '</div>' +
       '</div>';
   }
 
@@ -495,10 +495,10 @@
     const top = res.results.slice(0, 8);
     if (!top.length) {
       results.innerHTML =
-        '<div class="noctis-search-empty">' +
-          '<div class="noctis-search-empty-icon">' + ICON.search + '</div>' +
-          '<div class="noctis-search-empty-text">No matches for &ldquo;' + escapeHtml(query) + '&rdquo;</div>' +
-          '<div class="noctis-search-empty-sub">Try a different keyword or browse the blog.</div>' +
+        '<div class="sp1r4-search-empty">' +
+          '<div class="sp1r4-search-empty-icon">' + ICON.search + '</div>' +
+          '<div class="sp1r4-search-empty-text">No matches for &ldquo;' + escapeHtml(query) + '&rdquo;</div>' +
+          '<div class="sp1r4-search-empty-sub">Try a different keyword or browse the blog.</div>' +
         '</div>';
       currentResults = []; activeIndex = -1;
       return;
@@ -523,14 +523,14 @@
 
     if (writeups.length) {
       const lbl = document.createElement('div');
-      lbl.className = 'noctis-search-section-label';
+      lbl.className = 'sp1r4-search-section-label';
       lbl.textContent = 'Writeups';
       results.appendChild(lbl);
       writeups.forEach(({ r, i }) => results.appendChild(renderRow(r, i)));
     }
     if (pages.length) {
       const lbl = document.createElement('div');
-      lbl.className = 'noctis-search-section-label';
+      lbl.className = 'sp1r4-search-section-label';
       lbl.textContent = 'Pages';
       results.appendChild(lbl);
       pages.forEach(({ r, i }) => results.appendChild(renderRow(r, i)));
@@ -539,20 +539,20 @@
 
   function renderRow(r, i) {
     const a = document.createElement('a');
-    a.className = 'noctis-search-result' + (i === activeIndex ? ' active' : '');
+    a.className = 'sp1r4-search-result' + (i === activeIndex ? ' active' : '');
     a.href = r.url;
     a.dataset.idx = String(i);
     a.innerHTML =
-      '<div class="noctis-search-result-icon">' + iconForUrl(r.url) + '</div>' +
-      '<div class="noctis-search-result-body">' +
-        '<div class="noctis-search-result-kind">' + escapeHtml(labelForUrl(r.url)) + '</div>' +
-        '<div class="noctis-search-result-title">' + escapeHtml(r.title) + '</div>' +
-        '<div class="noctis-search-result-excerpt">' + r.excerpt + '</div>' +
+      '<div class="sp1r4-search-result-icon">' + iconForUrl(r.url) + '</div>' +
+      '<div class="sp1r4-search-result-body">' +
+        '<div class="sp1r4-search-result-kind">' + escapeHtml(labelForUrl(r.url)) + '</div>' +
+        '<div class="sp1r4-search-result-title">' + escapeHtml(r.title) + '</div>' +
+        '<div class="sp1r4-search-result-excerpt">' + r.excerpt + '</div>' +
       '</div>' +
-      '<div class="noctis-search-result-arrow">' + ICON.arrow + '</div>';
+      '<div class="sp1r4-search-result-arrow">' + ICON.arrow + '</div>';
     a.addEventListener('mouseenter', () => {
       activeIndex = i;
-      results.querySelectorAll('.noctis-search-result').forEach(el => {
+      results.querySelectorAll('.sp1r4-search-result').forEach(el => {
         el.classList.toggle('active', parseInt(el.dataset.idx, 10) === i);
       });
     });
@@ -562,9 +562,9 @@
   function moveActive(delta) {
     if (!currentResults.length) return;
     activeIndex = (activeIndex + delta + currentResults.length) % currentResults.length;
-    const cards = results.querySelectorAll('.noctis-search-result');
+    const cards = results.querySelectorAll('.sp1r4-search-result');
     cards.forEach(el => el.classList.toggle('active', parseInt(el.dataset.idx, 10) === activeIndex));
-    const active = results.querySelector('.noctis-search-result.active');
+    const active = results.querySelector('.sp1r4-search-result.active');
     if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' });
   }
 

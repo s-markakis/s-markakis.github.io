@@ -1,6 +1,6 @@
 // Persisted light/dark theme toggle. Applied as early as possible to avoid FOUC.
 (function () {
-  const saved = localStorage.getItem('noctis_theme');
+  const saved = localStorage.getItem('sp1r4_theme');
   if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     document.documentElement.classList.add('preload-dark');
   }
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.toggleTheme = function () {
   document.body.classList.toggle('dark');
-  localStorage.setItem('noctis_theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+  localStorage.setItem('sp1r4_theme', document.body.classList.contains('dark') ? 'dark' : 'light');
 };
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

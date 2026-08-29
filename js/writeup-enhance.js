@@ -1,9 +1,9 @@
-// NOCTIS — writeup enhancements: reading progress bar, floating TOC,
+// Writeup enhancements: reading progress bar, floating TOC,
 // copy-to-clipboard buttons, series banner, related-posts strip.
 // Standalone (no deps); loaded by every writeup HTML after writeup-sidebar.js.
 (function () {
-  if (window.__noctisWriteupEnhanced) return;
-  window.__noctisWriteupEnhanced = true;
+  if (window.__sp1r4WriteupEnhanced) return;
+  window.__sp1r4WriteupEnhanced = true;
 
   const POSTS_URL = '../posts.json';
 
@@ -23,10 +23,10 @@
   }
 
   function injectStyles() {
-    if (document.getElementById('noctis-enhance-style')) return;
+    if (document.getElementById('sp1r4-enhance-style')) return;
     const css = `
       /* Reading progress bar */
-      .noctis-progress {
+      .sp1r4-progress {
         position: fixed; top: 0; left: 0; height: 2px; width: 0;
         background: #c63d1f; z-index: 10000;
         transition: width 0.05s linear;
@@ -34,7 +34,7 @@
       }
 
       /* Floating TOC — sits below the fixed 48px site nav. */
-      .noctis-toc-toggle {
+      .sp1r4-toc-toggle {
         position: fixed; top: 66px; right: 18px; z-index: 51;
         width: 38px; height: 38px;
         background: rgba(26,26,24,0.92); color: #eae8e3;
@@ -43,10 +43,10 @@
         backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
         transition: background 0.18s;
       }
-      .noctis-toc-toggle:hover { background: rgba(26,26,24,1); }
-      .noctis-toc-toggle svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .sp1r4-toc-toggle:hover { background: rgba(26,26,24,1); }
+      .sp1r4-toc-toggle svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-      .noctis-toc-panel {
+      .sp1r4-toc-panel {
         position: fixed; top: 112px; right: 18px; z-index: 51;
         width: 280px; max-height: calc(100vh - 144px);
         background: rgba(20,20,20,0.96);
@@ -57,28 +57,28 @@
         opacity: 0; pointer-events: none; transform: translateY(-6px);
         transition: opacity 0.18s, transform 0.18s;
       }
-      .noctis-toc-panel.open { opacity: 1; pointer-events: auto; transform: translateY(0); }
-      .noctis-toc-panel h3 {
+      .sp1r4-toc-panel.open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+      .sp1r4-toc-panel h3 {
         font-size: 10px; font-weight: 600; letter-spacing: 0.18em;
         color: rgba(255,255,255,0.45); text-transform: uppercase;
         margin: 0 6px 10px; padding: 0;
       }
-      .noctis-toc-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1px; }
-      .noctis-toc-list a {
+      .sp1r4-toc-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1px; }
+      .sp1r4-toc-list a {
         display: block; padding: 7px 10px; border-radius: 3px;
         text-decoration: none; color: rgba(234,232,227,0.78);
         font-size: 12px; font-weight: 500; line-height: 1.35;
         border-left: 2px solid transparent;
       }
-      .noctis-toc-list a:hover { background: rgba(255,255,255,0.05); color: #fff; }
-      .noctis-toc-list a.active {
+      .sp1r4-toc-list a:hover { background: rgba(255,255,255,0.05); color: #fff; }
+      .sp1r4-toc-list a.active {
         background: rgba(198,61,31,0.10); border-left-color: #c63d1f; color: #fff;
       }
-      .noctis-toc-list .lvl-3 { padding-left: 22px; font-size: 11px; color: rgba(234,232,227,0.62); }
+      .sp1r4-toc-list .lvl-3 { padding-left: 22px; font-size: 11px; color: rgba(234,232,227,0.62); }
 
       /* Copy button on code/terminal blocks */
-      .noctis-copyable { position: relative; }
-      .noctis-copy-btn {
+      .sp1r4-copyable { position: relative; }
+      .sp1r4-copy-btn {
         position: absolute; top: 8px; right: 8px; z-index: 5;
         font-family: 'JetBrains Mono','Inter',monospace;
         font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
@@ -88,13 +88,13 @@
         cursor: pointer; opacity: 0;
         transition: opacity 0.15s, background 0.15s;
       }
-      .noctis-copyable:hover .noctis-copy-btn,
-      .noctis-copy-btn:focus-visible { opacity: 1; }
-      .noctis-copy-btn:hover { background: rgba(26,26,24,1); }
-      .noctis-copy-btn.copied { background: #3a6a48; border-color: #3a6a48; color: #fff; }
+      .sp1r4-copyable:hover .sp1r4-copy-btn,
+      .sp1r4-copy-btn:focus-visible { opacity: 1; }
+      .sp1r4-copy-btn:hover { background: rgba(26,26,24,1); }
+      .sp1r4-copy-btn.copied { background: #3a6a48; border-color: #3a6a48; color: #fff; }
 
       /* Series banner */
-      .noctis-series {
+      .sp1r4-series {
         margin: 1.4rem 0 2rem;
         padding: 0.9rem 1.1rem;
         background: rgba(198,61,31,0.06);
@@ -106,34 +106,34 @@
         display: flex; flex-wrap: wrap; gap: 6px 14px;
         align-items: center; justify-content: space-between;
       }
-      .noctis-series-label {
+      .sp1r4-series-label {
         font-family: 'Barlow Condensed','Barlow',sans-serif;
         font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em;
         text-transform: uppercase; color: #c63d1f;
       }
-      .noctis-series-title { color: #1a1a18; font-weight: 600; }
-      .noctis-series-nav { display: flex; gap: 12px; flex-wrap: wrap; }
-      .noctis-series-nav a {
+      .sp1r4-series-title { color: #1a1a18; font-weight: 600; }
+      .sp1r4-series-nav { display: flex; gap: 12px; flex-wrap: wrap; }
+      .sp1r4-series-nav a {
         color: #c63d1f; text-decoration: none;
         font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em;
       }
-      .noctis-series-nav a:hover { text-decoration: underline; }
-      .noctis-series-nav a[aria-disabled="true"] { color: #aaa89f; pointer-events: none; }
+      .sp1r4-series-nav a:hover { text-decoration: underline; }
+      .sp1r4-series-nav a[aria-disabled="true"] { color: #aaa89f; pointer-events: none; }
 
       /* Share row */
-      .noctis-share {
+      .sp1r4-share {
         margin: 2.4rem 0 1rem;
         display: flex; gap: 8px; flex-wrap: wrap;
         align-items: center; justify-content: center;
         font-family: 'Barlow','Inter',system-ui,sans-serif;
       }
-      .noctis-share-label {
+      .sp1r4-share-label {
         font-family: 'Barlow Condensed','Barlow',sans-serif;
         font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em;
         text-transform: uppercase; color: #888880;
         margin-right: 6px;
       }
-      .noctis-share-btn {
+      .sp1r4-share-btn {
         display: inline-flex; align-items: center; gap: 6px;
         padding: 6px 12px; border-radius: 4px;
         background: rgba(26,26,24,0.04);
@@ -142,69 +142,69 @@
         font-size: 0.78rem; font-weight: 500; letter-spacing: 0.02em;
         transition: background 0.15s, border-color 0.15s, transform 0.15s;
       }
-      .noctis-share-btn:hover {
+      .sp1r4-share-btn:hover {
         background: rgba(198,61,31,0.08);
         border-color: rgba(198,61,31,0.4);
         transform: translateY(-1px);
         text-decoration: none;
       }
-      .noctis-share-btn svg {
+      .sp1r4-share-btn svg {
         width: 13px; height: 13px;
         stroke: currentColor; fill: none; stroke-width: 1.6;
         stroke-linecap: round; stroke-linejoin: round;
       }
-      .noctis-share-btn.copied {
+      .sp1r4-share-btn.copied {
         background: #3a6a48; border-color: #3a6a48; color: #fff;
       }
 
       /* Related posts */
-      .noctis-related {
+      .sp1r4-related {
         margin: 3rem 0 1.5rem;
         padding-top: 2rem;
         border-top: 1px solid rgba(26,26,24,0.12);
         font-family: 'Barlow','Inter',system-ui,sans-serif;
       }
-      .noctis-related h3 {
+      .sp1r4-related h3 {
         font-family: 'Barlow Condensed','Barlow',sans-serif;
         font-weight: 800; font-size: 1.4rem; letter-spacing: 0.04em;
         text-transform: uppercase; color: #1a1a18; margin-bottom: 1rem;
       }
-      .noctis-related-grid {
+      .sp1r4-related-grid {
         display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 12px;
       }
-      .noctis-related-card {
+      .sp1r4-related-card {
         display: block; padding: 14px 16px;
         background: rgba(26,26,24,0.04);
         border: 1px solid rgba(26,26,24,0.10);
         border-radius: 5px; text-decoration: none;
         transition: background 0.15s, border-color 0.15s, transform 0.15s;
       }
-      .noctis-related-card:hover {
+      .sp1r4-related-card:hover {
         background: rgba(26,26,24,0.08);
         border-color: rgba(198,61,31,0.4);
         transform: translateY(-2px);
         text-decoration: none;
       }
-      .noctis-related-tag {
+      .sp1r4-related-tag {
         font-size: 0.65rem; font-weight: 700; letter-spacing: 0.14em;
         text-transform: uppercase; color: #c63d1f;
       }
-      .noctis-related-title {
+      .sp1r4-related-title {
         font-size: 0.95rem; font-weight: 600; color: #1a1a18;
         margin: 4px 0 4px; line-height: 1.3;
       }
-      .noctis-related-meta {
+      .sp1r4-related-meta {
         font-size: 0.72rem; color: #888880; letter-spacing: 0.04em;
       }
 
       /* Hide TOC button when sidebar is open on narrow screens (would overlap close target) */
       @media (max-width: 1099px) {
-        .noctis-toc-panel { right: 12px; width: calc(100vw - 24px); max-width: 320px; }
+        .sp1r4-toc-panel { right: 12px; width: calc(100vw - 24px); max-width: 320px; }
       }
 
       /* Image lightbox */
-      .noctis-lightbox {
+      .sp1r4-lightbox {
         position: fixed; inset: 0; z-index: 10001;
         background: rgba(0,0,0,0.92);
         display: flex; align-items: center; justify-content: center;
@@ -214,16 +214,16 @@
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
       }
-      .noctis-lightbox.open { opacity: 1; }
-      .noctis-lightbox img {
+      .sp1r4-lightbox.open { opacity: 1; }
+      .sp1r4-lightbox img {
         max-width: 100%; max-height: 100%;
         object-fit: contain;
         box-shadow: 0 20px 60px rgba(0,0,0,0.6);
         transform: scale(0.96);
         transition: transform 0.18s ease;
       }
-      .noctis-lightbox.open img { transform: scale(1); }
-      .noctis-lightbox-close {
+      .sp1r4-lightbox.open img { transform: scale(1); }
+      .sp1r4-lightbox-close {
         position: absolute; top: 18px; right: 18px;
         width: 38px; height: 38px; border-radius: 50%;
         background: rgba(255,255,255,0.08);
@@ -233,8 +233,8 @@
         font-family: inherit; font-size: 20px; line-height: 1;
         transition: background 0.15s;
       }
-      .noctis-lightbox-close:hover { background: rgba(255,255,255,0.16); }
-      .noctis-lightbox-hint {
+      .sp1r4-lightbox-close:hover { background: rgba(255,255,255,0.16); }
+      .sp1r4-lightbox-hint {
         position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
         color: rgba(255,255,255,0.45);
         font-family: 'Barlow Condensed','Barlow',sans-serif;
@@ -244,16 +244,16 @@
       [data-lightboxable] { cursor: zoom-in; }
 
       @media (prefers-reduced-motion: reduce) {
-        .noctis-progress, .noctis-toc-panel, .noctis-copy-btn,
-        .noctis-related-card, .noctis-share-btn { transition: none !important; }
-        .noctis-related-card:hover, .noctis-share-btn:hover { transform: none !important; }
+        .sp1r4-progress, .sp1r4-toc-panel, .sp1r4-copy-btn,
+        .sp1r4-related-card, .sp1r4-share-btn { transition: none !important; }
+        .sp1r4-related-card:hover, .sp1r4-share-btn:hover { transform: none !important; }
       }
 
       /* Print: strip nav/chrome so saved PDFs look clean. */
       @media print {
-        .noctis-progress, .noctis-toc-toggle, .noctis-toc-panel,
-        .noctis-copy-btn, .noctis-share, .noctis-related,
-        .noctis-series-nav { display: none !important; }
+        .sp1r4-progress, .sp1r4-toc-toggle, .sp1r4-toc-panel,
+        .sp1r4-copy-btn, .sp1r4-share, .sp1r4-related,
+        .sp1r4-series-nav { display: none !important; }
         body { padding-left: 0 !important; padding-top: 0 !important; background: #fff !important; }
         h1, h2, h3, h4 { page-break-after: avoid; }
         .term-wrap, .terminal, pre, figure, img {
@@ -268,7 +268,7 @@
       }
     `;
     const style = document.createElement('style');
-    style.id = 'noctis-enhance-style';
+    style.id = 'sp1r4-enhance-style';
     style.textContent = css;
     document.head.appendChild(style);
   }
@@ -276,7 +276,7 @@
   // 1. Reading progress bar
   function setupProgress() {
     const bar = document.createElement('div');
-    bar.className = 'noctis-progress';
+    bar.className = 'sp1r4-progress';
     bar.setAttribute('aria-hidden', 'true');
     document.body.appendChild(bar);
 
@@ -295,7 +295,7 @@
   function setupTOC() {
     const headings = Array.from(document.querySelectorAll('h2, h3'))
       .filter(h => {
-        if (h.closest('nav, footer, .noctis-related, .noctis-series, .noctis-toc-panel')) return false;
+        if (h.closest('nav, footer, .sp1r4-related, .sp1r4-series, .sp1r4-toc-panel')) return false;
         const txt = (h.textContent || '').trim();
         if (!txt) return false;
         return true;
@@ -314,20 +314,20 @@
     });
 
     const toggle = document.createElement('button');
-    toggle.className = 'noctis-toc-toggle';
+    toggle.className = 'sp1r4-toc-toggle';
     toggle.type = 'button';
     toggle.setAttribute('aria-label', 'Table of contents');
     toggle.setAttribute('aria-expanded', 'false');
     toggle.innerHTML = '<svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>';
 
     const panel = document.createElement('aside');
-    panel.className = 'noctis-toc-panel';
+    panel.className = 'sp1r4-toc-panel';
     panel.setAttribute('aria-label', 'Table of contents');
     const heading = document.createElement('h3');
     heading.textContent = 'On this page';
     panel.appendChild(heading);
     const ul = document.createElement('ul');
-    ul.className = 'noctis-toc-list';
+    ul.className = 'sp1r4-toc-list';
     headings.forEach(h => {
       const li = document.createElement('li');
       li.className = 'lvl-' + h.tagName.charAt(1);
@@ -377,7 +377,7 @@
   // 2.5. Image lightbox — click any content image for fullscreen view.
   function setupImageLightbox() {
     document.querySelectorAll('img').forEach(img => {
-      if (img.closest('nav, footer, .noctis-sidebar, .noctis-related, .noctis-toc-panel, .noctis-share, .writeup-back-link')) return;
+      if (img.closest('nav, footer, .sp1r4-sidebar, .sp1r4-related, .sp1r4-toc-panel, .sp1r4-share, .writeup-back-link')) return;
       if (img.dataset.lightboxAttached === '1') return;
       // Skip tiny/decorative images (icons, badges)
       const w = img.naturalWidth || img.width || 0;
@@ -394,7 +394,7 @@
 
   function openLightbox(img) {
     const overlay = document.createElement('div');
-    overlay.className = 'noctis-lightbox';
+    overlay.className = 'sp1r4-lightbox';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', 'Image viewer');
@@ -405,14 +405,14 @@
     overlay.appendChild(full);
 
     const close = document.createElement('button');
-    close.className = 'noctis-lightbox-close';
+    close.className = 'sp1r4-lightbox-close';
     close.type = 'button';
     close.setAttribute('aria-label', 'Close image viewer');
     close.innerHTML = '&times;';
     overlay.appendChild(close);
 
     const hint = document.createElement('div');
-    hint.className = 'noctis-lightbox-hint';
+    hint.className = 'sp1r4-lightbox-hint';
     hint.textContent = 'Click anywhere or press Esc to close';
     overlay.appendChild(hint);
 
@@ -443,18 +443,18 @@
     const candidates = [];
     document.querySelectorAll('.term-wrap, .terminal').forEach(el => candidates.push(el));
     document.querySelectorAll('pre').forEach(pre => {
-      if (pre.closest('.term-wrap, .terminal, .noctis-copyable')) return;
+      if (pre.closest('.term-wrap, .terminal, .sp1r4-copyable')) return;
       candidates.push(pre);
     });
 
     candidates.forEach(target => {
       if (target.dataset.copyAttached === '1') return;
       target.dataset.copyAttached = '1';
-      target.classList.add('noctis-copyable');
+      target.classList.add('sp1r4-copyable');
 
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'noctis-copy-btn';
+      btn.className = 'sp1r4-copy-btn';
       btn.textContent = 'COPY';
       btn.setAttribute('aria-label', 'Copy code to clipboard');
 
@@ -487,17 +487,17 @@
 
   // Load the global Ctrl+K search script (shared with the main pages).
   function loadGlobalSearch() {
-    if (document.querySelector('script[data-noctis-search]')) return;
+    if (document.querySelector('script[data-sp1r4-search]')) return;
     const s = document.createElement('script');
     s.src = '/js/search.js';
     s.defer = true;
-    s.setAttribute('data-noctis-search', '1');
+    s.setAttribute('data-sp1r4-search', '1');
     document.head.appendChild(s);
   }
 
   // 3.5. Reading-position resume — restore scroll % per slug across visits.
   function setupReadingResume() {
-    const key = 'noctis-resume:' + currentSlug();
+    const key = 'sp1r4-resume:' + currentSlug();
     const max = () => Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
 
     try {
@@ -534,16 +534,16 @@
     const text = (title || document.title || '').trim();
 
     const sec = document.createElement('div');
-    sec.className = 'noctis-share';
+    sec.className = 'sp1r4-share';
 
     const label = document.createElement('span');
-    label.className = 'noctis-share-label';
+    label.className = 'sp1r4-share-label';
     label.textContent = 'Share';
     sec.appendChild(label);
 
     function mkLink(href, name, iconSvg, opts) {
       const a = document.createElement('a');
-      a.className = 'noctis-share-btn';
+      a.className = 'sp1r4-share-btn';
       a.href = href;
       if (opts && opts.newTab !== false) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
       a.innerHTML = iconSvg + '<span>' + name + '</span>';
@@ -570,7 +570,7 @@
 
     const copyBtn = document.createElement('button');
     copyBtn.type = 'button';
-    copyBtn.className = 'noctis-share-btn';
+    copyBtn.className = 'sp1r4-share-btn';
     copyBtn.innerHTML = linkIcon + '<span>Copy link</span>';
     copyBtn.addEventListener('click', async () => {
       try {
@@ -596,7 +596,7 @@
     sec.appendChild(copyBtn);
 
     // Insert before related-posts section if present, otherwise before footer
-    const related = document.querySelector('.noctis-related');
+    const related = document.querySelector('.sp1r4-related');
     if (related && related.parentNode) {
       related.parentNode.insertBefore(sec, related);
     } else {
@@ -621,15 +621,15 @@
         const prev = inSeries[idx - 1];
         const next = inSeries[idx + 1];
         const banner = document.createElement('div');
-        banner.className = 'noctis-series';
+        banner.className = 'sp1r4-series';
         const left = document.createElement('div');
         const label = document.createElement('span');
-        label.className = 'noctis-series-label';
+        label.className = 'sp1r4-series-label';
         const seriesName = (here.series_name) || here.series;
         label.textContent = 'Part ' + (idx + 1) + ' of ' + inSeries.length + ' · ' + seriesName;
         left.appendChild(label);
         const nav = document.createElement('div');
-        nav.className = 'noctis-series-nav';
+        nav.className = 'sp1r4-series-nav';
         const prevA = document.createElement('a');
         prevA.textContent = '← ' + (prev ? prev.title : 'Start');
         if (prev) {
@@ -679,24 +679,24 @@
 
     if (candidates.length) {
       const sec = document.createElement('section');
-      sec.className = 'noctis-related';
+      sec.className = 'sp1r4-related';
       const h = document.createElement('h3');
       h.textContent = 'Related writeups';
       sec.appendChild(h);
       const grid = document.createElement('div');
-      grid.className = 'noctis-related-grid';
+      grid.className = 'sp1r4-related-grid';
       candidates.forEach(p => {
         const card = document.createElement('a');
-        card.className = 'noctis-related-card';
+        card.className = 'sp1r4-related-card';
         card.href = (p.html || '').split('/').pop() || '#';
         const tag = document.createElement('div');
-        tag.className = 'noctis-related-tag';
+        tag.className = 'sp1r4-related-tag';
         tag.textContent = (p.tags && p.tags[0]) || '';
         const t = document.createElement('div');
-        t.className = 'noctis-related-title';
+        t.className = 'sp1r4-related-title';
         t.textContent = p.title || p.slug;
         const meta = document.createElement('div');
-        meta.className = 'noctis-related-meta';
+        meta.className = 'sp1r4-related-meta';
         const parts = [];
         if (p.date) {
           try { parts.push(new Date(p.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })); }

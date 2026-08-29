@@ -36,7 +36,7 @@ SVG_TEMPLATE = '''<?xml version="1.0" encoding="UTF-8"?>
   <text x="80" y="290" font-family="Inter, Helvetica, Arial, sans-serif" font-size="78" font-weight="900" fill="#ffffff" letter-spacing="-2">{title}</text>
   <text x="80" y="370" font-family="Inter, Helvetica, Arial, sans-serif" font-size="26" font-weight="400" fill="#a0a0a0">{description}</text>
   <line x1="80" y1="480" x2="200" y2="480" stroke="#c63d1f" stroke-width="2"/>
-  <text x="80" y="540" font-family="Inter, Helvetica, Arial, sans-serif" font-size="32" font-weight="900" fill="#ffffff" letter-spacing="-1">NOCTIS</text>
+  <text x="80" y="540" font-family="Inter, Helvetica, Arial, sans-serif" font-size="32" font-weight="900" fill="#ffffff" letter-spacing="-1">S. MARKAKIS</text>
   <text x="80" y="570" font-family="Inter, Helvetica, Arial, sans-serif" font-size="16" font-weight="400" fill="#888" letter-spacing="3">CYBERSECURITY · IT</text>
   <text x="1120" y="570" font-family="Inter, Helvetica, Arial, sans-serif" font-size="16" font-weight="400" fill="#666" text-anchor="end">sp1r4.github.io</text>
 </svg>
@@ -62,7 +62,7 @@ def inject_og(html_path: Path, slug: str, post: dict) -> bool:
     rel = f'assets/og/{slug}.png'
     abs_url = f'{SITE}/writeups/{rel}'
     desc = post['description']
-    title = f"{post['title']} — NOCTIS"
+    title = f"{post['title']} — S. Markakis"
 
     block = (
         f'<meta name="description" content="{escape(desc)}">\n'

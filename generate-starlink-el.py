@@ -24,7 +24,7 @@ SRC = Path('starlink.html')
 OUT = Path('starlink-el.html')
 I18N = Path('js/i18n.js')
 
-TITLE = 'Εγκατάσταση Starlink στην Κρήτη — NOCTIS'
+TITLE = 'Εγκατάσταση Starlink στην Κρήτη — S. Markakis'
 DESCRIPTION = ('Επαγγελματική εγκατάσταση Starlink σε όλη την Κρήτη — Ηράκλειο, Χανιά, '
                'Ρέθυμνο, Λασίθι. Αυτοψία, τοποθέτηση και πλήρης ενσωμάτωση δικτύου με '
                'MikroTik multi-WAN failover, ασφάλεια και απομακρυσμένη διαχείριση.')
@@ -133,8 +133,8 @@ def main():
         "inLanguage": "el",
         "url": f"{SITE}/starlink-el.html",
         "provider": {
-            "@type": "ProfessionalService",
-            "name": "NOCTIS — S. Markakis",
+            "@type": "Person",
+            "name": "S. Markakis",
             "url": f"{SITE}/",
             "image": f"{SITE}/avatar.jpeg",
             "email": "sp1r4.work@gmail.com",

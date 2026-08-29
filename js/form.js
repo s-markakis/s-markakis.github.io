@@ -4,7 +4,7 @@
 // data-i18n-prefix (e.g. "starlink", "pentest"); status text resolves to
 // <prefix>.form.{sending,success,error}.
 (function () {
-  const t = (k, fb) => (window.NoctisI18n ? window.NoctisI18n.t(k) : fb);
+  const t = (k, fb) => (window.Sp1r4I18n ? window.Sp1r4I18n.t(k) : fb);
 
   // Replace with your deployed Worker URL (see worker/README.md). Leave empty to disable.
   const TELEGRAM_ENDPOINT = 'https://noctis-telegram.sp1r4.workers.dev';

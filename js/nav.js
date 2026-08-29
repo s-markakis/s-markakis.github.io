@@ -30,7 +30,7 @@
     target.classList.add('site-nav');
     target.setAttribute('data-i18n-attr-aria-label', 'nav.main');
     target.innerHTML = `
-      <a href="${base}index.html" class="nav-brand">NOCTIS</a>
+      <a href="${base}index.html" class="nav-brand">S. Markakis</a>
       <button class="nav-hamburger" data-i18n-attr-aria-label="nav.toggleMenu" type="button" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
@@ -51,7 +51,7 @@
 
     const langBtn = target.querySelector('.nav-lang');
     function updateLangBtn() {
-      langBtn.textContent = (window.NoctisI18n && window.NoctisI18n.getLang() === 'el') ? 'EN' : 'EL';
+      langBtn.textContent = (window.Sp1r4I18n && window.Sp1r4I18n.getLang() === 'el') ? 'EN' : 'EL';
     }
     updateLangBtn();
     langBtn.addEventListener('click', () => {
@@ -62,7 +62,7 @@
       // back to the client-side toggle — the counterpart would be the same
       // language the visitor is leaving.
       const counterpart = document.body.dataset.langTarget;
-      const i18n = window.NoctisI18n;
+      const i18n = window.Sp1r4I18n;
       if (counterpart) {
         const pageLang = document.body.dataset.lang || 'en';
         const counterpartLang = pageLang === 'el' ? 'en' : 'el';
@@ -90,7 +90,7 @@
       }
     });
 
-    if (window.NoctisI18n) window.NoctisI18n.applyTranslations(target);
+    if (window.Sp1r4I18n) window.Sp1r4I18n.applyTranslations(target);
   }
 
   function init() {

@@ -4,7 +4,7 @@ Render the per-page Open Graph cards as PNG (1200x630).
 
 Social platforms (LinkedIn, Facebook, X) don't render SVG og:image, so we
 ship PNGs. Layout mirrors the og/*.svg cards: dark gradient + grid, accent
-top bar, tracked tag label, bold title, description, NOCTIS wordmark, footer.
+top bar, tracked tag label, bold title, description, wordmark, footer.
 
 Self-contained: uses Pillow + a macOS system sans (Arial, the SVG's declared
 fallback). No SVG renderer required.
@@ -139,7 +139,7 @@ def render(name, tag, title, desc, footer):
         dy += 36
 
     d.line([(80, 480), (200, 480)], fill=ACCENT, width=2)
-    baseline(d, 80, 540, 'NOCTIS', font(FONT_BLACK, 32), WHITE)
+    baseline(d, 80, 540, 'S. MARKAKIS', font(FONT_BLACK, 32), WHITE)
     tracked(d, 80, 570, footer, font(FONT_REG, 16), GRAY2, 3)
     tracked(d, 0, 570, 'sp1r4.github.io', font(FONT_REG, 16), GRAY3, 0, right=1120)
 

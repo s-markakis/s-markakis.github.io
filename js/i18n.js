@@ -667,9 +667,9 @@
     if (forced && SUPPORTED.includes(forced)) return forced;
     const param = new URLSearchParams(location.search).get('lang');
     if (param && SUPPORTED.includes(param)) return param;   // ?lang= (shared / hreflang links)
-    const saved = localStorage.getItem('noctis_lang');
+    const saved = localStorage.getItem('sp1r4_lang');
     if (saved && SUPPORTED.includes(saved)) return saved;   // explicit choice wins
-    const geo = localStorage.getItem('noctis_geo');
+    const geo = localStorage.getItem('sp1r4_geo');
     if (geo) return geoLang(geo);                            // cached region from a past visit
     const nav = (navigator.language || navigator.userLanguage || 'en').toLowerCase().split('-')[0];
     return SUPPORTED.includes(nav) ? nav : 'en';            // first-paint fallback: browser language
@@ -700,7 +700,7 @@
   function setLang(lang) {
     if (!SUPPORTED.includes(lang)) return;
     currentLang = lang;
-    localStorage.setItem('noctis_lang', lang);
+    localStorage.setItem('sp1r4_lang', lang);
     applyTranslations();
     document.dispatchEvent(new CustomEvent('langchange', { detail: { lang } }));
   }
@@ -722,19 +722,19 @@
   // never overrides an explicit manual choice, and fails silently if the lookup is blocked.
   function geoDetect() {
     if (document.body && document.body.dataset.lang) return;  // pinned edition
-    if (localStorage.getItem('noctis_lang')) return;   // manual choice already made
-    if (localStorage.getItem('noctis_geo')) return;     // region already resolved before
+    if (localStorage.getItem('sp1r4_lang')) return;   // manual choice already made
+    if (localStorage.getItem('sp1r4_geo')) return;     // region already resolved before
     fetch('https://get.geojs.io/v1/ip/country.json', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d || !d.country) return;
-        localStorage.setItem('noctis_geo', String(d.country).toUpperCase());
-        if (!localStorage.getItem('noctis_lang')) applyAutoLang(geoLang(d.country));
+        localStorage.setItem('sp1r4_geo', String(d.country).toUpperCase());
+        if (!localStorage.getItem('sp1r4_lang')) applyAutoLang(geoLang(d.country));
       })
       .catch(() => {});
   }
 
-  window.NoctisI18n = { t, setLang, toggleLang, applyTranslations, getLang: () => currentLang, supported: SUPPORTED };
+  window.Sp1r4I18n = { t, setLang, toggleLang, applyTranslations, getLang: () => currentLang, supported: SUPPORTED };
 
   function init() { applyTranslations(); geoDetect(); }
   if (document.readyState === 'loading') {

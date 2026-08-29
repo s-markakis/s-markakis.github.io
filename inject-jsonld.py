@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 
 SITE = 'https://sp1r4.github.io'
-MARKER_ID = 'noctis-jsonld'
+MARKER_ID = 'sp1r4-jsonld'
 
 with open('posts.json') as f:
     posts = json.load(f)
@@ -27,7 +27,7 @@ for post in posts:
         'datePublished': post['date'],
         'dateModified': post['date'],
         'author': {'@type': 'Person', 'name': 'S. Markakis', 'url': f'{SITE}/'},
-        'publisher': {'@type': 'Organization', 'name': 'NOCTIS', 'url': f'{SITE}/'},
+        'publisher': {'@type': 'Person', 'name': 'S. Markakis', 'url': f'{SITE}/'},
         'url': f'{SITE}/{post["html"]}',
         'image': f'{SITE}/writeups/assets/og/{post["slug"]}.png',
         'keywords': post.get('tags', []),

@@ -1,7 +1,7 @@
-// NOCTIS service worker — cache-first for static assets, network-first for HTML.
-const VERSION = 'v48';
-const STATIC_CACHE = `noctis-static-${VERSION}`;
-const RUNTIME_CACHE = `noctis-runtime-${VERSION}`;
+// Service worker — cache-first for static assets, network-first for HTML.
+const VERSION = 'v49';
+const STATIC_CACHE = `sp1r4-static-${VERSION}`;
+const RUNTIME_CACHE = `sp1r4-runtime-${VERSION}`;
 
 const PRECACHE = [
   '/',

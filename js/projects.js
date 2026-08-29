@@ -1,6 +1,6 @@
 // Renders the projects page from the GitHub API with a static fallback.
 
-const t = (k) => (window.NoctisI18n ? window.NoctisI18n.t(k) : k);
+const t = (k) => (window.Sp1r4I18n ? window.Sp1r4I18n.t(k) : k);
 
 const LANG_COLORS = {
   Python: '#3572A5', JavaScript: '#f1e05a', TypeScript: '#3178c6',
@@ -10,7 +10,7 @@ const LANG_COLORS = {
   Nix: '#7e7eff', Dart: '#00B4AB', Kotlin: '#A97BFF', Swift: '#F05138',
 };
 
-const EXCLUDE = ['SP1R4', 'noctis-linktree', 'sp1r4.github.io'];
+const EXCLUDE = ['SP1R4', 'sp1r4-linktree', 'sp1r4.github.io'];
 const FEATURED = ['BackupHandler', 'PhantomTrap', 'Qsafe', 'hashcracker', 'sentrynotch'];
 
 const FALLBACK_REPOS = [

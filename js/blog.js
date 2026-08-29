@@ -53,11 +53,11 @@ async function runPagefind(query) {
   }
 }
 
-const t = (k) => (window.NoctisI18n ? window.NoctisI18n.t(k) : k);
+const t = (k) => (window.Sp1r4I18n ? window.Sp1r4I18n.t(k) : k);
 
 function formatDate(d) {
   const date = new Date(d + 'T00:00:00');
-  const locale = window.NoctisI18n && window.NoctisI18n.getLang() === 'el' ? 'el-GR' : 'en-US';
+  const locale = window.Sp1r4I18n && window.Sp1r4I18n.getLang() === 'el' ? 'el-GR' : 'en-US';
   return date.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 

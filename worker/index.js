@@ -1,4 +1,4 @@
-// NOCTIS — Telegram notifier for the site lead forms (Starlink survey, pentest
+// Telegram notifier for the site lead forms (Starlink survey, pentest
 // enquiry, …). Receives the form submission (browser fetch) and forwards a message to a
 // Telegram chat via the Bot API. The bot token and chat id live ONLY as
 // Worker secrets (BOT_TOKEN, CHAT_ID) — never in the public site code.
@@ -68,7 +68,7 @@ export default {
     const location = clip(data.location, 300);   // Starlink form
     const company = clip(data.company, 300);      // pentest form
     const message = clip(data.message, 2000);
-    const heading = clip(data.subject, 200) || clip(data.from_name, 200) || 'NOCTIS — new enquiry';
+    const heading = clip(data.subject, 200) || clip(data.from_name, 200) || 'S. Markakis — new enquiry';
 
     if (!name && !email) return json({ ok: false, error: 'empty' }, 400, cors);
 

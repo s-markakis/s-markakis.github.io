@@ -6,9 +6,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
-<title>Starlink + MikroTik Multi-WAN Failover — SP1R4 / NOCTIS</title>
+<title>Starlink + MikroTik Multi-WAN Failover — S. Markakis</title>
 <meta name="description" content="Multi-WAN failover on RouterOS v7 — keep a remote Starlink site online with recursive routing, connection marking, NAT, and netwatch health checks.">
-<meta property="og:title" content="Starlink + MikroTik Failover — NOCTIS">
+<meta property="og:title" content="Starlink + MikroTik Failover — S. Markakis">
 <meta property="og:description" content="Multi-WAN failover on RouterOS v7 — keep a remote Starlink site online with recursive routing, connection marking, NAT, and netwatch health checks.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://sp1r4.github.io/writeups/starlink-mikrotik-failover.html">
@@ -308,7 +308,7 @@
     --gotcha:#d9a441; --defender:#6f9fc9;
   }
 </style>
-<script id="noctis-jsonld" type="application/ld+json">
+<script id="sp1r4-jsonld" type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
@@ -322,8 +322,8 @@
     "url": "https://sp1r4.github.io/"
   },
   "publisher": {
-    "@type": "Organization",
-    "name": "NOCTIS",
+    "@type": "Person",
+    "name": "S. Markakis",
     "url": "https://sp1r4.github.io/"
   },
   "url": "https://sp1r4.github.io/writeups/starlink-mikrotik-failover.html",
@@ -389,7 +389,7 @@
   <p>Put Starlink on <code>ether1</code> and the secondary line on <code>ether2</code>. Group them into a <code>WAN</code> interface list so firewall and mangle rules can reference both at once. Crucially, tell each DHCP client <strong>not</strong> to install its own default route — we add recursive routes by hand in the next section.</p>
   <div class="term-wrap">
     <span class="term-label">RouterOS — interfaces, lists, and DHCP clients</span>
-    <pre class="term"><span class="pc">[admin@NOCTIS] ></span> <span class="out">/interface ethernet set [find default-name=ether1] name=ether1-starlink</span>
+    <pre class="term"><span class="pc">[admin@edge] ></span> <span class="out">/interface ethernet set [find default-name=ether1] name=ether1-starlink</span>
 <span class="out">/interface ethernet set [find default-name=ether2] name=ether2-lte</span>
 <span class="out">/interface list add name=WAN</span>
 <span class="out">/interface list member add list=WAN interface=ether1-starlink</span>
@@ -407,7 +407,7 @@
   <p>The trick that makes Starlink failover reliable is <strong>recursive routing</strong>. We add a <code>/32</code> route to a public test address (say <code>8.8.8.8</code>) that is reachable <em>only</em> via the Starlink gateway, then add a default route whose gateway is <code>8.8.8.8</code> itself. RouterOS resolves the default route recursively through the probe; if Starlink's path to <code>8.8.8.8</code> dies, the probe route goes inactive, the default route deactivates, and the lower-priority route via the secondary WAN takes over. Because the probe is a real internet host, this catches the "dish up, internet down" case that defeats <code>check-gateway</code> on the local gateway.</p>
   <div class="term-wrap">
     <span class="term-label">RouterOS — recursive default routes (primary + backup)</span>
-    <pre class="term"><span class="pc">[admin@NOCTIS] ></span> <span class="out">/ip route add dst-address=8.8.8.8/32 gateway=100.64.0.1 scope=10 \</span>
+    <pre class="term"><span class="pc">[admin@edge] ></span> <span class="out">/ip route add dst-address=8.8.8.8/32 gateway=100.64.0.1 scope=10 \</span>
 <span class="out">    comment="probe-starlink"</span>
 <span class="out">/ip route add dst-address=1.1.1.1/32 gateway=192.168.8.1 scope=10 \</span>
 <span class="out">    comment="probe-lte"</span>
@@ -434,7 +434,7 @@
   <p>With two WANs you need source NAT on both, and — for any connection initiated from the outside or pinned to a WAN — a connection mark so replies leave the same interface they entered. For a CGNAT Starlink site most traffic is outbound, so the essential pieces are a masquerade rule per WAN plus an MSS clamp to avoid black-holed large packets on the LTE/PPPoE path.</p>
   <div class="term-wrap">
     <span class="term-label">RouterOS — NAT, connection marking, and MSS clamp</span>
-    <pre class="term"><span class="pc">[admin@NOCTIS] ></span> <span class="out">/ip firewall nat add chain=srcnat out-interface=ether1-starlink action=masquerade</span>
+    <pre class="term"><span class="pc">[admin@edge] ></span> <span class="out">/ip firewall nat add chain=srcnat out-interface=ether1-starlink action=masquerade</span>
 <span class="out">/ip firewall nat add chain=srcnat out-interface=ether2-lte action=masquerade</span>
 <span class="out">/ip firewall mangle add chain=prerouting in-interface-list=WAN \</span>
 <span class="out">    connection-mark=no-mark action=mark-connection new-connection-mark=from-wan</span>
@@ -451,7 +451,7 @@
   <p>The failover above is automatic, but you want to <em>know</em> when it happens — a site living on its LTE backup for three days is burning a data cap. <code>/tool netwatch</code> actively probes a host and runs scripts on state change. Point it at the same public IP your primary path uses and log both directions; pair it with a Telegram or email notification for anything you manage remotely.</p>
   <div class="term-wrap">
     <span class="term-label">RouterOS — netwatch transition logging</span>
-    <pre class="term"><span class="pc">[admin@NOCTIS] ></span> <span class="out">/tool netwatch add host=8.8.8.8 type=icmp interval=10s timeout=1s \</span>
+    <pre class="term"><span class="pc">[admin@edge] ></span> <span class="out">/tool netwatch add host=8.8.8.8 type=icmp interval=10s timeout=1s \</span>
 <span class="out">    up-script="/log info \"WAN: Starlink path UP\"" \</span>
 <span class="out">    down-script="/log warning \"WAN: Starlink DOWN — running on LTE backup\""</span>
 <span class="cmt"># Forward logs to a syslog server and alert on the 'DOWN' line so a</span>
@@ -468,7 +468,7 @@
   </div>
   <div class="term-wrap">
     <span class="term-label">RouterOS — input firewall for the WAN list</span>
-    <pre class="term"><span class="pc">[admin@NOCTIS] ></span> <span class="out">/ip firewall filter add chain=input connection-state=established,related action=accept</span>
+    <pre class="term"><span class="pc">[admin@edge] ></span> <span class="out">/ip firewall filter add chain=input connection-state=established,related action=accept</span>
 <span class="out">/ip firewall filter add chain=input connection-state=invalid action=drop</span>
 <span class="out">/ip firewall filter add chain=input in-interface-list=WAN action=drop \</span>
 <span class="out">    comment="drop everything else sourced from any WAN"</span>
@@ -495,7 +495,7 @@
   <!-- ── CTA ── -->
   <div class="cta-card">
     <h3>Need this set up in Crete?</h3>
-    <p>NOCTIS installs Starlink and wires it into a proper MikroTik network — multi-WAN failover, VLANs, VPN, and remote monitoring — so a remote villa, farm, or business stays online and secure. From site survey to managed connectivity.</p>
+    <p>S. Markakis installs Starlink and wires it into a proper MikroTik network — multi-WAN failover, VLANs, VPN, and remote monitoring — so a remote villa, farm, or business stays online and secure. From site survey to managed connectivity.</p>
     <a class="cta-btn" href="https://sp1r4.github.io/starlink.html">See Starlink installation &amp; managed connectivity →</a>
   </div>
 
@@ -503,7 +503,7 @@
 
 <!-- ── FOOTER ──────────────────────────────────────────── -->
 <footer>
-  <span>© 2026 NOCTIS — SP1R4</span>
+  <span>© 2026 S. Markakis</span>
   <a href="https://sp1r4.github.io/blog.html">← All writeups</a>
 </footer>
 

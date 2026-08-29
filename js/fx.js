@@ -1,4 +1,4 @@
-// NOCTIS visual FX — all opt-in to prefers-reduced-motion.
+// Visual FX — all opt-in to prefers-reduced-motion.
 //   1. Background: a per-page kinetic layer (mesh / rain / flow / aurora).
 //   2. Scroll-reveal: below-the-fold blocks fade up as they enter the viewport.
 //   3. Spotlight: a faint accent glow tracks the cursor across cards.

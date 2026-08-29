@@ -1,4 +1,4 @@
-# NOCTIS — Telegram notifier (Cloudflare Worker)
+# Telegram notifier (Cloudflare Worker)
 
 When someone submits the Starlink site-survey form, the page sends the email
 (via Web3Forms, unchanged) **and** pings this Worker, which forwards a message to
