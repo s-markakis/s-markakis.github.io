@@ -4,7 +4,7 @@
 
 set -e
 
-SITE="https://sp1r4.github.io"
+SITE="https://s-markakis.github.io"
 OUTPUT="sitemap.xml"
 TODAY=$(date +%Y-%m-%d)
 

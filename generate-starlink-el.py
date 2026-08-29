@@ -19,7 +19,7 @@ import json
 import re
 from pathlib import Path
 
-SITE = 'https://sp1r4.github.io'
+SITE = 'https://s-markakis.github.io'
 SRC = Path('starlink.html')
 OUT = Path('starlink-el.html')
 I18N = Path('js/i18n.js')

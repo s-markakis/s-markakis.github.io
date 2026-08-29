@@ -4,7 +4,7 @@
 // Worker secrets (BOT_TOKEN, CHAT_ID) — never in the public site code.
 //
 // Secrets (set once):  wrangler secret put BOT_TOKEN   /   wrangler secret put CHAT_ID
-// Var (in wrangler.toml): ALLOWED_ORIGIN = "https://sp1r4.github.io"
+// Var (in wrangler.toml): ALLOWED_ORIGIN = "https://s-markakis.github.io"
 
 const json = (obj, status, cors) =>
   new Response(JSON.stringify(obj), {

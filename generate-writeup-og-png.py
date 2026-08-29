@@ -116,7 +116,7 @@ def render(slug, tag, title, desc):
     d.line([(80, 480), (200, 480)], fill=ACCENT, width=2)
     baseline(d, 80, 540, 'S. MARKAKIS', font(FONT_BLACK, 32), WHITE)
     tracked(d, 80, 570, 'CYBERSECURITY · IT', font(FONT_REG, 16), GRAY2, 3)
-    tracked(d, 0, 570, 'sp1r4.github.io', font(FONT_REG, 16), GRAY3, 0, right=1120)
+    tracked(d, 0, 570, 's-markakis.github.io', font(FONT_REG, 16), GRAY3, 0, right=1120)
 
     out = OUT / f'{slug}.png'
     img.save(out, 'PNG')

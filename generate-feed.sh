@@ -4,7 +4,7 @@
 
 set -e
 
-SITE="https://sp1r4.github.io"
+SITE="https://s-markakis.github.io"
 POSTS_JSON="posts.json"
 OUTPUT="feed.xml"
 
@@ -18,10 +18,10 @@ cat > "$OUTPUT" << 'HEADER'
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>S. Markakis — Blog</title>
-    <link>https://sp1r4.github.io/blog.html</link>
+    <link>https://s-markakis.github.io/blog.html</link>
     <description>Cybersecurity research, CTF writeups, and development notes by S. Markakis.</description>
     <language>en</language>
-    <atom:link href="https://sp1r4.github.io/feed.xml" rel="self" type="application/rss+xml"/>
+    <atom:link href="https://s-markakis.github.io/feed.xml" rel="self" type="application/rss+xml"/>
 HEADER
 
 python3 -c "

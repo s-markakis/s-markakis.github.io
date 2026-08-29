@@ -15,7 +15,7 @@ from xml.sax.saxutils import escape
 OG_DIR = Path('og')
 OG_DIR.mkdir(exist_ok=True)
 
-SITE = 'https://sp1r4.github.io'
+SITE = 'https://s-markakis.github.io'
 
 PAGES = [
     {
@@ -80,7 +80,7 @@ SVG_TEMPLATE = '''<?xml version="1.0" encoding="UTF-8"?>
   <line x1="80" y1="480" x2="200" y2="480" stroke="#c63d1f" stroke-width="2"/>
   <text x="80" y="540" font-family="Inter, Helvetica, Arial, sans-serif" font-size="32" font-weight="900" fill="#ffffff" letter-spacing="-1">S. MARKAKIS</text>
   <text x="80" y="570" font-family="Inter, Helvetica, Arial, sans-serif" font-size="16" font-weight="400" fill="#888" letter-spacing="3">CYBERSECURITY · IT</text>
-  <text x="1120" y="570" font-family="Inter, Helvetica, Arial, sans-serif" font-size="16" font-weight="400" fill="#666" text-anchor="end">sp1r4.github.io</text>
+  <text x="1120" y="570" font-family="Inter, Helvetica, Arial, sans-serif" font-size="16" font-weight="400" fill="#666" text-anchor="end">s-markakis.github.io</text>
 </svg>
 '''
 

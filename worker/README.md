@@ -77,6 +77,6 @@ wrangler deploy
 ```
 
 ## Notes
-- `ALLOWED_ORIGIN` in `wrangler.toml` locks the endpoint to `https://sp1r4.github.io`.
+- `ALLOWED_ORIGIN` in `wrangler.toml` locks the endpoint to `https://s-markakis.github.io`.
 - The email path (Web3Forms) is independent — if the Worker is down, the email
   still goes through and the customer sees no error.

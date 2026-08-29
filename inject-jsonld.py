@@ -7,7 +7,7 @@ import json
 import re
 from pathlib import Path
 
-SITE = 'https://sp1r4.github.io'
+SITE = 'https://s-markakis.github.io'
 MARKER_ID = 'sp1r4-jsonld'
 
 with open('posts.json') as f:
