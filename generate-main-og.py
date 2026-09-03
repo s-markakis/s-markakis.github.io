@@ -99,7 +99,10 @@ def render_svg(page: dict) -> str:
 
 def update_meta(html_path: Path, page: dict) -> bool:
     text = html_path.read_text()
-    og_url = f'{SITE}/og/{page["slug"]}.svg'
+    # Point at the PNG, not the SVG we just wrote: LinkedIn, Facebook, WhatsApp
+    # and Telegram do not render an SVG og:image. generate-og-png.py renders the
+    # matching PNG from the same layout; the SVG stays as the editable source.
+    og_url = f'{SITE}/og/{page["slug"]}.png'
 
     new_text = text
     new_text = re.sub(
