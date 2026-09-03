@@ -1,5 +1,5 @@
 // Service worker — cache-first for static assets, network-first for HTML.
-const VERSION = 'v56';
+const VERSION = 'v57';
 const STATIC_CACHE = `sp1r4-static-${VERSION}`;
 const RUNTIME_CACHE = `sp1r4-runtime-${VERSION}`;
 
