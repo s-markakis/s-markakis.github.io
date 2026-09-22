@@ -54,6 +54,7 @@ async function runPagefind(query) {
 }
 
 const t = (k) => (window.Sp1r4I18n ? window.Sp1r4I18n.t(k) : k);
+const lang = () => (window.Sp1r4I18n ? window.Sp1r4I18n.getLang() : 'en');
 
 function formatDate(d) {
   const date = new Date(d + 'T00:00:00');
@@ -114,7 +115,7 @@ function renderList() {
     .filter(p => {
       if (!q) return true;
       if (pagefindUrls) return pagefindUrls.has(p.html);
-      const haystack = [p.title, p.description, ...(p.tags || [])].join(' ').toLowerCase();
+      const haystack = [p.title, p.description, p.title_el, p.description_el, ...(p.tags || [])].join(' ').toLowerCase();
       return haystack.includes(q);
     })
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -137,19 +138,20 @@ function renderList() {
   if (key !== lastRenderKey) { shownCount = PAGE_SIZE; lastRenderKey = key; }
   const visible = sorted.slice(0, shownCount);
 
+  const isEl = lang() === 'el';
   visible.forEach((post, i) => {
     const el = document.createElement('a');
     el.className = 'post-card' + (post.tags && post.tags.includes('htb') ? ' post-card-htb' : '');
-    el.href = post.html;
+    el.href = (isEl && post.html_el) ? post.html_el : post.html;
     el.style.setProperty('--i', i);
 
     const title = document.createElement('div');
     title.className = 'post-title';
-    title.textContent = post.title;
+    title.textContent = (isEl && post.title_el) ? post.title_el : post.title;
 
     const desc = document.createElement('div');
     desc.className = 'post-desc';
-    desc.textContent = post.description;
+    desc.textContent = (isEl && post.description_el) ? post.description_el : post.description;
 
     const meta = document.createElement('div');
     meta.className = 'post-meta';
