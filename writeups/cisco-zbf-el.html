@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Zone-Based Firewall — S. Markakis</title>
+<meta name="description" content="Ένα πραγματικό stateful firewall σε router IOS — zones, class-maps, policy-maps, zone-pairs, και stateful inspection. Η stateful αναβάθμιση από τα stateless ACL, χτισμένη βήμα-βήμα.">
+<meta property="og:title" content="Cisco IOS: Zone-Based Firewall — S. Markakis">
+<meta property="og:description" content="Ένα πραγματικό stateful firewall σε router IOS — zones, class-maps, policy-maps, zone-pairs, και stateful inspection. Η stateful αναβάθμιση από τα stateless ACL, χτισμένη βήμα-βήμα.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-zbf-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-zbf.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-zbf.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-zbf-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-zbf.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-zbf-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-zbf.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Zone-Based Firewall",
+  "description": "Ένα πραγματικό stateful firewall σε router IOS — zones, class-maps, policy-maps, zone-pairs, και stateful inspection. Η stateful αναβάθμιση από τα stateless ACL, χτισμένη βήμα-βήμα.",
+  "datePublished": "2026-07-26",
+  "dateModified": "2026-07-26",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-zbf-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-zbf.png",
+  "keywords": [
+    "cisco",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-zbf"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-zbf.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Zone-Based Firewall</h1>
+  <p class="post-subtitle">Τα ACL κρίνουν κάθε πακέτο μόνο του. Ένα πραγματικό firewall θυμάται συνομιλίες — αφήνει μια απάντηση να μπει πίσω επειδή επέτρεψες το αίτημα να βγει. Το Zone-Based Firewall μετατρέπει έναν router IOS ακριβώς σε αυτό: ομαδοποίησε interfaces σε zones, και γράψε stateful πολιτική για την κίνηση ανάμεσά τους.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">ZBF</span>
+    <span class="tag">Firewall</span>
+    <span class="tag">Stateful Inspection</span>
+    <span class="tag">Security</span>
+    <span class="tag">Zone-Pair</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: zones + zone-pairs -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="zi" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#558840"/></marker>
+        <marker id="zx" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="210" fill="#e1ded7"/>
+      <!-- zones -->
+      <rect x="40" y="70" width="130" height="66" rx="8" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="105" y="100" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#3a5a78;text-anchor:middle;">LAN</text>
+      <text x="105" y="118" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#3a5a78;text-anchor:middle;">έμπιστο</text>
+      <rect x="295" y="40" width="130" height="60" rx="8" fill="#eee6d8" stroke="#c08020"/>
+      <text x="360" y="66" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#8a5a10;text-anchor:middle;">DMZ</text>
+      <text x="360" y="84" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#8a5a10;text-anchor:middle;">δημόσιος server</text>
+      <rect x="550" y="70" width="130" height="66" rx="8" fill="#e8c8c0" stroke="#c63d1f"/>
+      <text x="615" y="100" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#c63d1f;text-anchor:middle;">WAN</text>
+      <text x="615" y="118" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#c63d1f;text-anchor:middle;">μη έμπιστο</text>
+      <!-- zone-pairs -->
+      <line x1="170" y1="96" x2="547" y2="100" style="stroke:#558840;stroke-width:2;marker-end:url(#zi)"/>
+      <text x="360" y="118" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#3a6a28;text-anchor:middle;">LAN→WAN: inspect (stateful, επιτρέπεται)</text>
+      <line x1="547" y1="112" x2="175" y2="120" style="stroke:#c63d1f;stroke-width:1.6;stroke-dasharray:5,3;marker-end:url(#zx)"/>
+      <text x="360" y="140" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#c63d1f;text-anchor:middle;">WAN→LAN: drop (default — οι απαντήσεις γυρνάνε ακόμα μέσω state)</text>
+      <text x="360" y="180" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Η κίνηση ανάμεσα σε δύο zones απορρίπτεται μέχρι μια πολιτική zone-pair να την επιτρέψει.</text>
+      <text x="360" y="196" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Τα inspected sessions επιτρέπουν αυτόματα την επιστρεφόμενη κίνησή τους — δεν χρειάζεται κανόνας-καθρέφτης.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το <a href="cisco-acls.html">post των ACL</a> τελείωσε ειλικρινά: τα κλασικά ACL είναι <strong>stateless</strong>. Κάθε πακέτο κρίνεται μεμονωμένα, οπότε για να αφήσεις τις απαντήσεις web να μπουν πίσω είτε ανοίγεις μια φαρδιά τρύπα inbound είτε στηρίζεσαι στην ακατέργαστη λέξη-κλειδί <code>established</code> — μόνο TCP, και τυφλή στην πραγματική συνομιλία. Ένα πραγματικό firewall είναι <strong>stateful</strong>: θυμάται ότι ένας inside host άνοιξε μια σύνδεση προς τα έξω, και επιτρέπει αυτόματα την επιστρεφόμενη κίνηση <em>αυτής της σύνδεσης</em> ενώ κλείνει ό,τι είναι αυθόρμητο. Κανένας κανόνας-καθρέφτης, κάθε πρωτόκολλο.</p>
+    <p>Το Zone-Based Firewall (ZBF) της Cisco φέρνει stateful inspection σε κάθε router IOS/IOS-XE — χωρίς ξεχωριστή συσκευή. Το μοντέλο είναι καθαρό μόλις κλειδώσει: βάλε τα interfaces σε <strong>security zones</strong> (LAN, WAN, DMZ), και η κίνηση ανάμεσα σε οποιεσδήποτε δύο zones <strong>απορρίπτεται by default</strong> μέχρι να προσαρτήσεις μια πολιτική <strong>zone-pair</strong> που λέει αλλιώς. Η πολιτική χτίζεται από το ίδιο modular CLI (class-maps και policy-maps) που χρησιμοποιεί το QoS. Αυτό το post χτίζει ένα λειτουργικό edge τριών zones — πρόσβαση internet προς τα έξω, τίποτα αυθόρμητο προς τα μέσα, έναν δημοσιευμένο server DMZ — και το μοντέλο κλιμακώνεται κατευθείαν σε απομόνωση guest.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>ACL — δες <a href="cisco-acls.html">Access Control Lists</a> (το ZBF τα χρησιμοποιεί για να ταιριάξει κίνηση)</li>
+      <li>NAT στην άκρη — δες <a href="cisco-dhcp-nat.html">DHCP &amp; NAT/PAT</a></li>
+      <li>Έναν router IOS με σύνολο χαρακτηριστικών που περιλαμβάνει το firewall (<code>show version</code> / άδεια)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Το Μοντελο — Zones, Pairs, και Default-Deny</h2>
+  <p class="section-thesis"><em>Τέσσερα κινούμενα μέρη, πάντα με την ίδια σειρά: όρισε zones, ταίριασε κίνηση (class-map), αποφάσισε τι να κάνεις μαζί της (policy-map), και δέσε την πολιτική σε μια κατεύθυνση ανάμεσα σε δύο zones (zone-pair).</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Κομματι</th><th>Ρολος</th></tr></thead>
+    <tbody>
+      <tr><td>zone security</td><td>Μια ονομασμένη ομάδα interfaces (LAN, WAN, DMZ).</td></tr>
+      <tr><td>class-map type inspect</td><td>Ταιριάζει <em>ποια</em> κίνηση — συνήθως μέσω ενός ACL. «Για ποια κίνηση μιλάμε;»</td></tr>
+      <tr><td>policy-map type inspect</td><td>Λέει τι να κάνεις με κάθε class: inspect / pass / drop. «Τι κάνουμε μαζί της;»</td></tr>
+      <tr><td>zone-pair security</td><td>Δένει μια πολιτική σε κίνηση ΑΠΟ μια zone ΠΡΟΣ μια άλλη. Η κατεύθυνση έχει σημασία.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Δύο κανόνες κάνουν όλο το σύστημα προβλέψιμο. <strong>Η κίνηση μέσα στην ίδια zone ρέει ελεύθερα</strong> (δύο interfaces LAN μιλάνε χωρίς καμία πολιτική). <strong>Η κίνηση ανάμεσα σε διαφορετικές zones πέφτει</strong> εκτός αν ένα zone-pair την επιτρέψει ρητά — και ένα zone-pair είναι <em>μονής κατεύθυνσης</em>, οπότε το LAN→WAN και το WAN→LAN είναι ξεχωριστές πολιτικές. Ένα interface χωρίς zone δεν μπορεί να μιλήσει με κανένα interface που έχει, που είναι μια κλασική έκπληξη «γιατί σταμάτησαν όλα».</p>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Βημα 1 — Οριστε τα Zones</h2>
+  <p class="section-thesis"><em>Ονόμασε τα domains εμπιστοσύνης, μετά ανάθεσε κάθε interface σε ακριβώς ένα. Αυτή είναι η στιγμή που το firewall αρχίζει να ρίχνει κίνηση inter-zone, οπότε σχεδίασε πριν αναθέσεις.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — δημιουργησε zones και τοποθετησε interfaces</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">zone security LAN</span>
+<span class="pc">R1(config)#</span> <span class="out">zone security WAN</span>
+<span class="pc">R1(config)#</span> <span class="out">zone security DMZ</span>
+
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">zone-member security LAN</span>
+<span class="pc">R1(config-if)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">zone-member security WAN</span>
+<span class="pc">R1(config-if)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/2</span>
+<span class="pc">R1(config-if)#</span> <span class="out">zone-member security DMZ</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Η Αναθεση Zone στο Management Interface σε Κλειδωνει Εξω</span>
+    <p>Τη στιγμή που ένα interface μπαίνει σε μια zone, όλη η κίνηση προς/από άλλες zones — <em>μαζί με το δικό σου session SSH αν διασχίζει ένα σύνορο zone</em> — πέφτει μέχρι ένα zone-pair να την επιτρέψει. Ανάθεσε το WAN ή το interface διαχείρισης σε μια zone χωρίς αντίστοιχη πολιτική self-zone και θα χάσεις τη συσκευή. Δύο άμυνες: ρύθμισε μέσω console για την αρχική μετάβαση, και θυμήσου ότι η ειδική <strong>self zone</strong> (επόμενη παγίδα) διέπει την κίνηση προς τον ίδιο τον router. Χτίσε τα zone-pairs <em>πρώτα</em>, ανάθεσε interfaces τελευταία, ή κάν' το από το console.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Βημα 2 — Ταιριασε &amp; Πολιτικη: Class-Map + Policy-Map</h2>
+  <p class="section-thesis"><em>Όρισε ποια κίνηση σε νοιάζει (ένα ACL τυλιγμένο σε ένα class-map), μετά μια πολιτική που την κάνει inspect. Το «Inspect» είναι η μαγική λέξη — σημαίνει stateful.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — επιτρεψε το LAN προς το internet, statefully</span>
+    <pre class="term"><span class="cmt"># Ποια κίνηση; Ένα ACL, δεμένο σε ένα class-map (η συνήθεια από τα ACL πληρώνει)</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list extended LAN-OUT</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit ip 192.168.1.0 0.0.0.255 any</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">exit</span>
+
+<span class="pc">R1(config)#</span> <span class="out">class-map type inspect match-any LAN-TRAFFIC</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">match access-group name LAN-OUT</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Τι κάνουμε; Κάνουμε inspect — αυτή είναι η STATEFUL ενέργεια</span>
+<span class="pc">R1(config)#</span> <span class="out">policy-map type inspect LAN-TO-WAN-POLICY</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class type inspect LAN-TRAFFIC</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">inspect</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">exit</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class class-default</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">drop log</span>       <span class="cmt"># ό,τι άλλο σε αυτό το pair: drop + log</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 inspect vs pass — Μαθε τη Διαφορα</span>
+    <p>Ένα class πολιτικής έχει τρεις πιθανές ενέργειες. Το <code>inspect</code> είναι stateful: επιτρέπει την κίνηση <em>και</em> χτίζει ένα session ώστε η επιστρεφόμενη κίνηση να επιτρέπεται αυτόματα — αυτό θέλεις για ροές TCP/UDP/ICMP που ξεκινούν από μια έμπιστη zone. Το <code>pass</code> επιτρέπει stateless μόνο προς μία κατεύθυνση (χωρίς session επιστροφής) — χρησιμοποιείται για stateless πρωτόκολλα όπως κάποια IPsec/ESP όπου ο router δεν πρέπει να παρακολουθεί state. Το <code>drop</code> απορρίπτει. Το <code>class class-default</code> στο τέλος κάθε πολιτικής είναι το ρητό default-deny σου — βάλ' το πάντα σε <code>drop</code> (πρόσθεσε <code>log</code> για να δεις τι απορρίπτεις), το ισοδύναμο ZBF του implicit deny ενός ACL κάνοντάς το ορατό.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Βημα 3 — Δεσ' το: το Zone-Pair</h2>
+  <p class="section-thesis"><em>Τίποτα δεν συμβαίνει μέχρι ένα zone-pair να συνδέσει την πολιτική με μια κατεύθυνση. Αυτή είναι η γραμμή που πραγματικά ανάβει την κίνηση ανάμεσα σε δύο zones.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — εφαρμοσε την πολιτικη απο LAN σε WAN</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">zone-pair security LAN-TO-WAN source LAN destination WAN</span>
+<span class="pc">R1(config-sec-zone-pair)#</span> <span class="out">service-policy type inspect LAN-TO-WAN-POLICY</span>
+<span class="pc">R1(config-sec-zone-pair)#</span> <span class="out">end</span>
+
+<span class="cmt"># Αυτό ήταν. Οι hosts LAN φτάνουν τώρα το internet, και επειδή τα sessions
+# είναι INSPECTED, όλη η επιστρεφόμενη κίνησή τους επιτρέπεται αυτόματα. ΔΕΝ υπάρχει
+# zone-pair WAN-TO-LAN, οπότε η αυθόρμητη inbound κίνηση πέφτει by default —
+# ακριβώς η stateful συμπεριφορά που τα ACL σε έκαναν να προσποιείσαι.</span>
+
+<span class="pc">R1#</span> <span class="out">show policy-map type inspect zone-pair sessions</span>
+<span class="out">  Zone-pair: LAN-TO-WAN
+    Number of established sessions = 42
+    Established Sessions
+     Session 192.168.1.20:51344=&gt;93.184.216.34:443 tcp SIS_OPEN</span></pre>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Δημοσιευοντας εναν Server DMZ</h2>
+  <p class="section-thesis"><em>Η μία περίπτωση όπου επιτρέπεις σκόπιμα αυθόρμητη inbound κίνηση: έναν δημόσιο web server στο DMZ. Ένα zone-pair WAN→DMZ, περιορισμένο σε ακριβώς ένα port, συνδυασμένο με το static NAT από το post του NAT.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — επιτρεψε μονο HTTPS απο WAN στον server DMZ</span>
+    <pre class="term"><span class="cmt"># Ταίριασε ΜΟΝΟ tcp/443 προς τον server DMZ</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list extended WEB-IN</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit tcp any host 192.168.50.10 eq 443</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">class-map type inspect match-any WEB</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">match access-group name WEB-IN</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">policy-map type inspect WAN-TO-DMZ-POLICY</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class type inspect WEB</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">inspect</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class class-default</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">drop log</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">zone-pair security WAN-TO-DMZ source WAN destination DMZ</span>
+<span class="pc">R1(config-sec-zone-pair)#</span> <span class="out">service-policy type inspect WAN-TO-DMZ-POLICY</span>
+<span class="pc">R1(config-sec-zone-pair)#</span> <span class="out">end</span>
+<span class="cmt"># Συνδύασέ το με: ip nat inside source static tcp 192.168.50.10 443 interface g0/0 443</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Σειρα NAT και ZBF: Ταιριαξε την Πραγματικη (Inside) Διευθυνση</span>
+    <p>Στην εισερχόμενη κίνηση WAN→DMZ, το NAT κάνει untranslate τον προορισμό <em>πριν</em> το firewall την κάνει inspect, οπότε το ACL του ZBF σου πρέπει να ταιριάζει με την <strong>ιδιωτική</strong> διεύθυνση του server (192.168.50.10), όχι τη δημόσια. Κάν' το ανάποδα και το class δεν ταιριάζει ποτέ, η κίνηση χτυπάει στο <code>class-default</code>, και πέφτει σιωπηλά — μια πολύ συνηθισμένη αιτία «port-forward + firewall = τίποτα δεν δουλεύει». Στην αμφιβολία, το <code>show policy-map type inspect zone-pair</code> δείχνει μετρητές ανά class: αν το WEB δείχνει μηδέν και το class-default ανεβαίνει, η διεύθυνση ταιριάσματός σου είναι λάθος.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Η Self Zone — Προστασια του Router</h2>
+  <p class="section-thesis"><em>Η κίνηση ΠΡΟΣ τον ίδιο τον router (SSH, SNMP, πρωτόκολλα δρομολόγησης, τα IP SLA pings σου) ζει σε μια ειδική ενσωματωμένη zone που λέγεται «self». By default η κίνηση self επιτρέπεται — σφίξ' την σκόπιμα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — επιτρεψε SSH στον router μονο απο το LAN</span>
+    <pre class="term"><span class="cmt"># Ταίριασε πρωτόκολλα διαχείρισης με προορισμό τον router</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list extended TO-ROUTER</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit tcp 192.168.1.0 0.0.0.255 any eq 22</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit icmp any any</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">class-map type inspect match-any MGMT</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">match access-group name TO-ROUTER</span>
+<span class="pc">R1(config)#</span> <span class="out">policy-map type inspect TO-SELF</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class type inspect MGMT</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">inspect</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class class-default</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">drop</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">zone-pair security WAN-TO-SELF source WAN destination self</span>
+<span class="pc">R1(config-sec-zone-pair)#</span> <span class="out">service-policy type inspect TO-SELF</span>
+<span class="pc">R1(config-sec-zone-pair)#</span> <span class="out">end</span>
+<span class="cmt"># Αυτό συμπληρώνει το access-class του VTY από το post των ACL — διπλή ασφάλεια.</span></pre>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">Ελεγχος &amp; Troubleshooting <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Το ZBF αποτυγχάνει με προβλέψιμους τρόπους — ένα interface χωρίς ανάθεση, ένα zone-pair που λείπει, ή ένα class που δεν ταιριάζει ποτέ. Αυτές οι εντολές εντοπίζουν και τα τρία.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Δειχνει</th></tr></thead>
+    <tbody>
+      <tr><td>show zone security</td><td>Κάθε zone και τα interfaces-μέλη της — εντόπισε αυτό που λείπει.</td></tr>
+      <tr><td>show zone-pair security</td><td>Όλα τα zone-pairs και η προσαρτημένη πολιτική — εντόπισε την κατεύθυνση που λείπει.</td></tr>
+      <tr><td>show policy-map type inspect zone-pair</td><td>Μετρητές πακέτων ανά class — η όψη «ποιο class τρώει την κίνησή μου».</td></tr>
+      <tr><td>show policy-map type inspect zone-pair sessions</td><td>Ο ζωντανός πίνακας stateful sessions.</td></tr>
+      <tr><td>show class-map type inspect</td><td>Τι ταιριάζει κάθε class-map.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 ACL ή Zone-Based Firewall — Ποτε να Χρησιμοποιησεις το Καθενα</span>
+    <p>Δεν χρειάζονται όλα ZBF. Για απλό L3 segmentation και έλεγχο management-plane — ο guest δεν φτάνει το LAN, μόνο το mgmt subnet κάνει SSH — τα <a href="cisco-acls.html">ACL</a> είναι πιο ελαφριά και απολύτως επαρκή, και αυτή είναι η δουλειά των περισσότερων switch/router SMB. Στρέψου στο ZBF όταν χρειάζεσαι <strong>πραγματικό statefulness σε ένα internet edge</strong>: χειρισμό επιστρεφόμενης κίνησης για κάθε πρωτόκολλο, ένα DMZ, protocol inspection, ή πολιτική ανά zone που θα ήταν εφιάλτης από καθρεφτισμένα ACL. Σε sites που χρειάζονται σοβαρό stateful edge, ένα αποκλειστικό firewall (ή οι νεότερες πολιτικές του IOS-XE) μπορεί να είναι η καλύτερη επιλογή — το ZBF είναι το ενδιάμεσο «πραγματικό firewall χωρίς να αγοράσεις συσκευή», και είναι αρκετό για τις περισσότερες SMB της Κρήτης.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Το stateful νικάει το stateless.</strong> Τα ACL κρίνουν πακέτα μόνα τους· το ZBF θυμάται συνομιλίες, οπότε τα inspected outbound sessions επιτρέπουν αυτόματα την επιστρεφόμενη κίνησή τους — για κάθε πρωτόκολλο, όχι μόνο TCP <code>established</code>.</li>
+      <li><strong>Τέσσερα κομμάτια, πάντα με τη σειρά:</strong> zones (ομαδοποίησε interfaces) → class-map (ταίριασε κίνηση, συνήθως ένα ACL) → policy-map (inspect/pass/drop) → zone-pair (δέσε σε κατεύθυνση).</li>
+      <li><strong>Διαφορετικές zones είναι deny-by-default· η ίδια zone είναι ανοιχτή.</strong> Ένα zone-pair είναι μονής κατεύθυνσης — το LAN→WAN και το WAN→LAN είναι ξεχωριστά — και ένα interface χωρίς zone δεν μπορεί να μιλήσει με κανένα που έχει.</li>
+      <li><strong>inspect = stateful, pass = stateless μονής κατεύθυνσης, drop = απόρριψη.</strong> Τελείωνε κάθε πολιτική με <code>class class-default drop log</code> ως το ορατό default-deny σου.</li>
+      <li><strong>Δημοσίευσε servers με ένα περιορισμένο pair WAN→DMZ</strong>, ταιριάζοντας την <em>ιδιωτική</em> διεύθυνση του server (το NAT κάνει untranslate πριν το inspection) και ακριβώς ένα port — συνδυασμένο με static NAT.</li>
+      <li><strong>Η self zone προστατεύει τον router.</strong> Κλείδωσε την κίνηση διαχείρισης στη συσκευή με πολιτική to-self· συμπληρώνει το VTY <code>access-class</code>.</li>
+      <li><strong>Ανάθεσε zones τελευταία (ή από το console).</strong> Τη στιγμή που ένα interface μπαίνει σε μια zone, η κίνηση inter-zone — πιθανόν το δικό σου session — πέφτει μέχρι ένα pair να την επιτρέψει.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Χρειαζεσαι πραγματικο firewall στην ακρη χωρις να αγορασεις συσκευη;</h3>
+    <p>Χτίζω πολιτικές Zone-Based Firewall σε router Cisco για internet edges, DMZ, και απομόνωση guest &mdash; κλειδωμένα by default, με κάθε πολιτική zone-pair τεκμηριωμένη αρκετά ώστε το να αφαιρέσεις μία να είναι σκόπιμη απόφαση, όχι μυστήριο.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: IPv6 Fundamentals — S. Markakis</title>
+<meta name="description" content="IPv6 σε Cisco χωρίς τον φόβο — τύποι διευθύνσεων, link-local, SLAAC vs DHCPv6, ενεργοποίηση routing, static routes και OSPFv3, NDP αντί για ARP, και γιατί δεν υπάρχει NAT.">
+<meta property="og:title" content="Cisco IOS: IPv6 Fundamentals — S. Markakis">
+<meta property="og:description" content="IPv6 σε Cisco χωρίς τον φόβο — τύποι διευθύνσεων, link-local, SLAAC vs DHCPv6, ενεργοποίηση routing, static routes και OSPFv3, NDP αντί για ARP, και γιατί δεν υπάρχει NAT.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-ipv6-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-ipv6.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-ipv6.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-ipv6-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-ipv6.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-ipv6-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-ipv6.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: IPv6 Fundamentals",
+  "description": "IPv6 σε Cisco χωρίς τον φόβο — τύποι διευθύνσεων, link-local, SLAAC vs DHCPv6, ενεργοποίηση routing, static routes και OSPFv3, NDP αντί για ARP, και γιατί δεν υπάρχει NAT.",
+  "datePublished": "2026-08-13",
+  "dateModified": "2026-08-13",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-ipv6-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-ipv6.png",
+  "keywords": [
+    "cisco",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-ipv6"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-ipv6.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Βασικα IPv6</h1>
+  <p class="post-subtitle">Η διεύθυνση που τρομάζει τον κόσμο επειδή είναι μακριά και δεκαεξαδική — αλλά το IPv6 είναι γνήσια απλούστερο από το IPv4 μόλις κλειδώσει το λεξιλόγιο. Τύποι διευθύνσεων, link-local, πώς οι hosts παίρνουν διευθύνσεις χωρίς DHCP, ενεργοποίηση routing, OSPFv3, και η μεγάλη αλλαγή νοοτροπίας: χωρίς NAT, οπότε το firewall κάνει την απόκρυψη.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">IPv6</span>
+    <span class="tag">SLAAC</span>
+    <span class="tag">DHCPv6</span>
+    <span class="tag">OSPFv3</span>
+    <span class="tag">NDP</span>
+    <span class="tag">CCNA</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: address anatomy -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="150" fill="#e1ded7"/>
+      <text x="360" y="28" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">ΜΙΑ GLOBAL UNICAST ΔΙΕΥΘΥΝΣΗ — /64 παντου</text>
+      <rect x="60" y="44" width="600" height="34" rx="4" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="66" style="font-family:ui-monospace,monospace;font-size:15px;fill:#555550;text-anchor:middle;"><tspan fill="#c63d1f">2001:0db8:acad:0010</tspan>:<tspan fill="#3a5a78">0000:0000:0000:0001</tspan></text>
+      <!-- brackets -->
+      <text x="200" y="98" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#c63d1f;text-anchor:middle;">64-bit PREFIX (δικτυο)</text>
+      <text x="200" y="110" style="font-family:'Inter',sans-serif;font-size:8px;fill:#888880;text-anchor:middle;">από τον ISP· τα τελευταία 16 bits = το subnet σου</text>
+      <text x="520" y="98" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#3a5a78;text-anchor:middle;">64-bit INTERFACE ID (host)</text>
+      <text x="520" y="110" style="font-family:'Inter',sans-serif;font-size:8px;fill:#888880;text-anchor:middle;">αυτόματο (EUI-64/random) ή χειροκίνητο</text>
+      <text x="360" y="138" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Κάθε LAN είναι /64. Το subnetting είναι απλώς τα 16 bits ανάμεσα στο prefix του ISP και τον host — καθόλου πονοκέφαλοι VLSM.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το IPv6 φαίνεται εκφοβιστικό — 128 bits, hex, δίποντα — αλλά αφαιρεί περισσότερη πολυπλοκότητα απ' όση προσθέτει. Δεν υπάρχει αριθμητική subnet-mask (κάθε LAN είναι <strong>/64</strong>, τελεία), καμία σπανιότητα διευθύνσεων, κανένα broadcast storm (το broadcast έφυγε, αντικαταστάθηκε από στοχευμένο multicast), και — το μεγάλο — <strong>κανένα NAT</strong>. Κάθε συσκευή μπορεί να έχει μια globally routable διεύθυνση, που σημαίνει ότι η end-to-end συνδεσιμότητα επέστρεψε και το δίκτυο είναι απλούστερο, αλλά το μοντέλο ασφάλειας αλλάζει: το NAT δεν ήταν ποτέ firewall, και στο IPv6 δεν μπορείς να προσποιείσαι ότι ήταν.</p>
+    <p>Αυτό το post είναι η ξενάγηση «νιώσε άνετα» για κάποιον που ξέρει καλά IPv4 σε Cisco. Θα αποκωδικοποιήσουμε τους τύπους διευθύνσεων (global, link-local, ULA), θα δώσουμε σε ένα interface διευθύνσεις, θα αφήσουμε τους hosts να αυτο-ρυθμιστούν με SLAAC ή να πάρουν ανάθεση DHCPv6, θα ανάψουμε το routing, και θα στήσουμε OSPFv3 — κάθε κομμάτι αντιστοιχισμένο στην εντολή IPv4 που ήδη ξέρεις. Και θα είμαστε ειλικρινείς για το πού πραγματικά έχει σημασία το IPv6 για ένα SMB έναντι του πού το dual-stack είναι η ρεαλιστική απάντηση. Πρόσεξε ότι η διευθυνσιοδότηση εδώ χρησιμοποιεί το <code>2001:db8::/32</code> — το εύρος τεκμηρίωσης, όπως το <code>192.0.2.0/24</code> για v4.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Σταθερό IPv4 σε Cisco — interfaces, static routes, OSPF (δες <a href="cisco-routing-ospf.html">Routing &amp; OSPF</a>)</li>
+      <li>Προθυμία να διαβάζεις hex και να συντομεύεις μηδενικά (το <code>::</code> συμπτύσσει διαδοχικές ομάδες μηδενικών)</li>
+      <li>Ένα prefix IPv6 από τον ISP σου, ή το εύρος τεκμηρίωσης για ένα lab</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Οι Τυποι Διευθυνσεων</h2>
+  <p class="section-thesis"><em>Ένα interface IPv6 έχει πολλές διευθύνσεις ταυτόχρονα, η καθεμία με μια δουλειά. Μάθε τα τέσσερα prefixes και διαβάζεις κάθε διεύθυνση με μια ματιά.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Τυπος</th><th>Ευρος</th><th>Ρολος</th></tr></thead>
+    <tbody>
+      <tr><td>Global Unicast (GUA)</td><td>2000::/3</td><td>Routable στο internet — το δημόσιο IP. Σαν μια δημόσια διεύθυνση v4, αλλά κάθε συσκευή παίρνει μία.</td></tr>
+      <tr><td>Link-Local</td><td>fe80::/10</td><td>Δημιουργείται αυτόματα σε κάθε interface v6, έγκυρη μόνο σε αυτό το link. Εδώ ζουν τα πρωτόκολλα δρομολόγησης και το NDP.</td></tr>
+      <tr><td>Unique Local (ULA)</td><td>fd00::/8</td><td>Ιδιωτική, όχι routable στο internet — το ισοδύναμο v6 του RFC1918 (10.x/192.168.x).</td></tr>
+      <tr><td>Multicast</td><td>ff00::/8</td><td>Αντικαθιστά το broadcast. π.χ. ff02::1 = όλοι οι κόμβοι, ff02::2 = όλοι οι router στο link.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Το Link-Local Ειναι Παντα Εκει, και θα το Χρησιμοποιεις Συνεχεια</span>
+    <p>Τη στιγμή που ενεργοποιείται το IPv6 σε ένα interface, παράγει αυτόματα μια διεύθυνση <strong>link-local</strong> (<code>fe80::…</code>) — δεν τη ρυθμίζεις, και δεν φεύγει ποτέ από το link. Αυτό δεν είναι περιέργεια: οι γείτονες OSPFv3 σχηματίζονται πάνω από link-local, το NDP (η αντικατάσταση του ARP) το χρησιμοποιεί, και τα static routes προς έναν απευθείας συνδεδεμένο next hop γράφονται συχνά με τη <em>link-local</em> διεύθυνση του γείτονα συν το interface εξόδου. Το να νιώσεις άνετα ότι «κάθε interface v6 έχει και global και link-local διεύθυνση, και κάνουν διαφορετικές δουλειές» είναι το 80% της νοητικής προσαρμογής από το IPv4.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Ενεργοποιησε Routing &amp; Δωσε Διευθυνση σε Interface</h2>
+  <p class="section-thesis"><em>Το routing IPv6 είναι κλειστό by default — μία global εντολή το ανάβει. Μετά η διευθυνσιοδότηση ενός interface είναι ακριβώς σαν IPv4, με μερικές ευκολίες μόνο-v6.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — η μια εντολη που ξεχναει ο καθενας, μετα η διευθυνσιοδοτηση</span>
+    <pre class="term"><span class="cmt"># Η εντολή — χωρίς αυτήν, ο router δεν θα δρομολογεί καθόλου v6</span>
+<span class="pc">R1(config)#</span> <span class="out">ipv6 unicast-routing</span>
+
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="cmt"># Χειροκίνητη global διεύθυνση (μέρος host = ::1)</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 address 2001:db8:acad:10::1/64</span>
+<span class="cmt"># Ή άσε τον router να διαλέξει το μέρος host από το MAC του (EUI-64):</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 address 2001:db8:acad:10::/64 eui-64</span>
+<span class="cmt"># Το link-local γίνεται αυτόματα, αλλά μπορείς να καρφώσεις μια φιλική:</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 address fe80::1 link-local</span>
+<span class="pc">R1(config-if)#</span> <span class="out">no shutdown</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span>
+
+<span class="pc">R1#</span> <span class="out">show ipv6 interface brief</span>
+<span class="out">GigabitEthernet0/1     [up/up]
+    FE80::1                    ← link-local
+    2001:DB8:ACAD:10::1        ← global</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ξεχνας το <code>ipv6 unicast-routing</code></span>
+    <p>Μπορείς να διευθυνσιοδοτήσεις κάθε interface τέλεια, να δεις το link-local να σηκώνεται, να κάνεις ping απευθείας συνδεδεμένους γείτονες — και να ανακαλύψεις ότι ο router δεν προωθεί v6 ανάμεσα σε subnets ή δεν τρέχει πρωτόκολλο δρομολόγησης, επειδή το <code>ipv6 unicast-routing</code> είναι κλειστό. Είναι το ακριβές ανάλογο της ανάγκης για <code>ip routing</code> σε ένα switch (από το <a href="cisco-vlans-trunking.html">post των VLAN</a>), και είναι η αιτία νούμερο-ένα του «το lab IPv6 μου δεν δρομολογεί». Άναψέ το πρώτο, global, πριν από οτιδήποτε άλλο.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Πως Παιρνουν Διευθυνση οι Hosts — SLAAC vs DHCPv6</h2>
+  <p class="section-thesis"><em>Οι hosts IPv6 μπορούν να διευθυνσιοδοτηθούν μόνοι τους χωρίς καθόλου DHCP — ο router απλώς διαφημίζει το prefix και εκείνοι χτίζουν τη δική τους διεύθυνση. Ή χρησιμοποιείς DHCPv6 για περισσότερο έλεγχο. Τα περισσότερα δίκτυα χρησιμοποιούν συνδυασμό.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — SLAAC (ο router διαφημιζει, οι hosts αυτο-ρυθμιζονται)</span>
+    <pre class="term"><span class="cmt"># Με global διεύθυνση στο interface και unicast-routing ανοιχτό, ο router
+# ήδη στέλνει Router Advertisements (RA) — οι hosts ακούν το prefix /64 και
+# χτίζουν τη δική τους διεύθυνση αυτόματα. Αυτό είναι SLAAC· τίποτα άλλο δεν χρειάζεται.</span>
+
+<span class="cmt"># Stateless DHCPv6: SLAAC για τη διεύθυνση, DHCPv6 μόνο για DNS/domain</span>
+<span class="pc">R1(config)#</span> <span class="out">ipv6 dhcp pool STATELESS</span>
+<span class="pc">R1(config-dhcpv6)#</span> <span class="out">dns-server 2001:4860:4860::8888</span>
+<span class="pc">R1(config-dhcpv6)#</span> <span class="out">domain-name lab.lan</span>
+<span class="pc">R1(config-dhcpv6)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 nd other-config-flag</span>    <span class="cmt"># «πάρε extra από το DHCPv6»</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 dhcp server STATELESS</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <table class="cheat">
+    <thead><tr><th>Μεθοδος</th><th>Διευθυνση απο</th><th>DNS/extra απο</th></tr></thead>
+    <tbody>
+      <tr><td>SLAAC (καθαρό)</td><td>Ο host χτίζει μόνος του από το prefix του RA</td><td>RDNSS μέσα στο RA (μοντέρνο) ή τίποτα</td></tr>
+      <tr><td>Stateless DHCPv6</td><td>SLAAC (ο host χτίζει μόνος του)</td><td>DHCPv6 (<code>other-config-flag</code>)</td></tr>
+      <tr><td>Stateful DHCPv6</td><td>Το DHCPv6 την αναθέτει (<code>managed-config-flag</code>)</td><td>DHCPv6</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">NDP — η Αντικατασταση του ARP <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Δεν υπάρχει ARP στο IPv6. Το Neighbor Discovery Protocol κάνει την ίδια δουλειά — αντιστοιχίζει διευθύνσεις σε MAC — συν router discovery και αυτο-ρύθμιση διεύθυνσης, όλα πάνω από multicast.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ο πινακας γειτονων NDP (ο πινακας ARP του v6)</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show ipv6 neighbors</span>
+<span class="out">IPv6 Address              Age  Link-layer Addr  State  Interface
+2001:DB8:ACAD:10::10       0    0012.7f3a.1b2c   REACH  Gi0/1
+FE80::212:7FFF:FE3A:1B2C   3    0012.7f3a.1b2c   STALE  Gi0/1</span>
+
+<span class="cmt"># Κάνε ping στο multicast "all-nodes" για να ανακαλύψεις ποιος είναι στο link:</span>
+<span class="pc">R1#</span> <span class="out">ping ff02::1</span>            <span class="cmt"># απαντάει κάθε κόμβος IPv6</span>
+<span class="pc">R1#</span> <span class="out">ping ff02::2</span>            <span class="cmt"># απαντάει κάθε router</span>
+
+<span class="pc">R1#</span> <span class="out">show ipv6 interface GigabitEthernet0/1 | include joined|link-local</span>
+<span class="cmt"># Δείχνει τις ομάδες multicast που έχει μπει το interface — NDP σε δράση.</span></pre>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Δρομολογηση — Static &amp; OSPFv3</h2>
+  <p class="section-thesis"><em>Ίδιες έννοιες με το IPv4, με πρόθεμα <code>ipv6</code>. Ένα default route προς τον ISP, και OSPFv3 για δυναμική δρομολόγηση — ενεργοποιημένο ανά interface αντί με δηλώσεις network.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — v6 static default + OSPFv3</span>
+    <pre class="term"><span class="cmt"># Default route προς τον ISP (σημείωση: συχνά μέσω ενός next hop LINK-LOCAL
+# συν το interface εξόδου, αφού αυτό λύνει το NDP)</span>
+<span class="pc">R1(config)#</span> <span class="out">ipv6 route ::/0 GigabitEthernet0/0 FE80::1</span>
+
+<span class="cmt"># OSPFv3 — ενεργοποιείται ΣΤΟ INTERFACE, καμία δήλωση "network"</span>
+<span class="pc">R1(config)#</span> <span class="out">ipv6 router ospf 1</span>
+<span class="pc">R1(config-rtr)#</span> <span class="out">router-id 1.1.1.1</span>          <span class="cmt"># ακόμα ένα ID 32-bit σε στυλ v4</span>
+<span class="pc">R1(config-rtr)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 ospf 1 area 0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span>
+
+<span class="pc">R1#</span> <span class="out">show ipv6 route ospf</span>
+<span class="pc">R1#</span> <span class="out">show ipv6 ospf neighbor</span>   <span class="cmt"># γείτονες αναγνωρίζονται από το link-local τους</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Το OSPFv3 Μοιαζει Οικειο Επειδη Ειναι</span>
+    <p>Το OSPFv3 κρατάει το OSPF που έμαθες στο <a href="cisco-routing-ospf.html">post δρομολόγησης</a> — areas, router-ids (γραμμένα ακόμα ως 32-bit dotted quads, παράξενα), DR/BDR, την ίδια λίστα troubleshooting — αλλά ενεργοποιείται ανά interface με <code>ipv6 ospf 1 area 0</code> αντί για δηλώσεις <code>network</code>, και οι γείτονες αναγνωρίζονται με διεύθυνση <strong>link-local</strong>. Αυτό το μοντέλο ανά-interface είναι στην πραγματικότητα πιο καθαρό: ενεργοποιείς το OSPF ακριβώς εκεί που θέλεις, χωρίς ταίριασμα wildcard-mask να κάνεις λάθος. Τα περισσότερα ένστικτα δρομολόγησης IPv4 σου μεταφέρονται κατευθείαν.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Η Αλλαγη Ασφαλειας — Χωρις NAT</h2>
+  <p class="section-thesis"><em>Η πιο σημαντική λειτουργική διαφορά. Στο IPv4, το NAT έκρυβε κατά λάθος τους hosts σου πίσω από μία διεύθυνση. Στο IPv6 κάθε host είναι globally addressable — οπότε το firewall, όχι το NAT, πρέπει να κάνει την προστασία. Ρητά.</em></p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — «Αλλα το NAT ηταν το Firewall μου»</span>
+    <p>Το NAT δεν ήταν ποτέ έλεγχος ασφάλειας — απλώς <em>έτυχε</em> να ρίχνει αυθόρμητη inbound κίνηση επειδή δεν υπήρχε μετάφραση να ταιριάξει. Αφαίρεσε το NAT και, χωρίς ρητό firewall, κάθε εσωτερικός host με global διεύθυνση είναι προσβάσιμος από το internet. Αυτό δεν είναι ελάττωμα του IPv6· είναι το IPv6 που αφαιρεί ένα δεκανίκι. Η διόρθωση είναι ένα stateful firewall που κάνει σκόπιμα αυτό που το NAT έκανε κατά λάθος: επίτρεψε established/επιστρεφόμενη κίνηση, απόρριψε αυθόρμητη inbound. Στο IOS αυτό είναι ένα ACL v6 (<code>ipv6 access-list</code>) με χειρισμό <code>reflexive</code>/<code>established</code>, ή καλύτερα, το <a href="cisco-zbf.html">Zone-Based Firewall</a> που κάνει inspect και v6. Ενεργοποίησε IPv6 και <strong>πρέπει</strong> να χτίσεις το inbound firewall στην ίδια ανάσα — δεν είναι προαιρετικό.</p>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ενα ελαχιστο σχεδον-stateful ACL edge v6</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">ipv6 access-list WAN-IN</span>
+<span class="cmt"># Επίτρεψε NDP (το v6 σπάει εντελώς χωρίς ICMPv6 — ΜΗΝ το μπλοκάρεις όλο)</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any nd-na</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any nd-ns</span>
+<span class="cmt"># Επίτρεψε απαντήσεις σε sessions που ξεκινήσαμε</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit tcp any any established</span>
+<span class="cmt"># Απόρριψε τα υπόλοιπα inbound</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">deny ipv6 any any log</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 traffic-filter WAN-IN in</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ποτε Μην Μπλοκαρεις το ICMPv6 Ολικα</span>
+    <p>Στο IPv4 πολλοί admin ρίχνουν αντανακλαστικά το ICMP στην άκρη. Κάν' το στο <strong>ICMPv6 και το IPv6 σταματάει να δουλεύει</strong> — το NDP (neighbor discovery), το RA (config διεύθυνσης), και το Path MTU Discovery όλα ταξιδεύουν πάνω σε ICMPv6. Ένα γενικό <code>deny icmp</code> σπάει την επίλυση διευθύνσεων και τη συνδεσιμότητα με τρόπους που μοιάζουν με bug δρομολόγησης. Επίτρεψε τους απαραίτητους τύπους ICMPv6 (neighbor solicit/advertise, router advert, packet-too-big) και φιλτράρισε επιλεκτικά. Αυτό το ένα αντανακλαστικό προκαλεί περισσότερα tickets «το IPv6 είναι ασταθές» από οτιδήποτε άλλο.</p>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">Το Χρειαζονται Πραγματικα τα SMB;</h2>
+  <p class="section-thesis"><em>Μια ειλικρινής απάντηση, αφού μας το ρωτάνε. Το IPv6 είναι αναπόφευκτο, αλλά για τα περισσότερα μικρά sites το dual-stack είναι ο ρεαλιστικός δρόμος, όχι ένα άλμα μόνο-v6.</em></p>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Η Δικη μας Αποψη</span>
+    <p>Για ένα κρητικό ξενοδοχείο ή μαγαζί, το εσωτερικό δίκτυο τρέχει μια χαρά σε IPv4 + NAT σήμερα, και σπάνια υπάρχει επείγων λόγος να ξαναριθμηθεί. Αλλά δύο πράγματα κάνουν το IPv6 άξιο να το ξέρεις τώρα: κάποιοι <strong>ISP το παραδίδουν by default</strong> (και οι διαδρομές mobile/Starlink γίνονται όλο και πιο v6-native), οπότε θα το συναντήσεις είτε το σχεδίασες είτε όχι· και οι <strong>συσκευές guest ήδη το μιλάνε</strong> — αν το δίκτυό σου προσφέρει IPv6 που δεν έχεις ασφαλίσει, αυτό είναι ένα ανεπιτήρητο μονοπάτι μέσα κι έξω. Η ρεαλιστική κίνηση για τα περισσότερα SMB είναι το <strong>dual-stack</strong>: κράτα το IPv4 εσωτερικά, ενεργοποίησε το IPv6 όπου το παρέχει ο ISP, και — κρίσιμο — εφάρμοσε την ίδια αυστηρότητα firewall και monitoring και στα δύο. Το μοτίβο αποτυχίας που βλέπουμε δεν είναι «καθόλου IPv6», είναι «IPv6 σιωπηλά ενεργοποιημένο και εντελώς αφίλτραρο». Γνώρισέ το ώστε να μπορείς να το ασφαλίσεις, ακόμα κι αν δεν το προβάλλεις.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Το IPv6 αφαιρεί περισσότερη πολυπλοκότητα απ' όση προσθέτει.</strong> Κάθε LAN είναι /64 (καμία αριθμητική mask), καθόλου broadcast, καμία σπανιότητα διευθύνσεων — και κανένα NAT. Το hex είναι απλώς σημειογραφία.</li>
+      <li><strong>Μάθε τους τέσσερις τύπους διευθύνσεων.</strong> Global (2000::/3, internet), link-local (fe80::/10, μόνο στο link, πάντα παρόν), ULA (fd00::/8, ιδιωτικό), multicast (ff00::/8, αντικαθιστά το broadcast).</li>
+      <li><strong>Άναψε πρώτα το <code>ipv6 unicast-routing</code>.</strong> Όλα μπορούν να φαίνονται ρυθμισμένα και ακόμα να μη δρομολογούν χωρίς αυτό — το δίδυμο v6 του <code>ip routing</code>.</li>
+      <li><strong>Οι hosts μπορούν να αυτο-διευθυνσιοδοτηθούν με SLAAC</strong> από το RA του router· πρόσθεσε DHCPv6 για DNS (stateless) ή πλήρη ανάθεση (stateful). Τα περισσότερα δίκτυα συνδυάζουν.</li>
+      <li><strong>Το NDP αντικαθιστά το ARP</strong> και τρέχει πάνω από ICMPv6/multicast — γι' αυτό το μπλοκάρισμα ολικά του ICMPv6 σπάει το IPv6. Επίτρεψε τους απαραίτητους τύπους.</li>
+      <li><strong>Η δρομολόγηση IPv4 σου μεταφέρεται.</strong> Τα static routes και το OSPFv3 είναι οι ίδιες έννοιες με πρόθεμα <code>ipv6</code>· το OSPFv3 ενεργοποιείται ανά interface και οι γείτονες με link-local.</li>
+      <li><strong>Χωρίς NAT σημαίνει ότι το firewall κάνει την απόκρυψη — χτίσ' το.</strong> Κάθε host είναι globally προσβάσιμος· ένα stateful firewall v6 είναι υποχρεωτικό, όχι προαιρετικό. Ο πραγματικός κίνδυνος για SMB είναι το IPv6 σιωπηλά ανοιχτό και αφίλτραρο.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Ειναι το IPv6 σιωπηλα ενεργοποιημενο και ανασφαλες στο δικτυο σου στην Κρητη;</h3>
+    <p>Το IPv6 που δρομολογείται αλλά δεν έχει firewall είναι μεγαλύτερη επιφάνεια επίθεσης, όχι σύγχρονο δίκτυο. Στήνω σωστά dual-stack &mdash; διευθυνσιοδότηση v6 όπου το υποστηρίζει ο ISP σου, με την ίδια αυστηρότητα firewall και monitoring σε αυτό όπως στο IPv4.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

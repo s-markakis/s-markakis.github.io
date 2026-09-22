@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik Backup and Recovery — S. Markakis</title>
+<meta name="description" content="Export εναντίον binary backup σε MikroTik RouterOS — πότε να χρησιμοποιήσεις το καθένα, πώς να αυτοματοποιήσεις και τα δύο, και η πλήρης διαδικασία ανάκτησης με Netinstall.">
+<meta property="og:title" content="MikroTik: Backup and Recovery — S. Markakis">
+<meta property="og:description" content="Export εναντίον binary backup σε MikroTik RouterOS — πότε να χρησιμοποιήσεις το καθένα, πώς να αυτοματοποιήσεις και τα δύο, και η πλήρης διαδικασία ανάκτησης με Netinstall.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-backup-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-backup.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-backup.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-backup-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-backup.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-backup-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-backup.html">
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  .wb4-wrap{margin:1.4rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);}
+  .wb4-path{background:var(--head);color:#fff;font-family:var(--font-mono);font-size:.72rem;padding:.4rem 1rem;display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;}
+  .wb4-path span.sep{color:#888880;}
+  .wb4-path span.active{color:var(--accent);font-weight:600;}
+  .wb4-caption{font-size:.78rem;color:var(--body);font-style:italic;padding:.45rem .9rem;border-top:1px solid var(--rule);background:var(--card);}
+  .compare-table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .compare-table th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .compare-table td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;font-size:.84rem;color:var(--body);}
+  .compare-table tr:nth-child(even) td{background:var(--card);}
+  .compare-table td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);font-weight:500;}
+  .netinstall-step{background:var(--card);border-radius:5px;border-left:3px solid var(--accent);padding:.8rem 1.1rem;margin:.6rem 0;}
+  .netinstall-step .ns-num{font-family:var(--font-disp);font-weight:900;font-size:1.2rem;color:var(--accent);float:left;margin-right:.7rem;line-height:1.2;}
+  .netinstall-step p{margin:0;font-size:.88rem;color:var(--mid);}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Backup and Recovery",
+  "description": "Export εναντίον binary backup σε MikroTik RouterOS — πότε να χρησιμοποιήσεις το καθένα, πώς να αυτοματοποιήσεις και τα δύο, και η πλήρης διαδικασία ανάκτησης με Netinstall.",
+  "datePublished": "2026-05-06",
+  "dateModified": "2026-05-06",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-backup-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-backup.png",
+  "keywords": [
+    "mikrotik",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-backup"
+  },
+  "timeRequired": "PT13M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-backup.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Μαιος 2026</p>
+  <h1 class="post-title">MikroTik Backup<br>και Ανακτηση</h1>
+  <p class="post-subtitle">Export εναντίον binary backup — για τι χρησιμεύει το καθένα, πότε να χρησιμοποιήσεις ποιο, και πώς να αυτοματοποιήσεις και τα δύο. Συν την πλήρη διαδικασία ανάκτησης με Netinstall για όταν ένας router δεν κάνει boot.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">Backup</span>
+    <span class="tag">Export</span>
+    <span class="tag">Recovery</span>
+    <span class="tag">Netinstall</span>
+    <span class="tag">Automation</span>
+    <span class="tag">MTCNA+</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero comparison diagram -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg">
+      <defs><style>
+        .hbg{fill:#e1ded7}
+        .hl{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;fill:#1a1a18;text-anchor:middle}
+        .hm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550;text-anchor:middle}
+        .hs{font-family:'Barlow',sans-serif;font-size:8.5px;fill:#888880;text-anchor:middle}
+        .hi{font-family:'Barlow',sans-serif;font-style:italic;font-size:8.5px;fill:#888880;text-anchor:middle}
+      </style></defs>
+      <rect width="720" height="170" class="hbg"/>
+
+      <!-- Export box -->
+      <rect x="30" y="20" width="300" height="130" fill="#eae8e3" stroke="#c63d1f" stroke-width="1.5" rx="5"/>
+      <rect x="30" y="20" width="300" height="24" fill="#c63d1f" rx="5"/>
+      <rect x="30" y="36" width="300" height="8" fill="#c63d1f"/>
+      <text x="180" y="38" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;fill:#fff;text-anchor:middle;">/export  →  αρχειο .rsc</text>
+      <text x="180" y="64" class="hm">Αναγνωσιμο κειμενο</text>
+      <text x="180" y="78" class="hs">Εντολες CLI που διαβαζεις + επεξεργαζεσαι</text>
+      <text x="180" y="92" class="hs">Δουλευει σε διαφορετικο hardware</text>
+      <text x="180" y="106" class="hs">Δουλευει σε διαφορετικες εκδοσεις RouterOS</text>
+      <text x="180" y="120" class="hs">Δεν επαναφερει passwords</text>
+      <text x="180" y="134" class="hs" style="fill:#c63d1f;font-weight:600;">Χρηση για: migration, auditing, git versioning</text>
+
+      <!-- vs -->
+      <text x="360" y="95" style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;fill:#c8c5be;text-anchor:middle;">vs</text>
+
+      <!-- Binary backup box -->
+      <rect x="390" y="20" width="300" height="130" fill="#eae8e3" stroke="#3a5a78" stroke-width="1.5" rx="5"/>
+      <rect x="390" y="20" width="300" height="24" fill="#3a5a78" rx="5"/>
+      <rect x="390" y="36" width="300" height="8" fill="#3a5a78"/>
+      <text x="540" y="38" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;fill:#fff;text-anchor:middle;">/system backup  →  αρχειο .backup</text>
+      <text x="540" y="64" class="hm">Binary — ακριβης κατασταση router</text>
+      <text x="540" y="78" class="hs">Περιλαμβανει τα παντα: users, certs, keys</text>
+      <text x="540" y="92" class="hs">Επαναφερει passwords</text>
+      <text x="540" y="106" class="hs">Ιδιο μοντελο hardware συνισταται</text>
+      <text x="540" y="120" class="hs">Μη αναγνωσιμο</text>
+      <text x="540" y="134" class="hs" style="fill:#3a5a78;font-weight:600;">Χρηση για: disaster recovery, restore στην ιδια συσκευη</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Οι περισσότεροι operators MikroTik έχουν κάνει backup ακριβώς μία φορά — αμέσως μετά το setup — και δεν το ξανάγγιξαν. Μετά μια μέρα η flash storage χαλάει, ένα firmware update πάει στραβά, ή κάποιος διαγράφει κατά λάθος όλους τους κανόνες του firewall, και αυτό το backup από πριν 18 μήνες είναι το μόνο που υπάρχει. Αυτός ο οδηγός χτίζει μια πειθαρχία backup: τι κάνει κάθε format, πότε να χρησιμοποιήσεις ποιο, πώς να αυτοματοποιήσεις και τα δύο εκτός site, και τι κάνεις όταν ένας router δεν κάνει καν boot.</p>
+    <p>Το κομμάτι Netinstall στο τέλος είναι αυτό που θα χαρείς που διάβασες πριν το χρειαστείς. Η ανάκτηση ενός εντελώς μη αποκρινόμενου MikroTik είναι διαδικασία 15 λεπτών αν ξέρεις τα βήματα. Είναι σπιράλ πανικού αν δεν ξέρεις.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>RouterOS v7.x — το backup syntax είναι σταθερό σε όλο το v7</li>
+      <li>Για αυτοματοποιημένο email backup: ρυθμισμένο SMTP (δες το tutorial Scripting)</li>
+      <li>Για Netinstall: ένα Windows PC, ένα καλώδιο Ethernet, και το πακέτο RouterOS .npk για το board σου</li>
+      <li>Για FTP backup: έναν FTP server στο LAN σου (προαιρετικό)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Export εναντιον Binary — Ποτε ποιο</h2>
+  <p class="section-thesis"><em>Δεν είναι εναλλακτικές — εξυπηρετούν διαφορετικούς σκοπούς και πρέπει να τρέχεις και τα δύο τακτικά.</em></p>
+
+  <table class="compare-table">
+    <thead><tr><th>Χαρακτηριστικο</th><th>/export (.rsc)</th><th>/system backup (.backup)</th></tr></thead>
+    <tbody>
+      <tr><td>Format</td><td>Plain text — εντολές CLI RouterOS</td><td>Binary — proprietary format</td></tr>
+      <tr><td>Αναγνωσιμο</td><td>Ναι — ανοίγει σε οποιονδήποτε text editor</td><td>Όχι — binary blob</td></tr>
+      <tr><td>Περιλαμβανει passwords</td><td>Όχι — τα passwords παραλείπονται</td><td>Ναι — όλα τα credentials περιλαμβάνονται</td></tr>
+      <tr><td>Περιλαμβάνει πιστοποιητικά</td><td>Όχι</td><td>Ναι</td></tr>
+      <tr><td>Migration σε διαφορετικο hardware</td><td>Ναι — ανεξάρτητο από hardware</td><td>Μερικώς — συνιστάται ίδια οικογένεια board</td></tr>
+      <tr><td>Migration σε διαφορετική έκδοση ROS</td><td>Συνήθως ναι — οι εντολές είναι σταθερές</td><td>Συνιστάται ίδια έκδοση</td></tr>
+      <tr><td>Μεθοδος restore</td><td>Import μέσω CLI ή paste</td><td>System › Backup › Restore ή drag στα Files</td></tr>
+      <tr><td>Versioning σε git</td><td>Ναι — τα text diffs δουλεύουν τέλεια</td><td>Όχι — binary, όχι diff-able</td></tr>
+      <tr><td>Καλυτερο για</td><td>Auditing, migration, version control, email backup</td><td>Disaster recovery, γρήγορο restore στην ίδια συσκευή</td></tr>
+    </tbody>
+  </table>
+
+  <p>Η σωστή στρατηγική backup είναι <strong>και τα δύο</strong>: ένα νυχτερινό export που στέλνεται με email εκτός site (αναγνώσιμο, φορητό, ελέγξιμο) και ένα εβδομαδιαίο binary backup αποθηκευμένο τοπικά ή σε FTP (πλήρης κατάσταση συμπεριλαμβανομένων των credentials).</p>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Export — Αναγνωσιμο Config</h2>
+  <p class="section-thesis"><em>Το export παράγει ένα αρχείο .rsc με εντολές CLI. Μπορείς να το διαβάσεις, να το κάνεις diff, να το κάνεις paste, και να κάνεις restore από αυτό σε οποιοδήποτε hardware MikroTik.</em></p>
+
+  <h3 class="sub">Βασικες Εντολες Export</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — εντολες export</span>
+    <pre class="term"><span class="cmt"># Export ολόκληρου config σε ένα αρχείο στο flash του router</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/export file=Hotel-01-backup</span>
+<span class="cmt"># Δημιουργεί το Hotel-01-backup.rsc στο flash storage του router</span>
+
+<span class="cmt"># Export με passwords συμπεριλαμβανόμενα (για disaster recovery — αποθήκευσέ το με ασφάλεια)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/export file=Hotel-01-full show-sensitive</span>
+<span class="cmt"># ΠΡΟΣΟΧΗ: αυτό περιλαμβάνει όλα τα passwords σε plain text.
+# Μεταχειρίσου αυτό το αρχείο με την ίδια προσοχή όπως τον password manager σου.</span>
+
+<span class="cmt"># Export μόνο ενός συγκεκριμένου τμήματος</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall filter export file=firewall-rules</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge export file=bridge-config</span>
+<span class="cmt"># Τα partial exports είναι χρήσιμα για documentation ή για να μοιραστείς συγκεκριμένα configs.</span>
+
+<span class="cmt"># Δες το export στο terminal (χωρίς να το αποθηκεύσεις σε αρχείο)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/export</span>
+<span class="cmt"># Τυπώνει ολόκληρο το config στο terminal. Pipe μέσω less:
+# /export | /file print (δεν υποστηρίζεται — χρησιμοποίησε file= και δες μέσω Winbox Files)</span>
+
+<span class="cmt"># Λίστα αρχείων στο flash storage</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/file print</span>
+<span class="out"> # NAME                  TYPE  SIZE    DATE
+ 0 Hotel-01-backup.rsc   .rsc  48KiB   may/02 02:00:01</span></pre>
+  </div>
+
+  <div class="wb4-wrap">
+    <div class="wb4-path">Files <span class="sep">›</span> <span class="active">download .rsc file</span></div>
+    <svg viewBox="0 0 680 180" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+      <defs><style>
+        .w4bg{fill:#1e1e1e}.w4hdr{fill:#2a2a2a}.w4sb{fill:#252525}.w4work{fill:#eae8e3}
+        .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}.w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+        .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+        .wbm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+        .wbma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+        .wbt{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+        .wbs{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880}
+      </style></defs>
+      <rect width="680" height="180" class="w4bg"/>
+      <rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+      <text x="10" y="16" style="font-family:'Inter',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  Files</text>
+      <circle cx="672" cy="12" r="5" fill="#c63d1f"/>
+      <rect x="0" y="24" width="138" height="156" class="w4sb"/>
+      <text x="12" y="42" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Interfaces</text>
+      <text x="12" y="58" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">IP</text>
+      <text x="12" y="74" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">System</text>
+      <rect x="0" y="78" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/>
+      <rect x="0" y="78" width="3" height="16" fill="#c63d1f"/>
+      <text x="12" y="90" style="font-family:'Inter',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Files</text>
+      <rect x="138" y="24" width="542" height="156" class="w4work"/>
+      <rect x="138" y="24" width="542" height="26" fill="#dddbd5"/>
+      <rect x="144" y="29" width="52" height="16" fill="#3a3a3a" rx="3" stroke="#555" stroke-width=".5"/>
+      <text x="170" y="40" style="font-family:'Inter',sans-serif;font-size:8px;fill:#eae8e3;text-anchor:middle;">↑ Upload</text>
+      <rect x="202" y="29" width="60" height="16" fill="#c63d1f" rx="3"/>
+      <text x="232" y="40" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;">↓ Download</text>
+      <rect x="138" y="50" width="542" height="13" fill="#c8c5be"/>
+      <text x="144" y="60" class="wbs" style="font-weight:700;">ΟΝΟΜΑ                        TYPE   SIZE      DATE</text>
+      <!-- .rsc file highlighted -->
+      <rect x="138" y="63" width="542" height="16" class="w4hl"/>
+      <text x="144" y="74" class="wbma" style="font-weight:600;">Hotel-01-backup.rsc</text>
+      <text x="320" y="74" class="wbm">.rsc</text>
+      <text x="380" y="74" class="wbm">48.2 KiB</text>
+      <text x="460" y="74" class="wbm">may/02 02:00:01</text>
+      <!-- .backup file -->
+      <rect x="138" y="79" width="542" height="16" style="fill:#3a5a78;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+      <text x="144" y="90" class="wbm" style="fill:#3a5a78;">Hotel-01.backup</text>
+      <text x="320" y="90" class="wbm">.backup</text>
+      <text x="380" y="90" class="wbm">2.1 MiB</text>
+      <text x="460" y="90" class="wbm">may/01 02:00:08</text>
+      <!-- packages -->
+      <rect x="138" y="95" width="542" height="16" class="w4rowh"/>
+      <text x="144" y="106" class="wbm" style="fill:#888880;">routeros-7.15-arm.npk</text>
+      <text x="320" y="106" class="wbm" style="fill:#888880;">.npk</text>
+      <text x="380" y="106" class="wbm" style="fill:#888880;">14.2 MiB</text>
+      <!-- download hint -->
+      <rect x="144" y="120" width="528" height="34" fill="#dddbd5" rx="3" stroke="#c8c5be" stroke-width=".5"/>
+      <text x="154" y="132" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#1a1a18;font-weight:700;">Κατεβασε ενα αρχειο backup στο laptop σου</text>
+      <text x="154" y="144" class="wbs">Επίλεξε το αρχείο .rsc ή .backup → κάνε κλικ στο Download → αποθήκευσέ το στο laptop σου.</text>
+      <text x="154" y="155" class="wbs">Μπορείς επίσης να κάνεις drag αρχεία από το panel Files του Winbox στην επιφάνεια εργασίας σε Windows/macOS.</text>
+      <rect x="138" y="162" width="542" height="18" fill="#dddbd5"/>
+      <text x="144" y="173" class="wbs">Panel Files  ·  επίλεξε αρχείο → Download για τοπική αποθήκευση  ·  Upload για να στείλεις αρχείο restore στον router</text>
+    </svg>
+    <div class="wb4-caption">Panel Files στο Winbox 4.1. Επίλεξε το αρχείο <code>.rsc</code> ή <code>.backup</code> και κάνε κλικ στο <strong>Download</strong> για να το αποθηκεύσεις στο laptop σου. Μπορείς επίσης να κάνεις drag αρχεία απευθείας από αυτό το panel στην επιφάνεια εργασίας σου. Χρησιμοποίησε το Upload για να στείλεις πίσω ένα αρχείο restore στον router.</div>
+  </div>
+
+  <h3 class="sub">Restore απο Export</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — restore απο export .rsc</span>
+    <pre class="term"><span class="cmt"># Μέθοδος Α: import μέσω CLI (μετά την upload του .rsc στο flash του router)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/import file=Hotel-01-backup.rsc</span>
+<span class="out">Opening script file Hotel-01-backup.rsc</span>
+<span class="out">Script file loaded and executed successfully</span>
+<span class="cmt"># Το αρχείο .rsc εκτελείται σαν script — κάθε γραμμή είναι μια εντολή CLI.
+# Κάθε εντολή που αποτυγχάνει (π.χ. duplicate entry) τυπώνει error αλλά
+# συνεχίζει την εκτέλεση — δεν σταματά στην πρώτη αποτυχία.</span>
+
+<span class="cmt"># Μέθοδος Β: paste στο terminal (για μικρά configs ή μερικό restore)
+# Άνοιξε το αρχείο .rsc σε text editor, αντέγραψε όλες τις γραμμές,
+# και κάνε paste στο terminal του Winbox. Ίδιο αποτέλεσμα με το import.</span>
+
+<span class="cmt"># Μέθοδος Γ: καθαρό restore — πρώτα reset, μετά import</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/system reset-configuration \</span>
+<span class="out">    no-defaults=yes \</span>
+<span class="out">    run-after-reset=Hotel-01-backup.rsc</span>
+<span class="cmt"># Καθαρίζει ΟΛΟ το config, μετά τρέχει αμέσως το .rsc στο reboot.
+# Χρησιμοποίησέ το για ένα φρέσκο ξεκίνημα από ένα γνωστό-καλό export.
+# ΠΡΟΣΟΧΗ: ο router θα κάνει reboot και θα χάσεις το session SSH σου.</span></pre>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Binary Backup — Πληρης Κατασταση</h2>
+  <p class="section-thesis"><em>Το binary backup συλλαμβάνει ό,τι χάνει το export: passwords χρηστών, πιστοποιητικά, κλειδιά SSH, και ρυθμίσεις συστήματος. Χρησιμοποίησέ το για disaster recovery στην ίδια συσκευή.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — εντολες binary backup</span>
+    <pre class="term"><span class="cmt"># Δημιουργία binary backup (χωρίς κρυπτογράφηση password)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/system backup save name=Hotel-01</span>
+<span class="out">Saving system configuration</span>
+<span class="out">Configuration backup saved</span>
+<span class="cmt"># Δημιουργεί το Hotel-01.backup στο flash storage.
+# Το μέγεθος αρχείου είναι μεγαλύτερο από το .rsc — περιλαμβάνει τα πάντα.</span>
+
+<span class="cmt"># Δημιουργία κρυπτογραφημένου binary backup (συνιστάται για αποθήκευση εκτός site)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/system backup save \</span>
+<span class="out">    name=Hotel-01-secure \</span>
+<span class="out">    password=YourStrongBackupPassword</span>
+<span class="cmt"># Κρυπτογραφημένο με AES. Απαιτεί password για restore.
+# Αποθήκευσε το password ξεχωριστά από το αρχείο backup.</span>
+
+<span class="cmt"># Restore απο binary backup</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/system backup load name=Hotel-01</span>
+<span class="out">Restore and reboot? [y/N]: y</span>
+<span class="cmt"># Ο router κάνει reboot και επαναφέρεται στην κατάσταση του backup.
+# Όλες οι τρέχουσες αλλαγές config από τότε που έγινε το backup χάνονται.</span>
+
+<span class="cmt"># Ή σε Winbox 4.1:</span></pre>
+  </div>
+
+  <div class="wb4-wrap">
+    <div class="wb4-path">System <span class="sep">›</span> Backup <span class="sep">›</span> <span class="active">Save / Restore</span></div>
+    <svg viewBox="0 0 680 175" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+      <defs><style>
+        .w4bg{fill:#1e1e1e}.w4hdr{fill:#2a2a2a}.w4sb{fill:#252525}.w4work{fill:#eae8e3}
+        .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}.w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+        .wbm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+        .wbma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+        .wbt{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+        .wbs{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880}
+      </style></defs>
+      <rect width="680" height="175" class="w4bg"/>
+      <rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+      <text x="10" y="16" style="font-family:'Inter',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  System › Backup</text>
+      <circle cx="672" cy="12" r="5" fill="#c63d1f"/>
+      <rect x="0" y="24" width="138" height="151" class="w4sb"/>
+      <text x="12" y="42" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Identity</text>
+      <rect x="0" y="46" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/>
+      <rect x="0" y="46" width="3" height="16" fill="#c63d1f"/>
+      <text x="12" y="58" style="font-family:'Inter',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Backup</text>
+      <text x="12" y="74" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Packages</text>
+      <text x="12" y="90" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Reboot</text>
+      <rect x="138" y="24" width="542" height="151" class="w4work"/>
+      <!-- Save section -->
+      <rect x="144" y="30" width="255" height="85" class="w4form" rx="3"/>
+      <rect x="144" y="30" width="255" height="16" fill="#1a1a18" rx="3"/>
+      <rect x="144" y="38" width="255" height="8" fill="#1a1a18"/>
+      <text x="154" y="41" style="font-family:'Inter',sans-serif;font-size:8.5px;font-weight:600;fill:#eae8e3;">Save Backup</text>
+      <text x="154" y="60" class="wbt">Ονομα</text>
+      <rect x="200" y="51" width="190" height="13" class="w4inp" rx="2"/>
+      <text x="206" y="61" class="wbma">Hotel-01</text>
+      <text x="154" y="78" class="wbt">Password</text>
+      <rect x="200" y="69" width="190" height="13" class="w4inp" rx="2"/>
+      <text x="206" y="79" class="wbs">κενό = χωρίς κρυπτογράφηση</text>
+      <rect x="340" y="96" width="46" height="13" fill="#c63d1f" rx="2"/>
+      <text x="363" y="106" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">Save</text>
+      <!-- Restore section -->
+      <rect x="415" y="30" width="255" height="85" class="w4form" rx="3"/>
+      <rect x="415" y="30" width="255" height="16" fill="#3a5a78" rx="3"/>
+      <rect x="415" y="38" width="255" height="8" fill="#3a5a78"/>
+      <text x="425" y="41" style="font-family:'Inter',sans-serif;font-size:8.5px;font-weight:600;fill:#eae8e3;">Restore Backup</text>
+      <text x="425" y="60" class="wbt">Αρχειο</text>
+      <rect x="467" y="51" width="190" height="13" class="w4inp" rx="2"/>
+      <text x="473" y="61" class="wbm">Hotel-01.backup  ▾</text>
+      <text x="425" y="78" class="wbt">Password</text>
+      <rect x="467" y="69" width="190" height="13" class="w4inp" rx="2"/>
+      <text x="473" y="79" class="wbs">αν είναι κρυπτογραφημένο</text>
+      <rect x="560" y="96" width="62" height="13" fill="#3a5a78" rx="2"/>
+      <text x="591" y="106" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">Restore</text>
+      <!-- warning -->
+      <rect x="144" y="122" width="528" height="28" fill="#c08020" fill-opacity=".1" stroke="#c08020" stroke-width=".5" rx="3"/>
+      <text x="154" y="134" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#c08020;font-weight:600;">⚠ Το Restore θα κάνει reboot τον router αμέσως — όλες οι μη αποθηκευμένες αλλαγές χάνονται</text>
+      <text x="154" y="146" class="wbs" style="fill:#555550;">Ανέβασε πρώτα το αρχείο .backup μέσω panel Files αν δεν είναι ήδη στο flash storage του router</text>
+      <rect x="138" y="157" width="542" height="18" fill="#dddbd5"/>
+      <text x="144" y="167" class="wbs">System › Backup  ·  Save: δημιουργεί .backup στο flash  ·  Restore: επαναφέρει την αποθηκευμένη κατάσταση και κάνει reboot</text>
+    </svg>
+    <div class="wb4-caption">System › Backup. Το Save δημιουργεί ένα αρχείο <code>.backup</code> στο flash. Βάλε ένα password για κρυπτογραφημένα backups που αποθηκεύονται εκτός site. Το Restore φορτώνει το αρχείο και κάνει αμέσως reboot — ανέβασε το αρχείο μέσω panel Files πρώτα αν δεν είναι ήδη στον router.</div>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Binary Backup Ειναι Ευαισθητο σε Εκδοση</span>
+    <p>Ένα αρχείο <code>.backup</code> που δημιουργήθηκε σε RouterOS 7.10 μπορεί να μην κάνει restore καθαρά σε 7.15. Το MikroTik γενικά υποστηρίζει restore από πρόσφατες προηγούμενες εκδόσεις, αλλά όχι από σημαντικά παλιότερες, και όχι από εντελώς διαφορετική major έκδοση. Σημείωνε πάντα την έκδοση RouterOS στο όνομα του αρχείου backup: <code>Hotel-01-v7.15.backup</code>. Αν κάνεις restore σε νέα συσκευή μετά από αντικατάσταση hardware, χρησιμοποίησε αντ' αυτού το export <code>.rsc</code> — είναι ανεξάρτητο από έκδοση και δουλεύει σε διαφορετικά μοντέλα hardware.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Αυτοματο Backup σε FTP και USB</h2>
+  <p class="section-thesis"><em>Τα τοπικά backups προστατεύουν από λάθη config. Τα backups εκτός site προστατεύουν από βλάβη hardware. Τρέξε και τα δύο σε προγραμματισμό.</em></p>
+
+  <h3 class="sub">Auto-Backup σε FTP</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — προγραμματισμενο backup σε FTP server</span>
+    <pre class="term"><span class="cmt"># Όνομα script: ftp-backup
+# Τρέχει κάθε βράδυ στις 03:00</span>
+<span class="out">:local hostname [/system identity get name]</span>
+<span class="out">:local date [/system clock get date]</span>
+<span class="out">:local filename ($hostname . "-" . $date)</span>
+
+<span class="cmt"># Δημιουργία και των δύο τύπων backup</span>
+<span class="out">/export file=$filename</span>
+<span class="out">/system backup save name=$filename</span>
+
+<span class="cmt"># Upload .rsc στον server FTP</span>
+<span class="out">:do {</span>
+<span class="out">    /tool fetch \</span>
+<span class="out">        address=192.168.20.100 \</span>
+<span class="out">        src-path=($filename . ".rsc") \</span>
+<span class="out">        dst-path=("/" . $hostname . "/" . $filename . ".rsc") \</span>
+<span class="out">        user=backupuser \</span>
+<span class="out">        password=ftppassword \</span>
+<span class="out">        upload=yes \</span>
+<span class="out">        mode=ftp</span>
+<span class="out">    :log info ("FTP backup uploaded: " . $filename)</span>
+<span class="out">} on-error={</span>
+<span class="out">    :log warning ("FTP backup FAILED: " . $filename)</span>
+<span class="out">}</span>
+
+<span class="cmt"># Καθάρισμα παλιών τοπικών αρχείων — κράτα τα τελευταία 7</span>
+<span class="out">:local rscFiles [/file find where name~($hostname) \</span>
+<span class="out">    and name~".rsc"]</span>
+<span class="out">:while ([:len $rscFiles] > 7) do={</span>
+<span class="out">    /file remove ($rscFiles->0)</span>
+<span class="out">    :set rscFiles [/file find where name~($hostname) \</span>
+<span class="out">        and name~".rsc"]</span>
+<span class="out">}</span></pre>
+  </div>
+
+  <h3 class="sub">Auto-Backup σε USB Drive</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — backup σε USB (οταν το δισκος USB ειναι mounted)</span>
+    <pre class="term"><span class="cmt"># Το USB εμφανίζεται ως disk στο /file — έλεγξε πρώτα ότι υπάρχει</span>
+<span class="out">:local usbDisk [/file find where type=disk]</span>
+<span class="out">:if ([:len $usbDisk] = 0) do={</span>
+<span class="out">    :log warning "USB disk not found — backup skipped"</span>
+<span class="out">    :error "no USB"</span>
+<span class="out">}</span>
+
+<span class="out">:local diskName [/file get ($usbDisk->0) name]</span>
+<span class="out">:local hostname [/system identity get name]</span>
+<span class="out">:local date [/system clock get date]</span>
+<span class="out">:local target ($diskName . "/" . $hostname . "-" . $date)</span>
+
+<span class="out">/export file=$target</span>
+<span class="out">/system backup save name=$target</span>
+<span class="out">:log info ("USB backup saved to " . $target)</span>
+<span class="cmt"># Τα αρχεία αποθηκεύονται απευθείας στο path του δίσκου USB.
+# Χρήσιμο για routers σε απομακρυσμένα sites όπου email/FTP δεν είναι αξιόπιστα.</span></pre>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Netinstall — Ανακτηση ενος Bricked Router</h2>
+  <p class="section-thesis"><em>Όταν το RouterOS δεν κάνει boot, το Netinstall επανεγκαθιστά το OS μέσω Ethernet από ένα Windows PC. Δεκαπέντε λεπτά από brick σε δουλεύοντα router.</em></p>
+
+  <p>Το Netinstall είναι ένα εργαλείο Windows που κάνει boot μια συσκευή MikroTik σε ειδική λειτουργία network bootstrap και γράφει μια φρέσκια εγκατάσταση RouterOS απευθείας στο flash της. Δουλεύει σε εντελώς μη αποκρινόμενους routers — χωρίς RouterOS να τρέχει, χωρίς πρόσβαση Winbox, χωρίς SSH. Όσο το hardware δεν είναι φυσικά κατεστραμμένο, το Netinstall μπορεί να το ανακτήσει.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg">
+      <defs><style>
+        .nbg{fill:#e1ded7}
+        .nl{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle}
+        .nm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550;text-anchor:middle}
+        .ns{font-family:'Barlow',sans-serif;font-size:8.5px;fill:#888880;text-anchor:middle}
+        .na{stroke:#c63d1f;stroke-width:2;fill:none;marker-end:url(#nap)}
+        .nb{stroke:#3a5a78;stroke-width:1.5;stroke-dasharray:4,2;fill:none;marker-end:url(#nbp)}
+      </style>
+        <marker id="nap" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+        <marker id="nbp" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#3a5a78"/></marker>
+      </defs>
+      <rect width="720" height="130" class="nbg"/>
+      <rect x="16" y="30" width="120" height="60" fill="#dddbd5" stroke="#c8c5be" stroke-width="1.5" rx="4"/>
+      <text x="76" y="54" class="nl">Windows PC</text>
+      <text x="76" y="68" class="nm">Netinstall.exe</text>
+      <text x="76" y="80" class="ns">192.168.0.1</text>
+      <line x1="136" y1="60" x2="196" y2="60" class="na"/>
+      <text x="166" y="52" class="ns">Ethernet</text>
+      <rect x="198" y="30" width="120" height="60" fill="#dddbd5" stroke="#c63d1f" stroke-width="1.5" rx="4"/>
+      <text x="258" y="54" class="nl" style="fill:#c63d1f;">MikroTik</text>
+      <text x="258" y="68" class="nm">boot mode</text>
+      <text x="258" y="80" class="ns">κρατα reset button</text>
+      <line x1="318" y1="60" x2="378" y2="60" class="nb"/>
+      <text x="348" y="52" class="ns">TFTP flash</text>
+      <rect x="380" y="30" width="120" height="60" fill="#dddbd5" stroke="#3a5a78" stroke-width="1.5" rx="4"/>
+      <text x="440" y="54" class="nl" style="fill:#3a5a78;">RouterOS</text>
+      <text x="440" y="68" class="nm">επανεγκατεστημενο</text>
+      <text x="440" y="80" class="ns">factory defaults</text>
+      <line x1="500" y1="60" x2="560" y2="60" class="nb"/>
+      <text x="530" y="52" class="ns">restore .rsc</text>
+      <rect x="562" y="30" width="140" height="60" fill="#dddbd5" stroke="#c8c5be" stroke-width="1.5" rx="4"/>
+      <text x="632" y="54" class="nl">Router σε Λειτουργια</text>
+      <text x="632" y="68" class="nm">config επαναφερθηκε</text>
+      <text x="632" y="80" class="ns">απο νυχτερινο export</text>
+      <text x="360" y="115" style="font-family:'Barlow',sans-serif;font-style:italic;font-size:9.5px;fill:#888880;text-anchor:middle;">Το Netinstall κάνει boot τον router μέσω Ethernet, κάνει flash φρέσκο RouterOS, μετά κάνεις restore το config σου από ένα export .rsc</text>
+    </svg>
+  </div>
+
+  <h3 class="sub">Netinstall Βημα προς Βημα</h3>
+
+  <div class="netinstall-step">
+    <span class="ns-num">1</span>
+    <p><strong>Κατεβασε το Netinstall</strong> από το <a href="https://mikrotik.com/download" target="_blank">mikrotik.com/download</a> — μόνο Windows. Κατέβασε επίσης το πακέτο RouterOS <code>.npk</code> για την αρχιτεκτονική του board σου (ARM, MIPSBE, x86, κλπ). Έλεγξε την αρχιτεκτονική του board σου με <code>/system resource print</code> πριν κάνει brick, ή ψάξ' το στο MikroTik wiki με το όνομα μοντέλου.</p>
+  </div>
+
+  <div class="netinstall-step">
+    <span class="ns-num">2</span>
+    <p><strong>Ρύθμισε τον adapter Ethernet του PC σου</strong> σε static IP: <code>192.168.0.1 / 255.255.255.0</code>, χωρίς gateway, χωρίς DNS. Σύνδεσε ένα απευθείας καλώδιο Ethernet από το PC σου στη θύρα <strong>ether1</strong> του MikroTik (ή τη θύρα με ετικέτα "Boot" σε κάποια μοντέλα). Απενεργοποίησε το WiFi στο PC σου — το Netinstall πρέπει να χρησιμοποιεί μόνο τον ενσύρματο adapter.</p>
+  </div>
+
+  <div class="netinstall-step">
+    <span class="ns-num">3</span>
+    <p><strong>Άνοιξε το Netinstall ως Administrator.</strong> Βάλε το "Net booting" IP σε <code>192.168.0.100</code> (αυτή είναι η IP που θα δώσει το Netinstall στον router κατά το flashing). Τσέκαρε το "Net boot" για να το ενεργοποιήσεις. Επίλεξε το αρχείο πακέτου <code>.npk</code>. <em>Μην</em> τσεκάρεις το "Keep old configuration" αν κάνεις καθαρή ανάκτηση.</p>
+  </div>
+
+  <div class="netinstall-step">
+    <span class="ns-num">4</span>
+    <p><strong>Κάνε boot το MikroTik σε λειτουργία Netinstall.</strong> Κράτα πατημένο το <strong>κουμπί Reset</strong> ενώ συνδέεις το ρεύμα. Κράτα το πατημένο μέχρι το LED ACT/USR να αρχίσει να αναβοσβήνει γρήγορα (συνήθως 3–5 δευτερόλεπτα). Άφησέ το. Ο router είναι τώρα σε λειτουργία network boot του Netinstall. Η συσκευή θα πρέπει να εμφανιστεί στη λίστα συσκευών του Netinstall μέσα σε 10–15 δευτερόλεπτα.</p>
+  </div>
+
+  <div class="netinstall-step">
+    <span class="ns-num">5</span>
+    <p><strong>Επίλεξε τη συσκευή στο Netinstall και κάνε κλικ στο Install.</strong> Το flashing παίρνει 1–3 λεπτά. Ο router κάνει reboot αυτόματα όταν τελειώσει. Μην αποσυνδέσεις το ρεύμα κατά τη διάρκεια αυτής της διαδικασίας.</p>
+  </div>
+
+  <div class="netinstall-step">
+    <span class="ns-num">6</span>
+    <p><strong>Μετά το reboot, συνδέσου στον router στο <code>192.168.88.1</code></strong> (default IP μετά από καθαρή εγκατάσταση). Username <code>admin</code>, χωρίς password. Ανέβασε αμέσως το πιο πρόσφατο export <code>.rsc</code> σου μέσω Winbox Files και τρέξε <code>/import file=your-backup.rsc</code>. Το πλήρες config σου επαναφέρεται.</p>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — restore config μετα το Netinstall</span>
+    <pre class="term"><span class="cmt"># Μετά το Netinstall, ο router είναι στα factory defaults.
+# Συνδέσου μέσω Winbox στο 192.168.88.1, admin / χωρίς password.
+# Ανέβασε το αρχείο .rsc σου μέσω panel Files, μετά:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/import file=Hotel-01-backup.rsc</span>
+<span class="out">Script file loaded and executed successfully</span>
+<span class="cmt"># Μετά βάλε το password του admin (δεν είναι στο export):</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/user set admin password=YourNewPassword</span>
+<span class="cmt"># Ο router είναι πίσω. Συνολικός χρόνος ανάκτησης από brick: ~15 λεπτά.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Netinstall Δεν Βλεπει τη Συσκευη;</span>
+    <p>Τρία πράγματα να ελέγξεις: πρώτον, ο adapter Ethernet του PC σου πρέπει να είναι σε static IP <code>192.168.0.1</code> — το DHCP δεν θα δουλέψει. Δεύτερον, απενεργοποίησε προσωρινά το Windows Firewall — μπορεί να μπλοκάρει την κίνηση TFTP του Netinstall. Τρίτον, βεβαιώσου ότι κρατάς το Reset πριν συνδέσεις το ρεύμα, όχι μετά. Σε κάποια μοντέλα η ακολουθία boot είναι πολύ γρήγορη — έχεις λιγότερο από 1 δευτερόλεπτο μετά το power-on για να πυροδοτήσεις τη λειτουργία network boot. Αν ακόμα δεν δουλεύει, δοκίμασε διαφορετικό καλώδιο Ethernet και επιβεβαίωσε ότι είσαι συγκεκριμένα στο ether1.</p>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">✕ Τι Δεν Δουλεψε — Restore ενος Αρχειου .backup Μετα το Netinstall</span>
+    <p>Αφού το Netinstall εγκαταστήσει ένα φρέσκο RouterOS 7.15, η προσπάθεια restore ενός αρχείου <code>.backup</code> από RouterOS 7.10 συχνά καταλήγει σε μερικό restore ή boot loop. Το format binary backup είναι ευαίσθητο σε έκδοση. Η σωστή προσέγγιση: μετά το Netinstall, κάνε restore από το export <code>.rsc</code> (που είναι ανεξάρτητο από έκδοση), μετά επαναρύθμισε χειροκίνητα τυχόν passwords και πιστοποιητικά. Ακριβώς γι' αυτό χρειάζεσαι και τους δύο τύπους backup — το <code>.rsc</code> είναι το δίχτυ ασφαλείας σου όταν το binary backup δεν μπορεί να χρησιμοποιηθεί.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">🛡 Ματια Operator — Στρατηγικη Backup για Production</span>
+    <p><strong>Ο κανόνας 3-2-1 για configs router.</strong> Τρία αντίγραφα: ο live router, ένα τοπικό backup στο NAS ή τον FTP server σου, και ένα εκτός site (email ή cloud). Δύο formats: export <code>.rsc</code> και binary <code>.backup</code>. Μία τοποθεσία εκτός site. Αν έχεις μόνο τοπικό backup και το δωμάτιο του router πλημμυρίσει ή καεί, δεν έχεις τίποτα. Το email είναι ο απλούστερος τρόπος εκτός site — ένα νυχτερινό <code>.rsc</code> στα εισερχόμενά σου σημαίνει ότι μπορείς να κάνεις restore από οπουδήποτε με μόνο ένα laptop.</p>
+    <p><strong>Κάνε versioning το export σε git.</strong> Επειδή το <code>.rsc</code> είναι plain text, είναι τέλειο για git. Το <code>git diff</code> ανάμεσα σε δύο exports σου δείχνει ακριβώς τι άλλαξε ανάμεσα σε Δευτέρα και Παρασκευή — ποιοι κανόνες firewall προστέθηκαν, ποιες IPs άλλαξαν, ποια VLANs τροποποιήθηκαν. Για ένα ακίνητο που διαχειρίζονται πολλοί άνθρωποι, αυτό το audit trail είναι ανεκτίμητο. Ακόμα και ένα private GitHub repo με ένα νυχτερινό commit script είναι αρκετό.</p>
+    <p><strong>Κράτα ένα USB stick Netinstall σε κάθε site.</strong> Ένα USB stick με το executable του Netinstall και το σωστό RouterOS <code>.npk</code> για το μοντέλο hardware κάθε site σημαίνει ότι οποιοδήποτε μέλος του προσωπικού μπορεί να το δώσει σε έναν τεχνικό και η ανάκτηση μπορεί να ξεκινήσει χωρίς να περιμένει downloads. Ετικέτα με το μοντέλο board και την τελευταία δοκιμασμένη έκδοση RouterOS.</p>
+    <p><strong>Δοκίμασε τη διαδικασία restore σου πριν τη χρειαστείς.</strong> Μια φορά τον χρόνο, πάρε έναν εφεδρικό router (ή ένα CHR VM), κάνε ένα καθαρό Netinstall, κάνε restore από το τελευταίο backup σου, και επιβεβαίωσε ότι όλα δουλεύουν. Το backup που δεν έχει δοκιμαστεί ποτέ δεν είναι backup — είναι ελπίδα.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Κράτα παντα και τα δύο formats.</strong> Export <code>.rsc</code> για φορητότητα, auditability, και restore μεταξύ εκδόσεων. Binary <code>.backup</code> για πλήρες disaster recovery στην ίδια συσκευή συμπεριλαμβανομένων passwords και πιστοποιητικών. Το ένα χωρίς το άλλο αφήνει κενά.</li>
+      <li><strong>Το export δεν περιλαμβάνει passwords.</strong> Μετά από restore από ένα <code>.rsc</code>, πρέπει να επαναφέρεις το password του admin και τυχόν credentials API χειροκίνητα. Καταγράψε τα ξεχωριστά από το αρχείο backup.</li>
+      <li><strong>Τα binary backups είναι ευαίσθητα σε έκδοση.</strong> Σημείωνε πάντα την έκδοση RouterOS στο όνομα του αρχείου backup. Αν το hardware σου αντικατασταθεί ή η έκδοση διαφέρει σημαντικά, χρησιμοποίησε το export <code>.rsc</code> για restore.</li>
+      <li><strong>Αυτοματοποίησε και τα δύο backups σε προγραμματισμό και στείλε τουλάχιστον ένα εκτός site.</strong> Ένα backup που υπάρχει μόνο στο flash του router χάνεται αν το flash χαλάσει — ακριβώς όταν το χρειάζεσαι περισσότερο. Το email είναι ο απλούστερος μηχανισμός εκτός site.</li>
+      <li><strong>Το Netinstall μπορεί να ανακτήσει οποιοδήποτε MikroTik που δεν είναι φυσικά κατεστραμμένο.</strong> Κράτα το Reset πριν το ρεύμα, σύνδεσε στο ether1, static IP <code>192.168.0.1</code> στο PC σου, απενεργοποίησε το WiFi. Όλη η διαδικασία παίρνει 15 λεπτά. Διάβασε τη διαδικασία πριν τη χρειαστείς, όχι κατά τη διάρκεια μιας διακοπής στις 02:00.</li>
+      <li><strong>Μετά το Netinstall, κάνε restore από <code>.rsc</code> όχι binary backup.</strong> Η φρέσκια έκδοση RouterOS μπορεί να διαφέρει από την έκδοση του backup. Το text export είναι πάντα ασφαλές να γίνει import ανεξάρτητα από έκδοση.</li>
+      <li><strong>Δοκίμασε τη διαδικασία restore σου κάθε χρόνο σε εφεδρική συσκευή ή CHR VM.</strong> Ένα backup που δεν έχει δοκιμαστεί ποτέ δεν είναι backup.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Τι γινεται οταν ο router σου απλα πεθαινει;</h3>
+    <p>Κάθε ακίνητο που διαχειρίζομαι παίρνει την ίδια πειθαρχία backup: νυχτερινά config exports με email εκτός site, binary backups σε τοπικό NAS, και ένα recovery kit Netinstall που κάθεται στο ίδιο το site για τη μέρα που ένας router απλά πεθαίνει.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

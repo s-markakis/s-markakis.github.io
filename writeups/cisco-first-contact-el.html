@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: First Contact — CLI, Modes & SSH — S. Markakis</title>
+<meta name="description" content="Η πρώτη σου ώρα σε ένα switch ή router Cisco — το IOS CLI από το μηδέν: πρόσβαση από console, τα τρία command modes, ασφαλείς show εντολές, βασικό setup, και ενεργοποίηση SSH.">
+<meta property="og:title" content="Cisco IOS: First Contact — S. Markakis">
+<meta property="og:description" content="Η πρώτη σου ώρα σε ένα switch ή router Cisco — το IOS CLI από το μηδέν: πρόσβαση από console, τα τρία command modes, ασφαλείς show εντολές, βασικό setup, και ενεργοποίηση SSH.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-first-contact-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-first-contact.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-first-contact.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-first-contact-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-first-contact.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-first-contact-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-first-contact.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  /* keyboard shortcut pills */
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  /* cheatsheet table */
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  /* safe badge */
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: First Contact",
+  "description": "Η πρώτη σου ώρα σε ένα switch ή router Cisco — το IOS CLI από το μηδέν: πρόσβαση από console, τα τρία command modes, ασφαλείς show εντολές, βασικό setup, και ενεργοποίηση SSH.",
+  "datePublished": "2026-07-06",
+  "dateModified": "2026-07-06",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-first-contact-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-first-contact.png",
+  "keywords": [
+    "cisco",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-first-contact"
+  },
+  "timeRequired": "PT17M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-first-contact.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Πρωτη Επαφη</h1>
+  <p class="post-subtitle">Η πρώτη σου ώρα σε ένα switch ή router Cisco. Δεν προϋποθέτουμε καμία προηγούμενη εμπειρία με IOS — ξεκινάμε από το καλώδιο console, μαθαίνουμε τα τρία command modes, τρέχουμε μόνο ασφαλείς εντολές μέχρι να νιώσεις σιγουριά, και μετά βάζουμε hostname, κωδικό, και πρόσβαση SSH από το μηδέν.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">CLI</span>
+    <span class="tag">Console</span>
+    <span class="tag">SSH</span>
+    <span class="tag">Catalyst</span>
+    <span class="tag">CCNA</span>
+    <span class="tag">Beginner</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: the mode ladder -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <defs><style>
+        .lbg{fill:#e1ded7}
+        .ll{font-family:'Inter',-apple-system,sans-serif;font-weight:700;font-size:11px;fill:#1a1a18}
+        .lm{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:12px;fill:#c63d1f;font-weight:500}
+        .ls{font-family:'Inter',-apple-system,sans-serif;font-size:9px;fill:#888880}
+      </style>
+        <marker id="lap" markerWidth="8" markerHeight="8" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#3a5a78"/></marker>
+      </defs>
+      <rect width="720" height="210" class="lbg"/>
+      <!-- rung 1: user EXEC -->
+      <rect x="60" y="24" width="380" height="34" fill="#d4d2cc" rx="4" stroke="#c8c5be" stroke-width="1"/>
+      <text x="76" y="46" class="lm">Switch&gt;</text>
+      <text x="150" y="46" class="ll">User EXEC</text>
+      <text x="150" y="46" class="ls" dx="72">κοίτα, μην αγγίζεις</text>
+      <text x="460" y="40" class="ls">μπες με:</text>
+      <text x="460" y="52" class="lm" style="font-size:11px;">(απλώς κάνε login)</text>
+      <line x1="250" y1="58" x2="250" y2="80" style="stroke:#3a5a78;stroke-width:1.4;marker-end:url(#lap)"/>
+      <text x="262" y="74" class="ls" style="fill:#3a5a78;">enable</text>
+      <!-- rung 2: privileged EXEC -->
+      <rect x="60" y="82" width="380" height="34" fill="#d4d2cc" rx="4" stroke="#c8c5be" stroke-width="1"/>
+      <text x="76" y="104" class="lm">Switch#</text>
+      <text x="150" y="104" class="ll">Privileged EXEC</text>
+      <text x="150" y="104" class="ls" dx="98">show / copy / reload</text>
+      <text x="460" y="98" class="ls">μπες με:</text>
+      <text x="460" y="110" class="lm" style="font-size:11px;">enable</text>
+      <line x1="250" y1="116" x2="250" y2="138" style="stroke:#3a5a78;stroke-width:1.4;marker-end:url(#lap)"/>
+      <text x="262" y="132" class="ls" style="fill:#3a5a78;">configure terminal</text>
+      <!-- rung 3: global config -->
+      <rect x="60" y="140" width="380" height="34" fill="#d4d2cc" rx="4" stroke="#c8c5be" stroke-width="1"/>
+      <text x="76" y="162" class="lm">Switch(config)#</text>
+      <text x="215" y="162" class="ll">Global Config</text>
+      <text x="215" y="162" class="ls" dx="86">άλλαξε τη συσκευή</text>
+      <text x="460" y="156" class="ls">μπες με:</text>
+      <text x="460" y="168" class="lm" style="font-size:11px;">configure terminal</text>
+      <!-- sub-modes note -->
+      <text x="76" y="196" class="ls">Τα sub-modes ξεκινούν από το Global Config: <tspan fill="#c63d1f" font-family="ui-monospace,monospace">Switch(config-if)#</tspan>, <tspan fill="#c63d1f" font-family="ui-monospace,monospace">(config-line)#</tspan>, <tspan fill="#c63d1f" font-family="ui-monospace,monospace">(config-vlan)#</tspan> …</text>
+      <text x="76" y="209" class="ls"><tspan fill="#3a5a78" font-weight="700">exit</tspan>  = ένα επίπεδο κάτω · <tspan fill="#3a5a78" font-weight="700">end</tspan> (or Ctrl+Z) = πήδα κατευθείαν πίσω στο Privileged EXEC</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Κάθε switch και router Cisco έρχεται με το ίδιο λειτουργικό γραμμής εντολών: το <strong>IOS</strong> (ή IOS-XE στον νεότερο εξοπλισμό — ίδιο CLI για ό,τι βλέπουμε σε αυτό το tutorial). Δεν υπάρχει Winbox, ούτε web wizard να βασιστείς. Το CLI <em>είναι</em> η συσκευή. Μάθε το μία φορά και ρυθμίζεις ένα Catalyst των 200 δολαρίων ή έναν core router των 20.000 με την ίδια muscle memory.</p>
+    <p>Αυτό το tutorial είναι για κάποιον που δεν έχει πληκτρολογήσει ποτέ εντολή σε συσκευή Cisco — φοιτητή CCNA, admin του MikroTik που περνάει απέναντι, ή τεχνικό που μόλις κληρονόμησε ένα rack από switch. Ξεκινάμε από το καλώδιο console, αφιερώνουμε πραγματικό χρόνο στα τρία command modes (αυτό που μπερδεύει τους πάντες στην αρχή), τρέχουμε μόνο read-only εντολές <code>show</code> μέχρι να εμπιστευτείς τον εαυτό σου, και κλείνουμε βάζοντας hostname, κωδικό, και λειτουργική πρόσβαση SSH. Στο τέλος θα μπορείς να ψαχουλεύεις με ασφάλεια οποιαδήποτε συσκευή Cisco σου δώσουν.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Ένα switch ή router Cisco (πραγματικό hardware, ή lab σε Packet Tracer / GNS3 / CML)</li>
+      <li>Ένα καλώδιο console (μπλε rollover, ή USB-to-console) και έναν terminal emulator — PuTTY, screen, ή minicom</li>
+      <li>Βοηθούν έννοιες επιπέδου CCNA — ξέρεις τι είναι μια IP διεύθυνση, ένα VLAN, ένα interface — αλλά δεν χρειάζεται εμπειρία CLI</li>
+      <li>Καμία φοβία μπροστά σε ένα κενό prompt <code>Switch&gt;</code>. Γι' αυτό είναι η ενότητα 01.</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Πως Μπαινεις — Το Console</h2>
+  <p class="section-thesis"><em>Μια ολοκαίνουργια συσκευή Cisco δεν έχει ούτε IP διεύθυνση ούτε SSH. Ο μόνος τρόπος να μπεις είναι η θύρα console — ένα φυσικό καλώδιο και ένας terminal emulator. Αυτό δεν αποτυγχάνει ποτέ, γι' αυτό είναι πάντα το fallback σου.</em></p>
+
+  <p>Το SSH και το Telnet θέλουν IP διεύθυνση και ρυθμίσεις που μια εργοστασιακά καθαρή συσκευή δεν έχει ακόμα. Η <strong>θύρα console</strong> είναι ο out-of-band τρόπος εισόδου: μια απευθείας σειριακή σύνδεση που δουλεύει πριν ρυθμιστεί ο,τιδήποτε, και εξακολουθεί να δουλεύει όταν έχεις κλειδωθεί έξω μέσω δικτύου. Κάθε σοβαρός τεχνικός Cisco κουβαλάει ένα καλώδιο console στην τσάντα του.</p>
+
+  <h3 class="sub">Συνδεσε το Καλωδιο</h3>
+  <p>Βάλε το καλώδιο rollover/USB-console στη θύρα με την ένδειξη <strong>CONSOLE</strong> πάνω στη συσκευή και στο laptop σου. Στον σύγχρονο εξοπλισμό είναι θύρα console USB-C ή mini-USB· στον παλιότερο είναι το ανοιχτογάλαζο RJ-45 rollover σε έναν USB-serial adapter. Το laptop σου το βλέπει ως σειριακή θύρα (COM).</p>
+
+  <div class="term-wrap">
+    <span class="term-label">Το laptop σου — ανοιξε το console (macOS / Linux)</span>
+    <pre class="term"><span class="cmt"># Βρες τη σειριακή συσκευή που εμφανίστηκε μόλις τη σύνδεσες</span>
+<span class="pc">user@laptop:~$</span> <span class="out">ls /dev/tty.* /dev/ttyUSB*   # macOS: tty.usbserial-XXXX · Linux: ttyUSB0</span>
+
+<span class="cmt"># Άνοιξέ την στα 9600 baud — το default του console της Cisco</span>
+<span class="pc">user@laptop:~$</span> <span class="out">screen /dev/tty.usbserial-A5069RR4 9600</span>
+<span class="cmt"># (παράδειγμα Linux:  screen /dev/ttyUSB0 9600  — ή χρησιμοποίησε minicom)</span>
+
+<span class="cmt"># Πάτα Enter δυο-τρεις φορές. Θα δεις να εμφανίζεται ένα prompt:</span>
+<span class="pc">Switch&gt;</span> <span class="key">▌</span>
+<span class="cmt"># Για να βγεις από το screen αργότερα:  Ctrl+A μετά \  (επιβεβαίωσε με y)</span></pre>
+  </div>
+
+  <p>Σε Windows, χρησιμοποίησε <strong>PuTTY</strong>: διάλεξε <em>Serial</em>, βάλε τη θύρα COM (δες στο Device Manager), και όρισε ταχύτητα <strong>9600</strong>. Οι ρυθμίσεις της γραμμής console είναι πάντα ίδιες στον εξοπλισμό Cisco:</p>
+
+  <table class="cheat">
+    <thead><tr><th>Ρυθμιση</th><th>Τιμη</th></tr></thead>
+    <tbody>
+      <tr><td>Speed (baud)</td><td>9600</td></tr>
+      <tr><td>Data bits</td><td>8</td></tr>
+      <tr><td>Parity</td><td>None</td></tr>
+      <tr><td>Stop bits</td><td>1</td></tr>
+      <tr><td>Flow control</td><td>None</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Μαυρη Οθονη Μετα τη Συνδεση</span>
+    <p>Ένα μαύρο console που δεν αποκρίνεται είναι σχεδόν πάντα ένα από τρία πράγματα: <strong>(1)</strong> λάθος baud rate — πρέπει να είναι 9600 (λίγες συσκευές έρχονται στα 115200· δοκίμασέ το αν στα 9600 είναι σιωπηλό)· <strong>(2)</strong> flow control σε κάτι άλλο από <code>None</code>, που παγώνει την είσοδο· ή <strong>(3)</strong> λάθος συσκευή COM/tty. Πάτα <kbd>Enter</kbd> μερικές φορές — αν η συσκευή κάνει boot θα δεις μηνύματα εκκίνησης, και το prompt εμφανίζεται μόλις τελειώσει. Δεν είναι χαλασμένο· περιμένει.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Τα Τρια Modes</h2>
+  <p class="section-thesis"><em>Αυτή είναι η μία έννοια που μπερδεύει κάθε αρχάριο. Το IOS έχει ξεχωριστά modes, και το τι επιτρέπεται να πληκτρολογήσεις εξαρτάται εξ ολοκλήρου από το σε ποιο βρίσκεσαι. Διάβασε το prompt — σου λέει πού είσαι.</em></p>
+
+  <p>Η στίξη του prompt δεν είναι διακόσμηση. Ο χαρακτήρας μετά το hostname σου λέει το mode σου, άρα και το επίπεδο δύναμής σου. Μάθε να τον διαβάζεις πριν πληκτρολογήσεις ο,τιδήποτε.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ανατομια του prompt, απο το λιγοτερο στο πιο ισχυρο</span>
+    <pre class="term"><span class="pc">Switch&gt;</span>
+<span class="cmt"> │     └─ ">"  User EXEC mode — μόνο κοίταγμα. Μια χούφτα αβλαβείς εντολές.</span>
+<span class="cmt"> └─────── hostname (default "Switch" σε switch, "Router" σε router)</span>
+
+<span class="pc">Switch#</span>
+<span class="cmt">       └─ "#"  Privileged EXEC — πλήρης πρόσβαση ανάγνωσης: show, copy, reload, debug.</span>
+
+<span class="pc">Switch(config)#</span>
+<span class="cmt">             └─ "(config)#"  Global Config — εδώ ΑΛΛΑΖΕΙΣ πράγματα.</span>
+
+<span class="pc">Switch(config-if)#</span>
+<span class="cmt">                 └─ ένα sub-mode — ρυθμίζεις τώρα ένα interface.</span></pre>
+  </div>
+
+  <h3 class="sub">Μετακινηση Αναμεσα στα Modes</h3>
+  <p>Ανεβαίνεις με <code>enable</code> και <code>configure terminal</code>, και κατεβαίνεις με <code>exit</code>, <code>end</code>, ή <kbd>Ctrl</kbd>+<kbd>Z</kbd>.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ανεβαινοντας και κατεβαινοντας τα modes</span>
+    <pre class="term"><span class="cmt"># Ξεκίνα στο User EXEC (το ">"). Ανέβα στο Privileged EXEC:</span>
+<span class="pc">Switch&gt;</span> <span class="out">enable</span>
+<span class="pc">Switch#</span> <span class="cmt">← το "#" σημαίνει ότι τώρα έχεις πλήρη προνόμια</span>
+
+<span class="cmt"># Μπες στο Global Config για να αλλάξεις τη συσκευή:</span>
+<span class="pc">Switch#</span> <span class="out">configure terminal</span>
+<span class="out">Enter configuration commands, one per line. End with CNTL/Z.</span>
+<span class="pc">Switch(config)#</span>
+
+<span class="cmt"># Μπες σε ένα sub-mode (εδώ: ένα interface):</span>
+<span class="pc">Switch(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">Switch(config-if)#</span>
+
+<span class="cmt"># το "exit" κατεβαίνει ΕΝΑ επίπεδο:</span>
+<span class="pc">Switch(config-if)#</span> <span class="out">exit</span>
+<span class="pc">Switch(config)#</span>
+
+<span class="cmt"># το "end" (ή Ctrl+Z) πηδά ΤΕΛΕΙΩΣ πίσω στο Privileged EXEC:</span>
+<span class="pc">Switch(config)#</span> <span class="out">end</span>
+<span class="pc">Switch#</span>
+
+<span class="cmt"># το "disable" σε ρίχνει από το Privileged πίσω στο σκέτο User EXEC:</span>
+<span class="pc">Switch#</span> <span class="out">disable</span>
+<span class="pc">Switch&gt;</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το "Invalid input" Συνηθως Σημαινει Λαθος Mode</span>
+    <p>Αν το IOS απορρίψει μια εντολή με <code>% Invalid input detected at '^' marker</code>, εννιά στις δέκα είσαι σε λάθος mode — δοκίμασες εντολή <code>show</code> μέσα σε <code>(config)#</code>, ή εντολή config από <code>Switch&gt;</code>. Δες το prompt. Για να τρέξεις μια show χωρίς να βγεις από το config mode, βάλε μπροστά της <code>do</code> (δες το pro tip στην ενότητα 04). Αν αντί γι' αυτό δεις <code>% Incomplete command</code>, το syntax είναι σωστό αλλά σου λείπει ένα όρισμα — πάτα <kbd>?</kbd> για να δεις τι περιμένει.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Οι Καλυτεροι σου Φιλοι: ? και Tab</h2>
+  <p class="section-thesis"><em>Δεν αποστηθίζεις τις εντολές του IOS. Τις ανακαλύπτεις. Το πλήκτρο "?" σου δείχνει τι είναι διαθέσιμο σε κάθε σημείο, το Tab συμπληρώνει αυτό που ξεκίνησες, και το IOS δέχεται κάθε μονοσήμαντη συντόμευση.</em></p>
+
+  <h3 class="sub">? — Βοηθεια Αναλογα με το Πλαισιο</h3>
+  <p>Πληκτρολόγησε <code>?</code> οπουδήποτε — μόνο του, μετά από μια λέξη, ή κολλητά σε μια μισοπληκτρολογημένη λέξη — και το IOS σου λέει τι ισχύει σε εκείνο ακριβώς το σημείο.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — το ? σε διαφορετικα σημεια</span>
+    <pre class="term"><span class="cmt"># "?" μόνο του — κάθε εντολή διαθέσιμη σε αυτό το mode</span>
+<span class="pc">Switch#</span> <span class="out">?</span>
+<span class="out">  configure    Enter configuration mode
+  copy         Copy from one file to another
+  ping         Send echo messages
+  reload       Halt and perform a cold restart
+  show         Show running system information
+  ...</span>
+
+<span class="cmt"># Μια λέξη + " ?" — τι μπορεί να ακολουθήσει αυτή την εντολή</span>
+<span class="pc">Switch#</span> <span class="out">show ?</span>
+<span class="out">  interfaces   Interface status and configuration
+  ip           IP information
+  running-config  Current operating configuration
+  version      System hardware and software status
+  vlan         VLAN information
+  ...</span>
+
+<span class="cmt"># "?" κολλητά σε μισή λέξη — πώς τελειώνει αυτή η εντολή;</span>
+<span class="pc">Switch#</span> <span class="out">show ver?</span>
+<span class="out">version</span></pre>
+  </div>
+
+  <h3 class="sub">Tab — Συμπληρωσε το · Συντομευση — Παρ' το Παρακατω</h3>
+  <p>Πάτα <kbd>Tab</kbd> για να επεκτείνεις μια μισή λέξη-κλειδί στην πλήρη της μορφή. Ακόμα καλύτερα: δεν χρειάζεται. Το IOS τρέχει <em>οποιαδήποτε</em> συντόμευση είναι μονοσήμαντη — το <code>sh ip int br</code> είναι το ίδιο με το <code>show ip interface brief</code>. Οι έμπειροι operators ζουν με τις συντομεύσεις.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — Tab completion και συντομευση</span>
+    <pre class="term"><span class="cmt"># Το Tab επεκτείνει μια μισή λέξη-κλειδί</span>
+<span class="pc">Switch#</span> <span class="out">conf</span><span class="key">[Tab]</span>
+<span class="pc">Switch#</span> <span class="out">configure</span>
+
+<span class="cmt"># Αυτές οι τέσσερις γραμμές είναι ΟΛΟΙΔΙΕΣ για το IOS — η συντόμευση απλώς δουλεύει:</span>
+<span class="pc">Switch#</span> <span class="out">show ip interface brief</span>
+<span class="pc">Switch#</span> <span class="out">sh ip int brief</span>
+<span class="pc">Switch#</span> <span class="out">sh ip int br</span>
+<span class="pc">Switch#</span> <span class="out">sho ip in b</span>
+
+<span class="cmt"># Ο μόνος κανόνας: η συντόμευση πρέπει να είναι μονοσήμαντη. Το "sh c" αποτυγχάνει
+# επειδή "clock", "cdp" και άλλα ξεκινούν όλα από c:</span>
+<span class="pc">Switch#</span> <span class="out">sh c</span>
+<span class="out">% Ambiguous command:  "sh c"</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Το ↑ Επαναφερει, και το CLI Δεν σε Κρινει Ποτε</span>
+    <p>Πάτα <kbd>↑</kbd> για να γυρίσεις πίσω στις εντολές που έχεις ήδη πληκτρολογήσει — διόρθωσε και ξανατρέξε αντί να πληκτρολογείς ξανά. Συνδύασε τα τρία εργαλεία σαν workflow: γράψε δυο-τρία γράμματα, πάτα <kbd>?</kbd> για να δεις τις επιλογές σου, <kbd>Tab</kbd> για να συμπληρώσεις, <kbd>↑</kbd> για να επαναλάβεις. Δεν χρειάζεται ποτέ να γράψεις ολόκληρη εντολή από μνήμης, και το να διαβάσεις πρώτα το <code>?</code> σημαίνει ότι καταλαβαίνεις μια εντολή <em>πριν</em> την τρέξεις.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Ασφαλεις Show Εντολες <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Ξεκίνα κάθε session από εδώ. Κάθε εντολή "show" είναι read-only — δείχνει κατάσταση και δεν αλλάζει τίποτα. Τρέξ' τες ελεύθερα σε οποιαδήποτε ζωντανή συσκευή για να καταλάβεις τι βλέπεις πριν αγγίξεις ο,τιδήποτε.</em></p>
+
+  <p>Πριν αλλάξεις ο,τιδήποτε, φτιάξε μια εικόνα της συσκευής. Αυτές είναι οι εντολές που θα πληκτρολογείς εκατοντάδες φορές την εβδομάδα. Όλες είναι ασφαλείς σε εξοπλισμό production.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — οι βασικες read-only show εντολες</span>
+    <pre class="term"><span class="cmt"># Μοντέλο, έκδοση IOS, uptime, serial number — ξεκίνα πάντα από εδώ</span>
+<span class="pc">Switch#</span> <span class="out">show version</span>
+<span class="out">Cisco IOS Software, C2960X Software, Version 15.2(7)E3
+System uptime is 27 weeks, 4 days, 4 hours, 11 minutes
+Model number      : WS-C2960X-24TS-L
+System serial number : FOC2145X0AB</span>
+
+<span class="cmt"># Η πιο χρήσιμη εντολή απ' όλες: κάθε interface, το IP του, και το status του</span>
+<span class="pc">Switch#</span> <span class="out">show ip interface brief</span>
+<span class="out">Interface        IP-Address    OK?  Method  Status   Protocol
+Vlan1            192.168.1.10  YES  manual  up       up
+GigabitEthernet0/1  unassigned  YES  unset   up       up
+GigabitEthernet0/2  unassigned  YES  unset   down     down</span>
+
+<span class="cmt"># Όψη φυσικών θυρών: speed, duplex, και σε ποιο VLAN είναι κάθε access port</span>
+<span class="pc">Switch#</span> <span class="out">show interfaces status</span>
+<span class="out">Port    Name    Status       Vlan   Duplex  Speed Type
+Gi0/1           connected    10     a-full  a-1000 10/100/1000BaseTX
+Gi0/2           notconnect   1      auto    auto   10/100/1000BaseTX</span>
+
+<span class="cmt"># VLAN και ποιες θύρες ανήκουν στο καθένα (μόνο switch)</span>
+<span class="pc">Switch#</span> <span class="out">show vlan brief</span>
+
+<span class="cmt"># Ο πίνακας MAC — ποια συσκευή μαθαίνεται σε ποια θύρα</span>
+<span class="pc">Switch#</span> <span class="out">show mac address-table</span>
+
+<span class="cmt"># Ο πίνακας δρομολόγησης (routers, και switch που κάνουν L3)</span>
+<span class="pc">Switch#</span> <span class="out">show ip route</span>
+
+<span class="cmt"># Απευθείας συνδεδεμένοι γείτονες Cisco — ιδανικό για χαρτογράφηση ενός rack</span>
+<span class="pc">Switch#</span> <span class="out">show cdp neighbors</span>
+
+<span class="cmt"># Ολόκληρο το running configuration — ό,τι κάνει η συσκευή αυτή τη στιγμή</span>
+<span class="pc">Switch#</span> <span class="out">show running-config</span></pre>
+  </div>
+
+  <h3 class="sub">Φιλτραρισμα Μεγαλου Output</h3>
+  <p>Το <code>show running-config</code> μπορεί να είναι εκατοντάδες γραμμές. Πέρασέ το μέσα από <code>include</code>, <code>section</code>, ή <code>begin</code> για να το κόψεις — το αντίστοιχο του grep.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — το pipe του output (| include / section / begin)</span>
+    <pre class="term"><span class="cmt"># Μόνο οι γραμμές που περιέχουν "ip address"</span>
+<span class="pc">Switch#</span> <span class="out">show running-config | include ip address</span>
+
+<span class="cmt"># Ολόκληρο το block config για ένα interface</span>
+<span class="pc">Switch#</span> <span class="out">show running-config | section interface GigabitEthernet0/1</span>
+
+<span class="cmt"># Ξεκίνα το output από την πρώτη γραμμή που ταιριάζει, μετά δείξε τα υπόλοιπα</span>
+<span class="pc">Switch#</span> <span class="out">show running-config | begin line vty</span>
+
+<span class="cmt"># Δουλεύει και σε κάθε show εντολή — π.χ. μόνο τα "up" interfaces</span>
+<span class="pc">Switch#</span> <span class="out">show ip interface brief | include up</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Τρεξε μια show Χωρις να Βγεις απο το Config Mode</span>
+    <p>Βαθιά μέσα στο <code>(config-if)#</code> και θέλεις να ελέγξεις κάτι; Δεν χρειάζεται να κάνεις <code>end</code> και να ξαναγυρίσεις. Βάλε μπροστά σε κάθε privileged εντολή το <code>do</code>: το <code>do show ip interface brief</code> την τρέχει εκεί ακριβώς και σε αφήνει ξανά στο ίδιο σημείο. Αυτή η μία λέξη σου γλιτώνει τεράστιο mode-hopping.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Το Πρωτο σου Πραγματικο Config <span class="danger-badge">Αλλαζει το Config</span></h2>
+  <p class="section-thesis"><em>Τώρα αλλάζουμε πράγματα. Ένα hostname, ένα login banner, και κωδικοί — το ελάχιστο που πρέπει να έχει κάθε συσκευή πριν μπει σε rack. Όλα αυτά γίνονται στο Global Config.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — hostname, διορθωση DNS-lookup, και banner</span>
+    <pre class="term"><span class="pc">Switch#</span> <span class="out">configure terminal</span>
+<span class="pc">Switch(config)#</span> <span class="out">hostname ACCESS-SW1</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="cmt">← το prompt ενημερώνεται ακαριαία</span>
+
+<span class="cmt"># Σταμάτα το IOS από το να κάνει DNS-resolve τα typo σου (αλλιώς κολλάει 30 δευτ.)</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">no ip domain-lookup</span>
+
+<span class="cmt"># Ένα νομικό banner που εμφανίζεται στο login (οι χαρακτήρες ^ οριοθετούν το κείμενο)</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">banner motd ^Authorised access only. Managed device.^</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — enable password vs enable secret</span>
+    <p>Υπάρχουν δύο εντολές για να προστατέψεις το Privileged EXEC mode. Το <code>enable password</code> αποθηκεύει τον κωδικό σε <strong>καθαρό κείμενο</strong> (ή εύκολα αναστρέψιμο). Το <code>enable secret</code> αποθηκεύει ένα κανονικό hash. <strong>Χρησιμοποίησε πάντα <code>enable secret</code></strong>, και μην ασχοληθείς καθόλου με το <code>enable password</code> — αν είναι ορισμένα και τα δύο, κερδίζει το <code>secret</code> και το <code>password</code> μένει απλώς σαν ευθύνη μέσα στο config σου.</p>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — κωδικοι: enable secret, console, και VTY lines</span>
+    <pre class="term"><span class="cmt"># Προστάτεψε το Privileged EXEC με ένα hashed secret</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">enable secret S0meStr0ng!Pass</span>
+
+<span class="cmt"># Κωδικός στη γραμμή console (φυσική πρόσβαση)</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">line console 0</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">password C0ns0le!Pass</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">login</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">exec-timeout 10 0</span>   <span class="cmt"># auto-logout μετά από 10 λεπτά αδράνειας</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Κωδικός στις γραμμές VTY (απομακρυσμένα Telnet/SSH sessions — 0 έως 4 = 5 γραμμές)</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">line vty 0 4</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">password Vty!Pass</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">login</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Κρυπτογράφησε τους καθαρού-κειμένου κωδικούς μέσα στο config (αδύναμο, αλλά γιατί όχι)</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">service password-encryption</span></pre>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Ενεργοποιηση SSH — Ο Συγχρονος Τροπος</h2>
+  <p class="section-thesis"><em>Το Telnet στέλνει τον κωδικό σου στο καλώδιο σε καθαρό κείμενο. Μην το χρησιμοποιείς ποτέ. Ορίστε η πλήρης συνταγή για να φτάσεις τη συσκευή με ασφάλεια μέσω δικτύου — πέντε υλικά, με τη σειρά.</em></p>
+
+  <p>Το SSH θέλει τέσσερα πράγματα πριν δουλέψει: hostname (έγινε), ένα domain name, RSA crypto keys, και έναν τοπικό λογαριασμό χρήστη. Μετά στρέφεις τις γραμμές VTY μόνο σε SSH και κάνεις login με αυτόν τον λογαριασμό.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ενεργοποιηση SSH απο το μηδεν</span>
+    <pre class="term"><span class="pc">ACCESS-SW1(config)#</span> <span class="cmt"># 1. Χρειάζεται domain name για να παραχθούν τα keys</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">ip domain-name lab.lan</span>
+
+<span class="cmt"># 2. Παρήγαγε το RSA key pair. Τα 2048 bits είναι το λογικό ελάχιστο.</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">crypto key generate rsa modulus 2048</span>
+<span class="out">The name for the keys will be: ACCESS-SW1.lab.lan
+% Generating 2048 bit RSA keys, keys will be non-exportable...[OK]</span>
+
+<span class="cmt"># 3. Ένα τοπικό username με hashed secret (privilege 15 = πλήρης πρόσβαση στο login)</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">username admin privilege 15 secret Adm1n!Str0ng</span>
+
+<span class="cmt"># 4. Επίβαλε SSH v2 και απόρριψε την παλιότερη, πιο αδύναμη v1</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">ip ssh version 2</span>
+
+<span class="cmt"># 5. Στρέψε τις γραμμές VTY μόνο σε SSH, και κάνε authenticate με τους τοπικούς χρήστες</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">line vty 0 4</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">transport input ssh</span>   <span class="cmt"># μόνο SSH — το Telnet τώρα απορρίπτεται</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">login local</span>          <span class="cmt"># χρησιμοποίησε τον λογαριασμό "admin" παραπάνω</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <p>Χρειάζεσαι επίσης ένα management IP ώστε η συσκευή να είναι προσβάσιμη. Σε ένα switch, αυτό είναι ένα IP σε ένα VLAN interface συν ένα default gateway:</p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ενα management IP σε switch (SVI)</span>
+    <pre class="term"><span class="pc">ACCESS-SW1(config)#</span> <span class="out">interface vlan 1</span>
+<span class="pc">ACCESS-SW1(config-if)#</span> <span class="out">ip address 192.168.1.10 255.255.255.0</span>
+<span class="pc">ACCESS-SW1(config-if)#</span> <span class="out">no shutdown</span>
+<span class="pc">ACCESS-SW1(config-if)#</span> <span class="out">exit</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">ip default-gateway 192.168.1.1</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">Το laptop σου — δοκιμασε το login μεσω SSH</span>
+    <pre class="term"><span class="pc">user@laptop:~$</span> <span class="out">ssh admin@192.168.1.10</span>
+<span class="out">Password: </span>
+<span class="cmt"># δεν εμφανίζεται τίποτα καθώς πληκτρολογείς — φυσιολογικό</span>
+<span class="pc">ACCESS-SW1#</span> <span class="cmt">← μπήκες μέσω SSH, κατευθείαν στο Privileged EXEC (privilege 15)</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το SSH Εξακολουθει να Αρνειται τη Συνδεση</span>
+    <p>Τρεις συνήθεις ύποπτοι: <strong>(1)</strong> δεν παρήχθησαν keys — το <code>show ip ssh</code> πρέπει να δείχνει SSH enabled και version 2.0· <strong>(2)</strong> έβαλες <code>login local</code> αλλά δεν έφτιαξες ποτέ <code>username</code>, οπότε δεν υπάρχει λογαριασμός για login — θα κλειδωθείς έξω μέσω δικτύου (μπες από console και διόρθωσέ το)· <strong>(3)</strong> καμία IP προσβασιμότητα — επιβεβαίωσε ότι το SVI είναι <code>up/up</code> και ότι κάνεις <code>ping</code> τη συσκευή πρώτα. Ακριβώς γι' αυτό κρατάς το καλώδιο console κοντά σου.</p>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">Αποθηκευση: running-config vs startup-config</h2>
+  <p class="section-thesis"><em>Το πιο ακριβό λάθος αρχάριου στον εξοπλισμό Cisco. Οι αλλαγές σου είναι ζωντανές τη στιγμή που τις πληκτρολογείς — αλλά δεν είναι αποθηκευμένες. Μια διακοπή ρεύματος και χάθηκαν όλες. Κατάλαβε αυτά τα δύο αρχεία.</em></p>
+
+  <p>Το IOS κρατάει δύο configurations. Ό,τι μόλις πληκτρολόγησες πήγε στο <strong>running-config</strong> — το ζωντανό config στη RAM, ενεργό αμέσως. Η συσκευή κάνει boot από το <strong>startup-config</strong> στη NVRAM. Αν δεν αντιγράψεις το ένα στο άλλο, ένα reboot αναιρεί κάθε αλλαγή που έκανες.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="sap" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="150" fill="#e1ded7"/>
+      <!-- running -->
+      <rect x="60" y="40" width="230" height="66" fill="#d4d2cc" rx="6" stroke="#c8c5be"/>
+      <text x="175" y="66" style="font-family:ui-monospace,monospace;font-size:13px;fill:#c63d1f;font-weight:600;text-anchor:middle;">running-config</text>
+      <text x="175" y="84" style="font-family:'Inter',sans-serif;font-size:10px;fill:#555550;text-anchor:middle;">RAM · ζωντανό τώρα</text>
+      <text x="175" y="97" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">χάνεται στο reboot</text>
+      <!-- startup -->
+      <rect x="430" y="40" width="230" height="66" fill="#d4d2cc" rx="6" stroke="#c8c5be"/>
+      <text x="545" y="66" style="font-family:ui-monospace,monospace;font-size:13px;fill:#3a5a78;font-weight:600;text-anchor:middle;">startup-config</text>
+      <text x="545" y="84" style="font-family:'Inter',sans-serif;font-size:10px;fill:#555550;text-anchor:middle;">NVRAM · επιβιώνει το reboot</text>
+      <text x="545" y="97" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">φορτώνεται στο boot</text>
+      <!-- arrow -->
+      <line x1="292" y1="73" x2="426" y2="73" style="stroke:#c63d1f;stroke-width:1.6;marker-end:url(#sap)"/>
+      <text x="359" y="64" style="font-family:ui-monospace,monospace;font-size:10px;fill:#c63d1f;text-anchor:middle;font-weight:600;">copy run start</text>
+      <text x="359" y="120" style="font-family:'Inter',sans-serif;font-size:10px;fill:#888880;text-anchor:middle;">Οι αλλαγές ζουν στη RAM μόλις τις πληκτρολογήσεις. Αυτή η αντιγραφή είναι το μόνο που τις κάνει μόνιμες.</text>
+    </svg>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — αποθηκευσε τη δουλεια σου (καν' το συνεχεια)</span>
+    <pre class="term"><span class="cmt"># Η πλήρης εντολή — αντίγραψε το running-config στο startup-config</span>
+<span class="pc">ACCESS-SW1#</span> <span class="out">copy running-config startup-config</span>
+<span class="out">Destination filename [startup-config]? </span><span class="cmt">← απλώς πάτα Enter</span>
+<span class="out">Building configuration...
+[OK]</span>
+
+<span class="cmt"># Η παλιακή συντόμευση που όλοι πληκτρολογούν στην πράξη — το ίδιο πράγμα:</span>
+<span class="pc">ACCESS-SW1#</span> <span class="out">write memory</span>
+<span class="cmt"># ή ακόμα πιο σύντομα:  wr</span>
+
+<span class="cmt"># Δες τι είναι αποθηκευμένο vs τι είναι ζωντανό (αυτό το diff πρέπει να είναι κενό μετά το save)</span>
+<span class="pc">ACCESS-SW1#</span> <span class="out">show startup-config</span>
+<span class="pc">ACCESS-SW1#</span> <span class="out">show running-config</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — «Χθες Δουλευε, Τωρα Χαθηκε»</span>
+    <p>Ρύθμισες ένα switch, το δοκίμασες, όλα δούλευαν — και μετά από βδομάδες ένα τρεμόπαιγμα του ρεύματος το έκανε reboot και το μισό config εξαφανίστηκε. Αυτό είναι ένα μη αποθηκευμένο <code>running-config</code>. Φτιάξε τη συνήθεια: <strong>μετά από κάθε αλλαγή που δουλεύει, γράψε <code>wr</code></strong>. Από την άλλη, αυτή η συμπεριφορά είναι ένα <em>δίχτυ ασφαλείας</em> — αν χαλάσεις κάτι άσχημα και δεν έχεις αποθηκεύσει, ένα <code>reload</code> (χωρίς save) σε γυρίζει στο τελευταίο καλό startup-config. Απλώς μην κάνεις ποτέ <code>reload</code> μια συσκευή που δεν φτάνεις φυσικά, χωρίς να είσαι σίγουρος για το τι έχει στο startup.</p>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num">08</p>
+  <h2 class="section-title">Cheatsheets</h2>
+  <p class="section-thesis"><em>Οι εντολές και τα πλήκτρα που θα πιάνεις καθημερινά. Αποστήθισε τις πρώτες γραμμές· τις υπόλοιπες θα τις αφομοιώσεις χρησιμοποιώντας τες.</em></p>
+
+  <h3 class="sub">Καθημερινες Εντολες</h3>
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Τι κανει</th></tr></thead>
+    <tbody>
+      <tr><td>enable</td><td>User EXEC → Privileged EXEC (το prompt "#").</td></tr>
+      <tr><td>configure terminal</td><td>Privileged EXEC → Global Config. Συντόμευση: <code>conf t</code>.</td></tr>
+      <tr><td>end</td><td>Πήδα από κάθε config sub-mode κατευθείαν πίσω στο Privileged EXEC.</td></tr>
+      <tr><td>show ip interface brief</td><td>Κάθε interface, το IP του, και status up/down. Το άλογο της δουλειάς.</td></tr>
+      <tr><td>show running-config</td><td>Ολόκληρο το ζωντανό config. Πέρασέ το με <code>| include</code> ή <code>| section</code>.</td></tr>
+      <tr><td>show version</td><td>Μοντέλο, έκδοση IOS, uptime, serial number.</td></tr>
+      <tr><td>show vlan brief</td><td>VLAN και οι θύρες-μέλη τους (switch).</td></tr>
+      <tr><td>copy run start</td><td>Αποθήκευσε το running-config στο startup-config. Ή <code>wr</code>.</td></tr>
+      <tr><td>do &lt;show ...&gt;</td><td>Τρέξε μια Privileged εντολή μέσα από το config mode.</td></tr>
+      <tr><td>reload</td><td>Κάνε reboot τη συσκευή. Ρωτάει να αποθηκεύσεις πρώτα.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">Συντομευσεις Πληκτρολογιου</h3>
+  <table class="cheat">
+    <thead><tr><th>Πληκτρο</th><th>Τι κανει</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>?</kbd></td><td>Βοήθεια πλαισίου — λίστα έγκυρων εντολών ή επιλογών στον cursor.</td></tr>
+      <tr><td><kbd>Tab</kbd></td><td>Συμπλήρωσε την τρέχουσα λέξη-κλειδί.</td></tr>
+      <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Κύλησε στο ιστορικό εντολών.</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Ίδιο με το <code>end</code> — έξοδος από config mode στο Privileged EXEC.</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Ακύρωσε την τρέχουσα εντολή / βγες από μία που τρέχει.</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd></td><td>Βγες από ένα κολλημένο ping/traceroute/DNS lookup.</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>Πήδα στην αρχή / στο τέλος της γραμμής.</td></tr>
+      <tr><td><kbd>Space</kbd> / <kbd>Enter</kbd></td><td>Σε ένα prompt <code>--More--</code>: επόμενη σελίδα / επόμενη γραμμή.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 09 -->
+  <p class="section-num">09</p>
+  <h2 class="section-title">Ενα Πληρες Workflow — Απο την Αρχη ως το Τελος</h2>
+  <p class="section-thesis"><em>Όλα τα παραπάνω, με τη σειρά που θα τα έκανες στην πράξη: μπες από console σε ένα εργοστασιακά καθαρό switch και άφησέ το με όνομα, ασφαλισμένο, προσβάσιμο μέσω SSH, και αποθηκευμένο.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — απο το κουτι σε ετοιμο για production</span>
+    <pre class="term"><span class="cmt"># Μπες από console, παράλειψε το setup wizard αν σε ρωτήσει (απάντησε "no"), μετά:</span>
+<span class="pc">Switch&gt;</span> <span class="out">enable</span>
+<span class="pc">Switch#</span> <span class="out">configure terminal</span>
+
+<span class="cmt"># Ταυτότητα + ευκολίες</span>
+<span class="pc">Switch(config)#</span> <span class="out">hostname ACCESS-SW1</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">no ip domain-lookup</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">banner motd ^Authorised access only.^</span>
+
+<span class="cmt"># Κωδικοί</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">enable secret S0meStr0ng!Pass</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">service password-encryption</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">line console 0</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">password C0ns0le!Pass</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">login</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">exec-timeout 10 0</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Management IP + gateway</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">interface vlan 1</span>
+<span class="pc">ACCESS-SW1(config-if)#</span> <span class="out">ip address 192.168.1.10 255.255.255.0</span>
+<span class="pc">ACCESS-SW1(config-if)#</span> <span class="out">no shutdown</span>
+<span class="pc">ACCESS-SW1(config-if)#</span> <span class="out">exit</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">ip default-gateway 192.168.1.1</span>
+
+<span class="cmt"># SSH</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">ip domain-name lab.lan</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">crypto key generate rsa modulus 2048</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">username admin privilege 15 secret Adm1n!Str0ng</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">ip ssh version 2</span>
+<span class="pc">ACCESS-SW1(config)#</span> <span class="out">line vty 0 4</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">transport input ssh</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">login local</span>
+<span class="pc">ACCESS-SW1(config-line)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επαλήθευσε, μετά SAVE — το βήμα που ξεχνούν όλοι</span>
+<span class="pc">ACCESS-SW1#</span> <span class="out">show ip interface brief</span>
+<span class="pc">ACCESS-SW1#</span> <span class="out">write memory</span>
+<span class="out">Building configuration...
+[OK]</span></pre>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Διάβασε το prompt πριν πληκτρολογήσεις.</strong> Το <code>&gt;</code> είναι μόνο κοίταγμα, το <code>#</code> πλήρης πρόσβαση, το <code>(config)#</code> αλλάζει τη συσκευή. Σχεδόν κάθε "Invalid input" που τρώει ένας αρχάριος είναι στην ουσία λάθος-mode.</li>
+      <li><strong>Το καλώδιο console είναι το αλεξίπτωτό σου.</strong> Δουλεύει πριν υπάρξει κανένα config και αφού έχεις κλειδωθεί έξω μέσω δικτύου. Κράτα ένα στην τσάντα σου· κάθε συνταγή απομακρυσμένης διαχείρισης υποθέτει ότι μπορείς να πέσεις πίσω σ' αυτό.</li>
+      <li><strong>Το ? και το Tab σημαίνουν ότι δεν αποστηθίζεις ποτέ εντολές.</strong> Ανακάλυψέ τες στο prompt. Και συντόμευε ελεύθερα — το <code>sh ip int br</code> είναι υπαρκτό, γρήγορο, και ακριβώς ίσο με την πλήρη εντολή.</li>
+      <li><strong>Ξεκίνα κάθε session με <code>show</code>.</strong> Οι read-only εντολές δεν αλλάζουν τίποτα. Φτιάξε μια εικόνα της συσκευής πριν την αγγίξεις, και χρησιμοποίησε <code>| include</code> / <code>| section</code> για να κόψεις το μεγάλο output.</li>
+      <li><strong>Χρησιμοποίησε <code>enable secret</code>, ποτέ <code>enable password</code>· χρησιμοποίησε SSH, ποτέ Telnet.</strong> Οι ανασφαλείς επιλογές υπάρχουν μόνο για συμβατότητα με τα παλιά. Δεν υπάρχει λόγος να τις διαλέξεις σε ο,τιδήποτε βάζεις σε παραγωγή.</li>
+      <li><strong>Οι αλλαγές είναι ζωντανές αλλά όχι αποθηκευμένες.</strong> Το <code>running-config</code> είναι RAM· το <code>startup-config</code> είναι αυτό που κάνει boot. Μετά από ο,τιδήποτε δουλεύει, γράψε <code>wr</code>. Η μία φορά που θα το παραλείψεις είναι η φορά που μια διακοπή ρεύματος σβήνει ένα απόγευμα δουλειάς.</li>
+      <li><strong>Το ίδιο CLI τρέχει τα πάντα.</strong> Ένα access switch των 200 δολαρίων και ένας core router μιλούν το ίδιο IOS. Η muscle memory που χτίζεις σε αυτή την πρώτη ώρα κλιμακώνεται σε κάθε συσκευή Cisco που θα αγγίξεις ποτέ.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Στηνεις switch Cisco για γραφειο, ξενοδοχειο ή SMB στην Κρητη;</h3>
+    <p>Είτε πρόκειται για ένα access switch είτε για ένα site με πολλά VLAN, το ρυθμίζω και το τεκμηριώνω με τον ίδιο τρόπο &mdash; καθαρά, σχολιασμένα configs που η ομάδα σου μπορεί όντως να διαβάσει μετά, όχι ένα μαύρο κουτί που το καταλαβαίνω μόνο εγώ.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

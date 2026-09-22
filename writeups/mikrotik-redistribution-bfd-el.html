@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: Route Redistribution & BFD — S. Markakis</title>
+<meta name="description" content="Redistribution σε RouterOS 7 μέσω του μοντέλου filter-chain — toggle ανά πρωτόκολλο συν μια υποχρεωτική output chain, αποτροπή βρόχων tag-and-reject, administrative distance, και BFD εξαρτημένο από έκδοση για γρήγορο, σταθερό failover.">
+<meta property="og:title" content="MikroTik: Route Redistribution &amp; BFD — S. Markakis">
+<meta property="og:description" content="Redistribution σε RouterOS 7 μέσω του μοντέλου filter-chain — toggle ανά πρωτόκολλο συν μια υποχρεωτική output chain, αποτροπή βρόχων tag-and-reject, administrative distance, και BFD εξαρτημένο από έκδοση για γρήγορο, σταθερό failover.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-redistribution-bfd-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-redistribution-bfd.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-redistribution-bfd.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-redistribution-bfd-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-redistribution-bfd.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-redistribution-bfd-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-redistribution-bfd.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Route Redistribution & BFD",
+  "description": "RouterOS 7 redistribution through the filter-chain model — per-protocol toggle plus a mandatory output chain, tag-and-reject loop prevention, administrative distance, and version-dependent BFD for fast, stable failover.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-redistribution-bfd-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-redistribution-bfd.png",
+  "keywords": [
+    "mikrotik",
+    "routing"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-redistribution-bfd"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-redistribution-bfd.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Routing &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">MikroTik<br>Route Redistribution &amp; BFD</h1>
+  <p class="post-subtitle">Το routing stack του RouterOS 7 κάνει επίσης redistribution και BFD — αλλά μέσω του μοντέλου filter-chain του, που ρίχνει όποιον έρχεται από IOS. Να πώς κάνεις leak routes με ασφάλεια ανάμεσα σε OSPF, BGP, και static σε RouterOS χωρίς να χτίσεις βρόχο, και πώς να βιδώσεις BFD για failover σε χιλιοστά δευτερολέπτου. Το δίδυμο του post redistribution &amp; BFD της Cisco.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Redistribution</span>
+    <span class="tag">BFD</span>
+    <span class="tag">Routing Filters</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Οι έννοιες είναι πανομοιότυπες με τη <a href="cisco-redistribution-bfd.html">Cisco</a>: το redistribution μοιράζει routes ανάμεσα σε πρωτόκολλα (και είναι ο κλασικός δημιουργός βρόχων), το BFD ανιχνεύει έναν νεκρό γείτονα σε χιλιοστά δευτερολέπτου ανεξάρτητα από τα δικά τιμωρητικά χρονόμετρα του πρωτοκόλλου. Το ειδικό για RouterOS είναι <em>πού</em> ζει ο έλεγχος. Στο v7, κάθε πρωτόκολλο έχει ένα toggle <strong>redistribute</strong> συν μια <strong>output filter chain</strong>, και όλη η λογική «ποια routes, με τι tag/metric» εκφράζεται ως αλυσίδες <code>/routing filter rule</code> — η ίδια μικρή γλώσσα scripting που χρησιμοποιεί η <a href="mikrotik-bgp-dual-isp.html">policy BGP</a>. Αν το έμαθες σε route-maps του IOS, το μοντέλο αντιστοιχεί ένα-προς-ένα· το syntax όχι.</p>
+    <p>Η άλλη πραγματικότητα του RouterOS: το <strong>BFD μετακινήθηκε ανάμεσα σε εκδόσεις 7.x</strong> — το ακριβές μενού (<code>/routing bfd</code>) και το πώς τα πρωτόκολλα το αναφέρουν άλλαξε ανάμεσα σε εκδόσεις. Η προσέγγιση παρακάτω είναι το τρέχον σχήμα του v7· έλεγχε πάντα το μενού της δικής σου έκδοσης. Κάν' τα και τα δύο σωστά και έχεις έναν γρήγορο, χωρίς βρόχους multi-protocol πυρήνα σε MikroTik.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>RouterOS 7 με δύο πηγές routing που συναντιούνται (π.χ. <a href="mikrotik-ospf.html">OSPF</a> + <a href="mikrotik-bgp-dual-isp.html">BGP</a>)</li>
+      <li>Το μοντέλο αλυσίδας <code>/routing filter rule</code> από το post BGP</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Redistribute — Toggle Συν μια Filter Chain</h2>
+  <p class="section-thesis"><em>Άναψε το redistribution ανά πρωτόκολλο, μετά άφησε μια output filter chain να αποφασίσει ακριβώς ποια routes περνάνε, με τι tag και metric. Ποτέ μην κάνεις redistribute ορθάνοιχτα.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — static/connected μεσα σε OSPF, φιλτραρισμενα</span>
+    <pre class="term"><span class="cmt"># Η filter chain: ποια redistributed routes επιτρέπονται, tagged για
+# αποτροπή βρόχων, με ένα seed metric (OSPF external).</span>
+<span class="pc">/routing filter rule</span>
+<span class="out">add chain=ospf-redist rule="if (dst-len&lt;=24) { set ospf-type type-1; \
+    set bgp-metric 50; set route-tag 111; accept }"
+add chain=ospf-redist rule="reject"</span>
+
+<span class="cmt"># Ενεργοποίησε redistribution στο instance OSPF, δείχνοντας σε εκείνη την αλυσίδα.</span>
+<span class="pc">/routing ospf instance</span>
+<span class="out">set v7 redistribute=static,connected out-filter-chain=ospf-redist</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Καμια Filter Chain = Redistribute τα Παντα</span>
+    <p>Αν βάλεις <code>redistribute=</code> αλλά ξεχάσεις το <code>out-filter-chain</code>, το RouterOS κάνει inject <strong>κάθε</strong> route που ταιριάζει με default attributes — το αντίστοιχο στο RouterOS ενός IOS <code>redistribute</code> χωρίς route-map. Σε έναν router που μαθαίνει επίσης routes από το άλλο πρωτόκολλο, έτσι κάνεις leak έναν πλήρη πίνακα μέσα στο OSPF ή δημιουργείς βρόχο. Αντιμετώπισε τη filter chain ως υποχρεωτική, και κλείσ' την με ρητό <code>reject</code> ώστε να περάσει μόνο ό,τι σκόπευες. Ίδια πειθαρχία, διαφορετικό syntax, με το route-map της Cisco.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Tag για Αποτροπη Βροχων</h2>
+  <p class="section-thesis"><em>Με redistribution και στις δύο κατευθύνσεις, σήμανε routes που φεύγουν από το ένα πρωτόκολλο και απόρριψε εκείνο το tag όταν θα ξαναμπαίνανε — ακριβώς το pattern tag-and-deny του IOS, γραμμένο ως κανόνες filter.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — απορριψε το tag στο δρομο επιστροφης</span>
+    <pre class="term"><span class="cmt"># Το redistribution OSPF->BGP σφράγισε route-tag 111 (section 01). Στην
+# κατεύθυνση BGP->OSPF, αρνήσου οτιδήποτε είναι ήδη tagged 111 ώστε να μην κάνει βρόχο.</span>
+<span class="pc">/routing filter rule</span>
+<span class="out">add chain=bgp-to-ospf rule="if (route-tag==111) { reject }"
+add chain=bgp-to-ospf rule="accept"</span>
+<span class="pc">/routing bgp connection</span>
+<span class="out">set ISP-A output.redistribute=ospf output.filter-chain=bgp-out</span>
+<span class="cmt"># (και το αντίστροφο import φιλτραρισμένο από bgp-to-ospf στο instance OSPF)</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Το Administrative Distance Υπαρχει και Εδω</span>
+    <p>Το RouterOS εγκαθιστά το route με το χαμηλότερο <strong>distance</strong> όταν το ίδιο prefix μαθεύεται δύο φορές (connected 0, static 1, eBGP 20, OSPF 110, iBGP 200 — καθρεφτίζοντας το IOS). Κατά τη διάρκεια αμοιβαίου redistribution το redistributed αντίγραφο μπορεί να νικήσει το native και να προκαλέσει μη βέλτιστα paths ή βρόχους. Έλεγξε με <code>/ip route print detail where dst-address=…</code> σε κάθε σύνορο, και βάλε <code>distance=</code> σε ένα route ή πρωτόκολλο όπου χρειάζεσαι να νικήσει το native path. Tag-and-reject συν ένας έλεγχος λογικής distance είναι η ασφαλής συνταγή και στις δύο πλατφόρμες.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">BFD — Ανιχνευση Αστοχιας σε Χιλιοστα</h2>
+  <p class="section-thesis"><em>Κάνε config BFD και αναφέρσου σε αυτό από τα routing protocols ώστε ένας νεκρός γείτονας να πιαστεί σε κλάσμα δευτερολέπτου, όχι στα αργά χρονόμετρα του OSPF ή του BGP. (Το μενού εξαρτάται από την έκδοση — επαλήθευσε στο build σου.)</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — config BFD + ενεργοποιηση ανα πρωτοκολλο</span>
+    <pre class="term"><span class="cmt"># Όρισε timing BFD (τρέχον μενού v7). Ανίχνευση ~ min-interval x multiplier.</span>
+<span class="pc">/routing bfd configuration</span>
+<span class="out">add interfaces=ether1 min-rx=300ms min-tx=300ms multiplier=3</span>
+
+<span class="cmt"># Βάλε το OSPF να χρησιμοποιεί BFD για ζωντάνια γείτονα (flag interface-template):</span>
+<span class="pc">/routing ospf interface-template</span>
+<span class="out">set [find interfaces=ether1] use-bfd=yes</span>
+
+<span class="cmt"># Και το BGP να ρίχνει το session τη στιγμή που το BFD αναφέρει τον peer down:</span>
+<span class="pc">/routing bgp connection</span>
+<span class="out">set ISP-A use-bfd=yes</span>
+<span class="pc">/routing bfd session print</span>   <span class="cmt"># sessions up, διαπραγματευμένα χρονόμετρα</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Και τα Δυο Ακρα, Ιδια Ιστορια, και Προσεξε το Wireless</span>
+    <p>Το BFD δουλεύει μόνο αν <strong>και οι δύο</strong> peers το τρέχουν — η μία πλευρά που ενεργοποιεί <code>use-bfd</code> δεν κάνει τίποτα μέχρι να το κάνει και η άλλη, και αποτυγχάνει σιωπηλά ως «το session δεν ανεβαίνει ποτέ». Και ακριβώς όπως στη Cisco: επιθετικά χρονόμετρα κάτω από ένα δευτερόλεπτο σε ένα <strong>wireless ή συμφορημένο</strong> link μετατρέπουν microbursts σε ψευδώς-θετικές αστοχίες και κάνουν flap το routing σου. Κράτα σφιχτό BFD για καθαρά ενσύρματα links· χαλάρωσε τα χρονόμετρα (ή παράλειψε το BFD) σε paths με απώλειες. Τέλος, μην υποθέτεις το μενού — το path config του BFD πραγματικά άλλαξε ανάμεσα σε εκδόσεις 7.x, οπότε επιβεβαίωσε στη δική σου τρέχουσα έκδοση αντί να κάνεις paste τυφλά.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Επαληθευσε <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Επιβεβαίωσε τι έγινε redistributed (και το tag/type του), και ότι τα sessions BFD είναι established με τα προοριζόμενα χρονόμετρα.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — οι ελεγχοι</span>
+    <pre class="term"><span class="pc">/ip route print where ospf</span>                 <span class="cmt"># external routes παρόντα</span>
+<span class="pc">/ip route print detail where dst-address=10.5.0.0/24</span>  <span class="cmt"># tag, distance, source</span>
+<span class="pc">/routing ospf lsa print where type=external</span>  <span class="cmt"># τι κάναμε inject</span>
+<span class="pc">/routing bfd session print</span>                 <span class="cmt"># state=up, χρονόμετρα διαπραγματευμένα</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Ίδιες έννοιες με τη Cisco</strong> — το redistribution κολλά πρωτόκολλα και ρισκάρει βρόχους· το BFD δίνει failover σε χιλιοστά. Μόνο το syntax filter-chain διαφέρει.</li>
+      <li><strong>Το redistribution είναι ένα toggle ανά πρωτόκολλο συν μία output filter chain</strong> — βάλε και τα δύο· η αλυσίδα (που καταλήγει σε <code>reject</code>) είναι υποχρεωτική, αλλιώς κάνεις leak τα πάντα.</li>
+      <li><strong>Tag στην έξοδο, reject το tag στην επιστροφή</strong> — το pattern αποτροπής βρόχων του IOS ως κανόνες <code>/routing filter</code>.</li>
+      <li><strong>Το administrative distance ισχυει</strong> — έλεγξε σε κάθε σύνορο και βάλε <code>distance=</code> ώστε να νικά το native route.</li>
+      <li><strong>Το BFD χρειάζεται και τα δύο άκρα</strong> και ανήκει σε καθαρά ενσύρματα links — χρονόμετρα κάτω από ένα δευτερόλεπτο κάνουν flap σε wireless/συμφορημένα paths.</li>
+      <li><strong>Το μενού BFD άλλαξε στα 7.x</strong> — επαλήθευσε το ακριβές path στη δική σου τρέχουσα έκδοση, μην κάνεις paste τυφλά.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Ενας μεικτος πυρηνας routing RouterOS που δεν εισαι σιγουρος οτι ειναι χωρις βροχους;</h3>
+    <p>Σχεδιάζω multi-protocol routing σε MikroTik και Cisco με redistribution που έχει αποτροπή βρόχων ενσωματωμένη από την αρχή, και BFD ρυθμισμένο σωστά για την έκδοση RouterOS που παίζει &mdash; γρήγορο failover που είναι πραγματικά σταθερό, όχι flapping.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

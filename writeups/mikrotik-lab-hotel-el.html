@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik Lab: The Hotel Network, Start to Finish — S. Markakis</title>
+<meta name="description" content="Ένα πλήρες δίκτυο ξενοδοχείου σε MikroTik — gateway RB5009, core CRS326, SSIDs με VLAN-tag, firewall απομόνωσης επισκεπτών, DHCP ανά VLAN, και PCQ fairness — χτισμένο με σειρά, επαληθευμένο, μετά δοκιμασμένο σε βλάβη. Τρέχει και σε CHR.">
+<meta property="og:title" content="MikroTik Lab: The Hotel Network, Start to Finish — S. Markakis">
+<meta property="og:description" content="Ένα πλήρες δίκτυο ξενοδοχείου σε MikroTik — gateway RB5009, core CRS326, SSIDs με VLAN-tag, firewall απομόνωσης επισκεπτών, DHCP ανά VLAN, και PCQ fairness — χτισμένο με σειρά, επαληθευμένο, μετά δοκιμασμένο σε βλάβη. Τρέχει και σε CHR.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-lab-hotel-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-lab-hotel.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-lab-hotel.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-lab-hotel-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-lab-hotel.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-lab-hotel-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-lab-hotel.html">
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik Lab: The Hotel Network, Start to Finish",
+  "description": "Ένα πλήρες δίκτυο ξενοδοχείου σε MikroTik — gateway RB5009, core CRS326, SSIDs με VLAN-tag, firewall απομόνωσης επισκεπτών, DHCP ανά VLAN, και PCQ fairness — χτισμένο με σειρά, επαληθευμένο, μετά δοκιμασμένο σε βλάβη. Τρέχει και σε CHR.",
+  "datePublished": "2026-09-04",
+  "dateModified": "2026-09-04",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-lab-hotel-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-lab-hotel.png",
+  "keywords": [
+    "mikrotik",
+    "labs"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-lab-hotel"
+  },
+  "timeRequired": "PT12M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-lab-hotel.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Σεναριο Lab &nbsp;·&nbsp; Σεπτεμβριος 2026</p>
+  <h1 class="post-title">MikroTik Lab<br>Το Δικτυο Ξενοδοχειου</h1>
+  <p class="post-subtitle">Το φινάλε της σειράς: κάθε post MikroTik συναρμολογημένο στο δίκτυο που πραγματικά χτίζουμε για να ζήσουμε — ένα μικρό ξενοδοχείο. Ένα gateway RB5009, ένα core switch CRS326, δύο APs στην οροφή, τέσσερα VLANs, απομόνωση επισκεπτών που είναι δοκιμασμένη αντί να θεωρείται δεδομένη, δίκαιη κατανομή bandwidth ανά επισκέπτη, και ένα segment CCTV που οι επισκέπτες δεν μπορούν ποτέ να βρουν. Χτίσ' το σε πραγματικό hardware ή εντελώς σε CHR — μετά σπάσ' το όπως κάνουμε πριν το handover.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">Lab</span>
+    <span class="tag">Hotel / Hospitality</span>
+    <span class="tag">VLANs</span>
+    <span class="tag">Guest Isolation</span>
+    <span class="tag">PCQ</span>
+    <span class="tag">CRS3xx</span>
+  </div>
+  <hr class="title-rule">
+
+
+  <!-- Hero diagram: hotel topology -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="320" fill="#e1ded7"/>
+      <!-- internet -->
+      <ellipse cx="360" cy="32" rx="66" ry="22" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="360" y="37" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#3a5a78;text-anchor:middle;">Fibre + Starlink</text>
+      <line x1="360" y1="54" x2="360" y2="80" style="stroke:#888880;stroke-width:1.6;"/>
+      <!-- GW -->
+      <rect x="290" y="80" width="140" height="44" rx="6" fill="#d4d2cc" stroke="#c63d1f" stroke-width="1.4"/>
+      <text x="360" y="98" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">GW — RB5009</text>
+      <text x="360" y="112" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">routing · firewall · DHCP · queues</text>
+      <!-- trunk -->
+      <line x1="360" y1="124" x2="360" y2="152" style="stroke:#558840;stroke-width:2.6;"/>
+      <text x="428" y="142" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#3a6a28;text-anchor:middle;">trunk — ολα τα VLANs tagged</text>
+      <!-- SW -->
+      <rect x="270" y="152" width="180" height="44" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="170" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">SW — CRS326</text>
+      <text x="360" y="184" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">bridge vlan-filtering + hw offload</text>
+      <!-- APs and devices -->
+      <line x1="300" y1="196" x2="150" y2="240" style="stroke:#558840;stroke-width:1.8;"/>
+      <line x1="420" y1="196" x2="570" y2="240" style="stroke:#558840;stroke-width:1.8;"/>
+      <line x1="330" y1="196" x2="300" y2="248" style="stroke:#888880;stroke-width:1.4;"/>
+      <line x1="390" y1="196" x2="430" y2="248" style="stroke:#888880;stroke-width:1.4;"/>
+      <rect x="80" y="240" width="140" height="46" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="150" y="258" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">AP-1 (cAP ax)</text>
+      <text x="150" y="272" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;text-anchor:middle;">SSID Hotel-Guest → V20 · Staff → V10</text>
+      <rect x="500" y="240" width="140" height="46" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="570" y="258" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">AP-2 (cAP ax)</text>
+      <text x="570" y="272" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;text-anchor:middle;">ίδια SSIDs, ίδια VLANs, άλλη πτέρυγα</text>
+      <rect x="252" y="248" width="90" height="38" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="297" y="264" style="font-family:'Inter',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18;text-anchor:middle;">PCs Ρεσεψιον</text>
+      <text x="297" y="277" style="font-family:ui-monospace,monospace;font-size:7.5px;fill:#555550;text-anchor:middle;">access V10</text>
+      <rect x="386" y="248" width="90" height="38" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="431" y="264" style="font-family:'Inter',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18;text-anchor:middle;">NVR + καμερες</text>
+      <text x="431" y="277" style="font-family:ui-monospace,monospace;font-size:7.5px;fill:#555550;text-anchor:middle;">access V30</text>
+      <text x="360" y="308" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">V10 staff · V20 guest · V30 cctv · V99 mgmt — οι επισκέπτες φτάνουν το internet και απολύτως τίποτα άλλο</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Αυτό είναι το δίδυμο MikroTik του <a href="cisco-lab-campus.html">Cisco campus lab</a>, ρυθμισμένο για το deployment που κάνουμε πιο συχνά: ένα ακίνητο 10–40 δωματίων όπου το δίκτυο πρέπει να κρατά επισκέπτες, προσωπικό, κάμερες, και management <strong>αποδεδειγμένα ξεχωριστά</strong> πάνω σε hardware που κοστίζει λιγότερο από τα έσοδα μιας νύχτας. Συνθέτει το <a href="mikrotik-vlans.html">post VLAN</a>, το <a href="mikrotik-firewall.html">post firewall</a>, και το <a href="mikrotik-qos.html">post QoS</a> σε ένα συνεκτικό build — με τις παγίδες ολοκλήρωσης που εμφανίζονται μόνο όταν τα κομμάτια συναντιούνται.</p>
+    <p><strong>Δεν έχεις hardware; Κανένα πρόβλημα.</strong> Τα πάντα εκτός από τα ραδιόφωνα Wi-Fi τρέχουν πανομοιότυπα σε δωρεάν CHR images σε GNS3/EVE-NG — χτίσε το GW και το SW σαν CHRs, κρέμασε test VMs στα VLANs, και αντικατέστησε το τμήμα AP με tagged virtual NICs. Η επαλήθευση και οι δοκιμές βλάβης στο τέλος δουλεύουν και στις δύο περιπτώσεις — και αυτές, όχι το config, είναι το πραγματικό μάθημα.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-vlans.html">VLAN Segmentation</a> και <a href="mikrotik-firewall.html">The RouterOS Firewall</a> — αυτό το lab περνά γρήγορα και από τα δύο</li>
+      <li><a href="mikrotik-qos.html">QoS</a> για το background του τμήματος PCQ</li>
+      <li>RouterOS 7.x παντού· ~2 ώρες την πρώτη φορά</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Το Σχεδιο</h2>
+  <p class="section-thesis"><em>Τέσσερα VLANs, τέσσερα subnets, ένας πίνακας. Όπως πάντα: το σχέδιο είναι το design, το config είναι πληκτρολόγηση.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>VLAN / subnet</th><th>Ποιος ζει εδω — και ο κανονας που τον διεπει</th></tr></thead>
+    <tbody>
+      <tr><td>10 STAFF — 10.10.10.0/24</td><td>PCs ρεσεψιόν, Wi-Fi γραφείου. Φτάνει internet + θέαση CCTV· όχι mgmt.</td></tr>
+      <tr><td>20 GUEST — 10.10.20.0/24</td><td>SSID επισκεπτών + ethernet δωματίου. Μόνο internet. Τίποτα εσωτερικό, ποτέ.</td></tr>
+      <tr><td>30 CCTV — 10.10.30.0/24</td><td>NVR + κάμερες. Καθόλου internet (η απομακρυσμένη θέαση γίνεται μέσω <a href="mikrotik-wireguard.html">WireGuard</a>).</td></tr>
+      <tr><td>99 MGMT — 10.10.99.0/24</td><td>Router, switch, APs. Προσβάσιμο μόνο από το ίδιο το MGMT (+ VPN).</td></tr>
+      <tr><td>Gateways</td><td>Το GW κατέχει το .1 κάθε subnet σε interfaces VLAN πάνω από το trunk.</td></tr>
+      <tr><td>Uplinks</td><td>GW ether1 = fibre, ether2 = Starlink (failover κατά το <a href="starlink-mikrotik-failover.html">post Starlink</a>).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Γιατι το CCTV Δεν Παιρνει Internet</span>
+    <p>Οι φθηνές κάμερες κάνουν phone home σε clouds που δεν ελέγχεις, τρέχουν firmware που κανείς δεν κάνει patch, και είναι η κλάση συσκευών με τα περισσότερα compromises που βλέπουμε. Η απάντηση του design είναι δομική, όχι αισιόδοξη: το VLAN 30 <strong>δεν έχει καθόλου route προς το internet</strong> — μια κάμερα που δεν μπορεί να φτάσει το botnet C2 της είναι μια κάμερα της οποίας οι ευπάθειες ως επί το πλείστον δεν έχουν σημασία. Ο ιδιοκτήτης παρακολουθεί το NVR απομακρυσμένα μέσω WireGuard μέσα στο VLAN 30, που δεν χρειάζεται καμία κάμερα να στείλει ποτέ πακέτο προς τα έξω.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Το Core Switch — CRS326</h2>
+  <p class="section-thesis"><em>Ένα bridge, vlan-filtering, hardware offload. Trunks προς το GW και τα δύο APs· access ports για ρεσεψιόν και κάμερες. Η σειρά έχει σημασία — χτίσε τον πίνακα VLAN πριν ενεργοποιήσεις το filtering.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">SW — bridge, ports, πινακας VLAN (σειρα κατα το post VLAN)</span>
+    <pre class="term"><span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge add name=bridge1 vlan-filtering=no</span>   <span class="cmt">← ON αργότερα, ΤΕΛΕΥΤΑΙΟ</span>
+
+<span class="cmt"># Θύρες: trunk προς GW (ether1), trunks προς APs (ether2-3),
+#        access για ρεσεψιόν (ether10-12, V10) και NVR/κάμερες (ether20-24, V30)</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge/port add bridge=bridge1 interface=ether1 hw=yes</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge/port add bridge=bridge1 interface=ether2 hw=yes</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge/port add bridge=bridge1 interface=ether3 hw=yes</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge/port add bridge=bridge1 interface=ether10 pvid=10 frame-types=admit-only-untagged hw=yes</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge/port add bridge=bridge1 interface=ether20 pvid=30 frame-types=admit-only-untagged hw=yes</span>
+<span class="cmt"># …επανέλαβε για το υπόλοιπο κάθε range</span>
+
+<span class="cmt"># Πίνακας VLAN: τα trunks tagged για τα πάντα· τα APs χρειάζονται μόνο guest+staff+mgmt</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge/vlan add bridge=bridge1 vlan-ids=10 tagged=bridge1,ether1,ether2,ether3 untagged=ether10,ether11,ether12</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge/vlan add bridge=bridge1 vlan-ids=20 tagged=bridge1,ether1,ether2,ether3</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge/vlan add bridge=bridge1 vlan-ids=30 tagged=bridge1,ether1 untagged=ether20,ether21,ether22,ether23,ether24</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge/vlan add bridge=bridge1 vlan-ids=99 tagged=bridge1,ether1,ether2,ether3</span>
+
+<span class="cmt"># Το δικό του mgmt IP του switch ταξιδεύει στο VLAN 99</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/vlan add name=vlan99-mgmt interface=bridge1 vlan-id=99</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/ip/address add address=10.10.99.2/24 interface=vlan99-mgmt</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/ip/route add dst-address=0.0.0.0/0 gateway=10.10.99.1</span>
+
+<span class="cmt"># Επαληθεύτηκαν όλα τα παραπάνω; ΤΩΡΑ γύρνα τον μεγάλο διακόπτη (από VLAN mgmt ή console):</span>
+<span class="pc">[admin@SW] ></span> <span class="out">/interface/bridge set bridge1 vlan-filtering=yes</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Οι Θυρες CCTV Δεν Κανουν Tag Προς τα APs</span>
+    <p>Πρόσεξε τη λίστα tagged του VLAN 30: μόνο <code>bridge1,ether1</code>. Τα APs δεν έχουν καμία δουλειά να μεταφέρουν κίνηση κάμερας, οπότε ο ορισμός του trunk απλά δεν επεκτείνει το VLAN 30 σε αυτά — segmentation με παράλειψη, επιβεβλημένο σε hardware. Αυτή είναι η ίδια ιδέα "allowed VLAN list" με το <code>switchport trunk allowed vlan</code> της Cisco, και το ίδιο σημείο audit: <strong>ένα VLAN φτάνει ακριβώς εκεί που λένε οι λίστες tagged/untagged του, όχι παραπέρα.</strong> Ξαναδές αυτές τις λίστες όποτε καλωδιώνεται μια νέα υποδοχή· είναι ο χάρτης του τι μπορεί ποτέ να διαρρεύσει πού.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Το Gateway — VLANs, DHCP, Δυο WANs</h2>
+  <p class="section-thesis"><em>Το GW τερματίζει και τα τέσσερα VLANs σε μία θύρα trunk, σερβίρει DHCP σε τρία από αυτά, και κάνει NAT δύο από αυτά προς το internet. Το CCTV παίρνει DHCP αλλά όχι NAT — αυτός είναι ο κανόνας χωρίς-internet, υλοποιημένος.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">GW — interfaces, διευθυνσεις, DHCP</span>
+    <pre class="term"><span class="cmt"># Το ether3 είναι το trunk προς το SW — τα interfaces VLAN ταξιδεύουν απευθείας πάνω του</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/interface/vlan add name=vlan10-staff interface=ether3 vlan-id=10</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/interface/vlan add name=vlan20-guest interface=ether3 vlan-id=20</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/interface/vlan add name=vlan30-cctv interface=ether3 vlan-id=30</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/interface/vlan add name=vlan99-mgmt interface=ether3 vlan-id=99</span>
+
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/address add address=10.10.10.1/24 interface=vlan10-staff</span>
+<span class="cmt"># …το ίδιο για .20/.30/.99</span>
+
+<span class="cmt"># Interface lists — το firewall παρακάτω ταιριάζει σε αυτά, όχι σε ωμά interfaces</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/interface/list add name=WAN</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/interface/list add name=LAN</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/interface/list/member add list=WAN interface=ether1</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/interface/list/member add list=WAN interface=ether2</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/interface/list/member add list=LAN interface=vlan10-staff</span>
+<span class="cmt"># …και τα άλλα τρία VLANs μέσα στο LAN</span>
+
+<span class="cmt"># DHCP ανά VLAN (φαίνεται το guest· staff/cctv ίδιο pattern, mgmt μόνο static)</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/pool add name=pool-guest ranges=10.10.20.50-10.10.20.250</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/dhcp-server add name=dhcp-guest interface=vlan20-guest address-pool=pool-guest</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/dhcp-server/network add address=10.10.20.0/24 gateway=10.10.20.1 dns-server=10.10.20.1</span>
+
+<span class="cmt"># NAT: staff και guest βγαίνουν έξω· το CCTV λείπει επιδεικτικά</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/nat add chain=srcnat action=masquerade src-address=10.10.10.0/24 out-interface-list=WAN</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/nat add chain=srcnat action=masquerade src-address=10.10.20.0/24 out-interface-list=WAN</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Το Dual WAN Μπαινει Ισια Μεσα</span>
+    <p>Οι δύο θύρες WAN είναι ακριβώς το writeup <a href="starlink-mikrotik-failover.html">Starlink failover</a>: recursive default routes με <code>check-gateway=ping</code> που δοκιμάζουν έναν πραγματικό στόχο internet, distances 1 και 10. Επειδή οι κανόνες NAT παραπάνω κάνουν masquerade πάνω στο <code>out-interface-list=WAN</code> αντί για συγκεκριμένη θύρα, οι μεταφράσεις ακολουθούν όποιο uplink είναι ενεργό με μηδέν επιπλέον config — η παγίδα που η εκδοχή Cisco χρειάζεται route-maps γι' αυτήν απλά δεν υπάρχει εδώ.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Το Firewall — Πολιτικη σαν Κανονες</h2>
+  <p class="section-thesis"><em>Ο πίνακας του τμήματος 01, μεταφρασμένος μηχανικά στο forward chain. Κάθε πρόταση στο σχέδιο γίνεται ένας ή δύο κανόνες — αυτή η ιχνηλασιμότητα είναι που κάνει το firewall ελέγξιμο.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">GW — forward chain (input chain κατα το post firewall)</span>
+    <pre class="term"><span class="cmt"># Πρώτα το state, όπως πάντα</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/filter add chain=forward action=fasttrack-connection hw-offload=yes connection-state=established,related comment="fasttrack"</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/filter add chain=forward action=accept connection-state=established,related</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/filter add chain=forward action=drop connection-state=invalid</span>
+
+<span class="cmt"># "Οι επισκέπτες φτάνουν το internet και απολύτως τίποτα άλλο"</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/filter add chain=forward action=accept in-interface=vlan20-guest out-interface-list=WAN comment="guest to internet"</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/filter add chain=forward action=drop in-interface=vlan20-guest comment="guest to anywhere else: NO"</span>
+
+<span class="cmt"># "Το προσωπικό φτάνει internet + θέαση CCTV" (μόνο web/rtsp του NVR, όχι οι κάμερες)</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/filter add chain=forward action=accept in-interface=vlan10-staff out-interface-list=WAN</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/filter add chain=forward action=accept in-interface=vlan10-staff dst-address=10.10.30.10 protocol=tcp dst-port=80,443,554 comment="staff to NVR"</span>
+
+<span class="cmt"># "CCTV: χωρίς internet" δεν χρειάζεται κανόνα — χωρίς NAT + το τελικό drop το κάνει. Ζώνη ΚΑΙ τιράντες:</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/filter add chain=forward action=drop in-interface=vlan30-cctv out-interface-list=WAN comment="cctv never phones home"</span>
+
+<span class="cmt"># Ο τοίχος</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/ip/firewall/filter add chain=forward action=drop comment="drop all else"</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Οι Επισκεπτες Δεν Πρεπει να Κανουν Resolve DNS Ενοντιον IPs Router Αλλων VLANs</span>
+    <p>Ο κανόνας drop για τους επισκέπτες μπλοκάρει κίνηση guest→LAN, αλλά ο ίδιος ο router φτάνεται μέσω του <em>input</em> chain — ένας επισκέπτης μπορεί ακόμα να χτυπήσει το <code>10.10.10.1</code> (gateway του staff = ίδιος router!) για DNS ή WinBox εκτός αν το input είναι κι αυτό scoped. Στο input chain, δέξου DNS μόνο <code>in-interface=vlan20-guest dst-address=10.10.20.1</code>, και management μόνο από το MGMT. Ένα VLAN επισκεπτών που μπορεί να κάνει WinBox στον router μέσω της διεύθυνσης staff-side είναι η πιο κοινή τρύπα που βρίσκουμε σε "τμηματοποιημένα" δίκτυα ξενοδοχείων — το forward chain ήταν τέλειο και κανείς δεν σκέφτηκε το input.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Wi-Fi — SSIDs με VLAN-Tag, και Δικαιοσυνη</h2>
+  <p class="section-thesis"><em>Δύο SSIDs σε κάθε AP: το Hotel-Guest προσγειώνεται στο VLAN 20, το Hotel-Staff στο VLAN 10, πάνω στο ίδιο καλώδιο trunk. Μετά το PCQ κάνει σαράντα επισκέπτες να μοιράζονται το uplink σαν ενήλικες.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">AP-1 (wifi/wave2, ROS 7.13+) — SSIDs σε αντιστοιχιση με VLANs</span>
+    <pre class="term"><span class="cmt"># Το bridge του AP είναι VLAN-aware όπως το switch· το uplink του είναι trunk.
+# Κάθε SSID παίρνει ένα vlan-id — τα frames γίνονται tagged πριν χτυπήσουν το καλώδιο:</span>
+<span class="pc">[admin@AP-1] ></span> <span class="out">/interface/wifi add name=wifi-guest master-interface=wifi1 configuration.ssid="Hotel-Guest" security.passphrase="summer-in-crete" datapath.bridge=bridge1 datapath.vlan-id=20 disabled=no</span>
+<span class="pc">[admin@AP-1] ></span> <span class="out">/interface/wifi add name=wifi-staff master-interface=wifi1 configuration.ssid="Hotel-Staff" security.passphrase="********" datapath.bridge=bridge1 datapath.vlan-id=10 disabled=no</span>
+<span class="cmt"># IP mgmt του AP στο vlan99, ίδιο pattern με το switch. Επανέλαβε στο AP-2 —
+# ίδια SSIDs, ίδια passphrases, ώστε οι συσκευές να κάνουν roam ανάμεσα σε πτέρυγες.</span></pre>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">GW — PCQ: δικαιοσυνη ανα επισκεπτη σε δυο κανονες (απο το post QoS)</span>
+    <pre class="term"><span class="cmt"># Κάθε επισκέπτης παίρνει ίσο μερίδιο· ένας torrenter δεν μπορεί πια να καταπιεί το ξενοδοχείο</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/queue/type add name=pcq-down kind=pcq pcq-classifier=dst-address pcq-rate=20M</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/queue/type add name=pcq-up kind=pcq pcq-classifier=src-address pcq-rate=10M</span>
+<span class="pc">[admin@GW] ></span> <span class="out">/queue/simple add name=guest-fairness target=10.10.20.0/24 max-limit=300M/300M queue=pcq-up/pcq-down</span>
+
+<span class="cmt"># ΚΡΙΣΙΜΟ: εξαίρεσε τους επισκέπτες από το fasttrack αλλιώς αυτό το queue δεν βλέπει τίποτα —
+# όρισε το scope του κανόνα fasttrack ακριβώς όπως το Option B του post firewall.</span></pre>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Επαληθευσε, Μετα Σπασ' το <span class="safe-badge">Το Test Handover</span></h2>
+  <p class="section-thesis"><em>Αυτό το checklist είναι κυριολεκτικά αυτό που τρέχουμε πριν ένα ακίνητο πάει live. Ένα δίκτυο που δεν έχει αποτύχει μπροστά σου θα αποτύχει μπροστά σε επισκέπτες.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Test</th><th>Συνθηκη επιτυχιας</th></tr></thead>
+    <tbody>
+      <tr><td>SSID επισκεπτών → DHCP</td><td>Διεύθυνση από 10.10.20.x, το internet δουλεύει, speedtest σχηματισμένο από PCQ.</td></tr>
+      <tr><td>Guest → 10.10.10.0/24, .30.x, .99.x</td><td>Όλα νεκρά· οι μετρητές guest-drop αυξάνονται όσο προσπαθείς.</td></tr>
+      <tr><td>Guest → 10.10.10.1 (WinBox/DNS)</td><td>Νεκρό — η τρύπα input-chain από το τμήμα 04 είναι κλειστή.</td></tr>
+      <tr><td>Staff → NVR :443/:554</td><td>Δουλεύει· staff → απευθείας σε IP κάμερας δεν δουλεύει.</td></tr>
+      <tr><td>Κάμερα → 8.8.8.8</td><td>Νεκρό. Το /ip/firewall/filter print stats δείχνει το "cctv never phones home" να μετράει.</td></tr>
+      <tr><td>Δύο laptops σε guest, και τα δύο κάνουν speedtest</td><td>Το καθένα παίρνει ~το μισό της pool guest — ορατή η δικαιοσύνη PCQ.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">Δοκιμες βλαβης</h3>
+  <p><strong>Δοκιμή 1 — τράβα την ίνα.</strong> Συνεχές ping από μια συσκευή επισκέπτη· τα recursive routes κάνουν failover στο Starlink μέσα σε δευτερόλεπτα, και επειδή το NAT κάνει masquerade πάνω στη <em>λίστα</em> WAN, οι established συνδέσεις ξαναφτιάχνονται χωρίς να αγγίξεις config. Ξανασύνδεσέ το, δες το να κάνει fail back.</p>
+  <p><strong>Δοκιμή 2 — κάνε reboot το switch.</strong> Όλα πέφτουν (single core — αυτό είναι το ειλικρινές trade-off αυτού του tier design), και όλα πρέπει να επιστρέψουν <em>μόνα τους</em> μέσα σε δύο λεπτά: τα leases DHCP ανανεώνονται, τα APs ξανακάνουν tag τα SSIDs, οι κάμερες επανασυνδέονται στο NVR. Οτιδήποτε χρειάζεται άνθρωπο μετά από ένα power blip είναι bug configuration — βρες το τώρα, όχι μετά το επόμενο brownout νησιού.</p>
+  <p><strong>Δοκιμή 3 — κακός επισκέπτης.</strong> Από το VLAN επισκεπτών τρέξε ένα επιθετικό scan (<code>nmap -A 10.10.0.0/16</code> από το laptop σου). Δες το να μη βρίσκει τίποτα εκτός από την IP gateway των επισκεπτών, και δες τους μετρητές drop να ανεβαίνουν. Αποθήκευσε αυτό το output του scan — είναι η απόδειξη segmentation για τον ιδιοκτήτη, σε μορφή που καταλαβαίνει ακόμα και ένας μη τεχνικός πελάτης.</p>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το pattern τεσσάρων-VLAN για ξενοδοχεία — staff / guest / cctv / mgmt — ταιριάζει σχεδόν σε κάθε μικρό ακίνητο</strong>, και ο πίνακας πολιτικής στο τμήμα 01 ΕΙΝΑΙ το design· ό,τι ακολουθεί είναι μηχανική μετάφραση.</li>
+      <li><strong>Το segmentation επιβάλλεται σε τρία σημεία που πρέπει να συμφωνούν:</strong> ο πίνακας VLAN του switch (πού μπορούν να πάνε τα frames), το forward chain του firewall (τι μπορεί να κάνει route), και το input chain (ποιος μπορεί να μιλήσει στον router). Τα audits αποτυγχάνουν στο τρίτο.</li>
+      <li><strong>Το CCTV δεν παίρνει internet, δομικά</strong> — χωρίς κανόνα NAT συν ρητό drop. Η απομακρυσμένη θέαση περνά μέσω WireGuard, και μια κάμερα που δεν μπορεί να κάνει phone home είναι μια κάμερα που μπορείς να σταματήσεις να φοβάσαι.</li>
+      <li><strong>Το masquerade πάνω στο interface-list WAN</strong> και το dual-WAN failover δεν χρειάζονται ακροβατικά NAT — οι μεταφράσεις ακολουθούν αυτόματα το ενεργό uplink.</li>
+      <li><strong>Το PCQ δίνει σε κάθε επισκέπτη ίσο μερίδιο σε δύο κανόνες — αλλά το FastTrack πρέπει να έχει scope γύρω από την κίνηση επισκεπτών</strong> αλλιώς το queue δεν σχηματίζει τίποτα. Τα δύο features μαλώνουν· εσύ κάνεις διαιτησία.</li>
+      <li><strong>Τα SSIDs είναι απλά access ports VLAN πάνω από τον αέρα</strong> — το datapath.vlan-id αντιστοιχίζει κάθε SSID στο ίδιο σχέδιο L2 με κάθε πρίζα τοίχου.</li>
+      <li><strong>Τρέξε το test handover.</strong> Scan επισκέπτη, τράβηγμα ίνας, reboot switch — η απόδειξη νικά την υπόθεση, και η δοκιμή που σε ντροπιάζει στο lab είναι αυτή που θα σε καλούσε τηλέφωνο τον Αύγουστο.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Τρεχεις ενα ακινητο σε flat δικτυο;</h3>
+    <p>Αυτό το lab είναι ακριβώς το δίκτυο που χτίζω για πραγματικά ξενοδοχεία και βίλες — segmentation που μπορώ να αποδείξω, Wi-Fi επισκεπτών που αντέχει στην υψηλή σεζόν, και κάμερες που δεν μπορούν να κάνουν phone home κάπου που δεν πρέπει.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

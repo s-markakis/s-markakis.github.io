@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco Lab: Το Σπασμενο Campus — Οκτω Σφαλματα — S. Markakis</title>
+<meta name="description" content="Ένα σενάριο troubleshooting: το campus του part-24 με οκτώ φυτεμένα σφάλματα — λάθος VLAN, err-disabled ports, κλαδεμένο trunk, split-brain HSRP, DHCP relay που λείπει, μπαγιάτικο ACL NAT. Διάγνωσε το καθένα από το σύμπτωμα, επίπεδο προς επίπεδο.">
+<meta property="og:title" content="Cisco Lab: Το Σπασμενο Campus — Οκτω Σφαλματα — S. Markakis">
+<meta property="og:description" content="Ένα σενάριο troubleshooting: το campus του part-24 με οκτώ φυτεμένα σφάλματα — λάθος VLAN, err-disabled ports, κλαδεμένο trunk, split-brain HSRP, DHCP relay που λείπει, μπαγιάτικο ACL NAT. Διάγνωσε το καθένα από το σύμπτωμα, επίπεδο προς επίπεδο.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-lab-troubleshooting-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-lab-troubleshooting.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-lab-troubleshooting.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-lab-troubleshooting-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-lab-troubleshooting.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-lab-troubleshooting-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-lab-troubleshooting.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco Lab: Το Σπασμενο Campus — Οκτω Σφαλματα",
+  "description": "Ένα σενάριο troubleshooting: το campus του part-24 με οκτώ φυτεμένα σφάλματα — λάθος VLAN, err-disabled ports, κλαδεμένο trunk, split-brain HSRP, DHCP relay που λείπει, μπαγιάτικο ACL NAT. Διάγνωσε το καθένα από το σύμπτωμα, επίπεδο προς επίπεδο.",
+  "datePublished": "2026-08-27",
+  "dateModified": "2026-08-27",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-lab-troubleshooting-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-lab-troubleshooting.png",
+  "keywords": [
+    "cisco",
+    "labs"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-lab-troubleshooting"
+  },
+  "timeRequired": "PT12M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-lab-troubleshooting.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / Lab</span> &nbsp;·&nbsp; Σεναριο Lab &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco Lab<br>Το Σπασμενο Campus</h1>
+  <p class="post-subtitle">Η τελική εξέταση της σειράς. Πάρε το campus που έχτισες στο part 24, δώσ' το σε έναν συνάδελφο (ή στον μελλοντικό σου εαυτό), και άσ' τον να φυτέψει αυτά τα οκτώ σφάλματα ενώ δεν κοιτάς. Μετά κάτσε με τα tickets — «οι επισκέπτες δεν βγαίνουν online στη δυτική πτέρυγα» — και βρες τα όλα, χρησιμοποιώντας μόνο show commands και μια μέθοδο. Αυτό είναι το πιο κοντινό που φτάνει ένα lab σε μια πραγματική Τρίτη.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Packet Tracer</span>
+    <span class="tag">Lab</span>
+    <span class="tag">Troubleshooting</span>
+    <span class="tag">VLANs</span>
+    <span class="tag">HSRP</span>
+    <span class="tag">DHCP</span>
+    <span class="tag">NAT</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: the campus with fault markers -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="300" fill="#e1ded7"/>
+      <!-- edge -->
+      <rect x="300" y="24" width="120" height="38" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="40" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">EDGE</text>
+      <text x="360" y="54" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">DHCP · NAT</text>
+      <!-- links to cores -->
+      <line x1="330" y1="62" x2="180" y2="120" style="stroke:#888880;stroke-width:1.6;"/>
+      <line x1="390" y1="62" x2="540" y2="120" style="stroke:#888880;stroke-width:1.6;"/>
+      <!-- cores -->
+      <rect x="105" y="120" width="150" height="44" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="180" y="138" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">CORE-1</text>
+      <text x="180" y="152" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">SVIs · HSRP</text>
+      <rect x="465" y="120" width="150" height="44" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="540" y="138" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">CORE-2</text>
+      <text x="540" y="152" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">SVIs · HSRP</text>
+      <line x1="255" y1="142" x2="465" y2="142" style="stroke:#558840;stroke-width:2.6;"/>
+      <!-- access -->
+      <line x1="160" y1="164" x2="205" y2="222" style="stroke:#888880;stroke-width:1.4;"/>
+      <line x1="520" y1="164" x2="245" y2="228" style="stroke:#888880;stroke-width:1.4;stroke-dasharray:5,4;"/>
+      <line x1="560" y1="164" x2="515" y2="222" style="stroke:#888880;stroke-width:1.4;"/>
+      <line x1="200" y1="164" x2="475" y2="228" style="stroke:#888880;stroke-width:1.4;stroke-dasharray:5,4;"/>
+      <rect x="150" y="222" width="115" height="36" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="207" y="244" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">ACC-1</text>
+      <rect x="455" y="222" width="115" height="36" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="512" y="244" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">ACC-2</text>
+      <!-- fault markers -->
+      <g style="font-family:'Inter',sans-serif;font-weight:800;font-size:11px;">
+        <circle cx="300" cy="46" r="10" fill="#c63d1f"/><text x="300" y="50" fill="#fff" text-anchor="middle">7</text>
+        <circle cx="252" cy="90" r="10" fill="#c63d1f"/><text x="252" y="94" fill="#fff" text-anchor="middle">8</text>
+        <circle cx="360" cy="142" r="10" fill="#c63d1f"/><text x="360" y="146" fill="#fff" text-anchor="middle">5</text>
+        <circle cx="130" cy="182" r="10" fill="#c63d1f"/><text x="130" y="186" fill="#fff" text-anchor="middle">6</text>
+        <circle cx="480" cy="196" r="10" fill="#c63d1f"/><text x="480" y="200" fill="#fff" text-anchor="middle">3</text>
+        <circle cx="384" cy="200" r="10" fill="#c63d1f"/><text x="384" y="204" fill="#fff" text-anchor="middle">2</text>
+        <circle cx="180" cy="272" r="10" fill="#c63d1f"/><text x="180" y="276" fill="#fff" text-anchor="middle">1</text>
+        <circle cx="540" cy="272" r="10" fill="#c63d1f"/><text x="540" y="276" fill="#fff" text-anchor="middle">4</text>
+      </g>
+      <text x="360" y="290" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">το campus του part-24 με οκτώ φυτεμένα σφάλματα — κάθε αριθμός είναι ένα ticket παρακάτω</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το να χτίσεις ένα δίκτυο σου μαθαίνει εντολές. <strong>Το να το διορθώσεις σου μαθαίνει το δίκτυο.</strong> Το troubleshooting είναι πρόβλημα αναζήτησης, και οι ερασιτέχνες ψάχνουν άσχημα — πηδάνε στο επίπεδο που διάβασαν τελευταίο, αλλάζουν τρία πράγματα ταυτόχρονα, και δεν μπορούν μετά να πουν ποιο ήταν το σφάλμα. Οι επαγγελματίες συμπιέζουν τον χώρο αναζήτησης μεθοδικά: <em>ποιοι χρήστες, ποια VLAN, ποιο switch, ποιο επίπεδο;</em> Κάθε απάντηση μισεύει την επικράτεια.</p>
+    <p>Αυτό το σενάριο σου δίνει οκτώ σφάλματα φυτεμένα στο campus του part-24, παρουσιασμένα όπως τα παρουσιάζει η πραγματικότητα — ως παράπονα χρηστών, όχι config diffs. Για το καθένα: το ticket, το περπάτημα διάγνωσης με πραγματικό command output, η ρίζα αιτίας, η διόρθωση, και η συνήθεια που πρέπει να κρατήσεις. Κάν' το τίμια: φόρτωσε το σωσμένο σου αρχείο part-24, βάλε κάποιον (ή έναν τυχαίο αριθμό και αυτή τη λίστα) να το σπάσει, και δούλεψε τα tickets <em>πριν</em> διαβάσεις κάθε απάντηση.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li><a href="cisco-lab-campus.html">Lab: Το Collapsed-Core Campus</a> — χτισμένο, δουλεμένο, και σωσμένο</li>
+      <li>Οι εντολές show από τα parts 2, 6, 8, 9 — εδώ είναι που πληρώνουν το νοίκι τους</li>
+      <li>Πειθαρχία να μην ανοίγεις το config του box που υποψιάζεσαι (αυτό είναι κλέψιμο — η πραγματικότητα δεν θα σου δώσει diff)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Η Μεθοδος — Μισεψε, Μην Πηδας</h2>
+  <p class="section-thesis"><em>Πριν από κάθε εντολή: μετάτρεψε το παράπονο σε ένα σύνορο. Τι δουλεύει, τι δεν δουλεύει, και πού είναι η γραμμή ανάμεσά τους; Το σφάλμα ζει πάντα πάνω στη γραμμή.</em></p>
+
+  <p>Τρεις ερωτήσεις μετατρέπουν ένα ασαφές ticket σε ένα εντοπισμένο σφάλμα:</p>
+  <p><strong>1. Scope</strong> — ένας χρήστης, οι χρήστες ενός switch, ένα VLAN παντού, ή όλοι; Ένας χρήστης = πρόβλημα port. Ένα switch = αυτό το switch ή τα uplinks του. Ένα VLAN σε πολλά switches = SVI/gateway/DHCP για εκείνο το VLAN. Όλοι = edge ή core. Έχεις εξαλείψει ~80% του δικτύου πριν αγγίξεις πληκτρολόγιο.</p>
+  <p><strong>2. Επιπεδο</strong> — περπάτα από κάτω προς τα πάνω, και σταμάτα στο πρώτο σπασμένο επίπεδο: link light (<code>show interfaces status</code>) → μέλος VLAN → φτάνει το gateway του; → έχει lease DHCP; → φτάνει το internet; Κάθε τεστ υποθέτει ότι πέρασαν αυτά από κάτω του.</p>
+  <p><strong>3. Τι αλλαξε;</strong> — τα δίκτυα δεν σαπίζουν· αλλάζονται. Το <code>show logging</code> είναι ό,τι πιο κοντινό σε ομολογία θα πάρεις.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Μια Αλλαγη τη Φορα</span>
+    <p>Ο σιδερένιος κανόνας όταν αρχίζεις να διορθώνεις: <strong>άλλαξε ένα πράγμα, ξανατέσταρε, γράψ' το.</strong> Διόρθωσε δύο πράγματα ταυτόχρονα και κάτι αρχίζει να δουλεύει, και δεν έμαθες τίποτα — χειρότερα, μία από τις δύο αλλαγές σου μπορεί να είναι ένα νέο λανθάνον σφάλμα. Σε Packet Tracer αυτή η πειθαρχία μοιάζει σχολαστική. Στις 2 το πρωί σε ένα production switch είναι η διαφορά ανάμεσα σε μια αναφορά incident και ένα δεύτερο incident.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Tickets 1–2: Ενα Port, Μετα Μια Πτερυγα</h2>
+  <p class="section-thesis"><em>Τα δύο μικρότερα scopes — ένας μεμονωμένος χρήστης, μετά οι επισκέπτες ενός switch. Σφάλματα access-layer, βρισκόμενα από το access layer.</em></p>
+
+  <h3 class="sub">Ticket 1 — «Το νεο PC στο δωματιο 114 δεν εχει καθολου δικτυο.»</h3>
+  <div class="term-wrap">
+    <span class="term-label">ACC-1 — το link ειναι up, αρα ελεγξε το L2 membership</span>
+    <pre class="term"><span class="pc">ACC-1#</span> <span class="out">show interfaces status | include Fa0/7</span>
+<span class="out">Fa0/7    room114      connected    <span class="key">100</span>        a-full  a-100 10/100BaseTX</span>
+<span class="cmt">                                    ↑ VLAN 100; Το VLAN του staff είναι το 10.</span>
+<span class="pc">ACC-1#</span> <span class="out">show vlan brief | include 100</span>
+<span class="out">100  VLAN0100   active   Fa0/7</span>   <span class="cmt">← το VLAN 100 υπάρχει αλλά δεν κάνει route πουθενά —
+                                       ένα access VLAN με typo, κλασικό fat-finger</span>
+<span class="pc">ACC-1(config)#</span> <span class="out">interface Fa0/7</span>
+<span class="pc">ACC-1(config-if)#</span> <span class="out">switchport access vlan 10</span>   <span class="cmt">← διορθώθηκε· το PC τραβά DHCP ακαριαία</span></pre>
+  </div>
+  <p><strong>Ρίζα αιτίας:</strong> <code>switchport access vlan 100</code> αντί για <code>10</code>. Το IOS «βοηθητικά» δημιούργησε το VLAN 100 όταν ανατέθηκε, οπότε τίποτα δεν κατέγραψε καν σφάλμα. <strong>Συνηθεια:</strong> μετά από κάθε αλλαγή port, <code>show interfaces status</code> — η στήλη VLAN πιάνει typos που τα μάτια σου προσπέρασαν σε config mode.</p>
+
+  <h3 class="sub">Ticket 2 — «Ενας εργολαβος εβαλε κατι στην πριζα, τωρα ολη εκεινη η γωνια ειναι νεκρη.»</h3>
+  <div class="term-wrap">
+    <span class="term-label">ACC-2 — το port δεν απεβίωσε, εκτελέστηκε</span>
+    <pre class="term"><span class="pc">ACC-2#</span> <span class="out">show interfaces status err-disabled</span>
+<span class="out">Port    Name    Status        Reason
+Fa0/18          err-disabled  <span class="key">bpduguard</span></span>
+<span class="pc">ACC-2#</span> <span class="out">show logging | include Fa0/18</span>
+<span class="out">%SPANTREE-2-BLOCK_BPDUGUARD: Received BPDU on port Fa0/18 with BPDU Guard enabled. Disabling port.</span>
+<span class="cmt"># Το box του εργολάβου ήταν ένα φτηνό switch — μιλούσε STP, το BPDU Guard πυροδοτήθηκε.
+# Αφαίρεσε τη συσκευή που φταίει, μετά:</span>
+<span class="pc">ACC-2(config)#</span> <span class="out">interface Fa0/18</span>
+<span class="pc">ACC-2(config-if)#</span> <span class="out">shutdown</span>
+<span class="pc">ACC-2(config-if)#</span> <span class="out">no shutdown</span>   <span class="cmt">← το err-disabled χρειάζεται χειροκίνητο bounce</span></pre>
+  </div>
+  <p><strong>Ρίζα αιτίας:</strong> καμία — το δίκτυο <em>δούλεψε</em>. Το BPDU Guard (part 6) έκανε ακριβώς τη δουλειά του όταν εμφανίστηκε ένα rogue switch· το «σφάλμα» είναι ότι κανείς δεν ήξερε τι σημαίνει err-disabled. <strong>Συνηθεια:</strong> το <code>show interfaces status err-disabled</code> ανήκει στις πρώτες πέντε εντολές σου σε κάθε ticket «port ξαφνικά νεκρό», και η στήλη Reason κατονομάζει την ένοχη προστασία.</p>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Tickets 3–4: Σφαλματα Που Ζουν στα Trunks</h2>
+  <p class="section-thesis"><em>Scope: «ένα VLAN, ένα switch» και «περίεργος θόρυβος στα logs». Και τα δύο είναι κακές ρυθμίσεις trunk — το μέρος όπου ένα σφάλμα μπορεί να κρυφτεί επειδή οι περισσότερη κίνηση ακόμα ρέει.</em></p>
+
+  <h3 class="sub">Ticket 3 — «Το Guest Wi-Fi δουλευει στο λομπι αλλα οχι στο εστιατοριο.»</h3>
+  <p>Οι επισκέπτες (VLAN 20) δουλεύουν στο ACC-1, αποτυγχάνουν στο ACC-2 — αλλά το staff στο ACC-2 είναι μια χαρά. Ένα VLAN, ένα switch, τα άλλα VLAN υγιή: αυτό είναι <strong>trunk που κουβαλά μερική λίστα VLAN</strong>.</p>
+  <div class="term-wrap">
+    <span class="term-label">ACC-2 — ανακρινε το trunk, οχι το access port</span>
+    <pre class="term"><span class="pc">ACC-2#</span> <span class="out">show interfaces trunk</span>
+<span class="out">Port        Vlans allowed on trunk
+Gi0/1       10,30,99</span>          <span class="cmt">← λείπει το 20. Κάποιος «καθάρισε»
+                                    την allowed list και έριξε το GUEST.</span>
+<span class="out">Gi0/2       10,20,30,99</span>       <span class="cmt">← το uplink του CORE-2 το έχει ακόμα — αλλά το STP
+                                    μπλοκάρει εκείνο το path σε steady state, άρα άτυχο</span>
+<span class="pc">ACC-2(config)#</span> <span class="out">interface Gi0/1</span>
+<span class="pc">ACC-2(config-if)#</span> <span class="out">switchport trunk allowed vlan add 20</span>   <span class="cmt">← ADD, όχι απλή λίστα!</span></pre>
+  </div>
+  <p><strong>Ρίζα αιτίας:</strong> μια επεξεργασμένη allowed-VLAN list. Πρόσεξε ότι η διόρθωση χρησιμοποιεί <code>add</code> — το να πληκτρολογήσεις <code>switchport trunk allowed vlan 20</code> θα <em>αντικαθιστούσε</em> ολόκληρη τη λίστα με μόνο το 20 και θα έριχνε μαζί τα άλλα τρία VLAN. Αυτή η μία λέξη που λείπει έχει προκαλέσει πραγματικά outages παντού. <strong>Συνηθεια:</strong> όταν ένα VLAN πεθαίνει σε ένα switch, <code>show interfaces trunk</code> πριν από οτιδήποτε άλλο.</p>
+
+  <h3 class="sub">Ticket 4 — «Ολα δουλευουν, αλλα το log συνεχιζει να παραπονιεται.»</h3>
+  <div class="term-wrap">
+    <span class="term-label">ACC-2 — το CDP σου λεει ακριβως τι φταιει</span>
+    <pre class="term"><span class="out">%CDP-4-NATIVE_VLAN_MISMATCH: Native VLAN mismatch discovered on GigabitEthernet0/2 (99), with CORE-2 GigabitEthernet1/0/2 (1).</span>
+<span class="cmt"># Το downlink του CORE-2 ξαναχτίστηκε και έχασε τη ρύθμιση native-vlan του:</span>
+<span class="pc">CORE-2(config)#</span> <span class="out">interface GigabitEthernet1/0/2</span>
+<span class="pc">CORE-2(config-if)#</span> <span class="out">switchport trunk native vlan 99</span></pre>
+  </div>
+  <p><strong>Ρίζα αιτίας:</strong> native VLAN 99 στη μία άκρη, 1 στην άλλη. Frames χωρίς tag — μαζί με κάποια κίνηση ελέγχου — περνάνε το trunk και προσγειώνονται σε <em>διαφορετικά VLAN</em> σε κάθε πλευρά. Σήμερα είναι θόρυβος στα logs· τη μέρα που κάποιος πραγματικά χρησιμοποιήσει εκείνα τα VLAN, γίνεται διαρροή ανάμεσα σε segments που κανένα ACL δεν την είδε να έρχεται. <strong>Συνηθεια:</strong> προειδοποιήσεις που «δεν χαλάνε τίποτα» είναι σφάλματα με καθυστερημένο φυτίλι. Διόρθωσέ τες τη μέρα που εμφανίζονται.</p>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Tickets 5–6: Το Επιπεδο Gateway</h2>
+  <p class="section-thesis"><em>Scope: ένα VLAN παντού, ή διαλείπον το παν. Όταν το access layer βγαίνει καθαρό, υποψιάσου τα πράγματα που πρέπει να συμφωνούν και τα δύο cores — HSRP και το DHCP relay.</em></p>
+
+  <h3 class="sub">Ticket 5 — «Το δικτυο ειναι up και down σαν γιο-γιο για ολους.»</h3>
+  <div class="term-wrap">
+    <span class="term-label">CORE-1 — δυο actives ειναι ενα παραπανω</span>
+    <pre class="term"><span class="pc">CORE-1#</span> <span class="out">show standby brief</span>
+<span class="out">Interface   Grp  Pri P State    Active          Standby         Virtual IP
+Vl10        10   110 P <span class="key">Active   local           unknown</span>        10.10.10.1</span>
+<span class="cmt">                                                 ↑ το CORE-1 δεν βλέπει τον peer του…</span>
+<span class="pc">CORE-2#</span> <span class="out">show standby brief</span>
+<span class="out">Vl10        10   90  P <span class="key">Active   local           unknown</span>        10.10.10.1</span>
+<span class="cmt"># Και τα ΔΥΟ διεκδικούν Active για το ίδιο VIP = split brain. Τα HSRP hellos δεν
+# περνάνε το interlink. Είναι ακόμα επιτρεπτό το VLAN 10 στο Po1;</span>
+<span class="pc">CORE-1#</span> <span class="out">show interfaces trunk | include Po1</span>
+<span class="out">Po1         <span class="key">20,30,99</span></span>          <span class="cmt">← το VLAN 10 κλαδεύτηκε από το port-channel!</span>
+<span class="pc">CORE-1(config)#</span> <span class="out">interface Port-channel1</span>
+<span class="pc">CORE-1(config-if)#</span> <span class="out">switchport trunk allowed vlan add 10</span></pre>
+  </div>
+  <p><strong>Ρίζα αιτίας:</strong> το VLAN 10 έπεσε από το trunk interlink, οπότε τα δύο cores σταμάτησαν να ακούνε το ένα τα HSRP hellos του άλλου σε εκείνο το VLAN και <em>και τα δύο</em> έγιναν active — διπλό virtual MAC, χάος ARP, διαλείπον το παν. <strong>Συνηθεια:</strong> «δύο Actives» στο <code>show standby brief</code> ποτέ δεν σημαίνει ότι το HSRP είναι χαλασμένο· σημαίνει ότι είναι χαλασμένο <strong>το path ανάμεσα στους peers</strong>. Κυνήγα το trunk, όχι το πρωτόκολλο.</p>
+
+  <h3 class="sub">Ticket 6 — «Τα νεα τηλεφωνα στο voice VLAN δειχνουν διευθυνσεις 169.254.»</h3>
+  <div class="term-wrap">
+    <span class="term-label">CORE-2 — το relay υπαρχει μονο εκει που το πληκτρολογησες</span>
+    <pre class="term"><span class="pc">CORE-2#</span> <span class="out">show running-config interface vlan 30</span>
+<span class="out">interface Vlan30
+ ip address 10.10.30.3 255.255.255.0
+ standby 30 ip 10.10.30.1
+ standby 30 priority 110
+ standby 30 preempt</span>
+<span class="cmt"># Κανένα ip helper-address — και το CORE-2 είναι το ACTIVE gateway για VLAN 30,
+# άρα είναι ο router που λαμβάνει (και ρίχνει) το DISCOVER κάθε τηλεφώνου.</span>
+<span class="pc">CORE-2(config)#</span> <span class="out">interface vlan 30</span>
+<span class="pc">CORE-2(config-if)#</span> <span class="out">ip helper-address 10.255.0.5</span></pre>
+  </div>
+  <p><strong>Ρίζα αιτίας:</strong> ο relay έγινε config στο CORE-1 (standby για VLAN 30) αλλά ξεχάστηκε στο CORE-2 (active). Τα broadcasts πεθαίνουν στο active gateway· ένα relay στο standby δεν βοηθά κανέναν. Μια αυτο-ανατεθειμένη διεύθυνση 169.254.x.x είναι πάντα η ίδια πρόταση: <em>«το DHCP broadcast μου δεν πήρε απάντηση»</em> — το σφάλμα είναι το relay, το trunk προς τον DHCP server, ή το pool, με αυτή τη σειρά πιθανότητας. <strong>Συνηθεια:</strong> ό,τι είναι config ανά SVI πρέπει να υπάρχει και στα <strong>δύο</strong> cores — έλεγξε με <code>show run | include helper</code> στο καθένα.</p>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Tickets 7–8: Το Edge</h2>
+  <p class="section-thesis"><em>Scope: «φτάνουμε τα πάντα εσωτερικά, αλλά όχι το internet» — το σύνορο είναι το EDGE, και οι δύο συνήθεις ύποπτοι εκεί είναι το NAT και το route επιστροφής.</em></p>
+
+  <h3 class="sub">Ticket 7 — «Το voice VLAN δεν φτανει τον παροχο τηλεφωνιας — τα υπολοιπα ναι.»</h3>
+  <div class="term-wrap">
+    <span class="term-label">EDGE — το routing ειναι μια χαρα· το NAT ειναι ιδιοτροπο</span>
+    <pre class="term"><span class="cmt"># Από τηλέφωνο: το ping 10.255.0.1 δουλεύει (internal routing μια χαρά), το 8.8.8.8 πεθαίνει.
+# Στο EDGE — μεταφράζει καν το NAT το VLAN 30;</span>
+<span class="pc">EDGE#</span> <span class="out">show ip nat translations | include 10.10.30</span>
+<span class="cmt">                                    (τίποτα)</span>
+<span class="pc">EDGE#</span> <span class="out">show access-list 1</span>
+<span class="out">Standard IP access list 1
+    10 permit 10.10.10.0, wildcard bits 0.0.0.255 (8231 matches)
+    20 permit 10.10.20.0, wildcard bits 0.0.0.255 (5044 matches)</span>
+<span class="cmt"># Το ACL NAT απαριθμεί subnets — και το VLAN 30 προστέθηκε στο δίκτυο
+# αφού γράφτηκε το ACL. Τα πακέτα κάνουν route στο EDGE, αποτυγχάνουν στο ACL, βγαίνουν
+# ΧΩΡΙΣ ΜΕΤΑΦΡΑΣΗ με source 10.x, και ο ISP τα ρίχνει σιωπηλά.</span>
+<span class="pc">EDGE(config)#</span> <span class="out">access-list 1 permit 10.10.30.0 0.0.0.255</span></pre>
+  </div>
+  <p><strong>Ρίζα αιτίας:</strong> ένα ACL NAT γραμμένο ως λίστα συγκεκριμένων subnets αντί για το summary <code>10.10.0.0 0.0.255.255</code> από το part 24 — οπότε κάθε μελλοντικό VLAN γεννιέται σπασμένο. <strong>Συνηθεια:</strong> «το εσωτερικό δουλεύει, το internet όχι, για ένα subnet» είναι πρόβλημα scope NAT μέχρι αποδείξεως του εναντίου, και το <code>show ip nat translations</code> φιλτραρισμένο κατά subnet το ξεκαθαρίζει σε μία εντολή.</p>
+
+  <h3 class="sub">Ticket 8 — «Μετα το maintenance του σαββατοκυριακου, οι μισες συνεδριες ειναι αργες η περιεργες.»</h3>
+  <div class="term-wrap">
+    <span class="term-label">EDGE — εμπιστεψου το traceroute αντι για υποθεσεις</span>
+    <pre class="term"><span class="pc">EDGE#</span> <span class="out">show ip route | include 10.10.0.0</span>
+<span class="out">S    10.10.0.0/16 [1/0] via 10.255.0.2
+S    10.10.0.0/16 [1/0] via <span class="key">10.255.0.9</span></span>   <span class="cmt">← .9; Τα core links μας είναι .2 και .6 —
+                                              ένα next-hop με typo από το σαββατοκύριακο</span>
+<span class="cmt"># Οι μισές από την κίνηση επιστροφής του EDGE (το ECMP εναλλάσσει flows) γίνονται route σε ένα
+# next-hop που δεν απαντά ARP για τίποτα. Αυτά τα flows πεθαίνουν· τα υπόλοιπα δουλεύουν.</span>
+<span class="pc">EDGE(config)#</span> <span class="out">no ip route 10.10.0.0 255.255.0.0 10.255.0.9</span>
+<span class="pc">EDGE(config)#</span> <span class="out">ip route 10.10.0.0 255.255.0.0 10.255.0.6</span></pre>
+  </div>
+  <p><strong>Ρίζα αιτίας:</strong> ένα static με fat-finger κατά το maintenance. Η σκληρή λεπτομέρεια: με ECMP, οι <em>μισές</em> ροές ακόμα δουλεύουν, οπότε το δίκτυο φαίνεται «αργό και ασταθές» αντί για «κάτω», και όλοι κατηγορούν το Wi-Fi για μια μέρα. <strong>Συνηθεια:</strong> «διαλείπον ανά session, σταθερό ανά session» ουρλιάζει <em>ένα από πολλά ίσα paths είναι χαλασμένο</em>. Έλεγξε κάθε next-hop ECMP· ένα route που εγκαθίσταται δεν είναι route που δουλεύει.</p>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Ο Χαρτης Συμπτωμα → Πρωτη Εντολη <span class="safe-badge">Τυπωσ' το</span></h2>
+  <p class="section-thesis"><em>Οκτώ tickets αποσταγμένα στον πίνακα αντανακλαστικού. Η πρώτη εντολή δεν βρίσκει κάθε σφάλμα — εξαλείφει τις μισές πιθανότητες σε δέκα δευτερόλεπτα, που είναι καλύτερο.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Συμπτωμα</th><th>Πρωτη εντολη &amp; τι εξαλειφει</th></tr></thead>
+    <tbody>
+      <tr><td>Ένας χρήστης νεκρός</td><td>show interfaces status — link, speed/duplex, και η στήλη VLAN (ticket 1)</td></tr>
+      <tr><td>Port ξαφνικά νεκρό μετά από σύνδεση κάποιου</td><td>show interfaces status err-disabled — προστασίες που πυροδοτήθηκαν, με όνομα (ticket 2)</td></tr>
+      <tr><td>Ένα VLAN νεκρό σε ένα μόνο switch</td><td>show interfaces trunk — allowed lists σε κάθε uplink (ticket 3)</td></tr>
+      <tr><td>Θόρυβος logs Native-VLAN</td><td>show interfaces trunk και στις δύο άκρες — οι στήλες native πρέπει να ταιριάζουν (ticket 4)</td></tr>
+      <tr><td>Όλοι διαλείπον / περίεργο ARP</td><td>show standby brief και στα ΔΥΟ cores — δύο Actives = σπασμένο path peer (ticket 5)</td></tr>
+      <tr><td>Clients σε 169.254.x.x</td><td>show run interface vlan N στο ACTIVE core — υπάρχει helper-address; (ticket 6)</td></tr>
+      <tr><td>Εσωτερικό μια χαρά, internet νεκρό, ένα subnet</td><td>show ip nat translations | include &lt;subnet&gt; — scope NAT (ticket 7)</td></tr>
+      <tr><td>Ασταθές ανά flow μετά από αλλαγή</td><td>show ip route — επαλήθευσε ότι κάθε next-hop ECMP όντως υπάρχει (ticket 8)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Τρεξ' το Σαν Παιχνιδι</span>
+    <p>Η καλύτερη εκδοχή αυτού του lab είναι ανταγωνιστική: δύο άτομα, ένα αρχείο Packet Tracer. Ο καθένας φυτεύει δύο σφάλματα από αυτή τη λίστα (ή εφευρίσκει άλλα στο ίδιο πνεύμα — μόνο config, χωρίς διαγραμμένα καλώδια), σώζει, και ανταλλάσσει. Βαθμολόγησε με tickets κλεισμένα ανά τριάντα λεπτά, και απαίτησε γραπτή ρίζα αιτίας για το καθένα — «το ξαναφόρτωσα και δουλεύει τώρα» βαθμολογείται μηδέν. Αυτό, όχι τυχαία, είναι ακριβώς πώς κάνω interview network engineers.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Scope πρωτα:</strong> ένας χρήστης / ένα switch / ένα VLAN / όλοι. Η απάντηση εξαλείφει το μεγαλύτερο μέρος του δικτύου πριν πληκτρολογήσεις εντολή.</li>
+      <li><strong>Περπάτα τα επίπεδα από κάτω προς τα πάνω και σταμάτα στην πρώτη αστοχία</strong> — κάθε τεστ υποθέτει ότι τα επίπεδα από κάτω πέρασαν, οπότε το να πηδάς μπροστά παράγει ψευδή συμπεράσματα.</li>
+      <li><strong>Το err-disabled είναι ετυμηγορία, όχι δυσλειτουργία.</strong> Διάβασε τη στήλη Reason, αφαίρεσε την αιτία, κάνε bounce το port.</li>
+      <li><strong>Οι allowed-lists trunk και τα native VLAN προκαλούν τα πιο πονηρά σφάλματα</strong> — οι περισσότερη κίνηση ακόμα ρέει, οπότε κανείς δεν υποψιάζεται το trunk. Και είναι πάντα <code>allowed vlan add</code>.</li>
+      <li><strong>Δύο HSRP Actives σημαίνει ότι οι peers δεν ακούγονται.</strong> Διόρθωσε το path ανάμεσα στα cores, όχι το πρωτόκολλο πάνω τους.</li>
+      <li><strong>Το config ανά-SVI πρέπει να υπάρχει και στα δύο cores</strong> — ένα helper-address στο standby gateway είναι σφάλμα που περιμένει ένα failover για να μετρήσει (ή το active να είναι αυτό που το λείπει).</li>
+      <li><strong>Ένα route που εγκαθίσταται δεν είναι route που δουλεύει</strong> — με ECMP, ένα κακό next-hop γίνεται «τα μισά πράγματα είναι ασταθή», το πιο κακοδιαγνωσμένο σύμπτωμα στο networking.</li>
+      <li><strong>Μία αλλαγή, ένα ξανά-τεστ, μία σημείωση.</strong> Αυτή είναι όλη η διαφορά ανάμεσα σε troubleshooting και σε τσαλαβούτημα.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Εχεις δικτυο που χαλαει σαν αυτα τα tickets;</h3>
+    <p>Το «κάν' το reboot και δες» δεν είναι troubleshooting. Όταν ένα δίκτυο επιχείρησης κουτσαίνει, κάνω διάγνωση ρίζας αιτίας και παραδίδω γραπτή αναφορά για το τι πραγματικά έφταιγε και τι ακριβώς άλλαξε για να διορθωθεί.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

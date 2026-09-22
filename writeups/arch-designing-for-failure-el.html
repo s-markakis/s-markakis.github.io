@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Network Architecture: Designing for Failure — S. Markakis</title>
+<meta name="description" content="A systematic SPOF audit across power, links, devices, WAN, protocols and services — matching redundancy to the cost of downtime, testing failover by causing failure, and the single points everyone forgets.">
+<meta property="og:title" content="Network Architecture: Designing for Failure — S. Markakis">
+<meta property="og:description" content="A systematic SPOF audit across power, links, devices, WAN, protocols and services — matching redundancy to the cost of downtime, testing failover by causing failure, and the single points everyone forgets.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/arch-designing-for-failure-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/arch-designing-for-failure.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/arch-designing-for-failure.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/arch-designing-for-failure-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/arch-designing-for-failure.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/arch-designing-for-failure-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/arch-designing-for-failure.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Network Architecture: Designing for Failure",
+  "description": "A systematic SPOF audit across power, links, devices, WAN, protocols and services — matching redundancy to the cost of downtime, testing failover by causing failure, and the single points everyone forgets.",
+  "datePublished": "2026-07-31",
+  "dateModified": "2026-07-31",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/arch-designing-for-failure-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/arch-designing-for-failure.png",
+  "keywords": [
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#arch-designing-for-failure"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="arch-designing-for-failure.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>Architecture</span> &nbsp;·&nbsp; Σχεδιαση &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Αρχιτεκτονικη Δικτυου<br>Σχεδιαζοντας Για Την Αποτυχια</h1>
+  <p class="post-subtitle">Η ανθεκτικότητα δεν είναι προϊόν που αγοράζεις — είναι ερώτηση που κάνεις σε κάθε layer: «τι γίνεται όταν αυτό πεθάνει;». Το redundancy που προστίθεται τυχαία είναι ακριβό θέατρο· το redundancy που προστίθεται εκεί όπου πραγματικά βρίσκονται τα single point of failure είναι μηχανική. Αυτό είναι το SPOF audit — μια συστηματική βόλτα σε κάθε layer για να βρεις τι σε ρίχνει κάτω, και τι αξίζει να διορθωθεί.</p>
+  <div class="tags">
+    <span class="tag">Architecture</span>
+    <span class="tag">Resilience</span>
+    <span class="tag">High Availability</span>
+    <span class="tag">Redundancy</span>
+    <span class="tag">SPOF</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Ένα <strong>single point of failure</strong> είναι κάθε στοιχείο του οποίου ο θάνατος ρίχνει περισσότερα απ' όσα αντέχεις. Κάθε δίκτυο τα έχει· το ερώτημα είναι αν <em>διάλεξες</em> ποια θα κρατήσεις. Η μηχανική ανθεκτικότητας δεν είναι «πρόσθεσε redundancy παντού» — έτσι διπλασιάζεις το κόστος και την πολυπλοκότητα ενώ ακόμα σου ξεφεύγει το ένα SPOF που πραγματικά δαγκώνει. Είναι ένα σκόπιμο audit: περπάτα κάθε layer, ονόμασε τι συμβαίνει όταν σπάει το καθένα, τιμολόγησε τη διόρθωση έναντι του κόστους της διακοπής, και κάνε redundant μόνο εκεί που βγαίνουν τα νούμερα.</p>
+    <p>Η μέθοδος είναι μια βόλτα layer-by-layer — <strong>ρεύμα, links, συσκευές, WAN, πρωτόκολλα, και υπηρεσίες</strong> — που κάνει το ίδιο ερώτημα στο καθένα: <em>αν αυτό το ένα πράγμα πεθάνει, τι πέφτει, για πόσο, και είναι αποδεκτό;</em> Εκεί που δεν είναι, έχεις ήδη τα εργαλεία από αυτή τη σειρά: <a href="cisco-hsrp.html">FHRP</a> για gateways, <a href="cisco-stp-etherchannel.html">LACP</a> για links, <a href="cisco-ipsla-failover.html">dual-WAN</a> για uplinks, redundant cores για συσκευές. Αυτό το post είναι το πλαίσιο που σου λέει <em>πού</em> να τα ξοδέψεις.</p>
+    <div class="prereqs-label">Διαβασε μαζι με</div>
+    <ul class="prereqs-list">
+      <li>Τα primitives του redundancy — <a href="cisco-hsrp.html">FHRP/VRRP</a>, <a href="mikrotik-stp-bonding.html">STP &amp; bonding</a>, <a href="cisco-ipsla-failover.html">dual-WAN</a></li>
+      <li>Ανάκαμψη όταν αποτυγχάνει έτσι κι αλλιώς — <a href="arch-oob-management.html">out-of-band management</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Το Audit — Μια Ερωτηση, Καθε Layer</h2>
+  <p class="section-thesis"><em>Περπάτα το stack από την πρίζα και πάνω. Σε κάθε layer, ονόμασε το ένα πράγμα του οποίου η αποτυχία πονάει, και αποφάσισε αν είναι αποδεκτό.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Layer / στοιχειο</th><th>Η διορθωση (αν η διακοπη ειναι μη αποδεκτη)</th></tr></thead>
+    <tbody>
+      <tr><td>Ρεύμα (ένα PSU, μια παροχή)</td><td>Δύο PSU σε διαφορετικά κυκλώματα/UPS· γεννήτρια για κρίσιμα sites</td></tr>
+      <tr><td>Ένα μόνο καλώδιο uplink</td><td><a href="mikrotik-stp-bonding.html">LACP bond</a> σε δύο links (και δύο line card)</td></tr>
+      <tr><td>Το core switch/router</td><td>Ζευγάρι redundant + <a href="cisco-hsrp.html">FHRP</a> για το gateway</td></tr>
+      <tr><td>Η IP του default gateway</td><td>Virtual gateway <a href="cisco-hsrp.html">HSRP/VRRP</a></td></tr>
+      <tr><td>Το μόνο link ISP / WAN</td><td><a href="cisco-ipsla-failover.html">Dual-WAN</a> (δεύτερος provider, ιδανικά διαφορετικό μέσο)</td></tr>
+      <tr><td>Ένα routing/VPN path</td><td><a href="cisco-redistribution-bfd.html">BFD</a> + ένα εφικτό backup path</td></tr>
+      <tr><td>DHCP / DNS / RADIUS server</td><td>Δεύτερος server· anycast ή failover pairing</td></tr>
+      <tr><td>Ο ένας μηχανικός που το ξέρει</td><td><a href="cisco-backup-restore.html">Documentation &amp; backups</a> — το πιο αγνοημένο SPOF</td></tr>
+    </tbody>
+  </table>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Ταιριαξε Το Redundancy Με Το Κοστος Του Downtime</h2>
+  <p class="section-thesis"><em>Το ίδιο SPOF αξίζει να διορθωθεί σε ένα site και να αγνοηθεί σε άλλο. Αυτό που το αποφασίζει είναι το κόστος της διακοπής, όχι η τεχνική ικανοποίηση της διόρθωσης.</em></p>
+  <p>Ένα νεκρό core switch σε ένα γραφείο 3 ατόμων είναι ένα κακό απόγευμα· σε ένα νοσοκομείο 200 κλινών είναι περιστατικό ασφαλείας. Το redundancy έχει πραγματικά κόστη — η δεύτερη συσκευή, η επιπλέον πολυπλοκότητα config, οι νέοι τρόποι αποτυχίας που εισάγει το ίδιο το redundancy (ένα split-brain <a href="cisco-hsrp.html">FHRP</a>, ένα λάθος ρυθμισμένο bond). Οπότε το τιμολογείς: <em>αναμενόμενο κόστος διακοπής</em> (συχνότητα × διάρκεια × επιχειρηματικό αντίκτυπο) έναντι <em>κόστους redundancy</em> (hardware + πολυπλοκότητα + ο κίνδυνος να κακολειτουργήσει το ίδιο το redundancy). Διόρθωσε τα SPOF όπου το downtime είναι ακριβό ή επικίνδυνο· <em>αποδέξου</em> συνειδητά αυτά όπου μια σύντομη διακοπή είναι φθηνότερη από την εξάλειψή της. Το να γράψεις «αποδεχόμαστε το X ως SPOF επειδή Y» είναι μια νόμιμη, senior μηχανική απόφαση — πολύ καλύτερη από το να προσποιείσαι ότι δεν υπάρχει.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Redundancy Που Ποτε Δεν Δοκιμασες Ειναι Πιστη, Οχι Γεγονος</span>
+    <p>Οι πιο σκληρές αποτυχίες είναι αυτές όπου το redundancy υπήρχε αλλά <em>δεν δούλεψε</em>: ο backup ISP του οποίου το config είχε ξεφύγει, το δεύτερο firewall που ποτέ δεν ήταν σε sync, το UPS με νεκρή μπαταρία, το failover που ποτέ δεν είχε πραγματικά ενεργοποιηθεί. Το μη δοκιμασμένο redundancy είναι χειρότερο από το καθόλου, γιατί αγοράζει ψεύτικη αυτοπεποίθηση. Σχεδίασε το failover, μετά <strong>δοκίμασέ το προκαλώντας την αποτυχία</strong> — τράβα το καλώδιο, σκότωσε το primary, άδειασε το UPS — σε πρόγραμμα. Τα posts broken-network και field-notes υπάρχουν επειδή τα drills αποτυχίας είναι εκεί που μαθαίνεις τι κάνει πραγματικά ο σχεδιασμός σου, σε σύγκριση με το τι υπέθεσες.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Τα SPOF Που Ολοι Ξεχνουν <span class="safe-badge">Αναφορα</span></h2>
+  <p class="section-thesis"><em>Ομάδες που κάνουν redundant το προφανές hardware ακόμα ρίχνονται από αυτά. Είναι φθηνό να διορθωθούν και συστηματικά αγνοούνται.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Ξεχασμενο SPOF</th><th>Γιατι δαγκωνει</th></tr></thead>
+    <tbody>
+      <tr><td>Και τα δύο «redundant» links στο ίδιο κανάλι</td><td>Ένας εκσκαφέας κόβει και τα δύο — τα διαφορετικά φυσικά μονοπάτια έχουν σημασία</td></tr>
+      <tr><td>Και τα δύο uplinks στον ίδιο ISP / ίδιο POP</td><td>Η διακοπή του provider είναι ακόμα δική σου διακοπή — διαφορετικοί providers</td></tr>
+      <tr><td>Δύο τροφοδοτικά στο ίδιο κύκλωμα</td><td>Dual PSU πίσω από έναν διακόπτη = και πάλι single point of failure</td></tr>
+      <tr><td>Χωρίς backups config / χωρίς πρόσβαση OOB</td><td>Το hardware επιβιώνει· η ανάκαμψη όχι. Δες <a href="arch-oob-management.html">OOB</a></td></tr>
+      <tr><td>Ένα άτομο κρατάει όλη τη γνώση</td><td>Το documentation είναι redundancy για το ανθρώπινο layer</td></tr>
+      <tr><td>Ληγμένο certificate / άδεια</td><td>Μια σιωπηλή SPOF-ωρολογιακή βόμβα — παρακολούθα ημερομηνίες λήξης</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Η ανθεκτικότητα είναι audit, όχι αγορά.</strong> Περπάτα κάθε layer ρωτώντας «τι γίνεται όταν αυτό πεθάνει;» και διόρθωσε σκόπιμα.</li>
+      <li><strong>Το redundancy παντού είναι θέατρο</strong> — διπλασιάζει κόστος και πολυπλοκότητα και ακόμα χάνει το πραγματικό SPOF. Στόχευσε αυτά που πονάνε.</li>
+      <li><strong>Τιμολόγησέ το:</strong> αναμενόμενο κόστος διακοπής έναντι κόστους redundancy (συμπεριλαμβανομένων των νέων τρόπων αποτυχίας που προσθέτει το redundancy). Αποδέξου συνειδητά τα SPOF που δεν αξίζει να διορθωθούν.</li>
+      <li><strong>Το μη δοκιμασμένο redundancy είναι πίστη, όχι γεγονός</strong> — προκάλεσε την αποτυχία σε πρόγραμμα, αλλιώς απλά ελπίζεις.</li>
+      <li><strong>Διαφορετικά μονοπάτια, διαφορετικοί providers, διαφορετικό ρεύμα</strong> — «redundant» links στο ίδιο κανάλι ή προς έναν ISP δεν είναι redundant.</li>
+      <li><strong>Το documentation, τα backups, και το OOB είναι κι αυτά redundancy</strong> — το ανθρώπινο layer και το layer ανάκαμψης είναι τα πιο αγνοημένα SPOF.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Εισαι σιγουρος οτι το «redundant» δικτυο σου επιβιωνει πραγματικα απο μια αποτυχια;</h3>
+    <p>Τα περισσότερα πλάνα ανθεκτικότητας παραμένουν θεωρητικά μέχρι τη μέρα που κάτι πραγματικά πεθαίνει. Τρέχω μια πραγματική επιθεώρηση single-point-of-failure σε ρεύμα, links, συσκευές, και WAN, μετά αποδεικνύω ότι το failover δουλεύει με τον μόνο τρόπο που μετράει &mdash; τραβώντας το καλώδιο ο ίδιος.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

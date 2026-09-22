@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Dual-WAN Failover with IP SLA — S. Markakis</title>
+<meta name="description" content="Failover που ανιχνεύει έναν νεκρό ISP ακόμα κι όταν το link μένει up — probes IP SLA, αντικείμενα track, tracked static routes, και NAT που ακολουθεί το ενεργό WAN.">
+<meta property="og:title" content="Cisco IOS: Dual-WAN Failover with IP SLA — S. Markakis">
+<meta property="og:description" content="Failover που ανιχνεύει έναν νεκρό ISP ακόμα κι όταν το link μένει up — probes IP SLA, αντικείμενα track, tracked static routes, και NAT που ακολουθεί το ενεργό WAN.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-ipsla-failover-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-ipsla-failover.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-ipsla-failover.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-ipsla-failover-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-ipsla-failover.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-ipsla-failover-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-ipsla-failover.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Dual-WAN Failover with IP SLA",
+  "description": "Failover που ανιχνεύει έναν νεκρό ISP ακόμα κι όταν το link μένει up — probes IP SLA, αντικείμενα track, tracked static routes, και NAT που ακολουθεί το ενεργό WAN.",
+  "datePublished": "2026-07-24",
+  "dateModified": "2026-07-24",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-ipsla-failover-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-ipsla-failover.png",
+  "keywords": [
+    "cisco",
+    "routing"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-ipsla-failover"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-ipsla-failover.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Dual-WAN Failover με IP SLA</h1>
+  <p class="post-subtitle">Ένα floating static route κάνει failover μόνο όταν πέσει η θύρα — αλλά ένας νεκρός ISP συνήθως αφήνει τη θύρα σου χαρούμενα up. Το IP SLA το διορθώνει αυτό: ο router κάνει ping κάτι στο internet, και όταν σταματήσουν τα ping, αποσύρει το route. Η απάντηση της Cisco στο ακριβές πρόβλημα που λύνει το post μας για failover Starlink σε MikroTik.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">IP SLA</span>
+    <span class="tag">Failover</span>
+    <span class="tag">Dual WAN</span>
+    <span class="tag">Track</span>
+    <span class="tag">NAT</span>
+    <span class="tag">Starlink</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: probe-driven failover -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="fp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="200" fill="#e1ded7"/>
+      <rect x="40" y="80" width="130" height="46" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="105" y="100" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">R1 edge</text>
+      <text x="105" y="116" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">IP SLA ping 8.8.8.8</text>
+      <!-- primary path -->
+      <line x1="170" y1="94" x2="470" y2="60" style="stroke:#558840;stroke-width:2.4;marker-end:url(#fp)"/>
+      <text x="320" y="52" style="font-family:'Inter',sans-serif;font-size:9.5px;fill:#3a6a28;text-anchor:middle;font-weight:700;">ΙΝΑ — κύριο (track UP)</text>
+      <!-- backup path -->
+      <line x1="170" y1="112" x2="470" y2="146" style="stroke:#c08020;stroke-width:1.6;stroke-dasharray:6,4;marker-end:url(#fp)"/>
+      <text x="320" y="164" style="font-family:'Inter',sans-serif;font-size:9.5px;fill:#8a5a10;text-anchor:middle;">STARLINK / LTE — floating backup</text>
+      <!-- internet -->
+      <ellipse cx="560" cy="100" rx="66" ry="42" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="560" y="96" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">Internet</text>
+      <text x="560" y="112" style="font-family:ui-monospace,monospace;font-size:9px;fill:#3a5a78;text-anchor:middle;">8.8.8.8</text>
+      <text x="360" y="192" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Το probe σταματάει να απαντάει → το track πάει DOWN → αποσύρεται το κύριο route → εγκαθίσταται το backup. Όχι «είναι μπηγμένο το καλώδιο».</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το <a href="cisco-routing-ospf.html">post δρομολόγησης</a> τελείωσε με μια ειλικρινή παγίδα: ένα floating static route κάνει failover μόνο όταν το κύριο route <em>φεύγει από τον πίνακα</em>, και το IOS αποσύρει ένα static όταν το interface του πέφτει <strong>down</strong>. Αλλά η πιο συνηθισμένη αστοχία WAN δεν είναι μια θύρα down — είναι μια ίνα που πεθαίνει τρεις δρόμους μακριά ενώ το ONT σου κρατάει το τοπικό link <code>up/up</code>. Ο router νομίζει ότι όλα είναι μια χαρά και δεν αγγίζει ποτέ το backup. Οι χρήστες δεν έχουν internet· ο router επιμένει ότι όλα είναι καλά.</p>
+    <p>Το <strong>IP SLA</strong> κλείνει εκείνο το κενό. Είναι μια ενσωματωμένη μηχανή probe: ο router κάνει συνεχώς ping σε έναν αξιόπιστο στόχο internet (ας πούμε 8.8.8.8) από το κύριο WAN. Ένα αντικείμενο <code>track</code> παρακολουθεί το probe, και το κύριο static route γίνεται εξαρτημένο από εκείνο το track. Τα ping σταματούν → το track πέφτει → αποσύρεται το route → εγκαθίσταται το floating backup — όλα σε δευτερόλεπτα, οδηγούμενα από πραγματική προσβασιμότητα αντί για κατάσταση link. Πρόσθεσε λίγη χορογραφία NAT ώστε οι μεταφράσεις να ακολουθούν το ενεργό WAN, και έχεις πραγματικό dual-WAN failover. Αυτό είναι το απευθείας ισοδύναμο σε Cisco του κόλπου recursive-route + netwatch από το writeup μας <a href="starlink-mikrotik-failover.html">Starlink + MikroTik failover</a>.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Static/default routes και floating statics — δες <a href="cisco-routing-ospf.html">Static Routing &amp; OSPF</a></li>
+      <li>NAT/PAT στην άκρη — δες <a href="cisco-dhcp-nat.html">DHCP &amp; NAT/PAT</a></li>
+      <li>Έναν router με δύο interfaces WAN (ίνα + Starlink/LTE είναι το κλασικό ζευγάρι)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Το Probe — IP SLA</h2>
+  <p class="section-thesis"><em>Όρισε τι σημαίνει «το internet είναι προσβάσιμο»: ένα επαναλαμβανόμενο ICMP echo προς σταθερό στόχο, σταλμένο από το κύριο WAN. Μετά προγραμμάτισέ το να τρέχει για πάντα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ενα probe ICMP απο το κυριο WAN</span>
+    <pre class="term"><span class="cmt"># Probe 1: ping 8.8.8.8, με πηγή το κύριο interface WAN,
+# κάθε 2 δευτερόλεπτα, απέτυχε αν δεν έρθει απάντηση μέσα σε 1 δευτερόλεπτο (1000 ms).</span>
+<span class="pc">R1(config)#</span> <span class="out">ip sla 1</span>
+<span class="pc">R1(config-ip-sla)#</span> <span class="out">icmp-echo 8.8.8.8 source-interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-ip-sla-echo)#</span> <span class="out">frequency 2</span>
+<span class="pc">R1(config-ip-sla-echo)#</span> <span class="out">threshold 1000</span>
+<span class="pc">R1(config-ip-sla-echo)#</span> <span class="out">timeout 1000</span>
+<span class="pc">R1(config-ip-sla-echo)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Ξεκίνα το τώρα και μη σταματήσεις ποτέ</span>
+<span class="pc">R1(config)#</span> <span class="out">ip sla schedule 1 life forever start-time now</span>
+
+<span class="cmt"># Επιβεβαίωσε ότι πραγματικά κάνει probe (ασφαλές)</span>
+<span class="pc">R1#</span> <span class="out">show ip sla statistics 1</span>
+<span class="out">IPSLA operation id: 1
+        Latest RTT: 14 milliseconds
+Latest operation return code: OK
+Number of successes: 428   Number of failures: 0</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Κανε Probe σε Στοχο που Δεν Κουνιεται, και Καρφωσε τη Διαδρομη του</span>
+    <p>Δύο λεπτότητες. Πρώτο, διάλεξε έναν στόχο που είναι <strong>πάντα up και όχι η ίδια η πύλη του ISP σου</strong> — τα 8.8.8.8 ή 1.1.1.1 είναι οι τυπικές επιλογές· το probe στο πρώτο hop του ISP σου μπορεί να αναφέρει «υγιές» ενώ το internet πέρα από αυτό είναι νεκρό. Δεύτερο, σε έναν router με default route και από τα δύο WAN, πρέπει να <strong>καρφώσεις το probe στην κύρια διαδρομή</strong> αλλιώς το IOS μπορεί να στείλει το ping από το backup και να βλέπει πάντα επιτυχία. Το <code>source-interface</code> βοηθάει, αλλά η στιβαρή διόρθωση είναι ένα static <code>/32</code> για τον στόχο probe από το κύριο next-hop (<code>ip route 8.8.8.8 255.255.255.255 &lt;primary-gw&gt;</code>) ώστε το probe να δοκιμάζει όντως το κύριο.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Το Αντικειμενο Track — Μετατρεψε ενα Probe σε Σημα</h2>
+  <p class="section-thesis"><em>Ένα αντικείμενο track μεταφράζει το «το SLA περνάει/αποτυγχάνει» σε κατάσταση up/down στην οποία μπορούν να αντιδράσουν routes και HSRP. Πρόσθεσε καθυστερήσεις ώστε ένα μεμονωμένο τρεμόπαιγμα να μην κάνει flap όλη την άκρη.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — κανε track το SLA, με καθυστερησεις anti-flap</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">track 1 ip sla 1 reachability</span>
+<span class="pc">R1(config-track)#</span> <span class="out">delay down 5 up 15</span>
+<span class="pc">R1(config-track)#</span> <span class="out">exit</span>
+<span class="cmt"># down 5  = περίμενε 5 δ αστοχίας πριν δηλώσεις DOWN (αγνόησε ένα χασομέρι)
+# up 15   = περίμενε 15 δ επιτυχίας πριν δηλώσεις UP ξανά
+#           (μην ξαναγυρνάς σε ένα κύριο που κάνει flap και συνεχίζει να πέφτει)</span>
+
+<span class="pc">R1#</span> <span class="out">show track 1</span>
+<span class="out">Track 1
+  IP SLA 1 reachability
+  Reachability is Up
+    2 changes, last change 00:12:40
+  Delay up 15 secs, down 5 secs</span></pre>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Δεσε το Route με το Track</h2>
+  <p class="section-thesis"><em>Τώρα κάνε το κύριο default route εξαρτημένο από το track. Όταν αποτυγχάνει το probe, το tracked route τραβιέται από τον πίνακα και το floating backup — που περίμενε με χειρότερο AD — εγκαθίσταται αυτόματα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — tracked κυριο + floating backup default routes</span>
+    <pre class="term"><span class="cmt"># Κύριο default μέσω ίνας, αλλά ΜΟΝΟ όσο το track 1 είναι up</span>
+<span class="pc">R1(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 203.0.113.1 track 1</span>
+
+<span class="cmt"># Backup default μέσω Starlink/LTE με AD 10 — μπαίνει όταν φεύγει το κύριο</span>
+<span class="pc">R1(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 198.51.100.1 10</span>
+
+<span class="cmt"># Σταθερή κατάσταση — μόνο το tracked (AD 1) route είναι εγκατεστημένο:</span>
+<span class="pc">R1#</span> <span class="out">show ip route static</span>
+<span class="out">S*    0.0.0.0/0 [1/0] via 203.0.113.1</span>
+
+<span class="cmt"># Σκότωσε την ίνα upstream (η θύρα μένει up!). Μέσα σε ~5 δ:</span>
+<span class="out">%TRACK-6-STATE: 1 ip sla 1 reachability Up -> Down</span>
+<span class="pc">R1#</span> <span class="out">show ip route static</span>
+<span class="out">S*    0.0.0.0/0 [10/0] via 198.51.100.1   ← ανέλαβε το backup</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Το Ιδιο Track Οδηγει και το HSRP</span>
+    <p>Το αντικείμενο <code>track 1</code> που μόλις έχτισες δεν είναι ειδικό για route — είναι επαναχρησιμοποιήσιμο σήμα. Σε ένα edge με δύο router, τρόφοδοτήσέ το στο HSRP (<code>standby 10 track 1 decrement 30</code>, από το <a href="cisco-hsrp.html">post FHRP</a>) ώστε η πύλη να κάνει <em>κι αυτή</em> failover όταν πεθάνει το κύριο WAN, όχι μόνο όταν πεθάνει ο router. Ένα probe, ένα track, δύο καταναλωτές: το default route και η εκλογή πύλης. Αυτό είναι ολόκληρη η εφεδρική άκρη να αντιδρά σε μία μοναδική πηγή αλήθειας για την προσβασιμότητα internet.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Κανε το NAT να Ακολουθει το Ενεργο WAN</h2>
+  <p class="section-thesis"><em>Η παγίδα που πιάνει τους πάντες: η δρομολόγηση κάνει failover, αλλά οι υπάρχουσες μεταφράσεις NAT ακόμα δείχνουν το IP του νεκρού WAN, οπότε η κίνηση πεθαίνει ούτως ή άλλως. Το NAT πρέπει να κινείται με το route.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — route-map NAT ωστε το PAT να χρησιμοποιει οποιο WAN ειναι ενεργο</span>
+    <pre class="term"><span class="cmt"># Σήμανε και τα δύο interfaces WAN outside, το LAN inside (όπως στο post NAT)</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip nat outside</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip nat outside</span>
+
+<span class="cmt"># Ένα route-map ανά WAN: «κάνε NAT το LAN μόνο όταν η έξοδος είναι ΑΥΤΟ το interface»</span>
+<span class="pc">R1(config)#</span> <span class="out">access-list 1 permit 192.168.1.0 0.0.0.255</span>
+<span class="pc">R1(config)#</span> <span class="out">route-map WAN-FIBRE permit 10</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">match ip address 1</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">match interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">route-map WAN-LTE permit 10</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">match ip address 1</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">match interface GigabitEthernet0/1</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">exit</span>
+
+<span class="pc">R1(config)#</span> <span class="out">ip nat inside source route-map WAN-FIBRE interface GigabitEthernet0/0 overload</span>
+<span class="pc">R1(config)#</span> <span class="out">ip nat inside source route-map WAN-LTE interface GigabitEthernet0/1 overload</span>
+<span class="cmt"># Κάθε κανόνας πυροδοτεί μόνο όταν ο πίνακας δρομολόγησης στέλνει τη ροή από το WAN του.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Καθαρισε τις Μπαγιατικες Μεταφρασεις τη Στιγμη του Failover</span>
+    <p>Ακόμα και με route-map NAT, μεταφράσεις που δημιουργήθηκαν <em>πριν</em> το failover μένουν cached έναντι του παλιού WAN και παραμένουν μέχρι να λήξουν — οπότε το πρώτο λεπτό μετά ένα failover μπορεί να φαίνεται μισο-χαλασμένο. Στο failover θέλεις να τις καθαρίσεις: <code>clear ip nat translation *</code>. Αυτοματοποίησέ το με ένα <strong>applet EEM</strong> που παρακολουθεί το track και καθαρίζει το NAT σε αλλαγή state (μια φυσική χρήση του post EEM που έρχεται αργότερα σε αυτή τη σειρά). Χειροκίνητα, είναι η πρώτη εντολή να τρέξεις αν «έγινε το failover αλλά κάποια πράγματα ακόμα δεν δουλεύουν».</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Επαληθευσε Ολη την Αλυσιδα <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Το failover έχει τέσσερα κινούμενα μέρη — probe, track, route, NAT. Όταν φέρεται άσχημα, περπάτα τα με τη σειρά· το σπάσιμο είναι πάντα σε έναν συγκεκριμένο κρίκο της αλυσίδας.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Ελεγχει</th></tr></thead>
+    <tbody>
+      <tr><td>show ip sla statistics 1</td><td>Τρέχει και πετυχαίνει το probe; Return code OK;</td></tr>
+      <tr><td>show ip sla configuration 1</td><td>Στόχος, source, συχνότητα, timeout — κάνει probe το σωστό πράγμα με τον σωστό τρόπο;</td></tr>
+      <tr><td>show track 1</td><td>Κατάσταση track και πόσες φορές έχει αλλάξει (ανιχνευτής flap).</td></tr>
+      <tr><td>show ip route static</td><td>Ποιο default είναι εγκατεστημένο τώρα — απόδειξη ποιος είναι ενεργός.</td></tr>
+      <tr><td>show ip nat translations</td><td>Χρησιμοποιούν οι μεταφράσεις τη διεύθυνση του ενεργού WAN;</td></tr>
+      <tr><td>show ip sla statistics 1 details</td><td>RTT ανά probe και η ακριβής αιτία αστοχίας.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — το δεντρο αποφασεων για «το failover δεν δουλευει»</span>
+    <pre class="term"><span class="cmt"># Το probe αποτυγχάνει ενώ το internet είναι στην πραγματικότητα μια χαρά;</span>
+<span class="pc">R1#</span> <span class="out">show ip sla statistics 1</span>    <span class="cmt"># → διόρθωσε το source-interface / το καρφί /32</span>
+
+<span class="cmt"># Το probe είναι OK αλλά το track δεν πέφτει ποτέ σε αστοχία;</span>
+<span class="pc">R1#</span> <span class="out">show track 1</span>              <span class="cmt"># → έλεγξε ότι η διαδρομή εξόδου του probe είναι όντως το κύριο</span>
+
+<span class="cmt"># Το track είναι down αλλά το route δεν αλλάζει;</span>
+<span class="pc">R1#</span> <span class="out">show ip route static</span>     <span class="cmt"># → λείπει η λέξη-κλειδί "track 1" από το κύριο route</span>
+
+<span class="cmt"># Το route άλλαξε αλλά η κίνηση ακόμα πεθαίνει;</span>
+<span class="pc">R1#</span> <span class="out">show ip nat translations</span>  <span class="cmt"># → λείπει το route-map NAT, ή καθάρισε τον μπαγιάτικο πίνακα</span></pre>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Ιδιο Failover, Δυο Διαλεκτοι</h2>
+  <p class="section-thesis"><em>Αυτό είναι το post όπου οι δύο πλατφόρμες ευθυγραμμίζονται πιο σφιχτά — το writeup μας για Starlink λύνει το πανομοιότυπο πρόβλημα με primitives RouterOS.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>/ip route check-gateway=ping</td><td>IP SLA icmp-echo + track reachability</td></tr>
+      <tr><td>Netwatch host + scripts up/down</td><td>Αντικείμενο track (+ EEM για παρενέργειες)</td></tr>
+      <tr><td>Recursive route μέσω probed /32</td><td>Tracked static + το καρφί probe <code>/32</code></td></tr>
+      <tr><td>distance= στο backup route</td><td>Floating static (trailing AD)</td></tr>
+      <tr><td>Δύο κανόνες masquerade ανά out-interface</td><td>Route-map NAT ανά interface WAN</td></tr>
+      <tr><td>Το Netwatch καθαρίζει συνδέσεις στην αλλαγή</td><td><code>clear ip nat translation *</code> μέσω EEM</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Γιατι Στρεφομαστε σε Αυτο σε Κρητικα Sites</span>
+    <p>Απομακρυσμένα ακίνητα εδώ τρέχουν συχνά κύριο ίνα-ή-DSL με <strong>Starlink ως backup</strong> (ή το αντίστροφο). Το IP του Starlink αλλάζει και το link του προς το πιάτο μένει up ακόμα κι όταν η υπηρεσία είναι υποβαθμισμένη — ακριβώς το σενάριο που χάνει το failover βασισμένο σε link-state. Το failover οδηγούμενο από probe είναι το μόνο πράγμα που αντιδρά σε αυτό που πραγματικά βιώνει ο επισκέπτης: «φτάνω το internet», όχι «είναι μπηγμένο ένα καλώδιο». Χτίζουμε το ίδιο pattern σε όποια πλατφόρμα είναι ήδη στο site.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Το failover βασισμένο σε link-state χάνει τη συνηθισμένη αποτυχία.</strong> Ένας νεκρός ISP συνήθως αφήνει το port σου up· μόνο ένα ενεργό probe προσβασιμότητας το προσέχει. Το IP SLA είναι αυτό το probe.</li>
+      <li><strong>Κάνε probe έναν σταθερό, μακρινό στόχο και κάρφωσε το path του.</strong> 8.8.8.8/1.1.1.1, όχι το gateway του ISP σου· ανάγκασε το probe να βγει από το primary με ένα static <code>/32</code> ώστε «επιτυχία» να σημαίνει ότι το primary πραγματικά δουλεύει.</li>
+      <li><strong>Ένα track object μετατρέπει το probe σε επαναχρησιμοποιήσιμο σήμα.</strong> Πρόσθεσε <code>delay down/up</code> ώστε ένα στιγμιαίο blip να μη ρίξει το edge σε flap, και ένα primary που κάνει flap να μη σε τραβάει ξανά πίσω σε αυτό.</li>
+      <li><strong>Κάνε τη route του primary υπό όρους:</strong> <code>ip route 0.0.0.0 0.0.0.0 &lt;gw&gt; track 1</code> συν ένα floating backup σε χειρότερο AD. Το probe αποτυγχάνει → το primary αποσύρεται → το backup εγκαθίσταται.</li>
+      <li><strong>Το NAT πρέπει να ακολουθεί τη route.</strong> Route-map NAT ανά WAN, και κάνε flush τις μπαγιάτικες μεταφράσεις στο failover (<code>clear ip nat translation *</code>, ιδανικά μέσω EEM) αλλιώς το πρώτο λεπτό φαίνεται σπασμένο.</li>
+      <li><strong>Ένα track μπορεί να οδηγήσει και το routing ΚΑΙ το HSRP.</strong> Το ίδιο σήμα προσβασιμότητας κάνει failover και στη default route και στο gateway — όλο το edge να αντιδρά σε μία αλήθεια.</li>
+      <li><strong>Είναι το δίδυμο σε Cisco του MikroTik Starlink failover μας.</strong> Ίδιο πρόβλημα, ίδια λογική· κάνε probe την προσβασιμότητα, όχι το link state.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Τρεχεις ινα + Starlink για ενα site στην Κρητη;</h3>
+    <p>Μια πράσινη λυχνία link σού λέει ότι το καλώδιο είναι εντάξει, όχι ότι είναι το internet. Χτίζω dual-WAN failover σε Cisco και MikroTik που παρακολουθεί πραγματική προσβασιμότητα, με NAT που ακολουθεί όποιο path είναι πραγματικά ενεργό &mdash; μετά το δοκιμάζω σκοτώνοντας ο ίδιος το πρωτεύον link.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

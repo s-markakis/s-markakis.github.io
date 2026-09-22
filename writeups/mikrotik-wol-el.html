@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Wake-on-LAN on MikroTik — S. Markakis</title>
+<meta name="description" content="Πυροδότηση Wake-on-LAN μέσω MikroTik RouterOS — scripts, προγραμματισμός, και απομακρυσμένα magic packets.">
+<meta property="og:title" content="MikroTik: Wake-on-LAN — S. Markakis">
+<meta property="og:description" content="Πυροδότηση Wake-on-LAN μέσω MikroTik RouterOS — scripts, προγραμματισμός, και απομακρυσμένα magic packets.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-wol-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-wol.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-wol.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-wol-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-wol.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-wol-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-wol.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  /* ── TOKENS ─────────────────────────────────────────── */
+  :root {
+    --bg:        #f0efe9;
+    --card:      #fff;
+    --code-bg:   #e8e6e0;
+    --term-bg:   #e8e6e0;
+    --rule:      #e0deda;
+    --body:      #5e5a52;
+    --mid:       #0f0f0f;
+    --head:      #0f0f0f;
+    --accent:    #c63d1f;
+    --gotcha:    #c08020;
+    --defender:  #3a5a78;
+    --font-disp: 'Barlow Condensed', sans-serif;
+    --font-body:'Inter',-apple-system,sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  /* ── RESET & BASE ────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; background: var(--bg); color: var(--body); }
+  body { font-family: var(--font-body); font-weight: 400; line-height: 1.7;
+         background: var(--bg); min-height: 100vh; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+
+  /* ── LAYOUT ──────────────────────────────────────────── */
+  .wrap { position: relative; z-index: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+
+  /* ── HEADER ──────────────────────────────────────────── */
+  .post-meta {
+    font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--body); margin-bottom: 0.8rem;
+  }
+  .post-meta span { color: var(--accent); font-weight: 600; }
+  h1.post-title {
+    font-family: var(--font-disp); font-weight: 900; font-size: 3rem;
+    line-height: 1.05; color: var(--head); text-transform: uppercase;
+    letter-spacing: 0.02em; margin-bottom: 1rem;
+  }
+  .post-subtitle {
+    font-size: 1.05rem; color: var(--mid); font-weight: 400;
+    margin-bottom: 1.4rem; line-height: 1.5;
+  }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 2rem; }
+  .tag {
+    font-family: var(--font-body); font-weight: 600; font-size: 0.7rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    border: 1px solid var(--head); border-radius: 999px;
+    padding: 0.18em 0.75em; color: var(--mid);
+  }
+  hr.title-rule { border: none; border-top: 1px solid var(--rule); margin-bottom: 2rem; }
+
+  /* ── THESIS CARD ─────────────────────────────────────── */
+  .thesis-card {
+    background: var(--card); border-radius: 6px;
+    border-left: 3px solid var(--accent);
+    padding: 1.6rem 1.8rem; margin-bottom: 2.6rem;
+  }
+  .thesis-card p { color: var(--mid); font-size: 0.98rem; line-height: 1.7; }
+  .thesis-card p + p { margin-top: 0.8rem; }
+  .prereqs-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.8rem;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+    margin-top: 1.2rem; margin-bottom: 0.5rem;
+  }
+  .prereqs-list { list-style: none; padding: 0; }
+  .prereqs-list li {
+    font-size: 0.88rem; color: var(--mid); padding: 0.15rem 0;
+    padding-left: 1rem; position: relative;
+  }
+  .prereqs-list li::before {
+    content: "›"; position: absolute; left: 0; color: var(--accent); font-weight: 700;
+  }
+
+  /* ── SECTION HEADINGS ────────────────────────────────── */
+  .section-num {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.82rem;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
+    margin-bottom: 0.2rem; margin-top: 2.8rem;
+  }
+  h2.section-title {
+    font-family: var(--font-disp); font-weight: 800; font-size: 1.9rem;
+    color: var(--head); text-transform: uppercase; letter-spacing: 0.03em;
+    line-height: 1.1; margin-bottom: 0.5rem;
+  }
+  .section-thesis {
+    font-style: italic; color: var(--mid); font-size: 0.95rem;
+    margin-bottom: 1.4rem; line-height: 1.6;
+    border-bottom: 1px solid var(--rule); padding-bottom: 0.8rem;
+  }
+  h3.sub {
+    font-family: var(--font-disp); font-weight: 700; font-size: 1.15rem;
+    color: var(--mid); text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 1.6rem 0 0.5rem;
+  }
+
+  /* ── BODY COPY ───────────────────────────────────────── */
+  p { margin-bottom: 1rem; color: var(--body); font-size: 0.96rem; }
+  strong { color: var(--mid); font-weight: 600; }
+  em.accent { color: var(--accent); font-style: normal; font-weight: 600; }
+
+  /* ── TERMINAL BLOCKS ─────────────────────────────────── */
+  .term-wrap {
+    background: var(--term-bg); border-radius: 5px;
+    border: 1px solid var(--rule); margin: 1.2rem 0;
+    overflow-x: auto;
+  }
+  .term-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.7rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--body); background: var(--rule);
+    padding: 0.3rem 0.9rem; display: block;
+    border-bottom: 1px solid var(--rule);
+  }
+  pre.term {
+    font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.75;
+    padding: 1rem 1.2rem; white-space: pre; color: var(--mid);
+    background: none; border: none; margin: 0;
+  }
+  span.pc { color: var(--accent); font-weight: 500; }
+  span.out { color: var(--mid); }
+  span.cmt { color: var(--body); font-style: italic; }
+
+  /* ── CODE / CONFIG BLOCKS ────────────────────────────── */
+  .code-wrap {
+    background: var(--code-bg); border-radius: 5px;
+    border: 1px solid var(--rule); margin: 1.2rem 0;
+    overflow-x: auto;
+  }
+  .code-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.7rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--body); background: var(--rule);
+    padding: 0.3rem 0.9rem; display: block;
+    border-bottom: 1px solid var(--rule);
+  }
+  pre.code {
+    font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.75;
+    padding: 1rem 1.2rem; white-space: pre; color: var(--mid);
+    background: none; border: none; margin: 0;
+  }
+  span.lbl { color: var(--body); font-style: italic; }
+  span.kw  { color: var(--accent); font-weight: 500; }
+  span.cm  { color: var(--body); font-style: italic; }
+  span.st  { color: var(--mid); }
+
+  /* ── INLINE CODE ─────────────────────────────────────── */
+  code {
+    font-family: var(--font-mono); font-size: 0.82em;
+    background: var(--code-bg); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 0.1em 0.4em; color: var(--mid);
+  }
+
+  /* ── CALLOUTS ────────────────────────────────────────── */
+  .callout {
+    border-radius: 5px; padding: 1rem 1.2rem;
+    margin: 1.4rem 0; font-size: 0.9rem;
+  }
+  .callout-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.72rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    display: block; margin-bottom: 0.4rem;
+  }
+  .callout p { margin: 0; font-size: 0.9rem; }
+  .callout p + p { margin-top: 0.5rem; }
+
+  .gotcha {
+    background: var(--card);
+    border-left: 3px solid var(--gotcha);
+  }
+  .gotcha .callout-label { color: var(--gotcha); }
+
+  .didnt-work {
+    background: var(--code-bg);
+    border-left: 3px solid var(--rule);
+  }
+  .didnt-work .callout-label { color: var(--body); }
+
+  .defender {
+    background: var(--card);
+    border-left: 3px solid var(--defender);
+  }
+  .defender .callout-label { color: var(--defender); }
+
+  /* ── SVG DIAGRAM WRAPPER ─────────────────────────────── */
+  .diagram-wrap {
+    margin: 1.6rem 0; border-radius: 6px;
+    border: 1px solid var(--rule); overflow: hidden;
+    background: var(--card);
+  }
+  .diagram-wrap svg { display: block; width: 100%; height: auto; }
+
+  /* ── TAKEAWAYS ───────────────────────────────────────── */
+  .takeaways {
+    background: var(--card); border-radius: 6px;
+    padding: 1.6rem 1.8rem; margin: 2.4rem 0;
+  }
+  .takeaways-title {
+    font-family: var(--font-disp); font-weight: 800; font-size: 1.1rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--head); margin-bottom: 1rem;
+  }
+  .takeaways ol { padding-left: 1.4rem; }
+  .takeaways li {
+    font-size: 0.92rem; color: var(--mid); margin-bottom: 0.55rem;
+    line-height: 1.55;
+  }
+  .takeaways li strong { color: var(--mid); }
+
+  /* ── CTA CARD ────────────────────────────────────────── */
+  .cta-card {
+    background: var(--card); border-radius: 6px;
+    border-top: 3px solid var(--accent);
+    padding: 1.8rem 2rem; margin-top: 2.8rem; text-align: center;
+  }
+  .cta-card h3 {
+    font-family: var(--font-disp); font-weight: 800; font-size: 1.5rem;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--head); margin-bottom: 0.6rem;
+  }
+  .cta-card p {
+    font-size: 0.93rem; color: var(--mid); max-width: 520px;
+    margin: 0 auto 1.2rem;
+  }
+  .cta-btn {
+    display: inline-block;
+    background: var(--accent); color: #fff;
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.85rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.65em 1.8em; border-radius: 4px;
+    transition: opacity 0.15s;
+  }
+  .cta-btn:hover { opacity: 0.88; text-decoration: none; }
+
+  /* ── IMAGES ──────────────────────────────────────────── */
+  .hero-img {
+    width: 100%; border-radius: 6px; margin-bottom: 2rem;
+    border: 1px solid var(--rule);
+    display: block; object-fit: cover; max-height: 340px;
+    filter: saturate(0.88) contrast(1.04);
+  }
+  .inline-img-wrap {
+    margin: 1.4rem 0; border-radius: 5px;
+    border: 1px solid var(--rule); overflow: hidden;
+    background: var(--card);
+  }
+  .inline-img-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.7rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--body); background: var(--rule);
+    padding: 0.3rem 0.9rem; display: block;
+    border-bottom: 1px solid var(--rule);
+  }
+  .inline-img-wrap img {
+    width: 100%; display: block; object-fit: cover;
+    filter: saturate(0.88) contrast(1.02);
+  }
+  .inline-img-caption {
+    font-size: 0.78rem; color: var(--body); font-style: italic;
+    padding: 0.45rem 0.9rem;
+    border-top: 1px solid var(--rule);
+    background: var(--card);
+  }
+
+  /* ── FOOTER ──────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--rule); margin-top: 4rem;
+    padding: 1.2rem 1.5rem;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.78rem; color: var(--body); letter-spacing: 0.04em;
+  }
+  footer a { color: var(--body); }
+  footer a:hover { color: var(--accent); }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Wake-on-LAN",
+  "description": "Πυροδότηση Wake-on-LAN μέσω MikroTik RouterOS — scripts, προγραμματισμός, και απομακρυσμένα magic packets.",
+  "datePublished": "2026-05-04",
+  "dateModified": "2026-05-04",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-wol-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-wol.png",
+  "keywords": [
+    "mikrotik",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-wol"
+  },
+  "timeRequired": "PT18M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-wol.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <!-- Header -->
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Μαιος 2026</p>
+  <h1 class="post-title">Wake-on-LAN<br>σε MikroTik</h1>
+  <p class="post-subtitle">Κάνε relay magic packets σε flat δίκτυα, routed VLANs, και απομακρυσμένα tunnels Tailscale — χωρίς να αγγίξεις τη συσκευή-στόχο.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">Wake-on-LAN</span>
+    <span class="tag">VLANs</span>
+    <span class="tag">Tailscale</span>
+    <span class="tag">Firewall</span>
+    <span class="tag">SMB / Hospitality</span>
+    <span class="tag">MTCNA+</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero image — Winbox main interface -->
+  <svg viewBox="0 0 720 215" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;background:#eae8e3;"><defs><style>.wb-bg{fill:#eae8e3}.wb-win{fill:#e1ded7;stroke:#c8c5be;stroke-width:1}.wb-bar{fill:#c8c5be}.wb-btn{fill:#dddbd5;stroke:#c8c5be;stroke-width:1;rx:2}.wb-tbl{fill:#f5f4f1;stroke:#c8c5be;stroke-width:1}.wb-row{fill:#dddbd5}.wb-sel{fill:#d4d2cc}.wb-t{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:11px;fill:#1a1a18}.wb-s{font-family:"Barlow",sans-serif;font-size:10px;fill:#555550}.wb-m{font-family:"JetBrains Mono",monospace;font-size:9px;fill:#555550}.wb-lbl{font-family:"Barlow",sans-serif;font-size:9px;fill:#888880}.wb-acc{fill:#c63d1f}.wb-acc-t{font-family:"JetBrains Mono",monospace;font-size:9px;fill:#c63d1f}</style></defs><rect width="720" height="215" class="wb-bg"/><rect x="123" y="15" width="480" height="195" fill="#c8c5be" rx="3"/><rect x="120" y="12" width="480" height="195" class="wb-win" rx="3"/><rect x="120" y="12" width="480" height="22" class="wb-bar" rx="3"/><rect x="120" y="23" width="480" height="11" class="wb-bar"/><text x="128" y="27" class="wb-t" style="font-size:10px;fill:#555550">Tools - WinBox</text><circle cx="590" cy="23" r="4" fill="#c63d1f"/><circle cx="578" cy="23" r="4" fill="#888880"/><circle cx="566" cy="23" r="4" fill="#888880"/><rect x="120" y="34" width="480" height="20" fill="#dddbd5"/><text x="128" y="47" class="wb-s">IP</text><text x="190" y="47" class="wb-s">Routing</text><text x="252" y="47" class="wb-s">MPLS</text><text x="314" y="47" class="wb-s">System</text><text x="376" y="47" class="wb-s">Tools</text><text x="438" y="47" class="wb-s">Queues</text><text x="500" y="47" class="wb-s">Files</text><text x="562" y="47" class="wb-s">Log</text><text x="132" y="70" class="wb-t">Wake on LAN</text><text x="132" y="97" class="wb-s" style="fill:#888880">Interface:</text><rect x="230" y="84" width="200" height="20" fill="#f5f4f1" stroke="#c8c5be" stroke-width="1" rx="2"/><text x="236" y="98" class="wb-m">bridge-lan</text><text x="132" y="133" class="wb-s" style="fill:#888880">MAC Address:</text><rect x="230" y="120" width="200" height="20" fill="#f5f4f1" stroke="#c8c5be" stroke-width="1" rx="2"/><text x="236" y="134" class="wb-m">AA:BB:CC:DD:EE:FF</text><rect x="230" y="162" width="70" height="22" fill="#c63d1f" rx="3"/><text x="265" y="177" class="wb-s" style="fill:#fff;text-anchor:middle">Wake!</text><rect x="308" y="162" width="60" height="22" class="wb-btn" rx="3"/><text x="338" y="177" class="wb-s" style="text-anchor:middle">Close</text></svg>
+
+  <!-- Thesis card -->
+  <div class="thesis-card">
+    <p>Το Wake-on-LAN ακούγεται τετριμμένο μέχρι να μπει στη μέση ένα routed boundary. Ένα magic packet είναι ένα ωμό Layer-2 broadcast — πεθαίνει τη στιγμή που χτυπά ένα interface router. Αυτό το tutorial ξεσκίζει <em>γιατί</em> συμβαίνει αυτό, μετά ξαναχτίζει το μονοπάτι: ξεκινώντας με ένα απλό relay ίδιου-subnet, προσθέτοντας τον forwarder UDP cross-VLAN που το κάνει να δουλεύει σε routed segments, και τελικά προσαρτώντας ένα script πυροδοτημένο από Tailscale ώστε να μπορείς να ξυπνήσεις έναν server σε δωμάτιο server ξενοδοχείου από οπουδήποτε στον πλανήτη.</p>
+    <p>Κάθε layer χτίζεται πάνω στο προηγούμενο. Στο τέλος θα έχεις ένα επαναχρησιμοποιήσιμο toolkit RouterOS — <code>/tool wol</code>, ονομαστά scripts, τον scheduler, και κανόνες firewall — συν ένα checklist defender ώστε το WoL να μη γίνει ένα μη εξουσιοδοτημένο vector remote-power-on.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>RouterOS v7.x σε οποιαδήποτε συσκευή (hEX, CRS, CCR, CHR — οι εντολές είναι ίδιες)</li>
+      <li>Άνεση επιπέδου MTCNA: ξέρεις τι είναι ένα bridge, interface VLAN, και chain firewall</li>
+      <li>Η συσκευή-στόχος έχει ενεργοποιημένο WoL στο BIOS/UEFI και το NIC το υποστηρίζει</li>
+      <li>Για το Τμήμα 04: ένα λειτουργικό container Tailscale ή host συνδεδεμένο σε Tailscale προσβάσιμο μέσω scripting RouterOS</li>
+      <li>Ξέρεις τη διεύθυνση MAC της συσκευής που θες να ξυπνήσεις</li>
+    </ul>
+  </div>
+
+  <!-- ── SECTION 01 ── -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Πως Δουλευει το Magic Packet</h2>
+  <p class="section-thesis"><em>Πριν αγγίξεις το RouterOS, κατάλαβε τι στέλνεις πραγματικά — και πού σπάει.</em></p>
+
+  <p>Ένα magic packet Wake-on-LAN είναι ένα UDP datagram που μεταφέρει ένα συγκεκριμένο payload 102-bytes: έξι bytes <code>0xFF</code> ακολουθούμενα από τη διεύθυνση MAC του στόχου επαναλαμβανόμενη δεκαέξι φορές. Η IP προορισμού είναι τυπικά η διεύθυνση broadcast του subnet (π.χ. <code>192.168.1.255</code>) ή το global broadcast <code>255.255.255.255</code>, στη θύρα UDP <code>7</code> ή <code>9</code>. Η θύρα 9 (discard) είναι το μοντέρνο πρότυπο.</p>
+
+  <p>Το NIC που λαμβάνει — όχι το OS — ακούει για αυτό το pattern στο καλώδιο. Πυροδοτεί ένα σήμα power-on ανεξάρτητα από το αν η συσκευή είναι σε S4 (hibernate) ή S5 (off). Το OS δεν βλέπει ποτέ το πακέτο· το κύκλωμα wake του NIC το βλέπει.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <style>
+          .d-bg   { fill: #e1ded7; }
+          .d-node { fill: #dddbd5; stroke: #c8c5be; stroke-width: 1.5; rx: 5; }
+          .d-acc  { fill: #c63d1f; }
+          .d-lbl  { font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+                    font-size: 13px; fill: #1a1a18; text-anchor: middle; }
+          .d-sub  { font-family: 'Barlow', sans-serif; font-size: 10px;
+                    fill: #888880; text-anchor: middle; }
+          .d-mono { font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+                    fill: #555550; text-anchor: middle; }
+          .d-arr  { stroke: #888880; stroke-width: 1.5; fill: none;
+                    marker-end: url(#arr); }
+          .d-arr-acc { stroke: #c63d1f; stroke-width: 1.5; fill: none;
+                    marker-end: url(#arr-acc); }
+          .d-dead { stroke: #c08020; stroke-width: 1.5; stroke-dasharray: 5,3;
+                    fill: none; marker-end: url(#arr-dead); }
+          .d-note { font-family: 'Barlow', sans-serif; font-style: italic;
+                    font-size: 10px; fill: #888880; text-anchor: middle; }
+          .d-pill { fill: #c63d1f; rx: 3; }
+          .d-pill-txt { font-family: 'JetBrains Mono', monospace; font-size: 9px;
+                        fill: #fff; text-anchor: middle; }
+        </style>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#888880"/>
+        </marker>
+        <marker id="arr-acc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#c63d1f"/>
+        </marker>
+        <marker id="arr-dead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#c08020"/>
+        </marker>
+      </defs>
+      <rect width="720" height="260" class="d-bg"/>
+
+      <!-- Sender -->
+      <rect x="30" y="100" width="110" height="60" fill="#dddbd5" stroke="#c8c5be" stroke-width="1.5" rx="5"/>
+      <text x="85" y="126" class="d-lbl">SENDER</text>
+      <text x="85" y="142" class="d-sub">οποιοσδηποτε host</text>
+      <text x="85" y="155" class="d-mono">192.168.1.x</text>
+
+      <!-- Arrow 1: sender → router -->
+      <line x1="140" y1="130" x2="248" y2="130" class="d-arr-acc"/>
+      <rect x="152" y="112" width="82" height="14" fill="#e1ded7"/>
+      <text x="193" y="123" class="d-mono">UDP/9 → .255</text>
+
+      <!-- Router -->
+      <rect x="250" y="85" width="120" height="90" fill="#dddbd5" stroke="#c8c5be" stroke-width="1.5" rx="5"/>
+      <text x="310" y="115" class="d-lbl">ROUTER</text>
+      <text x="310" y="131" class="d-sub">RouterOS</text>
+      <rect x="268" y="142" width="64" height="16" fill="#c63d1f" rx="3"/>
+      <text x="300" y="154" class="d-pill-txt">ip/helper</text>
+      <text x="310" y="168" class="d-mono">or /tool wol</text>
+
+      <!-- Arrow good: router → target same subnet -->
+      <line x1="370" y1="115" x2="470" y2="115" class="d-arr-acc"/>
+      <text x="420" y="108" class="d-note">ιδιο subnet ✓</text>
+
+      <!-- Arrow dead: router → other subnet -->
+      <path d="M370,145 C430,145 430,200 470,200" class="d-dead"/>
+      <text x="448" y="177" class="d-note">routed boundary</text>
+      <text x="450" y="191" style="font-family:'Barlow',sans-serif;font-size:10px;fill:#c08020;font-weight:600;text-anchor:middle">το πακετο πεθαινει ✗</text>
+
+      <!-- Target same subnet -->
+      <rect x="472" y="88" width="110" height="54" fill="#dddbd5" stroke="#c8c5be" stroke-width="1.5" rx="5"/>
+      <text x="527" y="112" class="d-lbl">TARGET</text>
+      <text x="527" y="127" class="d-sub">ιδιο subnet</text>
+      <text x="527" y="139" class="d-mono">το NIC ξυπνα ✓</text>
+
+      <!-- Target other subnet -->
+      <rect x="472" y="175" width="110" height="54" fill="#dddbd5" stroke="#c08020" stroke-width="1.5" stroke-dasharray="4,2" rx="5"/>
+      <text x="527" y="199" class="d-lbl">TARGET</text>
+      <text x="527" y="214" class="d-sub">VLAN 20</text>
+      <text x="527" y="226" class="d-mono">ποτε δεν φτανει</text>
+
+      <!-- Broadcast label -->
+      <text x="360" y="50" class="d-lbl" fill="#555550">Το Προβλημα Layer-2</text>
+      <text x="360" y="66" class="d-note">Τα πακέτα broadcast δεν διασχίζουν routed boundaries χωρίς βοήθεια</text>
+    </svg>
+  </div>
+
+  <p>Το RouterOS σου δίνει δύο μηχανισμούς να το λύσεις αυτό. Το <code>/tool wol</code> παράγει ένα magic packet από τον ίδιο τον router — χρήσιμο για scripted ή προγραμματισμένα wakes. Τα leases <code>/ip dhcp-server</code> σου επιτρέπουν να κάνεις resolve ένα hostname σε MAC. Για παράδοση cross-VLAN, χρειάζεται είτε να κάνεις script ένα <code>/tool wol</code> στοχευμένο στο σωστό interface, ή να ρυθμίσεις forwarding UDP broadcast ώστε ένα πακέτο που φτάνει στο subnet ενός VLAN να γίνεται relay σε άλλο.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Θυρα 7 εναντιον Θυρας 9</span>
+    <p>Κάποιοι παλιότεροι οδηγοί χρησιμοποιούν θύρα UDP 7 (echo). Τα μοντέρνα NICs ανταποκρίνονται στη θύρα 9 (discard). Χρησιμοποίησε τη θύρα 9. Πιο σημαντικό: κάποιοι routers και hosts Linux επίσης ακούνε στη θύρα 7 και θα επεξεργαστούν το πακέτο οι ίδιοι πριν φτάσει στο καλώδιο. Μείνε στη θύρα 9 εκτός αν έχεις συγκεκριμένο λόγο να μην το κάνεις.</p>
+  </div>
+
+  <!-- ── SECTION 02 ── -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Relay Ιδιου Subnet</h2>
+  <p class="section-thesis"><em>Η απλούστερη περίπτωση: ο router και ο στόχος ζουν στο ίδιο broadcast domain. Μία εντολή, τέλος.</em></p>
+
+  <p>Αν η συσκευή που θες να ξυπνήσεις είναι στο ίδιο subnet με ένα από τα interfaces RouterOS σου, το <code>/tool wol</code> χειρίζεται τα πάντα. Ορίζεις το interface (ώστε το RouterOS να ξέρει σε ποιο καλώδιο να φωνάξει) και τη διεύθυνση MAC. Ο router κάνει broadcast το magic packet έξω από εκείνο το interface.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — /tool wol</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/tool wol interface=bridge-lan mac=AA:BB:CC:DD:EE:FF</span>
+<span class="cmt"># Χωρίς output σε επιτυχία — το πακέτο στέλνεται σιωπηλά.
+# Αντικατέστησε το bridge-lan με το πραγματικό bridge ή ether interface σου.
+# Το MAC είναι το MAC του NIC της συσκευής-στόχου (έλεγξε BIOS ή αυτοκόλλητο στο NIC).</span></pre>
+  </div>
+
+  <p>Για να αποφύγεις το να ψάχνεις το MAC κάθε φορά, αποθήκευσέ το. Αν η συσκευή έχει static lease DHCP μπορείς να το ανακτήσεις προγραμματιστικά:</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — βρες MAC απο lease DHCP</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">ip dhcp-server lease print where host-name="fileserver"</span>
+<span class="out"> # Flags: X - disabled, R - radius, D - dynamic, B - blocked
+ # Columns: ADDRESS, MAC-ADDRESS, HOST-NAME, SERVER, STATUS
+ # 0 D 192.168.1.50   AA:BB:CC:DD:EE:FF  fileserver  dhcp1  bound</span>
+<span class="cmt"># Πιάσε την τιμή MAC-ADDRESS από τη γραμμή που ταιριάζει.</span></pre>
+  </div>
+
+  <div class="inline-img-wrap">
+    <span class="inline-img-label">RouterOS — Tools › WoL (Winbox)</span>
+    <svg viewBox="0 0 620 160" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w-bg{fill:#d4d2cc;} .w-bar{fill:#c8c5be;} .w-btn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .w-panel{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;} .w-main{fill:#eae8e3;}
+  .w-hdr{fill:#c8c5be;} .w-row{fill:#eae8e3;stroke:#c8c5be;stroke-width:0.5;}
+  .w-rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;}
+  .w-input{fill:#fff;stroke:#c8c5be;stroke-width:1;}
+  .w-accent{fill:#c63d1f;} .w-sbtn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .wt{font-family:'Barlow',sans-serif;font-size:9px;fill:#555550;}
+  .wm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550;}
+  .wh{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;}
+  .ws{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880;}
+</style></defs>
+<rect width="620" height="160" class="w-bg"/>
+<rect x="0" y="0" width="620" height="20" class="w-bar"/>
+<text x="8" y="14" class="wh" style="font-size:10px;">WinBox — Tools > Wake on LAN</text>
+<rect x="582" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="589" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">–</text>
+<rect x="598" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="605" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">×</text>
+<rect x="0" y="20" width="140" height="140" class="w-panel"/>
+<rect x="0" y="20" width="140" height="16" class="w-hdr"/>
+<text x="8" y="31" class="wt" style="font-size:8px;fill:#1a1a18;font-weight:600;">Tools</text>
+<text x="8" y="48" class="wt" style="fill:#888880;">Ping</text>
+<text x="8" y="62" class="wt" style="fill:#888880;">Traceroute</text>
+<text x="8" y="76" class="wt" style="fill:#888880;">Bandwidth Test</text>
+<text x="8" y="90" class="wt" style="fill:#888880;">Netwatch</text>
+<rect x="0" y="95" width="140" height="16" fill="#c63d1f" opacity="0.15"/>
+<text x="8" y="106" class="wt" style="fill:#c63d1f;font-weight:600;">Wake on LAN</text>
+<text x="8" y="120" class="wt" style="fill:#888880;">Email</text>
+<text x="8" y="134" class="wt" style="fill:#888880;">MAC Scan</text>
+<!-- Main panel -->
+<rect x="140" y="20" width="480" height="140" class="w-main"/>
+<rect x="140" y="20" width="480" height="18" class="w-hdr"/>
+<text x="148" y="32" class="wt" style="font-weight:600;fill:#1a1a18;">Tools &gt; Wake on LAN</text>
+<!-- Form -->
+<text x="158" y="62" class="wt">Interface:</text>
+<rect x="240" y="50" width="200" height="16" class="w-input" rx="2"/>
+<text x="246" y="62" class="wm">bridge-lan               ▾</text>
+<text x="158" y="86" class="wt">MAC Address:</text>
+<rect x="240" y="74" width="200" height="16" class="w-input" rx="2"/>
+<text x="246" y="86" class="wm">AA:BB:CC:DD:EE:FF</text>
+<rect x="240" y="98" width="60" height="16" class="w-accent" rx="2"/>
+<text x="270" y="110" style="font-family:'Barlow',sans-serif;font-size:9px;fill:#fff;text-anchor:middle;font-weight:600;">Wake!</text>
+<text x="158" y="130" class="ws">Note: sends magic packet (UDP/9) as broadcast on selected interface.</text>
+<!-- Status -->
+<rect x="140" y="148" width="480" height="12" class="w-hdr"/>
+<text x="148" y="157" class="ws">Ready</text>
+</svg>
+    <span class="inline-img-caption">Tools › WoL στο Winbox. Το GUI εκθέτει τις ίδιες παραμέτρους <code>interface=</code> και <code>mac=</code> όπως το CLI — χρήσιμο για μεμονωμένα χειροκίνητα wakes χωρίς να ανοίξεις terminal.</span>
+  </div>
+
+  <h3 class="sub">Προγραμματισμος ενος Wake</h3>
+  <p>Μια κοινή περίπτωση χρήσης SMB: ξύπνα το NAS ή τον backup server στις 02:00 για ένα προγραμματισμένο job backup, μετά άσ' το να κλείσει μόνο του αφού ολοκληρωθεί το job.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — προγραμματισμενο script WoL</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">system scheduler add \</span>
+<span class="out">    name="wake-fileserver" \</span>
+<span class="out">    start-time=02:00:00 \</span>
+<span class="out">    interval=1d \</span>
+<span class="out">    on-event="/tool wol interface=bridge-lan mac=AA:BB:CC:DD:EE:FF"</span>
+<span class="cmt"># interval=1d = επανάλαβε καθημερινά. interval=0 = τρέξε μία φορά.</span></pre>
+  </div>
+
+  <div class="inline-img-wrap">
+    <span class="inline-img-label">RouterOS — System › Scheduler (Winbox)</span>
+    <svg viewBox="0 0 620 170" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w-bg{fill:#d4d2cc;} .w-bar{fill:#c8c5be;} .w-btn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .w-panel{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;} .w-main{fill:#eae8e3;}
+  .w-hdr{fill:#c8c5be;} .w-row{fill:#eae8e3;stroke:#c8c5be;stroke-width:0.5;}
+  .w-rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;}
+  .w-input{fill:#fff;stroke:#c8c5be;stroke-width:1;}
+  .w-accent{fill:#c63d1f;} .w-sbtn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .wt{font-family:'Barlow',sans-serif;font-size:9px;fill:#555550;}
+  .wm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550;}
+  .wh{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;}
+  .ws{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880;}
+</style></defs>
+<rect width="620" height="170" class="w-bg"/>
+<rect x="0" y="0" width="620" height="20" class="w-bar"/>
+<text x="8" y="14" class="wh" style="font-size:10px;">WinBox — System > Scheduler</text>
+<rect x="582" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="589" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">–</text>
+<rect x="598" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="605" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">×</text>
+<rect x="0" y="20" width="140" height="150" class="w-panel"/>
+<rect x="0" y="20" width="140" height="16" class="w-hdr"/>
+<text x="8" y="31" class="wt" style="font-size:8px;fill:#1a1a18;font-weight:600;">System</text>
+<text x="8" y="48" class="wt" style="fill:#888880;">Identity</text>
+<text x="8" y="62" class="wt" style="fill:#888880;">Clock</text>
+<text x="8" y="76" class="wt" style="fill:#888880;">Logging</text>
+<text x="8" y="90" class="wt" style="fill:#888880;">NTP Client</text>
+<text x="8" y="104" class="wt" style="fill:#888880;">Packages</text>
+<text x="8" y="118" class="wt" style="fill:#888880;">Scripts</text>
+<rect x="0" y="122" width="140" height="16" fill="#c63d1f" opacity="0.15"/>
+<text x="8" y="133" class="wt" style="fill:#c63d1f;font-weight:600;">Scheduler</text>
+<text x="8" y="148" class="wt" style="fill:#888880;">Users</text>
+<!-- Main panel -->
+<rect x="140" y="20" width="480" height="150" class="w-main"/>
+<rect x="140" y="20" width="480" height="18" class="w-hdr"/>
+<text x="148" y="32" class="wt" style="font-weight:600;fill:#1a1a18;">System &gt; Scheduler</text>
+<rect x="148" y="42" width="50" height="14" class="w-sbtn" rx="2"/>
+<text x="173" y="52" class="wt" style="text-anchor:middle;">+ Add</text>
+<!-- Table header -->
+<rect x="140" y="60" width="480" height="14" class="w-hdr"/>
+<text x="148" y="70" class="ws" style="font-weight:600;">NAME</text>
+<text x="270" y="70" class="ws" style="font-weight:600;">START-TIME</text>
+<text x="360" y="70" class="ws" style="font-weight:600;">INTERVAL</text>
+<text x="440" y="70" class="ws" style="font-weight:600;">ON-EVENT</text>
+<!-- Row 1 (selected) -->
+<rect x="140" y="74" width="480" height="16" fill="#c63d1f" opacity="0.12" stroke="#c8c5be" stroke-width="0.5"/>
+<text x="148" y="85" class="wm" style="fill:#c63d1f;">wake-fileserver</text>
+<text x="270" y="85" class="wm">02:00:00</text>
+<text x="360" y="85" class="wm">1d 00:00:00</text>
+<text x="440" y="85" class="wm">/tool wol inter…</text>
+<!-- Row 2 -->
+<rect x="140" y="90" width="480" height="16" class="w-row"/>
+<text x="148" y="101" class="wm">backup-trigger</text>
+<text x="270" y="101" class="wm">02:05:00</text>
+<text x="360" y="101" class="wm">1d 00:00:00</text>
+<text x="440" y="101" class="wm">/system script r…</text>
+<!-- Row 3 -->
+<rect x="140" y="106" width="480" height="16" class="w-rowh"/>
+<text x="148" y="117" class="wm">log-rotate</text>
+<text x="270" y="117" class="wm">startup</text>
+<text x="360" y="117" class="wm">7d 00:00:00</text>
+<text x="440" y="117" class="wm">/system script r…</text>
+<!-- Status -->
+<rect x="140" y="158" width="480" height="12" class="w-hdr"/>
+<text x="148" y="167" class="ws">3 items</text>
+</svg>
+    <span class="inline-img-caption">System › Scheduler στο Winbox. Κάθε γραμμή αντιστοιχίζει μια ώρα έναρξης και interval σε ένα όνομα script — το ίδιο pattern που χρησιμοποιείται για προγραμματισμένο WoL.</span>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Interface Πρεπει να Ειναι Up</span>
+    <p>Αν ορίσεις μια φυσική θύρα (π.χ. <code>ether3</code>) αντί για το bridge, και εκείνη η θύρα είναι down (καλώδιο βγαλμένο, λείπει SFP), το πακέτο WoL γίνεται drop σιωπηλά. Στόχευσε πάντα το <strong>bridge</strong> στο οποίο είναι μέλος η θύρα, όχι το φυσικό interface, εκτός αν είσαι σίγουρος ότι η θύρα είναι ενεργή.</p>
+  </div>
+
+  <!-- ── SECTION 03 ── -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">WoL Cross-VLAN</h2>
+  <p class="section-thesis"><em>Η πραγματική πρόκληση: ο σταθμός εργασίας management είναι στο VLAN 10, ο server είναι στο VLAN 20, και ένα broadcast δεν θα διασχίσει ποτέ εκείνο το routed boundary μόνο του.</em></p>
+
+  <p>Σε ένα segmented δίκτυο — που είναι το σωστό design για κάθε ξενοδοχείο, βίλα, ή SMB — management, servers, guest Wi-Fi, και IoT ζουν όλα σε ξεχωριστά VLANs. Ένα magic packet που στέλνεται από το VLAN 10 με προορισμό μια διεύθυνση broadcast στο subnet του VLAN 20 θα γίνει drop από τον router. Το RouterOS δεν κάνει forward ωμά Layer-2 broadcasts ανάμεσα σε routed interfaces by default, και δεν θες να το κάνει.</p>
+
+  <p>Η σωστή λύση είναι ένα <strong>UDP broadcast relay</strong>: ο router ακούει για πακέτα WoL που φτάνουν στο interface του VLAN 10, τα αναχαιτίζει, και ξαναδημιουργεί ένα πανομοιότυπο magic packet έξω από το interface του VLAN 20 προς τη διεύθυνση broadcast του VLAN 20. Το RouterOS το παρέχει αυτό μέσω <code>/ip dhcp-relay</code> σε λειτουργία broadcast-helper — αλλά για WoL συγκεκριμένα, η πιο αξιόπιστη προσέγγιση είναι ένα στοχευμένο script <code>/tool wol</code> πυροδοτημένο από έναν κανόνα firewall IP.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <style>
+          .d-bg   { fill: #e1ded7; }
+          .d-lbl  { font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+                    font-size: 13px; fill: #1a1a18; text-anchor: middle; }
+          .d-sub  { font-family: 'Barlow', sans-serif; font-size: 10px;
+                    fill: #888880; text-anchor: middle; }
+          .d-mono { font-family: 'JetBrains Mono', monospace; font-size: 9px;
+                    fill: #555550; text-anchor: middle; }
+          .d-note { font-family: 'Barlow', sans-serif; font-style: italic;
+                    font-size: 10px; fill: #888880; text-anchor: middle; }
+          .d-arr-acc { stroke: #c63d1f; stroke-width: 1.5; fill: none; marker-end: url(#aa2); }
+          .d-arr     { stroke: #888880; stroke-width: 1.5; fill: none; marker-end: url(#ag2); }
+          .vlan-box  { fill: #dddbd5; stroke: #c8c5be; stroke-width: 1.5; }
+          .vlan-lbl  { font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
+                       font-size: 11px; letter-spacing: 0.06em; text-anchor: middle; }
+        </style>
+        <marker id="aa2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#c63d1f"/>
+        </marker>
+        <marker id="ag2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#888880"/>
+        </marker>
+      </defs>
+      <rect width="720" height="320" class="d-bg"/>
+
+      <!-- VLAN 10 zone -->
+      <rect x="20" y="30" width="190" height="260" fill="#eae8e3" stroke="#c8c5be" stroke-width="1" rx="6" stroke-dasharray="4,2"/>
+      <text x="115" y="52" class="vlan-lbl" fill="#3a5a78">VLAN 10 — MGMT</text>
+      <text x="115" y="66" class="d-mono">192.168.10.0/24</text>
+
+      <!-- Admin workstation -->
+      <rect x="40" y="80" width="150" height="55" class="vlan-box" rx="4"/>
+      <text x="115" y="103" class="d-lbl">Admin PC</text>
+      <text x="115" y="118" class="d-mono">192.168.10.5</text>
+      <text x="115" y="130" class="d-sub">στελνει WoL → 10.255</text>
+
+      <!-- VLAN 10 iface -->
+      <rect x="40" y="200" width="150" height="50" class="vlan-box" rx="4"/>
+      <text x="115" y="221" class="d-lbl">vlan10 iface</text>
+      <text x="115" y="235" class="d-mono">192.168.10.1/24</text>
+      <text x="115" y="247" class="d-sub">λαμβανει UDP/9</text>
+
+      <!-- Arrow: admin → vlan10 iface -->
+      <line x1="115" y1="135" x2="115" y2="198" class="d-arr-acc"/>
+
+      <!-- Router center -->
+      <rect x="285" y="110" width="150" height="100" fill="#dddbd5" stroke="#c8c5be" stroke-width="1.5" rx="5"/>
+      <text x="360" y="138" class="d-lbl">RouterOS</text>
+      <text x="360" y="154" class="d-sub">Input chain firewall</text>
+      <rect x="302" y="163" width="116" height="16" fill="#c63d1f" rx="3"/>
+      <text x="360" y="175" style="font-family:'JetBrains Mono',monospace;font-size:9px;fill:#fff;text-anchor:middle">/tool wol → vlan20</text>
+      <text x="360" y="200" class="d-sub">ξαναδημιουργει πακετο</text>
+
+      <!-- Arrow: vlan10 → router -->
+      <line x1="190" y1="225" x2="283" y2="165" class="d-arr"/>
+
+      <!-- VLAN 20 zone -->
+      <rect x="510" y="30" width="190" height="260" fill="#eae8e3" stroke="#c8c5be" stroke-width="1" rx="6" stroke-dasharray="4,2"/>
+      <text x="605" y="52" class="vlan-lbl" fill="#3a5a78">VLAN 20 — SERVERS</text>
+      <text x="605" y="66" class="d-mono">192.168.20.0/24</text>
+
+      <!-- Target server -->
+      <rect x="530" y="80" width="150" height="55" class="vlan-box" rx="4"/>
+      <text x="605" y="103" class="d-lbl">File Server</text>
+      <text x="605" y="118" class="d-mono">192.168.20.50</text>
+      <text x="605" y="130" class="d-sub">το NIC ξυπναει με magic pkt</text>
+
+      <!-- VLAN 20 iface -->
+      <rect x="530" y="200" width="150" height="50" class="vlan-box" rx="4"/>
+      <text x="605" y="221" class="d-lbl">vlan20 iface</text>
+      <text x="605" y="235" class="d-mono">192.168.20.1/24</text>
+      <text x="605" y="247" class="d-sub">κανει broadcast το magic pkt</text>
+
+      <!-- Arrow: router → vlan20 iface -->
+      <line x1="437" y1="165" x2="528" y2="215" class="d-arr-acc"/>
+
+      <!-- Arrow: vlan20 iface → server -->
+      <line x1="605" y1="198" x2="605" y2="137" class="d-arr-acc"/>
+
+      <!-- Title -->
+      <text x="360" y="295" class="d-lbl" fill="#555550">Ροη WoL Cross-VLAN</text>
+      <text x="360" y="311" class="d-note">Ο router αναχαιτίζει στο VLAN 10, ξαναδημιουργεί broadcast στο VLAN 20</text>
+    </svg>
+  </div>
+
+  <div class="inline-img-wrap">
+    <span class="inline-img-label">RouterOS — IP › Firewall › Filter Rules (Winbox)</span>
+    <svg viewBox="0 0 620 185" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w-bg{fill:#d4d2cc;} .w-bar{fill:#c8c5be;} .w-btn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .w-panel{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;} .w-main{fill:#eae8e3;}
+  .w-hdr{fill:#c8c5be;} .w-row{fill:#eae8e3;stroke:#c8c5be;stroke-width:0.5;}
+  .w-rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;}
+  .w-input{fill:#fff;stroke:#c8c5be;stroke-width:1;}
+  .w-accent{fill:#c63d1f;} .w-sbtn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .wt{font-family:'Barlow',sans-serif;font-size:9px;fill:#555550;}
+  .wm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550;}
+  .wh{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;}
+  .ws{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880;}
+</style></defs>
+<rect width="620" height="185" class="w-bg"/>
+<rect x="0" y="0" width="620" height="20" class="w-bar"/>
+<text x="8" y="14" class="wh" style="font-size:10px;">WinBox — IP > Firewall > Filter Rules</text>
+<rect x="582" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="589" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">–</text>
+<rect x="598" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="605" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">×</text>
+<rect x="0" y="20" width="620" height="165" class="w-main"/>
+<rect x="0" y="20" width="620" height="18" class="w-hdr"/>
+<text x="8" y="32" class="wt" style="font-weight:600;fill:#1a1a18;">IP &gt; Firewall &gt; Filter Rules</text>
+<!-- Tabs -->
+<rect x="8" y="40" width="74" height="14" class="w-sbtn" rx="2,2,0,0"/>
+<text x="45" y="50" class="wt" style="text-anchor:middle;fill:#1a1a18;">Filter Rules</text>
+<rect x="84" y="40" width="50" height="14" fill="#dddbd5" rx="2,2,0,0"/>
+<text x="109" y="50" class="wt" style="text-anchor:middle;fill:#888880;">NAT</text>
+<rect x="136" y="40" width="50" height="14" fill="#dddbd5" rx="2,2,0,0"/>
+<text x="161" y="50" class="wt" style="text-anchor:middle;fill:#888880;">Mangle</text>
+<rect x="8" y="54" width="40" height="13" class="w-sbtn" rx="2"/>
+<text x="28" y="63" class="wt" style="text-anchor:middle;">+ Add</text>
+<!-- Table header -->
+<rect x="0" y="70" width="620" height="13" class="w-hdr"/>
+<text x="8" y="79" class="ws" style="font-weight:600;">#</text>
+<text x="22" y="79" class="ws" style="font-weight:600;">CHAIN</text>
+<text x="90" y="79" class="ws" style="font-weight:600;">ACTION</text>
+<text x="155" y="79" class="ws" style="font-weight:600;">PROTO</text>
+<text x="205" y="79" class="ws" style="font-weight:600;">IN-IFACE</text>
+<text x="280" y="79" class="ws" style="font-weight:600;">SRC-ADDR</text>
+<text x="375" y="79" class="ws" style="font-weight:600;">DST-PORT</text>
+<text x="440" y="79" class="ws" style="font-weight:600;">COMMENT</text>
+<!-- Row 0 - drop untrusted -->
+<rect x="0" y="83" width="620" height="16" class="w-row"/>
+<text x="8" y="94" class="wm">0</text>
+<text x="22" y="94" class="wm">input</text>
+<text x="90" y="94" class="wm" style="fill:#c08020;">drop</text>
+<text x="155" y="94" class="wm">udp</text>
+<text x="205" y="94" class="wm">UNTRUSTED</text>
+<text x="280" y="94" class="wm">—</text>
+<text x="375" y="94" class="wm">9</text>
+<text x="440" y="94" class="wm" style="fill:#888880;">Drop WoL untrusted</text>
+<!-- Row 1 - drop forward -->
+<rect x="0" y="99" width="620" height="16" class="w-rowh"/>
+<text x="8" y="110" class="wm">1</text>
+<text x="22" y="110" class="wm">forward</text>
+<text x="90" y="110" class="wm" style="fill:#c08020;">drop</text>
+<text x="155" y="110" class="wm">udp</text>
+<text x="205" y="110" class="wm">—</text>
+<text x="280" y="110" class="wm">—</text>
+<text x="375" y="110" class="wm">9</text>
+<text x="440" y="110" class="wm" style="fill:#888880;">Drop WoL forward</text>
+<!-- Row 2 - accept mgmt (highlighted) -->
+<rect x="0" y="115" width="620" height="16" fill="#c63d1f" opacity="0.12" stroke="#c8c5be" stroke-width="0.5"/>
+<text x="8" y="126" class="wm">2</text>
+<text x="22" y="126" class="wm">input</text>
+<text x="90" y="126" class="wm" style="fill:#3a5a78;">accept</text>
+<text x="155" y="126" class="wm">udp</text>
+<text x="205" y="126" class="wm">vlan10</text>
+<text x="280" y="126" class="wm">192.168.10.0/24</text>
+<text x="375" y="126" class="wm">9</text>
+<text x="440" y="126" class="wm" style="fill:#c63d1f;">WoL from MGMT only</text>
+<!-- Row 3 - established -->
+<rect x="0" y="131" width="620" height="16" class="w-row"/>
+<text x="8" y="142" class="wm">3</text>
+<text x="22" y="142" class="wm">forward</text>
+<text x="90" y="142" class="wm" style="fill:#3a5a78;">accept</text>
+<text x="155" y="142" class="wm">—</text>
+<text x="205" y="142" class="wm">—</text>
+<text x="280" y="142" class="wm">—</text>
+<text x="375" y="142" class="wm">—</text>
+<text x="440" y="142" class="wm" style="fill:#888880;">established,related</text>
+<!-- Status -->
+<rect x="0" y="173" width="620" height="12" class="w-hdr"/>
+<text x="8" y="182" class="ws">4 rules (filter) — rule order: top-to-bottom, first match wins</text>
+</svg>
+    <span class="inline-img-caption">IP › Firewall › Filter Rules. Η σειρά κανόνων είναι κρίσιμη — οι κανόνες drop για μη έμπιστα VLANs πρέπει να εμφανίζονται πάνω από τον κανόνα accept για MGMT. Η τονισμένη γραμμή (2) είναι ο κανόνας accept του WoL.</span>
+  </div>
+
+  <h3 class="sub">Βημα 1 — Κανονας Firewall για Αναχαιτιση</h3>
+  <p>Πρόσθεσε έναν κανόνα Input chain που ταιριάζει πακέτα WoL που φτάνουν από το VLAN management σου. Αυτός ο κανόνας ελέγχει <em>ποιος</em> επιτρέπεται να φτάσει το input chain του router στο UDP/9 — δεν καλεί αυτόματα το <code>/tool wol</code>. Η ενέργεια relay χειρίζεται από το ονομαστό script στο Βήμα 2, που ο admin (ή ένας scheduler) τρέχει ρητά. Αυτό το design δύο-βημάτων κρατά την πολιτική firewall ξεχωριστή από τη λογική relay.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — επιτρεψε WoL input απο VLAN MGMT</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall filter add \</span>
+<span class="out">    chain=input \</span>
+<span class="out">    protocol=udp \</span>
+<span class="out">    dst-port=9 \</span>
+<span class="out">    in-interface=vlan10 \</span>
+<span class="out">    src-address=192.168.10.0/24 \</span>
+<span class="out">    action=accept \</span>
+<span class="out">    comment="Allow WoL from MGMT VLAN"</span>
+<span class="cmt"># Αυτό δέχεται το πακέτο UDP/9 μέσα στο input chain του router.
+# ΔΕΝ κάνει auto-relay στο VLAN 20 — δες το Βήμα 2 για το script relay.
+# Χωρίς αυτόν τον κανόνα, μια default πολιτική drop-all θα το απέρριπτε σιωπηλά.</span></pre>
+  </div>
+
+  <h3 class="sub">Βημα 2 — Script Relay</h3>
+  <p>Το RouterOS δεν κάνει εγγενώς parse τα payloads magic packet για να εξάγει το MAC στόχο. Για ένα μικρό, γνωστό σύνολο servers (που είναι η ρεαλιστική περίπτωση SMB/φιλοξενίας), η απλούστερη και πιο αξιόπιστη προσέγγιση είναι ένα ονομαστό script ανά στόχο. Ένας admin καλεί το script· ο router εκτοξεύει το πακέτο wake έξω από το σωστό interface VLAN.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — script relay WoL (ενα ανα στοχο)</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">system script add \</span>
+<span class="out">    name="wake-fileserver-vlan20" \</span>
+<span class="out">    source="/tool wol interface=vlan20 mac=AA:BB:CC:DD:EE:FF"</span>
+
+<span class="cmt"># Για χειροκίνητο τρέξιμο:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">system script run wake-fileserver-vlan20</span>
+
+<span class="cmt"># Ή προγραμμάτισέ το (ίδιο με το παράδειγμα scheduler του Τμήματος 02).
+# Πρόσθεσε ένα script ανά server — το MAC είναι το μόνο που αλλάζει.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — το Ονομα Interface Ειναι το Interface VLAN, Οχι η Φυσικη Θυρα</span>
+    <p>Αν τα VLANs σου είναι χτισμένα πάνω σε bridge (η σωστή προσέγγιση RouterOS v7), το interface που περνάς στο <code>/tool wol</code> πρέπει να είναι το <strong>interface VLAN</strong> (π.χ. <code>vlan20</code>) — όχι η φυσική θύρα ή το bridge. Το interface VLAN είναι αυτό που έχει τη μελος στο broadcast domain. Το να στοχεύσεις απευθείας το <code>ether2</code> θα στείλει ένα untagged broadcast και το NIC στόχος δεν θα το δει ποτέ.</p>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">✕ Τι Δεν Δουλεψε — ip dhcp-relay σαν forwarder WoL</span>
+    <p>Το DHCP relay (<code>/ip dhcp-relay</code>) κάνει forward broadcasts DHCP ανάμεσα σε subnets — μόνο θύρα 67/68. Δεν κάνει relay αυθαίρετα UDP broadcasts στη θύρα 9. Το να ρυθμίσεις ένα DHCP relay και να περιμένεις να μεταφέρει magic packets δεν θα κάνει τίποτα σιωπηλά. Τα πακέτα πρέπει να ξαναδημιουργηθούν από ένα script που στοχεύει το σωστό interface.</p>
+  </div>
+
+  <!-- ── SECTION 04 ── -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Απομακρυσμενο WoL μεσω Tailscale</h2>
+  <p class="section-thesis"><em>Είσαι στην Αθήνα, ο server είναι σε δωμάτιο server ξενοδοχείου στα Χανιά, και το χρειάζεσαι online σε δέκα λεπτά. Ορίστε το μονοπάτι που πραγματικά δουλεύει.</em></p>
+
+  <p>Το Tailscale δίνει σε κάθε node μια σταθερή διεύθυνση <code>100.x.x.x</code> ανεξάρτητα από NAT, Starlink CGNAT, ή δυναμική IP. Αν η συσκευή RouterOS σου τρέχει ένα container Tailscale (ή έχεις έναν jump host Linux συνδεδεμένο σε Tailscale στο LAN), μπορείς να φτάσεις το μονοπάτι εκτέλεσης script του router από οπουδήποτε στο tailnet σου.</p>
+
+  <p>Υπάρχουν δύο patterns. Διάλεξε βάσει του setup σου:</p>
+
+  <p><strong>Pattern Α — RouterOS με container Tailscale:</strong> Το container έχει μια IP tailnet. Κάνεις SSH μέσα στο container, που μετά τρέχει ένα API call RouterOS ή απλά εκτελεί ένα προτοποθετημένο script. Απαιτεί το feature container του RouterOS (συσκευές ARM/x86).</p>
+
+  <p><strong>Pattern Β — Απομακρυσμένο SSH απευθείας στο RouterOS μέσω Tailscale:</strong> Το SSH του RouterOS εκτίθεται μόνο στη διεύθυνση interface Tailscale. Κάνεις SSH μέσα και τρέχεις το script. Απλούστερο, δεν χρειάζεται container.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <style>
+          .d-bg2  { fill: #e1ded7; }
+          .d-lbl2 { font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+                    font-size: 13px; fill: #1a1a18; text-anchor: middle; }
+          .d-sub2 { font-family: 'Barlow', sans-serif; font-size: 10px;
+                    fill: #888880; text-anchor: middle; }
+          .d-mono2{ font-family: 'JetBrains Mono', monospace; font-size: 9px;
+                    fill: #555550; text-anchor: middle; }
+          .d-arr-ts { stroke: #3a5a78; stroke-width: 1.5; stroke-dasharray: 5,3;
+                      fill: none; marker-end: url(#ats); }
+          .d-arr-wol{ stroke: #c63d1f; stroke-width: 1.5;
+                      fill: none; marker-end: url(#awol); }
+          .node2  { fill: #dddbd5; stroke: #c8c5be; stroke-width: 1.5; rx: 5; }
+        </style>
+        <marker id="ats" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#3a5a78"/>
+        </marker>
+        <marker id="awol" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#c63d1f"/>
+        </marker>
+      </defs>
+      <rect width="720" height="230" class="d-bg2"/>
+
+      <!-- Remote admin -->
+      <rect x="20" y="80" width="120" height="65" fill="#dddbd5" stroke="#c8c5be" stroke-width="1.5" rx="5"/>
+      <text x="80" y="104" class="d-lbl2">Εσυ</text>
+      <text x="80" y="119" class="d-sub2">Αθηνα / οπουδηποτε</text>
+      <text x="80" y="132" class="d-mono2">100.x.x.admin</text>
+
+      <!-- Tailscale cloud -->
+      <ellipse cx="280" cy="112" rx="70" ry="32" fill="#eae8e3" stroke="#3a5a78" stroke-width="1.5" stroke-dasharray="4,2"/>
+      <text x="280" y="107" class="d-lbl2" fill="#3a5a78">Tailscale</text>
+      <text x="280" y="122" class="d-sub2">κρυπτογραφημενο overlay</text>
+
+      <!-- Arrows: admin → tailscale → routeros -->
+      <line x1="140" y1="112" x2="208" y2="112" class="d-arr-ts"/>
+      <line x1="350" y1="112" x2="420" y2="112" class="d-arr-ts"/>
+      <text x="385" y="104" style="font-family:'Barlow',sans-serif;font-size:10px;fill:#3a5a78;text-anchor:middle">SSH</text>
+
+      <!-- RouterOS -->
+      <rect x="422" y="68" width="140" height="88" fill="#dddbd5" stroke="#c8c5be" stroke-width="1.5" rx="5"/>
+      <text x="492" y="96" class="d-lbl2">RouterOS</text>
+      <text x="492" y="112" class="d-sub2">100.x.x.router</text>
+      <rect x="440" y="122" width="104" height="16" fill="#c63d1f" rx="3"/>
+      <text x="492" y="134" style="font-family:'JetBrains Mono',monospace;font-size:9px;fill:#fff;text-anchor:middle">script run wake-*</text>
+      <text x="492" y="148" class="d-sub2">Μονο Tailscale SSH</text>
+
+      <!-- RouterOS → server -->
+      <line x1="562" y1="112" x2="640" y2="112" class="d-arr-wol"/>
+      <text x="601" y="104" style="font-family:'Barlow',sans-serif;font-size:10px;fill:#c63d1f;text-anchor:middle">WoL</text>
+
+      <!-- Server -->
+      <rect x="642" y="80" width="60" height="65" fill="#dddbd5" stroke="#c8c5be" stroke-width="1.5" rx="5"/>
+      <text x="672" y="104" class="d-lbl2">Server</text>
+      <text x="672" y="119" class="d-sub2">VLAN 20</text>
+      <text x="672" y="132" class="d-sub2">ξυπναει</text>
+
+      <text x="360" y="185" class="d-lbl2" fill="#555550">Απομακρυσμενο WoL μεσω Tailscale SSH</text>
+      <text x="360" y="200" style="font-family:'Barlow',sans-serif;font-style:italic;font-size:10px;fill:#888880;text-anchor:middle">Το tunnel SSH (μπλε διακεκομμένο) μεταφέρει την εντολή· το RouterOS εκτοξεύει το magic packet τοπικά</text>
+    </svg>
+  </div>
+
+  <h3 class="sub">Περιορισε το SSH Μονο στο Interface Tailscale</h3>
+  <p>Πρώτα, κλείδωσε το SSH του RouterOS ώστε να ακούει μόνο στο interface που έχει ανατεθεί από Tailscale. Αυτή είναι η βάση ασφάλειας — αν το SSH δεν είναι προσβάσιμο από το WAN, ένα συμβιβασμένο μονοπάτι WoL δεν μπορεί να γίνει foothold.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — κλειδωσε SSH στη διευθυνση Tailscale</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">ip service set ssh address=100.64.0.0/10</span>
+<span class="cmt"># Το 100.64.0.0/10 καλύπτει ολόκληρο το εύρος CGNAT του Tailscale.
+# Ρύθμισέ το στο συγκεκριμένο subnet tailnet σου αν θες σφιχτότερο έλεγχο.
+# Όλες οι άλλες source IPs θα απορριφθούν στο επίπεδο υπηρεσίας.</span>
+
+<span class="pc">[admin@MikroTik] ></span> <span class="out">ip service print</span>
+<span class="out">Flags: X - disabled
+ #   NAME    PORT   ADDRESS           CERTIFICATE
+ 0   telnet  23     (disabled)
+ 1   ftp     21     (disabled)
+ 2   www     80     (disabled)
+ 3   ssh     22     100.64.0.0/10
+ 4   www-ssl 443    (disabled)
+ 5   api     8728   (disabled)
+ 6   winbox  8291   192.168.10.0/24   (mgmt VLAN only)
+ 7   api-ssl 8729   (disabled)</span>
+<span class="cmt"># Το Winbox μένει μόνο στο VLAN MGMT. Το SSH κλειδωμένο στο tailnet.</span></pre>
+  </div>
+
+  <h3 class="sub">Πυροδοτησε το Wake Απομακρυσμενα</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">Τοπικο μηχανημα (εσυ) — SSH → RouterOS → wake</span>
+    <pre class="term"><span class="pc">user@laptop:~$</span> <span class="out">ssh admin@100.x.x.router "/system script run wake-fileserver-vlan20"</span>
+<span class="cmt"># Μία εντολή. Το SSH βγαίνει αφού τρέξει το script.
+# Δεν χρειάζεται interactive session.
+# Τύλιξέ το σε ένα shell alias ή ένα Makefile target για wakes με ένα πάτημα.</span>
+
+<span class="cmt"># Ή interactively:</span>
+<span class="pc">user@laptop:~$</span> <span class="out">ssh admin@100.x.x.router</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">system script run wake-fileserver-vlan20</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Tailscale Πρεπει να Ειναι Ενεργο στην Πλευρα RouterOS</span>
+    <p>Το RouterOS δεν ξανατρέχει αυτόματα το Tailscale μετά από reboot εκτός αν έχεις μια καταχώρηση scheduler που τρέχει <code>/container start [find name="tailscale"]</code> στο startup. Αν ο router έκανε reboot τη νύχτα (διακοπή ρεύματος, firmware update) και το Tailscale δεν τρέχει, το μονοπάτι SSH σου δεν υπάρχει. Πρόσθεσε έναν scheduler startup ή χρησιμοποίησε μια δευτερεύουσα μέθοδο πρόσβασης out-of-band — Winbox πάνω από το LAN σαν fallback τουλάχιστον.</p>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">✕ Τι Δεν Δουλεψε — Αποστολη WoL Απευθειας απο Απομακρυσμενο Host Linux</span>
+    <p>Μπορεί να δοκιμάσεις να τρέξεις <code>wakeonlan AA:BB:CC:DD:EE:FF</code> από ένα box Linux συνδεδεμένο σε Tailscale και να το κατευθύνεις στην IP tailnet του στόχου ή σε ένα broadcast. Αυτό αποτυγχάνει γιατί: (α) η συσκευή στόχος είναι off και δεν έχει παρουσία tailnet, και (β) ακόμα κι αν το κατευθύνεις στο broadcast του LAN, ο host Linux δεν έχει Layer-2 adjacency με το subnet του στόχου. Το magic packet πρέπει να σταλεί από κάτι με φυσική (ή bridged) πρόσβαση σε εκείνο το subnet — που είναι ακριβώς αυτό που έχει το RouterOS.</p>
+  </div>
+
+  <!-- ── SECTION 05 ── -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Θωρακιση Firewall</h2>
+  <p class="section-thesis"><em>Ένα ανοιχτό relay WoL είναι ένα ανοιχτό vector power-on. Κλείδωσέ το πριν το εκμεταλλευτεί ένα VLAN επισκεπτών ή μια λάθος ρυθμισμένη συσκευή.</em></p>
+
+  <p>Από προεπιλογή, αν το forward chain σου είναι επιτρεπτικό, οποιοσδήποτε host σε οποιοδήποτε VLAN θα μπορούσε να φτιάξει ένα πακέτο UDP/9 σε μια διεύθυνση broadcast και να ανάψει συσκευές που δεν πρέπει να αγγίξει. Το μοντέλο θωράκισης είναι απλό: τα πακέτα WoL πρέπει να φτάνουν μόνο στο input chain του RouterOS από μια καθορισμένη πηγή management, και δεν πρέπει ποτέ να γίνονται forward ανάμεσα σε μη έμπιστα VLANs.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — θωρακιση firewall για WoL</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">ip firewall filter</span>
+
+<span class="cmt"># 1. Κάνε drop WoL από VLANs guest / IoT — πριν από οποιονδήποτε κανόνα accept</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add \</span>
+<span class="out">    chain=input protocol=udp dst-port=9 \</span>
+<span class="out">    in-interface-list=UNTRUSTED \</span>
+<span class="out">    action=drop \</span>
+<span class="out">    comment="Drop WoL from untrusted VLANs"</span>
+
+<span class="cmt"># 2. Κάνε drop WoL στο forward chain — τα πακέτα δεν πρέπει ποτέ να περνούν, μόνο input</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add \</span>
+<span class="out">    chain=forward protocol=udp dst-port=9 \</span>
+<span class="out">    action=drop \</span>
+<span class="out">    comment="Drop WoL forward — use /tool wol relay instead"</span>
+
+<span class="cmt"># 3. Δέξου WoL μόνο από VLAN MGMT στο input</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add \</span>
+<span class="out">    chain=input protocol=udp dst-port=9 \</span>
+<span class="out">    in-interface=vlan10 \</span>
+<span class="out">    src-address=192.168.10.0/24 \</span>
+<span class="out">    action=accept \</span>
+<span class="out">    comment="WoL from MGMT only"</span>
+
+<span class="cmt"># Η σειρά κανόνων έχει σημασία. Κάνε drop το μη έμπιστο ΠΡΩΤΑ, μετά accept το MGMT.
+# Πρόσθεσέ τα ΠΑΝΩ από τον γενικό κανόνα drop-all σου στο τέλος του chain.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">🛡 Ματια Defender — Θωρακιση</span>
+    <p><strong>Περιόρισε την ακτίνα έκρηξης.</strong> Αν ένας επιτιθέμενος μπορεί να στείλει ένα magic packet, μπορεί να ανάψει συσκευές — αλλά ακόμα χρειάζεται credentials για να κάνει κάτι χρήσιμο μόλις η συσκευή είναι up. Η πραγματική έκθεσή σου είναι το παράθυρο ανάμεσα στο power-on και το πλήρες boot όπου υπηρεσίες ξεκινούν χωρίς authentication. Βεβαιώσου ότι οι servers σου απαιτούν authentication πριν δεχτούν οποιεσδήποτε συνδέσεις και ότι υπηρεσίες κατά το boot (SMB, RDP, SSH) δεν είναι εκτεθειμένες σε μη έμπιστα segments.</p>
+    <p><strong>Οι interface lists είναι φίλος σου.</strong> Δημιούργησε μια interface list <code>UNTRUSTED</code> που περιέχει guest Wi-Fi, IoT, και οποιαδήποτε VLANs τρίτων. Κάνε drop UDP/9 από αυτή τη λίστα globally. Χρειάζεσαι μόνο έναν κανόνα, και η προσθήκη ενός νέου μη έμπιστου VLAN στη λίστα κληρονομεί αυτόματα την προστασία.</p>
+    <p><strong>WoL πάνω από θύρα 0 / raw frames.</strong> Κάποια εργαλεία παρακάμπτουν εντελώς το UDP και στέλνουν το magic packet σαν ωμό frame Ethernet (EtherType 0x0842). Οι κανόνες filter του firewall RouterOS πιάνουν μόνο κίνηση IP. Αν είσαι σε switch CRS, βεβαιώσου ότι μη έμπιστες θύρες bridge δεν μπορούν να κάνουν inject raw frames στο bridge domain των servers χρησιμοποιώντας bridge port isolation ή private VLANs.</p>
+  </div>
+
+  <!-- ── SECTION 06 ── -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Παρακολουθηση Γεγονοτων WoL</h2>
+  <p class="section-thesis"><em>Θες να ξέρεις πότε ξυπνήθηκε μια συσκευή, ποιος το πυροδότησε, και αν πραγματικά ανέβηκε — το logging του RouterOS και απλά probes ping το καλύπτουν αυτό.</em></p>
+
+  <h3 class="sub">Καν' τα Πακετα WoL Log</h3>
+  <p>Πρόσθεσε μια ενέργεια logging στον κανόνα accept του firewall σου ώστε κάθε trigger WoL να αφήνει ίχνος στο log του RouterOS με timestamp και source IP.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — καν' το trigger WoL log</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">ip firewall filter set \</span>
+<span class="out">    [find comment="WoL from MGMT only"] \</span>
+<span class="out">    action=log log-prefix="WOL-TRIGGER" \</span>
+<span class="out">    log=yes</span>
+<span class="cmt"># Ή πρόσθεσε έναν ξεχωριστό κανόνα log ακριβώς πριν τον κανόνα accept:
+#   chain=input, ίδιο match, action=log, log-prefix="WOL-TRIGGER"
+# Οι καταχωρήσεις log εμφανίζονται στο /log print — και στον server syslog σου αν είναι ρυθμισμένος.</span>
+
+<span class="pc">[admin@MikroTik] ></span> <span class="out">log print where topics~"firewall" and message~"WOL-TRIGGER"</span>
+<span class="out"> may/02 14:33:01 firewall,info WOL-TRIGGER: in:vlan10 \</span>
+<span class="out">   src-mac AA:BB:CC:11:22:33, proto UDP, \</span>
+<span class="out">   192.168.10.5:50234->192.168.10.255:9, len 102</span>
+<span class="cmt"># Το source MAC + IP σου λέει ακριβώς ποιος έστειλε το WoL.</span></pre>
+  </div>
+
+  <h3 class="sub">Επιβεβαιωσε οτι η Συσκευη Πραγματικα Ξυπνησε</h3>
+  <p>Ένα script που στέλνει WoL και μετά κάνει ping τον στόχο μερικά δευτερόλεπτα αργότερα σου δίνει επιβεβαίωση — και μπορείς να κάνεις log ή email το αποτέλεσμα.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — script wake + επιβεβαιωση</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">system script add name="wake-and-verify-fileserver" source={</span>
+<span class="out">  /tool wol interface=vlan20 mac=AA:BB:CC:DD:EE:FF</span>
+<span class="out">  :delay 45s</span>
+<span class="out">  :local result [/ping address=192.168.20.50 count=3 as-value]</span>
+<span class="out">  :if ($result->"received" > 0) do={</span>
+<span class="out">    :log info "WOL-OK: fileserver 192.168.20.50 responded after wake"</span>
+<span class="out">  } else={</span>
+<span class="out">    :log warning "WOL-FAIL: fileserver did not respond after 45s"</span>
+<span class="out">  }</span>
+<span class="out">}</span>
+<span class="cmt"># Το as-value επιστρέφει ένα dict σε ROS v7 — χρησιμοποίησε ->"received" για τον αριθμό πακέτων.
+# Τα 45s δίνουν στις περισσότερες συσκευές αρκετό χρόνο να κάνουν POST και να φτάσουν το network stack του OS.
+# Ρύθμισέ το για αργό hardware ή για prompts ξεκλειδώματος full-disk-encryption.
+# Για email alerts: πρόσθεσε /tool e-mail send στο block else (απαιτεί config SMTP).</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">🛡 Ματια Defender — Παρακολουθηση</span>
+    <p><strong>Στείλε logs σε έναν server syslog.</strong> Το on-device log του RouterOS είναι volatile και περιορισμένο. Ρύθμισε το <code>/system logging action</code> να στέλνει σε απομακρυσμένο syslog (Graylog, Loki, ή ακόμα και ένα απλό instance rsyslog στον server management σου). Φίλτραρε για <code>WOL-TRIGGER</code> και κάνε alert σε οποιαδήποτε πηγή έξω από τις αναμενόμενες IPs management σου.</p>
+    <p><strong>Απρόσμενο WoL είναι σήμα απειλής.</strong> Σε ένα περιβάλλον ξενοδοχείου ή SMB, ένα πακέτο WoL από μια απρόσμενη source IP — ειδικά από ένα VLAN επισκεπτών αν οι κανόνες firewall σου παρασυρθούν ποτέ — σημαίνει είτε λάθος ρύθμιση είτε σκόπιμο probe. Μεταχειρίσου απρόσμενα γεγονότα WoL όπως απρόσμενα port scans: ερεύνησε την πηγή αμέσως.</p>
+    <p><strong>Συνδύασέ το με Netwatch για tracking κατάστασης.</strong> Το <code>/tool netwatch</code> παρακολουθεί την προσβασιμότητα ενός host και μπορεί να πυροδοτήσει scripts σε αλλαγή κατάστασης. Ρύθμισε μια καταχώρηση Netwatch για κάθε κρίσιμο server: όταν μεταβαίνει από <em>down</em> σε <em>up</em>, κάνε log το γεγονός με timestamp. Σταυρωμένο με logs WoL, παίρνεις ένα πλήρες audit trail του ποιος ξύπνησε τι και πότε ήρθε online.</p>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — καταχωρηση Netwatch για κατασταση server</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">tool netwatch add \</span>
+<span class="out">    host=192.168.20.50 \</span>
+<span class="out">    interval=30s \</span>
+<span class="out">    up-script="/log info \"NETWATCH: fileserver UP\"" \</span>
+<span class="out">    down-script="/log warning \"NETWATCH: fileserver DOWN\""</span>
+<span class="cmt"># Κάνει log κάθε μετάβαση κατάστασης. Συσχέτισέ το με timestamps WOL-TRIGGER
+# στο /log print για να χτίσεις ένα πλήρες audit trail wake-to-online.</span></pre>
+  </div>
+
+  <!-- ── TAKEAWAYS ── -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το WoL είναι Layer 2 — ο router είναι το relay σου, όχι ένας διάφανος forwarder.</strong> Μην περιμένεις ποτέ ένα broadcast να διασχίσει ένα routed VLAN boundary μόνο του. Το σωστό μοντέλο είναι πάντα: αναχαίτισε στον router, ξαναδημιούργησε μέσω <code>/tool wol</code> στοχευμένο στο σωστό interface VLAN.</li>
+      <li><strong>Το <code>/tool wol interface=</code> πρέπει να δείχνει στο interface VLAN, όχι στη φυσική θύρα ή το bridge.</strong> Αυτή είναι η πιο κοινή λάθος ρύθμιση. Αν τα πακέτα δεν φτάνουν, έλεγξε πρώτα το όνομα interface.</li>
+      <li><strong>Scripts-ανά-στόχο κάνουν scale καλύτερα από ένα γενικό relay για περιβάλλοντα SMB.</strong> Τυπικά θα έχεις 3–10 ονομαστούς servers. Ένα ονομαστό script ανά στόχο είναι ελέγξιμο, προγραμματίσιμο, και τετριμμένα καλέσιμο μέσω SSH. Ένας γενικός parser magic-packet προσθέτει πολυπλοκότητα χωρίς πραγματικό όφελος σε αυτή την κλίμακα.</li>
+      <li><strong>Κλείδωσε το SSH στο Tailscale πριν εκθέσεις απομακρυσμένο WoL.</strong> Το μονοπάτι Tailscale είναι ισχυρό ακριβώς επειδή παρακάμπτει NAT και Starlink CGNAT. Η ίδια ιδιότητα το κάνει επικίνδυνο αν το SSH είναι προσβάσιμο από οπουδήποτε. Περιόρισε το SSH στο <code>100.64.0.0/10</code> τουλάχιστον πριν βασιστείς λειτουργικά σε αυτό το μονοπάτι.</li>
+      <li><strong>Κάνε log τα triggers WoL και σταύρωσέ τα με Netwatch.</strong> Χωρίς logs, ένα γεγονός WoL είναι αόρατο στο audit trail σου. Με δύο γραμμές log — ώρα trigger + ώρα πρώτου-ping-up — έχεις ό,τι χρειάζεσαι για να ξέρεις αν ένας server ανέβηκε στο πρόγραμμα και ποιος το ξεκίνησε.</li>
+      <li><strong>Κάνε drop UDP/9 από μη έμπιστα VLANs globally, χρησιμοποιώντας interface lists.</strong> Ένας κανόνας firewall στην interface list <code>UNTRUSTED</code> είναι πιο ασφαλής και ευκολότερος να συντηρηθεί από κανόνες ανά-VLAN. Πρόσθεσε νέα μη έμπιστα VLANs στη λίστα και η προστασία είναι αυτόματη.</li>
+    </ol>
+  </div>
+
+  <!-- ── CTA ── -->
+  <div class="cta-card">
+    <h3>Τρεχεις ακομα τα παντα σε ενα flat δικτυο;</h3>
+    <p>Σχεδιάζω και διαχειρίζομαι segmented δίκτυα για ιδιοκτησίες φιλοξενίας — VLANs, πολιτική firewall, απομακρυσμένο management, Starlink σαν μονοπάτι failover. Αν το δίκτυό σου είναι ακόμα ένα flat subnet, μια λάθος ρύθμιση είναι πιο κοντά απ' όσο νομίζεις.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε ενα 30λεπτο Discovery Call →</a>
+  </div>
+
+</div><!-- /.wrap -->
+
+<!-- ── FOOTER ──────────────────────────────────────────── -->
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

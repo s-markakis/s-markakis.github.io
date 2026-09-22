@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco Lab: Εδρα + Υποκαταστηματα — GRE over IPsec WAN — S. Markakis</title>
+<meta name="description" content="Ένα hub-and-spoke WAN που μπορείς να χτίσεις σε Packet Tracer — ένα ISP cloud που αρνείται να κάνει route τα LAN σου, GRE tunnels που τα κουβαλάνε ούτως ή άλλως, OSPF πάνω από τα tunnels, και IPsec που κρυπτογραφεί το σύνολο.">
+<meta property="og:title" content="Cisco Lab: Εδρα + Υποκαταστηματα — GRE over IPsec WAN — S. Markakis">
+<meta property="og:description" content="Ένα hub-and-spoke WAN που μπορείς να χτίσεις σε Packet Tracer — ένα ISP cloud που αρνείται να κάνει route τα LAN σου, GRE tunnels που τα κουβαλάνε ούτως ή άλλως, OSPF πάνω από τα tunnels, και IPsec που κρυπτογραφεί το σύνολο.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-lab-gre-ipsec-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-lab-gre-ipsec.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-lab-gre-ipsec.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-lab-gre-ipsec-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-lab-gre-ipsec.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-lab-gre-ipsec-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-lab-gre-ipsec.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco Lab: Εδρα + Υποκαταστηματα — GRE over IPsec WAN",
+  "description": "Ένα hub-and-spoke WAN που μπορείς να χτίσεις σε Packet Tracer — ένα ISP cloud που αρνείται να κάνει route τα LAN σου, GRE tunnels που τα κουβαλάνε ούτως ή άλλως, OSPF πάνω από τα tunnels, και IPsec που κρυπτογραφεί το σύνολο.",
+  "datePublished": "2026-08-25",
+  "dateModified": "2026-08-25",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-lab-gre-ipsec-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-lab-gre-ipsec.png",
+  "keywords": [
+    "cisco",
+    "labs"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-lab-gre-ipsec"
+  },
+  "timeRequired": "PT11M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-lab-gre-ipsec.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / Lab</span> &nbsp;·&nbsp; Σεναριο Lab &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco Lab<br>Εδρα + Υποκαταστηματα: GRE over IPsec</h1>
+  <p class="post-subtitle">Το internet θα κουβαλήσει ευχαρίστως πακέτα ανάμεσα στα sites σου — απλώς αρνείται να ξέρει τίποτα για τα ιδιωτικά LAN σου. Αυτό το lab χτίζει την κλασική απάντηση: GRE tunnels που κάνουν τρεις routers να νομίζουν ότι μοιράζονται ένα καλώδιο, OSPF που τρέχει πάνω από αυτά τα tunnels σαν να ήταν φυσικά, και IPsec τυλιγμένο απ' έξω ώστε ο ISP να βλέπει μόνο θόρυβο ESP. Όλα δουλεύουν σε Packet Tracer.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Packet Tracer</span>
+    <span class="tag">Lab</span>
+    <span class="tag">GRE</span>
+    <span class="tag">IPsec</span>
+    <span class="tag">OSPF</span>
+    <span class="tag">Hub and Spoke</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: hub and spoke over ISP cloud -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="300" fill="#e1ded7"/>
+      <!-- ISP cloud -->
+      <ellipse cx="360" cy="150" rx="130" ry="58" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="360" y="142" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#3a5a78;text-anchor:middle;">ISP core</text>
+      <text x="360" y="158" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#3a5a78;text-anchor:middle;">κάνει route μόνο τα δημόσια /30 —</text>
+      <text x="360" y="170" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#3a5a78;text-anchor:middle;">δεν έχει ακούσει ποτέ για 192.168.x.x</text>
+      <!-- HQ -->
+      <rect x="290" y="18" width="140" height="42" rx="6" fill="#d4d2cc" stroke="#c63d1f" stroke-width="1.4"/>
+      <text x="360" y="36" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">HQ (2911) — hub</text>
+      <text x="360" y="50" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">LAN 192.168.10.0/24 · WAN 198.51.100.2</text>
+      <line x1="360" y1="60" x2="360" y2="92" style="stroke:#888880;stroke-width:1.6;"/>
+      <!-- BR1 -->
+      <rect x="30" y="230" width="150" height="42" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="105" y="248" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">BR1 (2911) — spoke</text>
+      <text x="105" y="262" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">LAN 192.168.20.0/24 · WAN 203.0.113.2</text>
+      <line x1="130" y1="230" x2="252" y2="180" style="stroke:#888880;stroke-width:1.6;"/>
+      <!-- BR2 -->
+      <rect x="540" y="230" width="150" height="42" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="615" y="248" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">BR2 (2911) — spoke</text>
+      <text x="615" y="262" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">LAN 192.168.30.0/24 · WAN 192.0.2.2</text>
+      <line x1="590" y1="230" x2="468" y2="180" style="stroke:#888880;stroke-width:1.6;"/>
+      <!-- tunnels -->
+      <path d="M 330 62 C 220 110, 150 170, 115 228" fill="none" style="stroke:#c63d1f;stroke-width:2.2;stroke-dasharray:8,5;"/>
+      <path d="M 390 62 C 500 110, 570 170, 605 228" fill="none" style="stroke:#c63d1f;stroke-width:2.2;stroke-dasharray:8,5;"/>
+      <text x="185" y="112" style="font-family:'Inter',sans-serif;font-size:9px;fill:#c63d1f;font-weight:700;" transform="rotate(38 185 112)">Tunnel10 — 172.16.0.0/30</text>
+      <text x="466" y="86" style="font-family:'Inter',sans-serif;font-size:9px;fill:#c63d1f;font-weight:700;" transform="rotate(-38 500 96)">Tunnel20 — 172.16.0.4/30</text>
+      <text x="360" y="290" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">διακεκομμένο = GRE μέσα σε IPsec: ιδιωτικά subnets περνούν μέσα από ένα cloud που δεν μπορεί να τα κάνει route</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το <a href="cisco-site-to-site-vpn.html">Part 13</a> έχτισε ένα μοντέρνο tunnel IKEv2 ανάμεσα σε δύο γραφεία. Αυτό το lab κλιμακώνει την ιδέα σε ένα πραγματικό <strong>hub-and-spoke WAN</strong> — και προσθέτει το συστατικό που αλλάζει τα πάντα: ένα <strong>routing protocol πάνω από τα tunnels</strong>. Το plain IPsec κουβαλά πακέτα ανάμεσα σε subnets που απαριθμείς με το χέρι· το GRE σου δίνει ένα εικονικό <em>interface</em>, και ό,τι έχει interface μπορεί να τρέξει OSPF. Πρόσθεσε ένα subnet υποκαταστήματος και κανείς δεν πειράζει crypto ACLs — το OSPF απλώς το μαθαίνει.</p>
+    <p>Το μυστικό όπλο του lab είναι το ISP cloud στη μέση: τρεις routers που ξέρουν μόνο τα δημόσια /30. Το πρώτο σου end-to-end ping <em>πρέπει να αποτύχει</em> — το internet δεν κάνει route RFC1918 — και αυτή η αποτυχία είναι το μάθημα πάνω στο οποίο χτίζεται όλο το υπόλοιπο. Μετά το GRE περνά λαθραία την ιδιωτική κίνηση μέσα σε δημόσιους φακέλους, και το IPsec κάνει τους φακέλους αδιαφανείς. Κάθε εντολή εδώ είναι συμβατή με Packet Tracer 8.x (crypto maps, όχι τα VTI profiles του part 13 — θα το επισημάνουμε).</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li><a href="cisco-site-to-site-vpn.html">Site-to-Site IPsec VPN</a> — υποτίθεται γνωστό το λεξιλόγιο phase 1 / phase 2</li>
+      <li><a href="cisco-lab-ospf-areas.html">Lab: Multi-Area OSPF</a> ή τουλάχιστον single-area OSPF από το part 7</li>
+      <li>Packet Tracer με τέσσερα 2911 για HQ/BR1/BR2 + ένα router ISP (ή τρία για πιο πλήρες cloud)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Χτισε Πρωτα το Εχθρικο Internet</h2>
+  <p class="section-thesis"><em>Ο router(s) ISP παίρνει τα δημόσια /30 και τίποτα άλλο — ποτέ κανένα route προς οποιοδήποτε δίκτυο 192.168. Απόδειξε ότι το πρόβλημα υπάρχει πριν το λύσεις.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">ISP + WANs sites — μονο δημοσιες σωληνωσεις</span>
+    <pre class="term"><span class="cmt"># Router ISP — τρία πόδια, τρία δημόσια /30. Κανένα static. Κανένα OSPF. Τίποτα.</span>
+<span class="pc">ISP(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">ISP(config-if)#</span> <span class="out">ip address 198.51.100.1 255.255.255.252</span>   <span class="cmt">← προς HQ</span>
+<span class="pc">ISP(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">ISP(config-if)#</span> <span class="out">ip address 203.0.113.1 255.255.255.252</span>    <span class="cmt">← προς BR1</span>
+<span class="pc">ISP(config)#</span> <span class="out">interface GigabitEthernet0/2</span>
+<span class="pc">ISP(config-if)#</span> <span class="out">ip address 192.0.2.1 255.255.255.252</span>      <span class="cmt">← προς BR2</span>
+
+<span class="cmt"># Κάθε site: διεύθυνση WAN + ένα default προς τον ISP (όπως κάθε router πελάτη)</span>
+<span class="pc">HQ(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">HQ(config-if)#</span> <span class="out">ip address 198.51.100.2 255.255.255.252</span>
+<span class="pc">HQ(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 198.51.100.1</span>
+
+<span class="cmt"># Η στιγμή της αλήθειας — το δημόσιο δουλεύει, το ιδιωτικό δεν μπορεί:</span>
+<span class="pc">HQ#</span> <span class="out">ping 203.0.113.2</span>            <span class="cmt">← το δημόσιο WAN του BR1</span>
+<span class="out">!!!!!  Success rate is 100 percent</span>
+<span class="pc">HQ#</span> <span class="out">ping 192.168.20.1</span>           <span class="cmt">← το LAN του BR1</span>
+<span class="out">.....  Success rate is 0 percent</span>   <span class="cmt">← σωστά! Ο ISP δεν έχει route
+                                        και θα έριχνε RFC1918 έτσι κι αλλιώς</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Γιατι Μπαινομε στον Κοπο να Προσομοιωσουμε τον ISP</span>
+    <p>Τα περισσότερα labs VPN κλέβουν με ένα crossover καλώδιο ανάμεσα στους δύο routers, και οι μαθητές φεύγουν χωρίς να έχουν δει ποτέ τον πραγματικό περιορισμό: <strong>το underlay κάνει route μόνο ό,τι ξέρει</strong>. Με ένα πραγματικό cloud στη μέση, κάθε μετέπειτα αστοχία διαγιγνώσκεται σωστά — «είναι πρόβλημα underlay (μπορούν τα άκρα του tunnel να επικοινωνήσουν μεταξύ τους;) ή πρόβλημα overlay (είναι χαλασμένο το tunnel/OSPF;)». Αυτή η ερώτηση δύο επιπέδων είναι όλο το μοντέλο troubleshooting για VPN, SD-WAN, και κάθε τεχνολογία overlay που θα αγγίξεις ποτέ.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">GRE — Ενα Εικονικο Καλωδιο ανα Υποκαταστημα</h2>
+  <p class="section-thesis"><em>Ένα tunnel interface έχει source (το δικό μου public IP), destination (το δικό σου public IP), και τη δική του ιδιωτική διεύθυνση. Πακέτα που μπαίνουν σε αυτό τυλίγονται σε έναν δημόσιο φάκελο που ο ISP μπορεί να κάνει route.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">HQ + BR1 — Tunnel10 (το Tunnel20 προς BR2 ειναι η ιδια συνταγη)</span>
+    <pre class="term"><span class="pc">HQ(config)#</span> <span class="out">interface Tunnel10</span>
+<span class="pc">HQ(config-if)#</span> <span class="out">ip address 172.16.0.1 255.255.255.252</span>
+<span class="pc">HQ(config-if)#</span> <span class="out">tunnel source GigabitEthernet0/0</span>
+<span class="pc">HQ(config-if)#</span> <span class="out">tunnel destination 203.0.113.2</span>
+<span class="pc">HQ(config-if)#</span> <span class="out">ip mtu 1400</span>
+<span class="pc">HQ(config-if)#</span> <span class="out">ip tcp adjust-mss 1360</span>
+
+<span class="pc">BR1(config)#</span> <span class="out">interface Tunnel10</span>
+<span class="pc">BR1(config-if)#</span> <span class="out">ip address 172.16.0.2 255.255.255.252</span>
+<span class="pc">BR1(config-if)#</span> <span class="out">tunnel source GigabitEthernet0/0</span>
+<span class="pc">BR1(config-if)#</span> <span class="out">tunnel destination 198.51.100.2</span>
+<span class="pc">BR1(config-if)#</span> <span class="out">ip mtu 1400</span>
+<span class="pc">BR1(config-if)#</span> <span class="out">ip tcp adjust-mss 1360</span>
+
+<span class="cmt"># Το εικονικό καλώδιο είναι up — κάνε ping μέσα από αυτό:</span>
+<span class="pc">HQ#</span> <span class="out">ping 172.16.0.2</span>
+<span class="out">!!!!!  Success rate is 100 percent</span>
+<span class="cmt"># Ο ISP κουβάλησε αυτό το ping — ως unicast ανάμεσα σε δύο ΔΗΜΟΣΙΕΣ διευθύνσεις,
+# με το ιδιωτικό πακέτο κρυμμένο μέσα. Αυτό είναι όλο το κόλπο του GRE.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Οι Γραμμες MTU Δεν Ειναι Προαιρετικες</span>
+    <p>Το GRE κλέβει 24 bytes και το IPsec θα πάρει ~58 ακόμα· ένα πακέτο πλήρους μεγέθους 1500 bytes δεν χωράει πια και είτε κατακερματίζεται είτε — με DF set, που το βάζει κάθε σύγχρονο TCP — <strong>ρίχνεται σιωπηλά</strong>. Το κλασικό σύμπτωμα: το ping δουλεύει, το SSH δουλεύει, αλλά οι σελίδες HTTPS κρεμάνε και τα αντίγραφα αρχείων κολλάνε στο 0%. Τα μικρά πακέτα χωράνε, τα πλήρη segments όχι. Το <code>ip mtu 1400</code> + <code>ip tcp adjust-mss 1360</code> σε <em>κάθε tunnel interface, και στα δύο άκρα</em> αποτρέπει όλη αυτή την κατηγορία συμπτωμάτων. Όταν κάποιο overlay «δουλεύει αλλά τα μεγάλα πράγματα κρεμάνε», το MTU είναι ένοχο μέχρι αποδείξεως του εναντίου.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">OSPF πανω απο τα Tunnels</h2>
+  <p class="section-thesis"><em>Να το κέρδος από την επιλογή του GRE: τα tunnels είναι interfaces, οπότε το OSPF τρέχει πάνω τους όπως πάνω σε οποιοδήποτε καλώδιο. Τα υποκαταστήματα μαθαίνουν τα subnets το ένα του άλλου χωρίς καμία απαρίθμηση.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Και τα τρια sites — μια περιοχη OSPF πανω απο το overlay</span>
+    <pre class="term"><span class="pc">HQ(config)#</span> <span class="out">router ospf 1</span>
+<span class="pc">HQ(config-router)#</span> <span class="out">router-id 10.10.10.10</span>
+<span class="pc">HQ(config-router)#</span> <span class="out">passive-interface GigabitEthernet0/1</span>       <span class="cmt">← το LAN</span>
+<span class="pc">HQ(config-router)#</span> <span class="out">network 172.16.0.0 0.0.0.7 area 0</span>          <span class="cmt">← και τα δύο tunnels</span>
+<span class="pc">HQ(config-router)#</span> <span class="out">network 192.168.10.0 0.0.0.255 area 0</span>
+
+<span class="pc">BR1(config)#</span> <span class="out">router ospf 1</span>
+<span class="pc">BR1(config-router)#</span> <span class="out">router-id 20.20.20.20</span>
+<span class="pc">BR1(config-router)#</span> <span class="out">passive-interface GigabitEthernet0/1</span>
+<span class="pc">BR1(config-router)#</span> <span class="out">network 172.16.0.0 0.0.0.3 area 0</span>
+<span class="pc">BR1(config-router)#</span> <span class="out">network 192.168.20.0 0.0.0.255 area 0</span>
+
+<span class="cmt"># ΠΟΤΕ μη βάλεις τα /30 του WAN ή το default route μέσα στο OSPF εδώ —
+# το underlay πρέπει να παραμείνει αδαές για το overlay (δες την παγίδα παρακάτω).</span>
+
+<span class="pc">BR1#</span> <span class="out">show ip route ospf</span>
+<span class="out">O    192.168.10.0/24 [110/1001] via 172.16.0.1, 00:01:12, Tunnel10
+O    192.168.30.0/24 [110/2001] via 172.16.0.1, 00:01:02, Tunnel10  ← LAN του BR2,
+                                                                       μέσω του hub</span>
+<span class="pc">BR1#</span> <span class="out">ping 192.168.30.1 source 192.168.20.1</span>
+<span class="out">!!!!!</span>   <span class="cmt">← branch-to-branch, hairpinned μέσω HQ. Όλο το WAN δουλεύει.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Recursive Routing Σκοτωνει το Tunnel</span>
+    <p>Αν το OSPF μάθει ποτέ ένα route προς τον ίδιο τον <strong>προορισμό του tunnel</strong> (το δημόσιο 203.0.113.2 του BR1) <em>μέσα από το ίδιο το tunnel</em>, ο router προσπαθεί να παραδώσει τους φακέλους του tunnel μέσα στο tunnel — και το IOS ρίχνει το interface με <code>%TUN-5-RECURDOWN: Tunnel10 temporarily disabled due to recursive routing</code>. Το tunnel φλαπάρει για πάντα: down → το route αποσύρεται → up → το route ξαναμαθαίνεται → down. Ο κανόνας που το αποτρέπει: <strong>τα άκρα του tunnel φτάνονται μόνο μέσω του underlay</strong> (το static default), και τα prefixes του underlay δεν μπαίνουν ποτέ στο routing protocol του overlay. Αν δεις ποτέ RECURDOWN, διαφήμισες κάτι που δεν έπρεπε.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Τυλιξ' το σε IPsec</h2>
+  <p class="section-thesis"><em>Το GRE είναι ένας διάφανος φάκελος — ο ISP μπορεί να διαβάσει κάθε πακέτο LAN μέσα του. Ένα IPsec transform σε transport mode κρυπτογραφεί ακριβώς το stream GRE ανάμεσα σε κάθε ζεύγος δημόσιων άκρων.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">HQ + BR1 — ISAKMP, transform set, crypto map (συμβατο με PT)</span>
+    <pre class="term"><span class="cmt"># Phase 1 — πανομοιότυπη policy και στα δύο άκρα</span>
+<span class="pc">HQ(config)#</span> <span class="out">crypto isakmp policy 10</span>
+<span class="pc">HQ(config-isakmp)#</span> <span class="out">encryption aes 256</span>
+<span class="pc">HQ(config-isakmp)#</span> <span class="out">hash sha</span>
+<span class="pc">HQ(config-isakmp)#</span> <span class="out">authentication pre-share</span>
+<span class="pc">HQ(config-isakmp)#</span> <span class="out">group 5</span>
+<span class="pc">HQ(config)#</span> <span class="out">crypto isakmp key N0ctis-Lab-Key address 203.0.113.2</span>
+
+<span class="cmt"># Phase 2 — transport mode: προστατεύουμε μόνο το GRE router-to-router</span>
+<span class="pc">HQ(config)#</span> <span class="out">crypto ipsec transform-set TS-GRE esp-aes 256 esp-sha-hmac</span>
+<span class="pc">HQ(cfg-crypto-trans)#</span> <span class="out">mode transport</span>
+
+<span class="cmt"># Ενδιαφέρουσα κίνηση = το ίδιο το stream GRE (protocol 47)</span>
+<span class="pc">HQ(config)#</span> <span class="out">ip access-list extended VPN-BR1</span>
+<span class="pc">HQ(config-ext-nacl)#</span> <span class="out">permit gre host 198.51.100.2 host 203.0.113.2</span>
+
+<span class="pc">HQ(config)#</span> <span class="out">crypto map CMAP 10 ipsec-isakmp</span>
+<span class="pc">HQ(config-crypto-map)#</span> <span class="out">set peer 203.0.113.2</span>
+<span class="pc">HQ(config-crypto-map)#</span> <span class="out">set transform-set TS-GRE</span>
+<span class="pc">HQ(config-crypto-map)#</span> <span class="out">match address VPN-BR1</span>
+<span class="cmt"># (map entry 20 = το ίδιο για BR2, μετά εφάρμοσέ το μία φορά:)</span>
+<span class="pc">HQ(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">HQ(config-if)#</span> <span class="out">crypto map CMAP</span>
+
+<span class="cmt"># Καθρέφτισε τα πάντα στο BR1 (peer/ACL αντεστραμμένα), μετά επαλήθευσε ότι κινούνται οι μετρητές:</span>
+<span class="pc">HQ#</span> <span class="out">show crypto ipsec sa | include pkts</span>
+<span class="out">  #pkts encaps: 214, #pkts encrypt: 214
+  #pkts decaps: 209, #pkts decrypt: 209</span>   <span class="cmt">← OSPF hellos κρυπτογραφούνται, ζωντανά</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Το Πραγματικο IOS το Κανει σε Μια Γραμμη</span>
+    <p>Σε πραγματικό IOS/IOS-XE θα παρέκαμπτες εντελώς τα crypto maps: θα έχτιζες ένα <code>crypto ipsec profile</code> και θα έβαζες <code>tunnel protection ipsec profile X</code> κατευθείαν στο tunnel interface — η προσέγγιση του part-13, επεκταμένη ανά tunnel. Το Packet Tracer δεν υποστηρίζει tunnel protection, οπότε αυτό το lab χρησιμοποιεί το παλιότερο pattern crypto-map-που-ταιριάζει-GRE, που είναι επίσης ακριβώς αυτό που θα βρεις σε χιλιάδες routers παραγωγής που επιβιώνουν ακόμα. Το να μάθεις και τα δύο ιδιώματα σημαίνει ότι μπορείς να διαβάζεις παλιά configs <em>και</em> να γράφεις μοντέρνα. (Σε PT, θυμήσου ότι το 2911 χρειάζεται το security license: <code>license boot module c2900 technology-package securityk9</code>, accept, save, reload.)</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Επαληθευσε και τα Δυο Επιπεδα <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Κάθε αστοχία σε ένα κρυπτογραφημένο overlay βρίσκεται σε ένα από τέσσερα επίπεδα: προσβασιμότητα underlay, crypto, tunnel, routing. Τέσταρέ τα με αυτή τη σειρά, πάντα.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Επιπεδο που αποδεικνυει</th></tr></thead>
+    <tbody>
+      <tr><td>ping &lt;public IP peer&gt;</td><td>1 — Underlay: μπορούν καν τα άκρα να επικοινωνήσουν μεταξύ τους;</td></tr>
+      <tr><td>show crypto isakmp sa</td><td>2 — Phase 1 up; Η κατάσταση πρέπει να είναι QM_IDLE / ACTIVE.</td></tr>
+      <tr><td>show crypto ipsec sa</td><td>2 — Phase 2: οι μετρητές encaps/decaps πρέπει και οι δύο να ανεβαίνουν.</td></tr>
+      <tr><td>show interface Tunnel10</td><td>3 — Tunnel up/up; (up/down = source/destination απρόσιτο)</td></tr>
+      <tr><td>show ip ospf neighbor</td><td>4 — Routing overlay: FULL σε κάθε tunnel.</td></tr>
+      <tr><td>show ip route ospf</td><td>4 — Τα απομακρυσμένα LAN παρόντα, next-hop = διεύθυνση tunnel.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Η σειρά έχει σημασία επειδή κάθε επίπεδο εξαρτάται από το προηγούμενο: το OSPF δεν μπορεί να σχηματιστεί χωρίς το tunnel, το tunnel δεν κουβαλά τίποτα αν το crypto τρώει τα πακέτα, και το crypto δεν μπορεί να διαπραγματευτεί χωρίς προσβασιμότητα underlay. Όταν η κίνηση υποκαταστήματος πεθαίνει στις 3 το πρωί, <strong>ξεκίνα από το επίπεδο 1 και ανέβα</strong> — ποτέ μην ξεκινάς από το επίπεδο που <em>υποψιάζεσαι</em>.</p>
+
+  <h3 class="sub">Ασκηση αστοχιας</h3>
+  <p>Ξεκίνα συνεχές ping BR1-LAN → BR2-LAN, μετά διάγραψε το καλώδιο HQ–ISP. Όλα πεθαίνουν — η ειλικρινής αδυναμία του hub-and-spoke, και τα δύο tunnels περνάνε μέσω HQ. Ξανασύνδεσε και δες τα επίπεδα να ξαναχτίζονται με σειρά εξάρτησης: το ISAKMP επαναδιαπραγματεύεται, τα tunnels επιστρέφουν σε up/up, το OSPF ξανα-FULL, τα pings συνεχίζουν — περίπου 40 δευτερόλεπτα σε PT, κυριαρχούμενα από το dead-interval του OSPF. Μετά κάνε την ερώτηση σχεδιασμού που διδάσκει αυτή η άσκηση: τι θα χρειαζόταν για να επιβιώσει το BR1→BR2 από μια αστοχία HQ; (Ένα tunnel BR1–BR2 — που γυρνά το hub-and-spoke σε τρίγωνο. Στον πραγματικό κόσμο σε κλίμακα: DMVPN ή SD-WAN, και τα δύο ακριβώς το pattern αυτού του lab με το χτίσιμο tunnel αυτοματοποιημένο.)</p>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — το Ιδιο Overlay</h2>
+  <p class="section-thesis"><em>Το RouterOS χτίζει τον πανομοιότυπο σχεδιασμό — ένα μεικτό fleet συνεργάζεται μια χαρά, και εμείς τρέχουμε αρκετά.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Αυτο το lab (Cisco)</th><th>MikroTik / RouterOS</th></tr></thead>
+    <tbody>
+      <tr><td>interface Tunnel10 (GRE)</td><td>/interface gre add remote-address=…</td></tr>
+      <tr><td>ip mtu 1400 + adjust-mss</td><td>mtu= στο GRE interface + κανόνας mangle change-mss</td></tr>
+      <tr><td>OSPF πάνω από tunnels</td><td>/routing ospf interface-template στα gre interfaces</td></tr>
+      <tr><td>crypto map + isakmp key</td><td>/ip ipsec policy + peer + identity (ή ipsec-secret= κατευθείαν στο GRE interface — one-liner)</td></tr>
+      <tr><td>show crypto ipsec sa</td><td>/ip ipsec installed-sa print (κοίτα τους μετρητές bytes)</td></tr>
+      <tr><td>DMVPN (η κλιμακωμένη έκδοση)</td><td>Κανένα άμεσο αντίστοιχο — WireGuard mesh ή ZeroTier γεμίζουν το κενό</td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Το underlay vs overlay ειναι το mental model.</strong> Ο ISP κάνει route δημόσιους φακέλους· το GRE βάζει ιδιωτικά πακέτα μέσα τους· το IPsec κάνει τους φακέλους αδιαφανείς. Κάθε VPN και SD-WAN είναι μια παραλλαγή αυτού.</li>
+      <li><strong>Το δώρο του GRE είναι το interface.</strong> Τα interfaces τρέχουν routing protocols — άρα νέα subnets διαδίδονται μέσω OSPF αντί για χειροκίνητα crypto ACLs σε κάθε site.</li>
+      <li><strong>Βάλε ip mtu 1400 και adjust-mss 1360 σε κάθε tunnel, και στα δύο άκρα</strong> — αλλιώς απόλαυσε το ticket «το ping δουλεύει, το HTTPS κρεμάει». Το MTU σε overlay είναι ένοχο μέχρι αποδείξεως του εναντίου.</li>
+      <li><strong>Ποτέ μην αφήσεις το overlay να μάθει το underlay.</strong> Τα άκρα του tunnel πρέπει να φτάνονται μόνο μέσω του φυσικού default route, αλλιώς το RECURDOWN φλαπάρει το tunnel για πάντα.</li>
+      <li><strong>Transport mode + ένα ACL που ταιριάζει GRE</strong> είναι το κλασικό ιδίωμα crypto-map (και το μόνο του PT)· το πραγματικό IOS προτιμά <code>tunnel protection</code> με ένα IPsec profile. Μάθε και τα δύο.</li>
+      <li><strong>Κάνε troubleshoot με σειρά επιπέδων</strong> — ping underlay, ISAKMP SA, μετρητές IPsec, κατάσταση tunnel, γείτονες OSPF. Το καθένα εξαρτάται από το προηγούμενο· ξεκίνα από το 1 ακόμα κι όταν υποψιάζεσαι το 4.</li>
+      <li><strong>Το hub-and-spoke αποτυγχανει με το hub</strong> — η άσκηση το αποδεικνύει. Tunnels spoke-to-spoke, DMVPN, ή SD-WAN είναι οι πιο ώριμες απαντήσεις.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Συνδεεις γραφεια, ξενοδοχεια, η μια αποθηκη με την εδρα;</h3>
+    <p>Τα WAN GRE-over-IPsec αποτυγχάνουν σχεδόν πάντα με τους ίδιους δύο τρόπους: MTU που κανείς δεν μέτρησε σωστά, και failover που κανείς δεν τεστάρισε στην πράξη. Τα χτίζω σε Cisco και MikroTik με dynamic routing πάνω από τα tunnels, MTU σωστό από την αρχή, και failover αποδεδειγμένο τραβώντας ένα link, όχι υποτιθέμενο.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

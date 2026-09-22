@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: DHCP &amp; NAT/PAT — S. Markakis</title>
+<meta name="description" content="Μοίρασε διευθύνσεις και μοιράσου ένα δημόσιο IP σε ένα router Cisco — DHCP pools και εξαιρέσεις, DHCP relay, έννοιες NAT, PAT (overload) για ολόκληρο το LAN, και static NAT για port forwarding.">
+<meta property="og:title" content="Cisco IOS: DHCP &amp; NAT/PAT — S. Markakis">
+<meta property="og:description" content="Μοίρασε διευθύνσεις και μοιράσου ένα δημόσιο IP σε ένα router Cisco — DHCP pools και εξαιρέσεις, DHCP relay, έννοιες NAT, PAT (overload) για ολόκληρο το LAN, και static NAT για port forwarding.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-dhcp-nat-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-dhcp-nat.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-dhcp-nat.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-dhcp-nat-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-dhcp-nat.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-dhcp-nat-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-dhcp-nat.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  /* keyboard shortcut pills */
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  /* cheatsheet table */
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  /* safe badge */
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: DHCP & NAT/PAT",
+  "description": "Μοίρασε διευθύνσεις και μοιράσου ένα δημόσιο IP σε ένα router Cisco — DHCP pools και εξαιρέσεις, DHCP relay, έννοιες NAT, PAT (overload) για ολόκληρο το LAN, και static NAT για port forwarding.",
+  "datePublished": "2026-07-12",
+  "dateModified": "2026-07-12",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-dhcp-nat-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-dhcp-nat.png",
+  "keywords": [
+    "cisco",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-dhcp-nat"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-dhcp-nat.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>DHCP &amp; NAT/PAT</h1>
+  <p class="post-subtitle">Οι δύο υπηρεσίες που κάνουν ένα LAN χρησιμοποιήσιμο: το μοίρασμα διευθύνσεων αυτόματα, και το μοίρασμα ενός δημόσιου IP σε όλο το γραφείο. DHCP pools, relay, PAT overload, και static NAT για port forwarding — με τις εντολές επαλήθευσης που κάνουν το troubleshooting γρήγορο.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">DHCP</span>
+    <span class="tag">NAT</span>
+    <span class="tag">PAT</span>
+    <span class="tag">Port Forwarding</span>
+    <span class="tag">Router</span>
+    <span class="tag">CCNA</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: PAT overload -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="nap" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="200" fill="#e1ded7"/>
+      <!-- inside hosts -->
+      <rect x="30" y="34" width="120" height="22" rx="3" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="90" y="49" style="font-family:ui-monospace,monospace;font-size:10px;fill:#3a5a78;text-anchor:middle;">192.168.1.10</text>
+      <rect x="30" y="74" width="120" height="22" rx="3" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="90" y="89" style="font-family:ui-monospace,monospace;font-size:10px;fill:#3a5a78;text-anchor:middle;">192.168.1.11</text>
+      <rect x="30" y="114" width="120" height="22" rx="3" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="90" y="129" style="font-family:ui-monospace,monospace;font-size:10px;fill:#3a5a78;text-anchor:middle;">192.168.1.12</text>
+      <text x="90" y="160" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">inside (ιδιωτικό)</text>
+      <!-- router -->
+      <rect x="300" y="70" width="120" height="60" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="96" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#1a1a18;text-anchor:middle;">R1</text>
+      <text x="360" y="112" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">PAT overload</text>
+      <!-- outside -->
+      <rect x="560" y="88" width="130" height="24" rx="3" fill="#d7e7cf" stroke="#558840"/>
+      <text x="625" y="104" style="font-family:ui-monospace,monospace;font-size:10px;fill:#3a6a28;text-anchor:middle;">203.0.113.7</text>
+      <text x="625" y="150" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">outside (ένα δημόσιο IP)</text>
+      <!-- arrows -->
+      <line x1="150" y1="45" x2="298" y2="82" style="stroke:#3a5a78;stroke-width:1.2;marker-end:url(#nap)"/>
+      <line x1="150" y1="85" x2="298" y2="100" style="stroke:#3a5a78;stroke-width:1.2;marker-end:url(#nap)"/>
+      <line x1="150" y1="125" x2="298" y2="118" style="stroke:#3a5a78;stroke-width:1.2;marker-end:url(#nap)"/>
+      <line x1="420" y1="100" x2="556" y2="100" style="stroke:#c63d1f;stroke-width:1.8;marker-end:url(#nap)"/>
+      <text x="360" y="185" style="font-family:'Inter',sans-serif;font-size:10px;fill:#888880;text-anchor:middle;">Πολλοί ιδιωτικοί hosts → ένα δημόσιο IP. Ο router παρακολουθεί κάθε ροή με αριθμό port ώστε οι απαντήσεις να βρίσκουν τον δρόμο τους σπίτι.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Δύο υπηρεσίες μετατρέπουν έναν γυμνό router σε λειτουργική πύλη internet. Το <strong>DHCP</strong> δίνει σε κάθε συσκευή IP, gateway, και DNS server αυτόματα — κανείς δεν ρυθμίζει ένα laptop στο χέρι. Το <strong>NAT</strong> μεταφράζει τις πολλές ιδιωτικές διευθύνσεις από πίσω σου στη μία (ή λίγες) δημόσιες διευθύνσεις που σου έδωσε ο ISP, ώστε όλο το γραφείο να μοιράζεται ένα μοναδικό IP WAN.</p>
+    <p>Στην πράξη θα χρησιμοποιείς μία γεύση NAT συνέχεια — το <strong>PAT</strong>, «NAT overload», που κάνει multiplex ολόκληρο το LAN σε ένα δημόσιο IP παρακολουθώντας αριθμούς port — και περιστασιακά το αντίστροφό του, το <strong>static NAT</strong>, για να δημοσιεύσεις έναν εσωτερικό server στο internet (port forwarding). Αυτό το tutorial τα χτίζει όλα σε έναν router IOS, μετά τα αντιστοιχίζει στα ισοδύναμα MikroTik. Αν έχεις στήσει masquerade και dst-nat σε RouterOS, ήδη ξέρεις τα σχήματα.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Άνεση με το IOS CLI και το config interface — δες <a href="cisco-first-contact.html">Cisco IOS: First Contact</a></li>
+      <li>Ένας router με interface inside (LAN) και outside (WAN), και τα δύο με IP</li>
+      <li>Βασικό subnetting και η ιδέα ενός access-list (φτιάχνουμε ένα απλό εδώ)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">DHCP Server σε IOS</h2>
+  <p class="section-thesis"><em>Ένας router Cisco κάνει τέλειο DHCP server για ένα μικρό site. Εξαίρεσε πρώτα τις static διευθύνσεις, μετά όρισε ένα pool — network, gateway, DNS, lease time.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ενα DHCP pool για το LAN</span>
+    <pre class="term"><span class="cmt"># 1. Κράτησε τις διευθύνσεις που το DHCP ΔΕΝ πρέπει να μοιράσει (gateway, servers, εκτυπωτές)</span>
+<span class="pc">R1(config)#</span> <span class="out">ip dhcp excluded-address 192.168.1.1 192.168.1.20</span>
+
+<span class="cmt"># 2. Όρισε το pool</span>
+<span class="pc">R1(config)#</span> <span class="out">ip dhcp pool LAN</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">network 192.168.1.0 255.255.255.0</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">default-router 192.168.1.1</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">dns-server 1.1.1.1 8.8.8.8</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">domain-name lab.lan</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">lease 0 12 0</span>          <span class="cmt"># 0 μέρες, 12 ώρες, 0 λεπτά</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Εξαιρεσε ΠΡΙΝ Βασιστεις στο Pool</span>
+    <p>Η δήλωση <code>network</code> κάνει τον router πρόθυμο να κάνει lease <em>κάθε</em> διεύθυνση σε αυτό το subnet — μαζί με το gateway σου <code>.1</code> και τυχόν static servers — εκτός αν τα έχεις εξαιρέσει. Αν παραλείψεις το <code>ip dhcp excluded-address</code>, το DHCP θα δώσει ευχαρίστως σε έναν client το ίδιο IP με τον router σου ή έναν εκτυπωτή, και θα κυνηγάς ένα φάντασμα διπλής διεύθυνσης για μια ώρα. Εξαίρεσε πρώτα το static block, κάθε φορά.</p>
+  </div>
+
+  <h3 class="sub">Επαληθευσε τα Leases <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h3>
+  <div class="term-wrap">
+    <span class="term-label">IOS — επιβεβαιωσε οτι το DHCP μοιραζει διευθυνσεις</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show ip dhcp binding</span>
+<span class="out">IP address       Client-ID/Hardware   Lease expiration      Type
+192.168.1.21     0100.1a2b.3c4d.5e     Jul 12 2026 09:14 PM  Automatic
+192.168.1.22     0100.1a2b.3c4d.6f     Jul 12 2026 09:15 PM  Automatic</span>
+
+<span class="pc">R1#</span> <span class="out">show ip dhcp pool</span>
+<span class="out">Pool LAN :
+ Total addresses            : 254
+ Leased addresses           : 2
+ Excluded addresses         : 20</span>
+
+<span class="cmt"># Οι συγκρούσεις (μια διεύθυνση που το DHCP βρήκε ήδη σε χρήση) εμφανίζονται εδώ:</span>
+<span class="pc">R1#</span> <span class="out">show ip dhcp conflict</span></pre>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">DHCP Relay — Οταν ο Server Ειναι Αλλου</h2>
+  <p class="section-thesis"><em>Το DHCP χρησιμοποιεί broadcasts, και οι router δεν προωθούν broadcasts. Οπότε ένας client στο VLAN 20 δεν φτάνει έναν DHCP server στο VLAN 10 — εκτός αν η πύλη κάνει relay το αίτημα. Αυτό είναι το <code>ip helper-address</code>.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — relay DHCP απο ενα subnet client σε κεντρικο server</span>
+    <pre class="term"><span class="cmt"># Στο interface/SVI που βλέπει τους CLIENTS (το default gateway τους),
+# δείξε στη unicast διεύθυνση του DHCP server:</span>
+<span class="pc">R1(config)#</span> <span class="out">interface vlan 20</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip helper-address 192.168.10.5</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span>
+<span class="cmt"># Ο router τώρα μετατρέπει το DHCP broadcast του client σε unicast προς
+# 192.168.10.5, σφραγίζοντας το source subnet ώστε ο server να διαλέξει το σωστό pool.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Το helper-address Παει στην Πλευρα του Client, Οχι του Server</span>
+    <p>Το πιο συχνό λάθος relay είναι να βάλεις το <code>ip helper-address</code> στο λάθος interface. Ανήκει στο interface πιο κοντά στους <em>clients</em> — αυτό που δέχεται το broadcast τους — δείχνοντας στον server. Ένα helper ανά subnet client. Και το <code>ip helper-address</code> κάνει relay περισσότερα από DHCP by default (TFTP, DNS, NTP και μερικά ακόμα)· αν θέλεις μόνο DHCP, κλάδεψε τα υπόλοιπα με <code>no ip forward-protocol udp &lt;port&gt;</code>.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">NAT — Πρωτα το Λεξιλογιο</h2>
+  <p class="section-thesis"><em>Το NAT μπερδεύει τον κόσμο εξαιτίας τεσσάρων όρων που ακούγονται παρόμοιοι. Καρφωσέ τους μία φορά και κάθε εντολή NAT διαβάζεται καθαρά. Το inside/outside αφορά ποια πλευρά του router· το local/global αφορά ποια διεύθυνση — ιδιωτική ή δημόσια.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Ορος</th><th>Σημαινει</th></tr></thead>
+    <tbody>
+      <tr><td>inside local</td><td>Το ιδιωτικό IP που έχει πραγματικά ένας host (192.168.1.10).</td></tr>
+      <tr><td>inside global</td><td>Το δημόσιο IP με το οποίο ο κόσμος βλέπει αυτόν τον host (203.0.113.7).</td></tr>
+      <tr><td>outside global</td><td>Ένα δημόσιο IP έξω στο internet (π.χ. ένας web server που επισκέπτεσαι).</td></tr>
+      <tr><td>inside interface</td><td>Το πόδι του router που βλέπει το LAN σου — σημειωμένο <code>ip nat inside</code>.</td></tr>
+      <tr><td>outside interface</td><td>Το πόδι του router που βλέπει το WAN — σημειωμένο <code>ip nat outside</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Κάθε config NAT ξεκινάει με τον ίδιο τρόπο: πες στον router ποιο interface είναι inside και ποιο outside. Τίποτα δεν μεταφράζεται μέχρι να το κάνεις.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — σημειωσε τα interfaces (παντα το βημα ενα)</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip nat inside</span>          <span class="cmt"># πλευρά LAN</span>
+<span class="pc">R1(config-if)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip nat outside</span>         <span class="cmt"># πλευρά WAN</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">PAT — Ενα Δημοσιο IP για Ολο το LAN</h2>
+  <p class="section-thesis"><em>Αυτό είναι το NAT που θα ρυθμίζεις το 95% του χρόνου. Το PAT (NAT overload) αντιστοιχίζει κάθε inside host στο μοναδικό δημόσιο IP στο interface WAN σου, κρατώντας τις ροές χωριστές με αριθμό port. Είναι ακριβώς αυτό που κάνει ο router του σπιτιού σου.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — PAT overload στο IP του interface WAN</span>
+    <pre class="term"><span class="cmt"># 1. Ένα access-list που περιγράφει ΠΟΙΟΣ επιτρέπεται να μεταφράζεται (το LAN)</span>
+<span class="pc">R1(config)#</span> <span class="out">access-list 1 permit 192.168.1.0 0.0.0.255</span>
+<span class="cmt">#   (το 0.0.0.255 είναι η wildcard mask — το αντίστροφο του 255.255.255.0)</span>
+
+<span class="cmt"># 2. Μετάφρασε αυτή τη λίστα, overloaded στο IP του interface outside</span>
+<span class="pc">R1(config)#</span> <span class="out">ip nat inside source list 1 interface GigabitEthernet0/0 overload</span>
+<span class="pc">R1(config)#</span> <span class="out">end</span>
+<span class="cmt"># Το "overload" είναι η λέξη-κλειδί που μετατρέπει το NAT σε PAT (port multiplexing).
+# Κάθε host του LAN φτάνει τώρα το internet ως το δημόσιο IP του interface WAN.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Χωρις Route, Χωρις NAT</span>
+    <p>Το NAT μεταφράζει διευθύνσεις· δεν δρομολογεί πακέτα. Αν ο router δεν φτάνει ήδη το internet — ένα default route <code>ip route 0.0.0.0 0.0.0.0 &lt;next-hop&gt;</code> έξω από το interface outside — τότε η μεταφρασμένη κίνηση δεν πάει ακόμα πουθενά. Ομοίως, αν ξεχάσεις το <code>ip nat inside</code>/<code>outside</code> στα interfaces, ο κανόνας <code>ip nat inside source</code> δεν ταιριάζει τίποτα και οι hosts δεν παίρνουν καμία μετάφραση. Interfaces σημειωμένα, route παρόν, μετά NAT.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Static NAT — Port Forwarding</h2>
+  <p class="section-thesis"><em>Το PAT αφήνει τους inside hosts να φτάνουν έξω. Για να αφήσεις το έξω να φτάσει ΜΕΣΑ — δημοσίευσε έναν web server, έναν mail server, ένα NVR καμερών — χρειάζεσαι μια static αντιστοίχιση: ένα σταθερό δημόσιο IP:port σε ένα σταθερό ιδιωτικό IP:port.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — προωθησε ενα δημοσιο port σε εσωτερικο server</span>
+    <pre class="term"><span class="cmt"># Δημοσίευσε το εσωτερικό 192.168.1.10:443 ως το port 443 του IP WAN</span>
+<span class="pc">R1(config)#</span> <span class="out">ip nat inside source static tcp 192.168.1.10 443 interface GigabitEthernet0/0 443</span>
+
+<span class="cmt"># Ή, αν έχεις ένα εφεδρικό αποκλειστικό δημόσιο IP, αντιστοίχισέ το ολόκληρο:</span>
+<span class="pc">R1(config)#</span> <span class="out">ip nat inside source static 192.168.1.10 203.0.113.8</span>
+<span class="pc">R1(config)#</span> <span class="out">end</span>
+<span class="cmt"># Θυμήσου ότι το firewall/ACL πρέπει ακόμα να ΕΠΙΤΡΕΨΕΙ την εισερχόμενη κίνηση —
+# το NAT ανοίγει τη μετάφραση διεύθυνσης, όχι την πόρτα.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Προωθησε Μονο το Ακριβες Port που Εννοεις</span>
+    <p>Προτίμησε τη μορφή <code>tcp &lt;ip&gt; &lt;port&gt; interface … &lt;port&gt;</code> από το να αντιστοιχίσεις ολόκληρη διεύθυνση όποτε μπορείς. Το να εκθέσεις μία θύρα υπηρεσίας (443) είναι πολύ μικρότερη επιφάνεια επίθεσης από το να δημοσιεύσεις έναν ολόκληρο host στο internet. Και πάντα συνδύαζε ένα static NAT με ένα inbound ACL που επιτρέπει <em>μόνο</em> αυτό το port από τις πηγές που το χρειάζονται — ένα προωθημένο port RDP ή κάμερας ανοιχτό σε όλο το internet είναι μία από τις πιο σαρωμένες τρύπες που υπάρχουν.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Επαληθευσε &amp; Κανε Troubleshooting στο NAT <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Δύο εντολές απαντούν σχεδόν σε κάθε ερώτημα NAT: τι μεταφράζεται τώρα, και γίνονται καν μεταφράσεις.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ο πινακας μεταφρασεων NAT και οι μετρητες</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show ip nat translations</span>
+<span class="out">Pro  Inside global        Inside local       Outside local     Outside global
+tcp  203.0.113.7:1044     192.168.1.10:1044  93.184.216.34:443 93.184.216.34:443
+tcp  203.0.113.7:443      192.168.1.10:443   ---               ---            </span>
+<span class="cmt"># Πάνω γραμμή: ένας host που φτάνει έξω (PAT). Κάτω: το static port-forward σου.</span>
+
+<span class="pc">R1#</span> <span class="out">show ip nat statistics</span>
+<span class="out">Total active translations: 2 (1 static, 1 dynamic; 1 extended)
+Outside interfaces: GigabitEthernet0/0
+Inside interfaces:  GigabitEthernet0/1
+Hits: 1523  Misses: 0</span>
+
+<span class="cmt"># Παρακολούθησε τις μεταφράσεις να γίνονται ζωντανά (κλείσ' το ΤΗΝ ΩΡΑ που τελειώσεις):</span>
+<span class="pc">R1#</span> <span class="out">debug ip nat</span>
+<span class="pc">R1#</span> <span class="out">undebug all</span>
+
+<span class="cmt"># Καθάρισε τον δυναμικό πίνακα για να ξεκινήσεις καθαρά (οι static εγγραφές μένουν):</span>
+<span class="pc">R1#</span> <span class="out">clear ip nat translation *</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το "show ip nat translations" Ειναι Αδειο</span>
+    <p>Ένας άδειος δυναμικός πίνακας ενώ οι hosts θα έπρεπε να είναι online σημαίνει σχεδόν πάντα ένα από τρία πράγματα: τα <strong>interfaces δεν είναι σημειωμένα</strong> <code>ip nat inside</code>/<code>outside</code>· το <strong>access-list δεν ταιριάζει</strong> με το source subnet (έλεγξε τη wildcard mask — <code>0.0.0.255</code>, όχι <code>255.255.255.0</code>)· ή δεν υπάρχει <strong>route προς το outside</strong>. Οι static εγγραφές εμφανίζονται πάντα ακόμα και με μηδενική κίνηση, οπότε αν το static forward σου είναι στη λίστα αλλά δεν εμφανίζονται δυναμικές εγγραφές, υποψιάσου το ACL ή τη σήμανση inside/outside.</p>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Οι Ιδιες Δυο Δουλειες</h2>
+  <p class="section-thesis"><em>Αν έχεις στήσει masquerade και dst-nat σε RouterOS, το NAT της Cisco είναι η ίδια έννοια με διαφορετικές λέξεις-κλειδιά. Ορίστε η απευθείας αντιστοίχιση.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>/ip pool + /ip dhcp-server</td><td><code>ip dhcp pool</code> + <code>ip dhcp excluded-address</code></td></tr>
+      <tr><td>dhcp-relay</td><td><code>ip helper-address</code></td></tr>
+      <tr><td>action=masquerade (srcnat)</td><td><code>ip nat inside source list … overload</code> (PAT)</td></tr>
+      <tr><td>action=src-nat to-addresses=&lt;pub&gt;</td><td><code>ip nat inside source static &lt;local&gt; &lt;global&gt;</code></td></tr>
+      <tr><td>action=dst-nat (port forward)</td><td><code>ip nat inside source static tcp … interface … &lt;port&gt;</code></td></tr>
+      <tr><td>/ip firewall connection tracking</td><td><code>show ip nat translations</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Η Πραγματικη Διαφορα</span>
+    <p>Στο MikroTik, το NAT είναι μια ενέργεια firewall — ένας κανόνας στην αλυσίδα <code>srcnat</code>/<code>dstnat</code>, αξιολογούμενος μαζί με όλα τα υπόλοιπα. Στη Cisco, το NAT είναι δικό του υποσύστημα: σημειώνεις τα interfaces inside/outside και γράφεις κανόνες <code>ip nat</code> ξεχωριστά από το ACL/firewall. Ίδιο αποτέλεσμα, διαφορετικό νοητικό μοντέλο. Όταν τρέχουμε μεικτά sites — ένα edge MikroTik και core Cisco, κοινό σε SMB της Κρήτης — αυτός ο πίνακας είναι αυτό που κρατάει τα δύο ξεκάθαρα στο μυαλό όλων.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Εξαίρεσε τις static διευθύνσεις πριν βασιστείς σε ένα DHCP pool.</strong> Η δήλωση <code>network</code> προσφέρει ολόκληρο το subnet· το <code>ip dhcp excluded-address</code> είναι το μόνο πράγμα που εμποδίζει το DHCP από το να κάνει lease το gateway και τους servers σου κάτω από τα πόδια σου.</li>
+      <li><strong>Οι router δεν προωθούν broadcasts — γι' αυτό υπάρχει το relay.</strong> Το <code>ip helper-address</code> πάει στο interface που βλέπει τους <em>clients</em>, δείχνοντας σε κεντρικό DHCP server. Ένα ανά subnet client.</li>
+      <li><strong>Μάθε τους τέσσερις όρους NAT μία φορά.</strong> inside/outside = ποια πλευρά του router· local/global = ιδιωτική/δημόσια διεύθυνση. Κάθε εντολή <code>ip nat</code> διαβάζεται καθαρά μετά από αυτό.</li>
+      <li><strong>Σημείωσε πρώτα τα interfaces.</strong> Χωρίς <code>ip nat inside</code>/<code>outside</code> δεν υπάρχει μετάφραση, όσο σωστοί κι αν είναι οι κανόνες. Interfaces σημειωμένα → route παρόν → κανόνας NAT.</li>
+      <li><strong>Το PAT (overload) είναι το καθημερινό NAT.</strong> Ένα ACL για το LAN συν <code>ip nat inside source list … interface … overload</code> βάζει όλο το γραφείο πίσω από ένα δημόσιο IP.</li>
+      <li><strong>Το static NAT δημοσιεύει προς τα μέσα — προώθησε το ακριβές port, και βάλε firewall.</strong> Το NAT ανοίγει τη μετάφραση, όχι την πόρτα· συνδύαζε κάθε port-forward με ένα inbound ACL περιορισμένο σε ακριβώς αυτή την υπηρεσία και πηγή.</li>
+      <li><strong>Δύο εντολές show κάνουν debug σχεδόν τα πάντα.</strong> Το <code>show ip nat translations</code> (τι είναι αντιστοιχισμένο) και το <code>show ip nat statistics</code> (γίνεται καν) — ένας άδειος πίνακας δείχνει κατευθείαν στη σήμανση interface, το wildcard του ACL, ή ένα route που λείπει.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Στηνεις πυλη για γραφειο, ξενοδοχειο ή SMB στην Κρητη;</h3>
+    <p>Ρυθμίζω DHCP, NAT, και port-forwarding σε edges Cisco και MikroTik με τους κανόνες firewall που πραγματικά προστατεύουν ό,τι δημοσιεύεται, και τεκμηριώνω κάθε αντιστοίχιση ώστε κανείς να μη χρειαστεί να την κάνει reverse-engineer σε έναν χρόνο.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Catalyst vs Meraki για Μικρη Επιχειρηση — Μια Ειλικρινης Ματια — S. Markakis</title>
+<meta name="description" content="Cisco Catalyst (CLI, εφάπαξ κόστος) ή Meraki (cloud dashboard, συνδρομή); Μια ειλικρινής, ουδέτερη ως προς τον κατασκευαστή σύγκριση για SMB — η παγίδα αδειοδότησης, πότε κερδίζει το καθένα, και τι συμβαίνει αν σταματήσεις να πληρώνεις.">
+<meta property="og:title" content="Catalyst vs Meraki για Μικρη Επιχειρηση — Μια Ειλικρινης Ματια — S. Markakis">
+<meta property="og:description" content="Cisco Catalyst (CLI, εφάπαξ κόστος) ή Meraki (cloud dashboard, συνδρομή); Μια ειλικρινής, ουδέτερη ως προς τον κατασκευαστή σύγκριση για SMB — η παγίδα αδειοδότησης, πότε κερδίζει το καθένα, και τι συμβαίνει αν σταματήσεις να πληρώνεις.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-catalyst-vs-meraki-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-catalyst-vs-meraki.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-catalyst-vs-meraki.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-catalyst-vs-meraki-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-catalyst-vs-meraki.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-catalyst-vs-meraki-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-catalyst-vs-meraki.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{color:var(--mid);font-weight:600;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Catalyst vs Meraki για Μικρη Επιχειρηση — Μια Ειλικρινης Ματια",
+  "description": "Cisco Catalyst (CLI, εφάπαξ κόστος) ή Meraki (cloud dashboard, συνδρομή); Μια ειλικρινής, ουδέτερη ως προς τον κατασκευαστή σύγκριση για SMB — η παγίδα αδειοδότησης, πότε κερδίζει το καθένα, και τι συμβαίνει αν σταματήσεις να πληρώνεις.",
+  "datePublished": "2026-08-17",
+  "dateModified": "2026-08-17",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-catalyst-vs-meraki-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-catalyst-vs-meraki.png",
+  "keywords": [
+    "cisco",
+    "guides"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-catalyst-vs-meraki"
+  },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-catalyst-vs-meraki.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / Οδηγος Αγοραστη</span> &nbsp;·&nbsp; Άποψη &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Catalyst vs Meraki<br>Μια Ειλικρινης Ματια για SMB</h1>
+  <p class="post-subtitle">Και τα δύο είναι Cisco. Το ένα είναι ένα switch CLI που αγοράζεις μία φορά και ρυθμίζεις μόνος σου· το άλλο είναι μια συσκευή διαχειριζόμενη από cloud στην οποία νοικιάζεις πρόσβαση. Το marketing δεν θα σου πει τα trade-offs που πραγματικά έχουν σημασία για μια μικρή επιχείρηση — τα μαθηματικά της αδειοδότησης, το κλείδωμα σε κατασκευαστή, και τι συμβαίνει τη μέρα που λήγει η συνδρομή. Οπότε θα σου τα πούμε εμείς.</p>
+  <div class="tags">
+    <span class="tag">Cisco</span>
+    <span class="tag">Catalyst</span>
+    <span class="tag">Meraki</span>
+    <span class="tag">Buyer's Guide</span>
+    <span class="tag">Licensing</span>
+    <span class="tag">SMB</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Αυτή είναι μια απόφαση που βοηθάμε πελάτες να πάρουν συνέχεια, και η ειλικρινής εκδοχή δεν είναι στη διαφήμιση κανενός από τα δύο προϊόντα. Το <strong>Cisco Catalyst</strong> είναι η παραδοσιακή γραμμή — τα switch που ρύθμισε όλη αυτή η σειρά. Αγοράζεις το hardware, το κατέχεις εξολοκλήρου, και το διαχειρίζεσαι με CLI (ή έναν controller που τρέχεις εσύ). Το <strong>Cisco Meraki</strong> είναι cloud-first — το switch τηλεφωνεί στο dashboard της Cisco, διαχειρίζεσαι τα πάντα μέσα από ένα κομψό web UI από οπουδήποτε, και πληρώνεις μια <strong>ετήσια άδεια ανά συσκευή</strong> για το προνόμιο. Το κρίσιμο: <em>αν εκείνη η άδεια λήξει, ένα switch Meraki σταματάει να περνάει κίνηση.</em> Όχι «χάνει χαρακτηριστικά» — σταματάει να δουλεύει.</p>
+    <p>Κανένα δεν είναι «καλύτερο». Είναι διαφορετικές συμφωνίες, και το σωστό εξαρτάται από το ποιος θα τρέχει το δίκτυο, πόσα sites υπάρχουν, και αν προτιμάς να πληρώσεις μία φορά ή να πληρώνεις για πάντα για ευκολία. Ως συμβουλευτική που θα εγκαθιστούσε ευχαρίστως και τα δύο, δεν έχουμε συμφέρον σε καμία πλευρά — οπότε ορίστε η σύγκριση που πραγματικά δίνουμε σε πελάτες, μαζί με τα κομμάτια που οι κατασκευαστές προσπερνούν.</p>
+    <div class="prereqs-label">Για ποιον ειναι αυτο</div>
+    <ul class="prereqs-list">
+      <li>Ένα SMB, ξενοδοχείο, ή επιχείρηση πολλαπλών sites που διαλέγει υποδομή switch/AP</li>
+      <li>Οποιοσδήποτε πήρε προσφορά «Meraki» και αναρωτιέται τι πραγματικά αγοράζει το επαναλαμβανόμενο κόστος</li>
+      <li>Decision-makers κοντά στο IT που θέλουν τα trade-offs σε απλή γλώσσα</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Το Βασικο Trade-Off σε Εναν Πινακα</h2>
+  <p class="section-thesis"><em>Σχεδόν όλα τα υπόλοιπα προκύπτουν από μία μόνο διαφορά: κατοχή-και-ρύθμιση έναντι ενοικίασης-και-κλικ.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>&nbsp;</th><th>Catalyst</th><th>Meraki</th></tr></thead>
+    <tbody>
+      <tr><td>Διαχείριση</td><td>CLI / τοπικός controller</td><td>Cloud dashboard (web, από οπουδήποτε)</td></tr>
+      <tr><td>Μοντέλο κόστους</td><td>Αγόρασε μία φορά, κατέχε για πάντα</td><td>Αγόρασε hardware + <strong>ετήσια άδεια ανά συσκευή</strong></td></tr>
+      <tr><td>Αν σταματήσεις να πληρώνεις</td><td>Συνεχίζει να δουλεύει επ' αόριστον</td><td>Το switch σταματάει να προωθεί κίνηση</td></tr>
+      <tr><td>Καμπύλη μάθησης</td><td>Απότομη (IOS CLI)</td><td>Ήπια (point-and-click)</td></tr>
+      <tr><td>Ορατότητα πολλαπλών sites</td><td>DIY (monitoring που χτίζεις εσύ)</td><td>Ενσωματωμένη, εξαιρετική, ένα παράθυρο</td></tr>
+      <tr><td>Offline / χωρίς internet</td><td>Πλήρως λειτουργικό</td><td>Τρέχει, αλλά χωρίς διαχείριση· χρειάζεται cloud για ρύθμιση</td></tr>
+      <tr><td>Βαθύ/custom config</td><td>Πλήρης έλεγχος</td><td>Ό,τι εκθέτει το dashboard — όχι παραπάνω</td></tr>
+      <tr><td>Έλεγχος δεδομένων</td><td>Μένει επιτόπου</td><td>Μεταδεδομένα ρέουν στο cloud της Cisco</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Η Παγιδα Αδειοδοτησης που Κανεις δεν Τονιζει στην Αγορα</span>
+    <p>Ένα switch Meraki χωρίς έγκυρη άδεια <strong>σταματάει να περνάει κίνηση</strong> μετά από μια περίοδο χάριτος — αυτό είναι σχεδιασμένο έτσι, όχι bug. Οπότε η «φθηνή» προσφορά Meraki είναι μόνο ο πρώτος χρόνος· προϋπολόγισε την άδεια για <em>ολόκληρη</em> τη διάρκεια ζωής του hardware (συνήθως 5–10 χρόνια), γιατί δεν αγοράζεις ένα switch, νοικιάζεις ένα που τυχαίνει να κάθεται στο rack σου. Έχουμε δει επιχειρήσεις να αιφνιδιάζονται όταν έληξε μια άδεια co-term 3 ετών και το δίκτυο έσβησε. Είναι απολύτως εντάξει μοντέλο <em>αν μπαίνεις μέσα ξέροντάς το</em> — η αποτυχία είναι να αγοράσεις Meraki με βάση την τιμή του hardware και να ανακαλύψεις τη συνδρομή αργότερα.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Ποτε το Meraki Ειναι η Σωστη Επιλογη</h2>
+  <p class="section-thesis"><em>Η διαχείριση cloud κερδίζει γνήσια τη συνδρομή της σε συγκεκριμένες περιπτώσεις. Να είσαι ειλικρινής για το αν η δική σου είναι μία από αυτές.</em></p>
+
+  <p>Το Meraki λάμπει όταν <strong>δεν έχεις (ή δεν θέλεις) εσωτερική τεχνογνωσία δικτύων</strong> και εκτιμάς την απλότητα του dashboard — ένας μάνατζερ μπορεί να δει την υγεία κάθε site, να προσθέσει ένα VLAN, ή να μπλοκάρει μια συσκευή από ένα τηλέφωνο. Είναι εξαιρετικό για <strong>πολλά μικρά πανομοιότυπα sites</strong>: μια αλυσίδα καταστημάτων, μια ομάδα μικρών ξενοδοχείων, franchises — το zero-touch provisioning στέλνει ένα switch σε μια τοποθεσία και ρυθμίζεται μόνο του από το cloud. Και η ενσωματωμένη <strong>ορατότητα πολλαπλών sites, ειδοποιήσεις, και firmware με ένα κλικ</strong> αντικαθιστούν ένα stack monitoring που αλλιώς θα έπρεπε να χτίσεις (το <a href="cisco-observability.html">observability</a> που στήσαμε στο χέρι σε Catalyst).</p>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Η Πραγματικη Αξια Ειναι Λειτουργικη, Οχι Τεχνικη</span>
+    <p>Η πρόταση του Meraki δεν είναι καλύτερο switching — το silicon είναι συγκρίσιμο. Είναι ότι <strong>μετατρέπει τις λειτουργίες δικτύου σε μια συνδρομή που αναθέτεις εξωτερικά στο dashboard της Cisco</strong>. Για έναν οργανισμό του οποίου η βασική αρμοδιότητα δεν είναι το IT και που προτιμά να πληρώνει μια προβλέψιμη ετήσια χρέωση παρά να προσλάβει ή να κρατήσει έναν μηχανικό δικτύων, αυτό είναι λογική συμφωνία. Η συνδρομή αγοράζει <em>απλότητα και απομακρυσμένη διαχειρισιμότητα</em>, και για τον σωστό αγοραστή αυτό αξίζει πραγματικά χρήματα. Το λάθος είναι να το αγοράσεις για ένα σενάριο όπου πληρώνεις για πάντα για ευκολία που δεν χρησιμοποιείς στην πραγματικότητα.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Ποτε Κερδιζει το Catalyst</h2>
+  <p class="section-thesis"><em>Κατοχή, έλεγχος, και κανένας επαναλαμβανόμενος φόρος. Για ένα μοναδικό site με κάποιον ικανό από πίσω, αυτή είναι συνήθως η καλύτερη συμφωνία.</em></p>
+
+  <p>Το Catalyst κερδίζει στο <strong>συνολικό κόστος κατοχής για ένα σταθερό site</strong>: αγόρασε ποιοτικά switch μία φορά και υπηρετούν για μια δεκαετία χωρίς ανανεώσεις αδειών. Κερδίζει όταν χρειάζεσαι <strong>βάθος ρύθμισης</strong> που το dashboard δεν θα εκθέσει — το λεπτομερές <a href="cisco-qos-voip.html">QoS</a>, <a href="cisco-zbf.html">firewall</a>, και δρομολόγηση που κάλυψε αυτή η σειρά είναι πλήρως στα χέρια σου. Κερδίζει όπου <strong>το δίκτυο πρέπει να τρέχει ανεξάρτητα από internet ή το cloud ενός κατασκευαστή</strong> — ένα Catalyst δεν νοιάζεται αν το dashboard της Cisco είναι down ή το WAN σου είναι εκτός· μια κλινική ή μια γραμμή παραγωγής δεν μπορεί να έχει switching που εξαρτάται από ένα round-trip στο cloud. Και κερδίζει στην <strong>κυριαρχία δεδομένων</strong>: τίποτα για το δίκτυό σου δεν φεύγει από το κτίριο.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Και το Catalyst Εχει Αδειες — Απλως Διαφορετικες</span>
+    <p>Για να είμαστε δίκαιοι με το Meraki: ούτε το σύγχρονο Catalyst είναι εντελώς χωρίς άδειες. Τα επίπεδα <strong>DNA/Smart Licensing</strong> (Essentials/Advantage) κλειδώνουν κάποια προηγμένα χαρακτηριστικά, και τα συμβόλαια υποστήριξης (SmartNet) κοστίζουν. Αλλά η κρίσιμη διαφορά είναι ότι ένα Catalyst <strong>συνεχίζει να προωθεί κίνηση</strong> είτε είναι ενήμερη μια άδεια είτε όχι — χάνεις πρόσβαση σε συγκεκριμένα χαρακτηριστικά ή υποστήριξη TAC, όχι το ίδιο το δίκτυο. Το βασικό switching, VLAN, δρομολόγηση, και ασφάλεια σε αυτή τη σειρά δουλεύουν στη διαρκή βάση. «Λήγει η άδεια» στο Catalyst σημαίνει «κανένα νέο προηγμένο χαρακτηριστικό»· στο Meraki σημαίνει «το switch σβήνει». Αυτή η ασυμμετρία είναι όλο το παιχνίδι.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Και Μην Ξεχνας την Τριτη Επιλογη</h2>
+  <p class="section-thesis"><em>Το πλαίσιο Cisco-εναντίον-Cisco έχει ένα τυφλό σημείο: για πολλά SMB, κανένα από τα δύο δεν είναι η επιλογή αξίας. Θα σου κάναμε κακό να μην το πούμε.</em></p>
+
+  <p>Για πολλές από τις επιχειρήσεις που εξυπηρετούμε, ένα <strong>MikroTik</strong> ή μια καλά επιλεγμένη εναλλακτική δίνει το switching και τη δρομολόγηση που πραγματικά χρειάζονται σε κλάσμα του κόστους — καμία συνδρομή, βαθύς έλεγχος, και (όπως δείχνουν οι αντιστοιχίσεις MikroTik↔Cisco όλης αυτής της σειράς) οι ίδιες βασικές έννοιες. Η ειλικρινής ιεραρχία για ένα τυπικό κρητικό SMB: <strong>MikroTik</strong> για καλύτερη αξία με κάποιον ικανό να το τρέχει· <strong>Catalyst</strong> όταν θέλεις συγκεκριμένα το οικοσύστημα Cisco, το βάθος μεταπώλησης/υποστήριξής του, ή σου το επιβάλλει ένας πελάτης/ασφαλιστής· <strong>Meraki</strong> όταν η άκοπη διαχείριση cloud σε πολλά sites αξίζει μια μόνιμη συνδρομή.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Αν η προτεραιότητά σου είναι…</th><th>Κλίνε προς</th></tr></thead>
+    <tbody>
+      <tr><td>Χαμηλότερο συνολικό κόστος, βαθύς έλεγχος, εσωτερική δεξιότητα</td><td>MikroTik (ή Catalyst)</td></tr>
+      <tr><td>Οικοσύστημα Cisco, κατοχή, ένα site, βάθος config</td><td>Catalyst</td></tr>
+      <tr><td>Zero-touch, πολλά sites, χωρίς προσωπικό IT, απομακρυσμένη διαχείριση</td><td>Meraki</td></tr>
+      <tr><td>Πρέπει να δουλεύει χωρίς internet / μόνο τοπικά</td><td>Catalyst ή MikroTik</td></tr>
+      <tr><td>Προβλέψιμο opex αντί για capex, εξωτερική ανάθεση λειτουργιών</td><td>Meraki</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Η Ερωτηση που Πραγματικα το Αποφασιζει</h2>
+  <p class="section-thesis"><em>Παράλειψε τις λίστες χαρακτηριστικών. Μία ερώτηση ταξινομεί σωστά τους περισσότερους αγοραστές.</em></p>
+
+  <p><strong>«Ποιος θα τρέχει αυτό το δίκτυο, και θέλει να πληκτρολογεί εντολές ή να κάνει κλικ σε ένα dashboard — και είσαι πρόθυμος να πληρώνεις κάθε χρόνο για το dashboard;»</strong></p>
+
+  <p>Αν η απάντηση είναι «κανείς τεχνικός, και ναι θα πληρώσουμε για απλότητα» → Meraki. Αν είναι «έχουμε κάποιον (εμάς, ή εσένα) που νιώθει άνετα σε ένα CLI και προτιμάμε να το κατέχουμε» → Catalyst ή MikroTik. Όλα τα υπόλοιπα — αριθμός θυρών, budget PoE, uplinks 1G vs 10G, stacking — είναι δουλειά specs που κάνει κάθε integrator αφού διαλεχτεί το μοντέλο. Το μοντέλο είναι επιχειρηματική απόφαση για <em>λειτουργίες και ταμειακή ροή</em>, όχι τεχνική, που είναι ακριβώς ο λόγος που τα demo κατασκευαστών σε στρέφουν πέρα από αυτό.</p>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Ίδιος κατασκευαστής, αντίθετες συμφωνίες.</strong> Catalyst = κατέχεις το hardware, διαχειρίζεσαι με CLI, πληρώνεις μία φορά. Meraki = νοικιάζεις διαχείριση cloud, πληρώνεις ανά συσκευή ανά χρόνο, για πάντα.</li>
+      <li><strong>Η άδεια Meraki δεν είναι προαιρετική και δεν είναι πύλη χαρακτηριστικών — είναι διακόπτης on/off.</strong> Άφησέ την να λήξει και το switch σταματάει να προωθεί. Προϋπολόγισε τη συνδρομή για όλη τη ζωή του hardware, όχι μόνο τον πρώτο χρόνο.</li>
+      <li><strong>Το Meraki κερδίζει τη θέση του για άκοπες, πολλαπλών-sites, χωρίς-προσωπικό-IT λειτουργίες.</strong> Αγοράζεις εξωτερικές λειτουργίες δικτύου ως συνδρομή — λογικό για τον σωστό αγοραστή.</li>
+      <li><strong>Το Catalyst κερδίζει στο TCO για ένα σταθερό μοναδικό site, βάθος config, ανθεκτικότητα offline, και κυριαρχία δεδομένων.</strong> Οι άδειές του κλειδώνουν χαρακτηριστικά, όχι την ικανότητα του δικτύου να τρέχει.</li>
+      <li><strong>Μην αγνοείς την τρίτη επιλογή.</strong> Για πολλά SMB, το MikroTik δίνει τις ίδιες έννοιες σε κλάσμα του κόστους χωρίς συνδρομή — η ειλικρινής επιλογή αξίας όταν υπάρχουν ικανά χέρια να το τρέχουν.</li>
+      <li><strong>Είναι επιχειρηματική απόφαση, όχι τεχνική.</strong> Ποιος το τρέχει, CLI vs dashboard, και πλήρωσε-μία-φορά vs πλήρωσε-για-πάντα το αποφασίζουν. Τα specs έρχονται μετά.</li>
+      <li><strong>Όποιος σου πουλάει το κουτί πρέπει να είναι ουδέτερος για το ποιο κουτί.</strong> Αν η σύσταση καταλήγει πάντα στο πράγμα με το επαναλαμβανόμενο περιθώριο κέρδους, ζήτα δεύτερη γνώμη.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Διαλεγεις εξοπλισμο δικτυου για επιχειρηση στην Κρητη;</h3>
+    <p>Δεν κουβαλάω τσάντα Catalyst ούτε τσάντα Meraki. Η σύσταση καταλήγει στο ποιος θα τρέχει πραγματικά το δίκτυο καθημερινά και τι κοστίζει σε πέντε χρόνια &mdash; όχι ποιος κατασκευαστής πληρώνει το καλύτερο περιθώριο.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

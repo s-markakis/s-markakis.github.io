@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>RouterOS Scripting Basics — S. Markakis</title>
+<meta name="description" content="Βασικά του scripting RouterOS — μεταβλητές, συνθήκες, βρόχοι, functions, και ο scheduler, με παραδείγματα WoL, Telegram alerts, και auto-backup.">
+<meta property="og:title" content="MikroTik: RouterOS Scripting — S. Markakis">
+<meta property="og:description" content="Βασικά του scripting RouterOS — μεταβλητές, συνθήκες, βρόχοι, functions, και ο scheduler, με παραδείγματα WoL, Telegram alerts, και auto-backup.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-scripting-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-scripting.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-scripting.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-scripting-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-scripting.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-scripting-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-scripting.html">
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  .wb4-wrap{margin:1.4rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);}
+  .wb4-path{background:var(--head);color:#fff;font-family:var(--font-mono);font-size:.72rem;padding:.4rem 1rem;display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;}
+  .wb4-path span.sep{color:#888880;}
+  .wb4-path span.active{color:var(--accent);font-weight:600;}
+  .wb4-caption{font-size:.78rem;color:var(--body);font-style:italic;padding:.45rem .9rem;border-top:1px solid var(--rule);background:var(--card);}
+  .ref-table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .ref-table th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .ref-table td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .ref-table tr:nth-child(even) td{background:var(--card);}
+  .ref-table td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .ref-table td:last-child{color:var(--body);font-size:.82rem;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: RouterOS Scripting",
+  "description": "Βασικά του scripting RouterOS — μεταβλητές, συνθήκες, βρόχοι, functions, και ο scheduler, με παραδείγματα WoL, Telegram alerts, και auto-backup.",
+  "datePublished": "2026-05-06",
+  "dateModified": "2026-05-06",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-scripting-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-scripting.png",
+  "keywords": [
+    "mikrotik",
+    "automation"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-scripting"
+  },
+  "timeRequired": "PT13M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-scripting.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Μαιος 2026</p>
+  <h1 class="post-title">Βασικα Scripting<br>RouterOS</h1>
+  <p class="post-subtitle">Μεταβλητές, συνθήκες, βρόχοι, functions, και ο scheduler — με πραγματικά παραδείγματα: αυτοματισμό Wake-on-LAN, Telegram alerts, και ένα script auto-backup που μπορείς να κάνεις deploy σήμερα.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">Scripting</span>
+    <span class="tag">Scheduler</span>
+    <span class="tag">Automation</span>
+    <span class="tag">Telegram</span>
+    <span class="tag">Functions</span>
+    <span class="tag">MTCNA+</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero: script anatomy diagram -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 155" xmlns="http://www.w3.org/2000/svg">
+      <defs><style>
+        .hbg{fill:#e1ded7}
+        .hl{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle}
+        .hm{font-family:'JetBrains Mono',monospace;font-size:9.5px;fill:#555550}
+        .hs{font-family:'Barlow',sans-serif;font-size:8.5px;fill:#888880;text-anchor:middle}
+        .ha{stroke:#c63d1f;stroke-width:1.2;fill:none;marker-end:url(#hap)}
+        .hb{stroke:#3a5a78;stroke-width:1.2;fill:none;marker-end:url(#hbp)}
+        .hc{stroke:#c08020;stroke-width:1.2;fill:none;marker-end:url(#hcp)}
+        .hd{stroke:#558840;stroke-width:1.2;fill:none;marker-end:url(#hdp)}
+      </style>
+        <marker id="hap" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><path d="M0,0L0,6L6,3z" fill="#c63d1f"/></marker>
+        <marker id="hbp" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><path d="M0,0L0,6L6,3z" fill="#3a5a78"/></marker>
+        <marker id="hcp" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><path d="M0,0L0,6L6,3z" fill="#c08020"/></marker>
+        <marker id="hdp" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto"><path d="M0,0L0,6L6,3z" fill="#558840"/></marker>
+      </defs>
+      <rect width="720" height="155" class="hbg"/>
+      <!-- Code line -->
+      <rect x="16" y="30" width="688" height="28" fill="#d4d2cc" rx="4" stroke="#c8c5be" stroke-width="1"/>
+      <text x="30" y="49" class="hm"><tspan fill="#c63d1f">:local</tspan><tspan fill="#555550"> myVar </tspan><tspan fill="#3a5a78">"hello"</tspan><tspan fill="#555550"> ; </tspan><tspan fill="#c63d1f">:if</tspan><tspan fill="#555550"> (</tspan><tspan fill="#c08020">$myVar</tspan><tspan fill="#555550"> = </tspan><tspan fill="#3a5a78">"hello"</tspan><tspan fill="#555550">) </tspan><tspan fill="#c63d1f">do=</tspan><tspan fill="#555550">{ </tspan><tspan fill="#558840">:log info</tspan><tspan fill="#555550"> "matched" }</tspan></text>
+      <!-- Annotations -->
+      <line x1="58" y1="58" x2="58" y2="88" class="ha"/>
+      <text x="58" y="100" class="hs" style="fill:#c63d1f;">keyword</text>
+      <line x1="130" y1="58" x2="130" y2="88" class="hb"/>
+      <text x="130" y="100" class="hs" style="fill:#3a5a78;">ονομα μεταβλητης</text>
+      <text x="130" y="111" class="hs" style="fill:#3a5a78;">+ τιμη string</text>
+      <line x1="320" y1="58" x2="320" y2="88" class="hc"/>
+      <text x="320" y="100" class="hs" style="fill:#c08020;">αναφορα μεταβλητης</text>
+      <text x="320" y="111" class="hs" style="fill:#c08020;">(προθεμα $)</text>
+      <line x1="580" y1="58" x2="580" y2="88" class="hd"/>
+      <text x="580" y="100" class="hs" style="fill:#558840;">εντολη log</text>
+      <text x="580" y="111" class="hs" style="fill:#558840;">μεσα σε do block</text>
+      <text x="360" y="140" style="font-family:'Barlow',sans-serif;font-style:italic;font-size:9.5px;fill:#888880;text-anchor:middle;">Syntax scripting RouterOS: τα keywords ξεκινούν με άνω-κάτω τελεία · μεταβλητές δηλώνονται με :local · αναφέρονται με $ · τα blocks χρησιμοποιούν { }</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Κάθε alert Netwatch, κάθε προγραμματισμένο backup, κάθε trigger WoL σε αυτή τη σειρά tutorial είναι ένα script. Το RouterOS έχει μια πλήρη γλώσσα scripting ενσωματωμένη — μεταβλητές, συνθήκες, βρόχους, functions, και έναν scheduler που τρέχει scripts σε οποιοδήποτε χρονικό pattern ορίσεις. Δεν χρειάζεται να ξέρεις Python ή Bash. Απλά χρειάζεται να ξέρεις το syntax, που είναι μοναδικό στο RouterOS αλλά συνεπές και μαθαίνεται σε ένα απόγευμα.</p>
+    <p>Αυτό το tutorial χτίζει από την αρχή: κανόνες syntax, μεταβλητές, control flow, functions, μετά τρία πλήρη scripts πραγματικού κόσμου που μπορείς να κάνεις deploy αμέσως — ένα Telegram alert όταν οποιοσδήποτε host πέφτει, έναν αυτοματισμό Wake-on-LAN, και ένα auto-backup που σου στέλνει με email ένα αρχείο config κάθε βράδυ.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>RouterOS v7.x — το syntax scripting είναι σταθερό σε όλο το v7</li>
+      <li>Άνεση με το CLI του RouterOS (δες το tutorial Terminal αν όχι)</li>
+      <li>Για το παράδειγμα Telegram: ένα bot token και chat ID Telegram (δωρεάν, setup 5 λεπτών)</li>
+      <li>Για το παράδειγμα email: credentials SMTP (δουλεύει app password Gmail)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Κανονες Syntax — Τα Πεντε Πραγματα που Πρεπει να Ξερεις</h2>
+  <p class="section-thesis"><em>Το scripting του RouterOS έχει το δικό του syntax που δεν μοιάζει με τίποτα άλλο. Μάθε αυτούς τους πέντε κανόνες και τα υπόλοιπα μπαίνουν στη θέση τους.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Scripting RouterOS — πεντε θεμελιωδεις κανονες</span>
+    <pre class="term"><span class="cmt"># ── Κανόνας 1: Τα keywords ξεκινούν με άνω-κάτω τελεία ───────────────────
+# Κάθε keyword scripting έχει πρόθεμα ":"
+# :local  :global  :if  :foreach  :while  :do  :return  :log  :put  :set</span>
+<span class="out">:log info "this is a log message"</span>
+<span class="out">:put "this prints to terminal"</span>
+
+<span class="cmt"># ── Κανόνας 2: Οι μεταβλητές δηλώνονται με :local ή :global ──────────────
+# :local = υπάρχει μόνο σε αυτό το script/function
+# :global = επιβιώνει σε scripts και εκτελέσεις scheduler</span>
+<span class="out">:local myName "Hotel-01"</span>
+<span class="out">:global lastBackup</span>
+
+<span class="cmt"># ── Κανόνας 3: Οι μεταβλητές αναφέρονται με πρόθεμα $ ────────────────────</span>
+<span class="out">:local greeting "Hello"</span>
+<span class="out">:put $greeting</span>         <span class="cmt"># τυπωνει: Hello</span>
+<span class="out">:put ("prefix-" . $greeting)</span>  <span class="cmt"># το . ενωνει strings → prefix-Hello</span>
+
+<span class="cmt"># ── Κανόνας 4: Τα blocks χρησιμοποιούν { } — ΟΧΙ indentation ─────────────
+# Το if/else, οι βρόχοι, και τα functions χρησιμοποιούν όλα curly braces για τα σώματά τους</span>
+<span class="out">:if ($x > 0) do={</span>
+<span class="out">    :put "positive"</span>
+<span class="out">} else={</span>
+<span class="out">    :put "zero or negative"</span>
+<span class="out">}</span>
+
+<span class="cmt"># ── Κανόνας 5: Τα strings χρησιμοποιούν διπλά εισαγωγικά, οι αριθμοί γυμνοί ──</span>
+<span class="out">:local name "router-01"</span>   <span class="cmt"># string — διπλά εισαγωγικά</span>
+<span class="out">:local count 5</span>            <span class="cmt"># αριθμός — χωρίς εισαγωγικά</span>
+<span class="out">:local flag true</span>          <span class="cmt"># boolean — χωρίς εισαγωγικά</span>
+<span class="out">:local ts [/system clock get time]</span>  <span class="cmt"># πιάσε output εντολής με [ ]</span></pre>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Μεταβλητες και Τυποι Δεδομενων</h2>
+  <p class="section-thesis"><em>Το RouterOS έχει έξι τύπους δεδομένων. Το να ξέρεις με ποιον δουλεύεις αποτρέπει το 90% των bugs scripting.</em></p>
+
+  <table class="ref-table">
+    <thead><tr><th>Τυπος</th><th>Παραδειγμα</th><th>Σημειωσεις</th></tr></thead>
+    <tbody>
+      <tr><td>str</td><td><code>"hello"</code></td><td>Κείμενο. Ένωσέ το με τον τελεστή <code>.</code>.</td></tr>
+      <tr><td>num</td><td><code>42</code></td><td>Ακέραιος. Αριθμητική με <code>+ - * /</code>.</td></tr>
+      <tr><td>bool</td><td><code>true</code> / <code>false</code></td><td>Χρησιμοποιείται σε συνθήκες. Επιστρέφεται από συγκρίσεις.</td></tr>
+      <tr><td>ip</td><td><code>192.168.1.1</code></td><td>Διεύθυνση IP. Υποστηρίζει λειτουργίες subnet.</td></tr>
+      <tr><td>array</td><td><code>{1;2;3}</code></td><td>Χωρισμένο με άνω-κάτω τελεία. Επανάλαβε με <code>:foreach</code>.</td></tr>
+      <tr><td>nothing</td><td><code>[:toarray ""]</code></td><td>Άδειο / nil. Έλεγξε με <code>[:len $var] = 0</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — λειτουργιες μεταβλητων</span>
+    <pre class="term"><span class="cmt"># Ένωση strings με .</span>
+<span class="out">:local hostname [/system identity get name]</span>
+<span class="out">:local msg ("Alert from: " . $hostname)</span>
+<span class="out">:put $msg</span>      <span class="cmt"># → Alert from: Hotel-01</span>
+
+<span class="cmt"># Πιάσε το output εντολής σε μια μεταβλητή χρησιμοποιώντας [ ]</span>
+<span class="out">:local uptime [/system resource get uptime]</span>
+<span class="out">:local version [/system resource get version]</span>
+<span class="out">:put ("Version: " . $version . " Uptime: " . $uptime)</span>
+
+<span class="cmt"># Δήλωση και πρόσβαση array</span>
+<span class="out">:local servers {192.168.20.50; 192.168.20.51; 192.168.20.52}</span>
+<span class="out">:put ($servers->0)</span>  <span class="cmt"># → 192.168.20.50 (index από το μηδέν)</span>
+<span class="out">:put [:len $servers]</span>  <span class="cmt"># → 3 (μήκος του array)</span>
+
+<span class="cmt"># Μετατροπή τύπου</span>
+<span class="out">:local numStr "42"</span>
+<span class="out">:local num [:tonum $numStr]</span>
+<span class="out">:put ($num + 1)</span>  <span class="cmt"># → 43</span>
+
+<span class="cmt"># Global μεταβλητή — επιβιώνει ανάμεσα σε εκτελέσεις scheduler</span>
+<span class="out">:global failCount</span>
+<span class="out">:if (![:isset $failCount]) do={ :set failCount 0 }</span>
+<span class="out">:set failCount ($failCount + 1)</span>
+<span class="cmt"># Χρησιμοποίησε globals προσεκτικά — επιβιώνουν μέχρι το reboot του router.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Εισαγωγικα Μεσα σε Strings</span>
+    <p>Αν το string σου περιέχει διπλά εισαγωγικά, κάνε τους escape με ανάστροφη κάθετο: <code>\"</code>. Αυτό είναι το πιο κοινό συντακτικό λάθος σε scripts Netwatch. Για παράδειγμα, ένα μήνυμα log μέσα σε ένα down-script πρέπει να γραφτεί ως: <code>:log warning "host \"192.168.20.50\" is DOWN"</code>. Το να το κάνεις λάθος κάνει το script να αποτυγχάνει σιωπηλά χωρίς error στο log — ο scheduler απλά παραλείπει την εκτέλεση.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Συνθηκες και Βροχοι</h2>
+  <p class="section-thesis"><em>Το :if ελέγχει μια συνθήκη. Το :foreach κάνει iterate ένα array. Το :while κάνει βρόχο μέχρι μια συνθήκη να γίνει false. Αυτά τα τρία καλύπτουν κάθε pattern control flow που θα χρειαστείς.</em></p>
+
+  <h3 class="sub">:if — Συνθηκες</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — patterns συνθηκης :if</span>
+    <pre class="term"><span class="cmt"># Βασικό if/else</span>
+<span class="out">:local x 10</span>
+<span class="out">:if ($x > 5) do={</span>
+<span class="out">    :log info "x is greater than 5"</span>
+<span class="out">} else={</span>
+<span class="out">    :log info "x is 5 or less"</span>
+<span class="out">}</span>
+
+<span class="cmt"># Τελεστές σύγκρισης</span>
+<span class="cmt"># =   ίσο            !=  όχι ίσο</span>
+<span class="cmt"># >   μεγαλύτερο απο  <   μικρότερο απο</span>
+<span class="cmt"># >=  μεγ/ίσο         <=  μικρ/ίσο</span>
+<span class="cmt"># &&  λογικό AND      ||  λογικό OR   !  NOT</span>
+
+<span class="cmt"># Έλεγξε αν υπάρχει DHCP lease για ένα hostname</span>
+<span class="out">:local leaseCount [/ip dhcp-server lease count-numbers \</span>
+<span class="out">    where host-name="fileserver"]</span>
+<span class="out">:if ($leaseCount > 0) do={</span>
+<span class="out">    :log info "fileserver has a DHCP lease"</span>
+<span class="out">} else={</span>
+<span class="out">    :log warning "fileserver not found in DHCP leases"</span>
+<span class="out">}</span>
+
+<span class="cmt"># Ένθετη συνθήκη με AND</span>
+<span class="out">:local cpu [/system resource get cpu-load]</span>
+<span class="out">:local mem [/system resource get free-memory]</span>
+<span class="out">:if ($cpu > 80 && $mem < 10000000) do={</span>
+<span class="out">    :log warning "High CPU and low memory simultaneously"</span>
+<span class="out">}</span></pre>
+  </div>
+
+  <h3 class="sub">:foreach — Επαναληψη Arrays</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — patterns βροχου :foreach</span>
+    <pre class="term"><span class="cmt"># Επανάλαβε ένα στατικό array</span>
+<span class="out">:local vlans {10; 20; 30; 40}</span>
+<span class="out">:foreach vlan in=$vlans do={</span>
+<span class="out">    :put ("Processing VLAN: " . $vlan)</span>
+<span class="out">}</span>
+
+<span class="cmt"># Επανάλαβε πάνω σε αντικείμενα RouterOS — το find επιστρέφει ένα array εσωτερικών IDs</span>
+<span class="out">:foreach leaseId in=[/ip dhcp-server lease find \</span>
+<span class="out">    where status=bound] do={</span>
+<span class="out">    :local ip [/ip dhcp-server lease get $leaseId address]</span>
+<span class="out">    :local host [/ip dhcp-server lease get $leaseId host-name]</span>
+<span class="out">    :put ($host . " → " . $ip)</span>
+<span class="out">}</span>
+<span class="cmt"># Τυπώνει κάθε bound lease DHCP ως "hostname → IP"</span>
+
+<span class="cmt"># Μέτρα επαναλήψεις με μία μεταβλητή index</span>
+<span class="out">:local count 0</span>
+<span class="out">:foreach i in=[/interface find where running=yes] do={</span>
+<span class="out">    :set count ($count + 1)</span>
+<span class="out">}</span>
+<span class="out">:put ("Running interfaces: " . $count)</span></pre>
+  </div>
+
+  <h3 class="sub">:while — Βροχος Μεχρι Συνθηκη</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — βροχος :while</span>
+    <pre class="term"><span class="cmt"># Περίμενε έναν host να ανέβει μετά από WoL (βρόχος ping με timeout)</span>
+<span class="out">:local target "192.168.20.50"</span>
+<span class="out">:local attempts 0</span>
+<span class="out">:local maxAttempts 12</span>
+<span class="out">:local isUp false</span>
+
+<span class="out">:while ($attempts < $maxAttempts && !$isUp) do={</span>
+<span class="out">    :delay 5s</span>
+<span class="out">    :local result [/ping address=$target count=1 as-value]</span>
+<span class="out">    :if ($result->"received" > 0) do={</span>
+<span class="out">        :set isUp true</span>
+<span class="out">        :log info ("Host " . $target . " is UP after WoL")</span>
+<span class="out">    }</span>
+<span class="out">    :set attempts ($attempts + 1)</span>
+<span class="out">}</span>
+
+<span class="out">:if (!$isUp) do={</span>
+<span class="out">    :log warning ("Host " . $target . " did not respond after 60s")</span>
+<span class="out">}</span>
+<span class="cmt"># Κάνει βρόχο μέχρι 12 φορές, 5s η καθεμία = 60s μέγιστη αναμονή.
+# Βγαίνει νωρίς αν ο host απαντήσει. Κάνει log warning αν λήξει το timeout.</span></pre>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Functions</h2>
+  <p class="section-thesis"><em>Τα functions σου επιτρέπουν να γράψεις ένα block λογικής μία φορά και να το καλέσεις από οπουδήποτε — έναν scheduler, ένα script Netwatch, ή άλλο function.</em></p>
+
+  <p>Τα functions του RouterOS δηλώνονται σαν global μεταβλητές που κρατούν ένα script block. Κάλεσέ τα με <code>[$funcName param1=val1]</code>. Μπορούν να δέχονται παραμέτρους και να επιστρέφουν τιμές.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — δηλωση και χρηση function</span>
+    <pre class="term"><span class="cmt"># Δήλωσε ένα function σαν global μεταβλητή</span>
+<span class="out">:global sendTelegram</span>
+<span class="out">:set sendTelegram do={</span>
+<span class="out">    :local message $1</span>
+<span class="out">    :local token "YOUR_BOT_TOKEN"</span>
+<span class="out">    :local chatId "YOUR_CHAT_ID"</span>
+<span class="out">    /tool fetch url=("https://api.telegram.org/bot" . $token . \</span>
+<span class="out">        "/sendMessage?chat_id=" . $chatId . \</span>
+<span class="out">        "&text=" . $message) \</span>
+<span class="out">        keep-result=no</span>
+<span class="out">}</span>
+
+<span class="cmt"># Κάλεσε το function — το $1 είναι το πρώτο θετικό argument</span>
+<span class="out">[$sendTelegram "Test alert from Hotel-01"]</span>
+
+<span class="cmt"># Function με ονομαστικές παραμέτρους</span>
+<span class="out">:global wakeAndVerify</span>
+<span class="out">:set wakeAndVerify do={</span>
+<span class="out">    :local iface $iface</span>
+<span class="out">    :local mac $mac</span>
+<span class="out">    :local target $target</span>
+<span class="out">    /tool wol interface=$iface mac=$mac</span>
+<span class="out">    :delay 45s</span>
+<span class="out">    :local result [/ping address=$target count=3 as-value]</span>
+<span class="out">    :return ($result->"received" > 0)</span>
+<span class="out">}</span>
+
+<span class="cmt"># Κάλεσε με ονομαστικές παραμέτρους</span>
+<span class="out">:local success [$wakeAndVerify \</span>
+<span class="out">    iface=vlan20 mac="AA:BB:CC:DD:EE:FF" target="192.168.20.50"]</span>
+<span class="out">:if ($success) do={</span>
+<span class="out">    :log info "Server woke successfully"</span>
+<span class="out">} else={</span>
+<span class="out">    :log warning "Server did not respond after WoL"</span>
+<span class="out">}</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Τα Global Functions Πρεπει να Δηλωνονται Πριν Κληθουν</span>
+    <p>Τα global functions που ορίζονται με <code>:global funcName; :set funcName do={...}</code> επιβιώνουν στη μνήμη μόνο μέχρι να κάνει reboot ο router. Όταν ο scheduler τρέχει ένα script που καλεί ένα global function, πρέπει είτε να δηλώσει το function inline, ή το function πρέπει να ρυθμιστεί από ένα startup script που τρέχει πριν από οποιεσδήποτε καταχωρήσεις scheduler. Το ασφαλέστερο pattern για production: βάλε τη δήλωση function στην κορυφή κάθε script που το χρησιμοποιεί. Αυτό είναι πολυλογότερο αλλά αξιόπιστο.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Ο Scheduler</h2>
+  <p class="section-thesis"><em>Ο scheduler είναι αυτό που κάνει τα scripts λειτουργικά — τα τρέχει σε ένα χρονικό pattern, στο startup, ή σε συγκεκριμένη ημερομηνία και ώρα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — patterns scheduler</span>
+    <pre class="term"><span class="cmt"># Τρέξε κάθε μέρα στις 02:00</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/system scheduler add \</span>
+<span class="out">    name="daily-backup" \</span>
+<span class="out">    start-time=02:00:00 \</span>
+<span class="out">    interval=1d \</span>
+<span class="out">    on-event="/system script run auto-backup" \</span>
+<span class="out">    comment="Run auto-backup script nightly"</span>
+
+<span class="cmt"># Τρέξε κάθε 30 λεπτά</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/system scheduler add \</span>
+<span class="out">    name="health-check" \</span>
+<span class="out">    interval=00:30:00 \</span>
+<span class="out">    on-event="/system script run health-check" \</span>
+<span class="out">    comment="30-minute health check"</span>
+
+<span class="cmt"># Τρέξε στο startup (interval=0, χωρίς start-time)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/system scheduler add \</span>
+<span class="out">    name="startup-init" \</span>
+<span class="out">    on-event="/system script run startup-init" \</span>
+<span class="out">    start-time=startup \</span>
+<span class="out">    comment="Initialise globals on boot"</span>
+
+<span class="cmt"># Τρέξε inline script απευθείας (δεν χρειάζεται ξεχωριστό αντικείμενο script)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/system scheduler add \</span>
+<span class="out">    name="log-uptime" \</span>
+<span class="out">    interval=1h \</span>
+<span class="out">    on-event={:log info ("Uptime: " . [/system resource get uptime])}</span></pre>
+  </div>
+
+  <div class="wb4-wrap">
+    <div class="wb4-path">System <span class="sep">›</span> Scheduler <span class="sep">›</span> <span class="active">+ Add</span></div>
+    <svg viewBox="0 0 680 200" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+      <defs><style>
+        .w4bg{fill:#1e1e1e}.w4hdr{fill:#2a2a2a}.w4sb{fill:#252525}.w4work{fill:#eae8e3}
+        .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}.w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+        .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+        .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}.w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+        .wbm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+        .wbma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+        .wbt{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+        .wbs{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880}
+      </style></defs>
+      <rect width="680" height="200" class="w4bg"/>
+      <rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+      <text x="10" y="16" style="font-family:'Inter',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  System › Scheduler</text>
+      <circle cx="672" cy="12" r="5" fill="#c63d1f"/>
+      <rect x="0" y="24" width="138" height="176" class="w4sb"/>
+      <text x="12" y="42" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Identity</text>
+      <text x="12" y="58" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Clock</text>
+      <text x="12" y="74" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Scripts</text>
+      <rect x="0" y="78" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/>
+      <rect x="0" y="78" width="3" height="16" fill="#c63d1f"/>
+      <text x="12" y="90" style="font-family:'Inter',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Scheduler</text>
+      <rect x="138" y="24" width="542" height="176" class="w4work"/>
+      <rect x="138" y="24" width="542" height="26" fill="#dddbd5"/>
+      <rect x="144" y="29" width="44" height="16" fill="#c63d1f" rx="3"/>
+      <text x="166" y="40" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text>
+      <rect x="148" y="56" width="524" height="136" class="w4form" rx="4"/>
+      <rect x="148" y="56" width="524" height="20" fill="#1a1a18" rx="4"/>
+      <rect x="148" y="68" width="524" height="8" fill="#1a1a18"/>
+      <text x="160" y="71" style="font-family:'Inter',sans-serif;font-weight:600;font-size:9px;fill:#eae8e3;">New Scheduler Entry — daily-backup</text>
+      <text x="160" y="92" class="wbt">Ονομα</text>
+      <rect x="240" y="83" width="420" height="13" class="w4inp" rx="2"/>
+      <text x="246" y="93" class="wbm">daily-backup</text>
+      <text x="160" y="110" class="wbt">Ωρα Εναρξης</text>
+      <rect x="240" y="101" width="100" height="13" class="w4inp" rx="2"/>
+      <text x="246" y="111" class="wbma">02:00:00</text>
+      <text x="350" y="110" class="wbt">Interval</text>
+      <rect x="420" y="101" width="120" height="13" class="w4inp" rx="2"/>
+      <text x="426" y="111" class="wbma">1d 00:00:00</text>
+      <text x="160" y="128" class="wbt">On Event</text>
+      <rect x="240" y="119" width="420" height="30" class="w4inp" rx="2"/>
+      <text x="246" y="131" class="wbm">/system script run auto-backup</text>
+      <text x="246" y="143" class="wbs">← καλεσε ενα ονομαστο script, η κανε paste το σωμα script εδω</text>
+      <text x="160" y="164" class="wbt">Σχολιο</text>
+      <rect x="240" y="155" width="420" height="13" class="w4inp" rx="2"/>
+      <text x="246" y="165" class="wbm">Run auto-backup script nightly</text>
+      <rect x="558" y="176" width="50" height="13" fill="#c63d1f" rx="3"/>
+      <text x="583" y="186" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">Apply</text>
+      <rect x="138" y="184" width="542" height="16" fill="#dddbd5"/>
+      <text x="144" y="194" class="wbs">System › Scheduler  ·  On Event: καλεσε ενα script με ονομα η κανε paste inline  ·  Interval: 1d = καθημερινα, 00:30:00 = καθε 30 λεπτα</text>
+    </svg>
+    <div class="wb4-caption">System › Scheduler → <strong>+ Add</strong>. Όρισε Start Time για την πρώτη εκτέλεση, Interval για επανάληψη, On Event για το script που θα τρέξει. Μπορείς να καλέσεις ένα ονομαστό script (<code>/system script run name</code>) ή να κάνεις paste το σώμα του script απευθείας στο On Event.</div>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Πρακτικο Script 1 — Συστημα Alert Telegram</h2>
+  <p class="section-thesis"><em>Ένα επαναχρησιμοποιήσιμο function alert που κάθε άλλο script μπορεί να καλέσει. Ένα function, ένα μήνυμα Telegram, δουλεύει από Netwatch, scheduler, ή οποιοδήποτε script.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — πληρες script alert Telegram</span>
+    <pre class="term"><span class="cmt"># Όνομα script: telegram-alert
+# Βάλ' το σε System › Scripts, κάλεσέ το από down-scripts Netwatch ή scheduler.
+# Απαιτεί: bot token και chat ID Telegram.
+# Πάρ' τα δωρεάν στο: https://t.me/BotFather</span>
+
+<span class="out">:local botToken "1234567890:ABCDefGhIJKlmNoPQRsTUVwxyZ"</span>
+<span class="out">:local chatId "-1001234567890"</span>
+<span class="out">:local hostname [/system identity get name]</span>
+<span class="out">:local uptime [/system resource get uptime]</span>
+
+<span class="cmt"># Χτίσε το μήνυμα — κάνε encode τα κενά ως + για URL</span>
+<span class="out">:local msg ("🔴 ALERT — " . $hostname . \</span>
+<span class="out">    "%0AHost: 192.168.20.50 is DOWN" . \</span>
+<span class="out">    "%0AUptime: " . $uptime . \</span>
+<span class="out">    "%0ATime: " . [/system clock get time] . \</span>
+<span class="out">    " " . [/system clock get date])</span>
+
+<span class="cmt"># Στείλε μέσω Telegram Bot API</span>
+<span class="out">:do {</span>
+<span class="out">    /tool fetch \</span>
+<span class="out">        url=("https://api.telegram.org/bot" . $botToken . \</span>
+<span class="out">            "/sendMessage?chat_id=" . $chatId . \</span>
+<span class="out">            "&text=" . $msg) \</span>
+<span class="out">        keep-result=no \</span>
+<span class="out">        http-method=get</span>
+<span class="out">    :log info "Telegram alert sent"</span>
+<span class="out">} on-error={</span>
+<span class="out">    :log warning "Telegram alert FAILED — check internet connectivity"</span>
+<span class="out">}</span>
+<span class="cmt"># :do { } on-error={ } = pattern try/catch.
+# Αν το /tool fetch αποτύχει (χωρίς internet), κάνει log warning αντί να κρασάρει.
+# %0A = newline URL-encoded σε μηνύματα Telegram.</span></pre>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">Πρακτικο Script 2 — Αυτοματισμος Wake-on-LAN</h2>
+  <p class="section-thesis"><em>Ξύπνα το NAS στις 02:00, επιβεβαίωσε ότι ανέβηκε, στείλε μια επιβεβαίωση Telegram. Τρία εργαλεία από αυτή τη σειρά δουλεύουν μαζί σε ένα script.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — αυτοματοποιημενο WoL με επαληθευση και alert</span>
+    <pre class="term"><span class="cmt"># Όνομα script: wake-nas-verify
+# Πρόγραμμα: καθημερινά στις 01:55 (5 λεπτά πριν το job backup)
+# Υποθέτει: NAS στο 192.168.20.50, MAC AA:BB:CC:DD:EE:FF</span>
+
+<span class="out">:local nasIP "192.168.20.50"</span>
+<span class="out">:local nasMac "AA:BB:CC:DD:EE:FF"</span>
+<span class="out">:local nasIface "vlan20"</span>
+<span class="out">:local botToken "YOUR_BOT_TOKEN"</span>
+<span class="out">:local chatId "YOUR_CHAT_ID"</span>
+<span class="out">:local hostname [/system identity get name]</span>
+
+<span class="cmt"># Βήμα 1: Έλεγξε αν το NAS είναι ήδη πάνω</span>
+<span class="out">:local alreadyUp [/ping address=$nasIP count=1 as-value]</span>
+<span class="out">:if ($alreadyUp->"received" > 0) do={</span>
+<span class="out">    :log info "NAS already online — skipping WoL"</span>
+<span class="out">    :error "NAS already up"</span>  <span class="cmt"># το :error βγαίνει από το script καθαρά</span>
+<span class="out">}</span>
+
+<span class="cmt"># Βήμα 2: Στειλε το magic packet</span>
+<span class="out">:log info ("Sending WoL to " . $nasMac . " via " . $nasIface)</span>
+<span class="out">/tool wol interface=$nasIface mac=$nasMac</span>
+
+<span class="cmt"># Βήμα 3: Περίμενε και επαλήθευσε (μέχρι 60 δευτερόλεπτα)</span>
+<span class="out">:local attempts 0</span>
+<span class="out">:local isUp false</span>
+<span class="out">:while ($attempts < 12 && !$isUp) do={</span>
+<span class="out">    :delay 5s</span>
+<span class="out">    :local ping [/ping address=$nasIP count=1 as-value]</span>
+<span class="out">    :if ($ping->"received" > 0) do={ :set isUp true }</span>
+<span class="out">    :set attempts ($attempts + 1)</span>
+<span class="out">}</span>
+
+<span class="cmt"># Βήμα 4: Ανέφερε το αποτέλεσμα μέσω Telegram</span>
+<span class="out">:local status</span>
+<span class="out">:if ($isUp) do={</span>
+<span class="out">    :set status "✅ NAS is UP"</span>
+<span class="out">    :log info ("WoL success: NAS responded after " . \</span>
+<span class="out">        ($attempts * 5) . "s")</span>
+<span class="out">} else={</span>
+<span class="out">    :set status "❌ NAS did NOT respond after 60s"</span>
+<span class="out">    :log warning "WoL failed: NAS unreachable"</span>
+<span class="out">}</span>
+
+<span class="out">:local msg ($status . "%0AHost: " . $nasIP . \</span>
+<span class="out">    "%0ARouter: " . $hostname)</span>
+<span class="out">:do {</span>
+<span class="out">    /tool fetch url=("https://api.telegram.org/bot" . \</span>
+<span class="out">        $botToken . "/sendMessage?chat_id=" . \</span>
+<span class="out">        $chatId . "&text=" . $msg) keep-result=no</span>
+<span class="out">} on-error={ :log warning "Telegram send failed" }</span></pre>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num">08</p>
+  <h2 class="section-title">Πρακτικο Script 3 — Auto-Backup μεσω Email</h2>
+  <p class="section-thesis"><em>Κάθε βράδυ στις 02:00, κάνε export το config, επισύναψέ το σε ένα email, και στείλ' το εκτός site. Αν ο router γίνει ποτέ brick ή κλαπεί, έχεις το χθεσινό config στα εισερχόμενά σου.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — νυχτερινο auto-backup σε email</span>
+    <pre class="term"><span class="cmt"># Πρώτα: ρύθμισε ρυθμίσεις SMTP (setup μία φορά)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/tool e-mail set \</span>
+<span class="out">    server=smtp.gmail.com \</span>
+<span class="out">    port=587 \</span>
+<span class="out">    start-tls=yes \</span>
+<span class="out">    from=alerts.example@gmail.com \</span>
+<span class="out">    user=alerts.example@gmail.com \</span>
+<span class="out">    password="YOUR_APP_PASSWORD"</span>
+<span class="cmt"># Χρησιμοποίησε ένα Gmail App Password (όχι το κύριο password σου).
+# Δημιούργησέ το στο: Google Account → Security → App passwords</span>
+
+<span class="cmt"># Όνομα script: auto-backup
+# Πρόγραμμα: καθημερινά στις 02:00</span>
+<span class="out">:local hostname [/system identity get name]</span>
+<span class="out">:local date [/system clock get date]</span>
+<span class="out">:local dateStr [:pick $date 7 11]  <span class="cmt"># ετος</span></span>
+<span class="out">:local dateStr ($dateStr . "-" . [:pick $date 0 3])  <span class="cmt"># μηνας</span></span>
+<span class="out">:local dateStr ($dateStr . "-" . [:pick $date 4 6])  <span class="cmt"># ημερα</span></span>
+<span class="out">:local filename ($hostname . "-" . $dateStr . ".rsc")</span>
+
+<span class="cmt"># Βήμα 1: Κάνε export το config σε αρχείο</span>
+<span class="out">/export file=$hostname</span>
+<span class="cmt"># Δημιουργεί το /hostname.rsc στο flash του router</span>
+
+<span class="cmt"># Βήμα 2: Δημιούργησε επίσης binary backup</span>
+<span class="out">/system backup save name=$hostname</span>
+<span class="cmt"># Δημιουργεί το /hostname.backup στο flash του router</span>
+
+<span class="cmt"># Βήμα 3: Στειλε το export .rsc σαν επισυναψη email</span>
+<span class="out">:do {</span>
+<span class="out">    /tool e-mail send \</span>
+<span class="out">        to="you@example.com" \</span>
+<span class="out">        subject=("RouterOS Backup: " . $hostname . " " . $date) \</span>
+<span class="out">        body=("Automated backup from " . $hostname . \</span>
+<span class="out">              "\nDate: " . $date . \</span>
+<span class="out">              "\nUptime: " . [/system resource get uptime] . \</span>
+<span class="out">              "\nVersion: " . [/system resource get version]) \</span>
+<span class="out">        file=($hostname . ".rsc")</span>
+<span class="out">    :log info ("Backup email sent for " . $hostname)</span>
+<span class="out">} on-error={</span>
+<span class="out">    :log warning ("Backup email FAILED for " . $hostname)</span>
+<span class="out">}</span>
+
+<span class="cmt"># Βήμα 4: Καθάρισε παλιά αρχεία backup (κράτα τα τελευταία 3)</span>
+<span class="out">:local files [/file find where name~($hostname . ".rsc")]</span>
+<span class="out">:if ([:len $files] > 3) do={</span>
+<span class="out">    /file remove ($files->0)</span>
+<span class="out">    :log info "Removed oldest backup file"</span>
+<span class="out">}</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">🛡 Ματια Operator — Scripting για Δικτυα Production</span>
+    <p><strong>Τύλιγε πάντα εξωτερικές κλήσεις σε <code>:do {} on-error={}</code>.</strong> Κάθε script που καλεί <code>/tool fetch</code> ή <code>/tool e-mail send</code> θα αποτύχει σιωπηλά αν το internet είναι κάτω. Χωρίς try/catch, το script κρασάρει στη μέση της εκτέλεσης και τα επόμενα βήματα δεν τρέχουν ποτέ. Τύλιξε κάθε κλήση δικτύου και κάνε log ένα warning σε αποτυχία — τότε το υπόλοιπο script συνεχίζει.</p>
+    <p><strong>Δοκίμασε scripts στο terminal πριν τα προγραμματίσεις.</strong> Κάνε paste το σώμα του script απευθείας στο prompt CLI και τρέξ' το διαδραστικά. Παρακολούθα το log με <code>/log print follow</code> σε δεύτερο terminal session. Μόλις δουλέψει σωστά, μετακίνησέ το σε System › Scripts και προγραμμάτισέ το. Μην προγραμματίσεις ποτέ ένα μη δοκιμασμένο script σε production router.</p>
+    <p><strong>Χρησιμοποίησε το <code>:log</code> γενναιόδωρα κατά την ανάπτυξη, με φειδώ σε production.</strong> Κάθε κλήση <code>:log info</code> γράφει στο volatile log buffer του router. Ένα script που τρέχει κάθε 5 λεπτά και κάνει log 10 γραμμές θα γεμίσει το log buffer 1000-γραμμών και θα σπρώξει έξω χρήσιμες καταχωρήσεις. Σε production, κάνε log μόνο αλλαγές state και errors — όχι μηνύματα ρουτίνας επιβεβαίωσης.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Όλα τα keywords ξεκινούν με άνω-κάτω τελεία, όλες οι αναφορές μεταβλητών ξεκινούν με $, όλα τα blocks χρησιμοποιούν { }.</strong> Αυτοί οι τρεις κανόνες είναι ολόκληρος ο σκελετός syntax. Όλα τα υπόλοιπα χτίζονται πάνω τους.</li>
+      <li><strong>Πιάσε το output εντολής με [ ].</strong> Το <code>:local ip [/ip address get 0 address]</code> αποθηκεύει το αποτέλεσμα οποιασδήποτε εντολής RouterOS σε μια μεταβλητή. Έτσι αλληλεπιδρούν τα scripts με το τρέχον config του router.</li>
+      <li><strong>Χρησιμοποίησε <code>:do {} on-error={}</code> γύρω από κάθε εξωτερική κλήση.</strong> Το <code>/tool fetch</code>, το <code>/tool e-mail send</code>, και το <code>/ping</code> μπορούν όλα να αποτύχουν. Χωρίς error handling, ένα script κρασάρει σιωπηλά στη μέση της εκτέλεσης και τα επόμενα βήματα παραλείπονται χωρίς καμία ένδειξη τι συνέβη.</li>
+      <li><strong>Τα global functions πρέπει να ξαναδηλωθούν μετά από reboot.</strong> Πρόσθεσε μια καταχώρηση scheduler startup που τρέχει ένα script για να ορίσει όλα τα global functions σου. Αυτό είναι το ασφαλές-για-production pattern — μην βασίζεσαι σε functions που επιβιώνουν μεταξύ reboots.</li>
+      <li><strong>Το <code>start-time=startup</code> του scheduler αντικαθιστά τα autorun scripts.</strong> Χρησιμοποίησέ το για να αρχικοποιήσεις globals, να ξεκινήσεις containers, και να επαληθεύσεις καταστάσεις interface στο boot. Είναι πιο αξιόπιστο από την ξεπερασμένη προσέγγιση autorun.</li>
+      <li><strong>Δοκίμασε στο terminal πριν προγραμματίσεις.</strong> Τρέξε scripts διαδραστικά, παρακολούθα το log, διόρθωσε προβλήματα, μετά προγραμμάτισε. Το να προγραμματίσεις ένα μη δοκιμασμένο script είναι πώς δημιουργείς έναν router που κάνει μόνος του reboot στις 02:00 κάθε βράδυ.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Κουραστηκες να μαθαινεις για διακοπες πρωτα απο εναν επισκεπτη;</h3>
+    <p>Χτίζω και συντηρώ αυτοματοποιημένο monitoring για δίκτυα φιλοξενίας — Telegram alerts τη στιγμή που κάτι πάει στραβά, νυχτερινά backups config που πραγματικά τρέχουν, και προγραμματισμένα scripts συντήρησης αντί να θυμάται κάποιος να το κάνει χειροκίνητα.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

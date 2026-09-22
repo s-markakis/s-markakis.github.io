@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Static Routing &amp; OSPF — S. Markakis</title>
+<meta name="description" content="Πώς ένας router Cisco διαλέγει διαδρομές — διάβασμα του πίνακα δρομολόγησης, static και default routes, floating statics για failover, και single-area OSPF που συντηρείται μόνο του.">
+<meta property="og:title" content="Cisco IOS: Static Routing &amp; OSPF — S. Markakis">
+<meta property="og:description" content="Πώς ένας router Cisco διαλέγει διαδρομές — διάβασμα του πίνακα δρομολόγησης, static και default routes, floating statics για failover, και single-area OSPF που συντηρείται μόνο του.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-routing-ospf-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-routing-ospf.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-routing-ospf.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-routing-ospf-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-routing-ospf.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-routing-ospf-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-routing-ospf.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:'Inter',-apple-system,sans-serif;font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  /* keyboard shortcut pills */
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  /* cheatsheet table */
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  /* safe badge */
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Static Routing & OSPF",
+  "description": "Πώς ένας router Cisco διαλέγει διαδρομές — διάβασμα του πίνακα δρομολόγησης, static και default routes, floating statics για failover, και single-area OSPF που συντηρείται μόνο του.",
+  "datePublished": "2026-07-18",
+  "dateModified": "2026-07-18",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-routing-ospf-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-routing-ospf.png",
+  "keywords": [
+    "cisco",
+    "routing"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-routing-ospf"
+  },
+  "timeRequired": "PT11M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-routing-ospf.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Static Routing &amp; OSPF</h1>
+  <p class="post-subtitle">Ένας router ξέρει μόνο τα δίκτυα πάνω στα δικά του interfaces — όλα τα υπόλοιπα πρέπει να διδαχθούν ή να μαθευτούν. Διάβασε τον πίνακα δρομολόγησης σαν ντόπιος, γράψε static και default routes, χτίσε failover με floating statics, μετά άφησε το single-area OSPF να συντηρεί τον χάρτη για σένα.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Routing</span>
+    <span class="tag">Static Routes</span>
+    <span class="tag">OSPF</span>
+    <span class="tag">Failover</span>
+    <span class="tag">CCNA</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: route selection -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 190" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="190" fill="#e1ded7"/>
+      <text x="360" y="30" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#1a1a18;text-anchor:middle;">ΠΩΣ ΚΕΡΔΙΖΕΙ ΜΙΑ ΔΙΑΔΡΟΜΗ — τρια φιλτρα, με τη σειρα</text>
+      <!-- step 1 -->
+      <rect x="40" y="52" width="190" height="82" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="135" y="74" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#c63d1f;text-anchor:middle;">1 · ΜΕΓΑΛΥΤΕΡΟ PREFIX</text>
+      <text x="135" y="94" style="font-family:'Inter',sans-serif;font-size:9px;fill:#555550;text-anchor:middle;">/28 beats /24 beats /16 beats /0</text>
+      <text x="135" y="110" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">το πιο συγκεκριμένο ταίριασμα στον</text>
+      <text x="135" y="122" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">προορισμό κερδίζει, πάντα</text>
+      <!-- step 2 -->
+      <rect x="264" y="52" width="190" height="82" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="359" y="74" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#c63d1f;text-anchor:middle;">2 · ADMIN DISTANCE</text>
+      <text x="359" y="94" style="font-family:'Inter',sans-serif;font-size:9px;fill:#555550;text-anchor:middle;">ίδιο prefix από δύο πηγές;</text>
+      <text x="359" y="110" style="font-family:ui-monospace,monospace;font-size:9px;fill:#888880;text-anchor:middle;">connected 0 · static 1 · OSPF 110</text>
+      <text x="359" y="122" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">χαμηλότερο AD = πιο έμπιστη πηγή</text>
+      <!-- step 3 -->
+      <rect x="488" y="52" width="190" height="82" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="583" y="74" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#c63d1f;text-anchor:middle;">3 · METRIC</text>
+      <text x="583" y="94" style="font-family:'Inter',sans-serif;font-size:9px;fill:#555550;text-anchor:middle;">ίδιο prefix, ίδιο πρωτόκολλο;</text>
+      <text x="583" y="110" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">χαμηλότερο cost κερδίζει· ίσο cost</text>
+      <text x="583" y="122" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">= load-balanced (ECMP)</text>
+      <text x="360" y="168" style="font-family:'Inter',sans-serif;font-size:10px;fill:#888880;text-anchor:middle;">Κάθε μυστήριο δρομολόγησης λύνεται περνώντας αυτές τις τρεις ερωτήσεις πάνω στο show ip route.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Από το κουτί, ένας router ξέρει ακριβώς τα subnet που είναι ρυθμισμένα στα δικά του interfaces — τις <strong>connected</strong> διαδρομές — και τίποτα άλλο. Κάθε άλλος προορισμός χρειάζεται διαδρομή από μία από δύο πηγές: <strong>εσένα</strong> (static routes — ακριβείς, σιωπηλές, και χαζές: δεν παρατηρούν ποτέ μια νεκρή διαδρομή) ή ένα <strong>πρωτόκολλο δρομολόγησης</strong> (OSPF — οι router ανταλλάσσουν τοπολογία και επανυπολογίζουν γύρω από αστοχίες μόνοι τους).</p>
+    <p>Τα μικρά sites ζουν ευτυχισμένα με statics. Τη στιγμή που έχεις τρεις router ή μια εφεδρική διαδρομή, δώσε τον χάρτη στο OSPF και κράτα statics για τις άκρες — το default route προς τον ISP, και ένα floating static ως το failover της τελευταίας ελπίδας. Αυτό το post χτίζει ακριβώς αυτή την πρόοδο, και διδάσκει τη μία δεξιότητα από κάτω από όλα: να διαβάζεις το <code>show ip route</code> και να ξέρεις <em>γιατί</em> είναι εκεί κάθε γραμμή.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Βασικά IOS και IP interfaces — δες <a href="cisco-first-contact.html">Cisco IOS: First Contact</a></li>
+      <li>Βοηθάνε έννοιες inter-VLAN routing — δες <a href="cisco-vlans-trunking.html">VLAN &amp; Trunking</a></li>
+      <li>Δύο ή τρεις router σε lab (Packet Tracer / GNS3 / CML είναι ιδανικό)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Διαβαζοντας τον Πινακα Δρομολογησης <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Ό,τι θα κάνει ποτέ ο router με ένα πακέτο είναι γραμμένο στο show ip route. Μάθε τους κωδικούς, το ζεύγος [AD/metric], και το longest-prefix-wins, και ο πίνακας σταματά να είναι θόρυβος.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ο πινακας δρομολογησης, σχολιασμενος</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show ip route</span>
+<span class="out">Codes: L - local, C - connected, S - static, O - OSPF, * - candidate default
+
+Gateway of last resort is 203.0.113.1 to network 0.0.0.0
+
+S*    0.0.0.0/0 [1/0] via 203.0.113.1</span>
+<span class="cmt">      ↑ το default route — «ό,τι δεν ξέρω πηγαίνει στον ISP»</span>
+<span class="out">C     192.168.10.0/24 is directly connected, GigabitEthernet0/1</span>
+<span class="cmt">      ↑ connected — αυτό το subnet ζει στο δικό μου interface</span>
+<span class="out">L     192.168.10.1/32 is directly connected, GigabitEthernet0/1</span>
+<span class="cmt">      ↑ local — η δική μου διεύθυνση σε αυτό το interface (πάντα /32)</span>
+<span class="out">S     10.20.0.0/16 [1/0] via 192.168.90.2</span>
+<span class="cmt">      ↑ static — αυτό το έγραψε άνθρωπος· [AD 1 / metric 0]</span>
+<span class="out">O     10.30.1.0/24 [110/2] via 192.168.90.2, 00:41:07, GigabitEthernet0/2</span>
+<span class="cmt">      ↑ OSPF — μαθημένο αυτόματα· [AD 110 / cost 2], ηλικία, interface εξόδου</span></pre>
+  </div>
+
+  <p>Το ζεύγος σε αγκύλες είναι το κλειδί: <strong>[administrative distance / metric]</strong>. Το AD κατατάσσει την <em>πηγή</em> της διαδρομής (connected 0, static 1, OSPF 110 — χαμηλότερο σημαίνει πιο αξιόπιστο). Το metric κατατάσσει διαδρομές <em>μέσα</em> σε ένα πρωτόκολλο. Και πριν από τα δύο αυτά, το <strong>μεγαλύτερο prefix κερδίζει πάντα</strong>: ένα πακέτο προς 10.30.1.7 παίρνει το /24 route παραπάνω, ποτέ το /16, ποτέ το default. Η επιλογή διαδρομής είναι αυτές οι τρεις ερωτήσεις, με αυτή τη σειρά — ακριβώς όπως στο διάγραμμα.</p>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Static Routes &amp; το Default Route</h2>
+  <p class="section-thesis"><em>Ένα static route είναι μία γραμμή: προορισμός, μάσκα, και πού να το στείλεις. Το πιο σημαντικό static σε κάθε δίκτυο είναι το default route — η τελευταία ελπίδα του πακέτου.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — static routes: συγκεκριμενο, default, και host</span>
+    <pre class="term"><span class="cmt"># «Για να φτάσω το branch LAN 10.20.0.0/16, δώσε τα πακέτα στο 192.168.90.2»</span>
+<span class="pc">R1(config)#</span> <span class="out">ip route 10.20.0.0 255.255.0.0 192.168.90.2</span>
+<span class="cmt"># ΣΗΜΕΙΩΣΗ: πραγματική subnet mask αυτή τη φορά — τα statics χρησιμοποιούν masks, τα ACL wildcards.</span>
+
+<span class="cmt"># Το default route — το 0.0.0.0/0 ταιριάζει με ό,τι δεν ξέρεις καλύτερα</span>
+<span class="pc">R1(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 203.0.113.1</span>
+
+<span class="cmt"># Ένα host route (/32) — κάρφωσε έναν προορισμό σε συγκεκριμένη διαδρομή</span>
+<span class="pc">R1(config)#</span> <span class="out">ip route 10.99.0.5 255.255.255.255 192.168.90.6</span>
+
+<span class="cmt"># Αφαίρεσε οποιοδήποτε με "no" + ακριβώς την ίδια γραμμή</span>
+<span class="pc">R1(config)#</span> <span class="out">no ip route 10.99.0.5 255.255.255.255 192.168.90.6</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — IP Next-Hop, Οχι Interface (σε Ethernet)</span>
+    <p>Το IOS σε αφήνει να γράψεις <code>ip route 10.20.0.0 255.255.0.0 GigabitEthernet0/2</code> — χωρίς next-hop, μόνο ένα interface εξόδου. Σε point-to-point links αυτό είναι εντάξει· σε Ethernet είναι παγίδα. Ο router τότε πρέπει να κάνει ARP για <em>κάθε host προορισμού</em> μέσα από αυτό το interface, φουσκώνοντας τον πίνακα ARP και σπάζοντας εντελώς αν ο γείτονας έχει το proxy-ARP κλειστό. Σε Ethernet, δίνε πάντα τη διεύθυνση IP next-hop.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Θυμησου — Η Δρομολογηση Πρεπει να Δουλευει και προς τις Δυο Κατευθυνσεις</span>
+    <p>Ένα κλασικό αδιέξοδο: προσθέτεις τη διαδρομή προς το branch, τα ping ακόμα αποτυγχάνουν — επειδή ο router του branch δεν έχει διαδρομή <em>πίσω</em>. Κάθε διαδρομή χρειάζεται route και στα δύο άκρα (ή ένα default που το καλύπτει). Όταν ένα static route «δεν δουλεύει», έλεγξε πρώτα τη διαδρομή επιστροφής· είναι ο ένοχος πιο συχνά από το route που μόλις έγραψες.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Floating Statics — Failover Χωρις Πρωτοκολλο</h2>
+  <p class="section-thesis"><em>Δώσε σε μια backup διαδρομή χειρότερο administrative distance και μένει έξω από τον πίνακα μέχρι να πεθάνει η κύρια. Αυτό είναι το κλασικό two-WAN failover σε ένα edge Cisco — το ίδιο πρόβλημα που λύνει το post μας για Starlink failover σε MikroTik.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — κυρια ινα, backup LTE, αυτοματο failover</span>
+    <pre class="term"><span class="cmt"># Κύριο default route μέσω ίνας (AD 1 — κανονικό static)</span>
+<span class="pc">R1(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 203.0.113.1</span>
+
+<span class="cmt"># Backup default μέσω LTE με AD 10 — "floating": εγκαθίσταται μόνο
+# όταν εξαφανιστεί η κύρια διαδρομή</span>
+<span class="pc">R1(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 198.51.100.1 10</span>
+
+<span class="cmt"># Όσο η ίνα είναι up, μόνο η διαδρομή AD-1 είναι στον πίνακα:</span>
+<span class="pc">R1#</span> <span class="out">show ip route static</span>
+<span class="out">S*    0.0.0.0/0 [1/0] via 203.0.113.1</span>
+<span class="cmt"># Βγάλε την ίνα → interface down → η διαδρομή AD-1 αποσύρεται → η AD-10 αναλαμβάνει.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ενα Floating Static Επιπλεει Μονο αν η Κυρια Οντως Φυγει</span>
+    <p>Η διαδρομή AD-1 αποσύρεται όταν το next-hop της γίνει απρόσιτο — κάτι που το IOS ανιχνεύει με το <em>interface να πέφτει</em>. Αν η ίνα σου πεθάνει upstream αλλά η τοπική θύρα μένει up/up (πολύ συνηθισμένο με ONT ή media converter στη μέση), η κύρια διαδρομή δεν φεύγει ποτέ από τον πίνακα και το backup δεν εγκαθίσταται ποτέ. Η διόρθωση είναι να δέσεις το static σε έναν έλεγχο προσβασιμότητας: ένα <strong>IP SLA</strong> ping με αντικείμενο <code>track</code> (<code>ip route 0.0.0.0 0.0.0.0 203.0.113.1 track 1</code>). Αυτό είναι το αντίστοιχο Cisco του κόλπου netwatch/recursive-route του MikroTik από το <a href="starlink-mikrotik-failover.html">writeup μας για Starlink failover</a> — αξίζει δικό του post.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Single-Area OSPF — Ο Χαρτης που Συντηρειται Μονος του</h2>
+  <p class="section-thesis"><em>Πέρα από δύο-τρεις router, τα statics γίνονται φόρος συντήρησης χωρίς failover. Οι router OSPF συστήνονται, ανταλλάσσουν την τοπολογία, και επανυπολογίζουν όταν πεθαίνουν links. Τα μικρά δίκτυα χρειάζονται ακριβώς μία area: 0.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — OSPF σε δυο router (επαναλαβε το pattern στον καθενα)</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">router ospf 1</span>
+<span class="cmt"># Το "1" είναι ένα τοπικό process ID — ΔΕΝ χρειάζεται να ταιριάζει ανάμεσα σε router.</span>
+
+<span class="pc">R1(config-router)#</span> <span class="out">router-id 1.1.1.1</span>
+<span class="cmt"># Ρητό router-id: σταθερή ταυτότητα σε κάθε πίνακα γειτόνων και debug.</span>
+
+<span class="cmt"># Ποια interfaces μπαίνουν στο OSPF — ταιριάζουν με network + WILDCARD (όπως τα ACL):</span>
+<span class="pc">R1(config-router)#</span> <span class="out">network 192.168.90.0 0.0.0.3 area 0</span>    <span class="cmt"># το /30 link προς R2</span>
+<span class="pc">R1(config-router)#</span> <span class="out">network 192.168.10.0 0.0.0.255 area 0</span>  <span class="cmt"># το LAN που διαφημίζουμε</span>
+
+<span class="cmt"># Μη στέλνεις hellos εκεί που δεν ζει κανένας router (ασφάλεια + θόρυβος):</span>
+<span class="pc">R1(config-router)#</span> <span class="out">passive-interface default</span>
+<span class="pc">R1(config-router)#</span> <span class="out">no passive-interface GigabitEthernet0/2</span>   <span class="cmt"># μόνο το link προς R2</span>
+
+<span class="cmt"># Μπόνους edge router: δώσε το default route σε όλους μέσω OSPF</span>
+<span class="pc">R1(config-router)#</span> <span class="out">default-information originate</span>
+<span class="pc">R1(config-router)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <p>Ρύθμισε την καθρεφτισμένη εικόνα στο R2 (δικό του router-id, δική του δήλωση LAN network, ίδιο <code>area 0</code>), και μέσα σε δευτερόλεπτα οι δύο είναι γείτονες και ο καθένας μαθαίνει το LAN του άλλου. Πρόσθεσε έναν τρίτο router αργότερα και κανείς δεν γράφει route — ο χάρτης ενημερώνεται μόνος του. Δύο λεπτομέρειες αξίζει να τις καρφώσεις: η δήλωση <code>network</code> χρησιμοποιεί <strong>wildcard masks</strong> (η συνήθεια από τα ACL πληρώνει), και δεν διαφημίζει τόσο ένα δίκτυο όσο <em>ενεργοποιεί το OSPF σε κάθε interface του οποίου η διεύθυνση ταιριάζει</em> — το πραγματικό prefix του interface είναι αυτό που διαφημίζεται.</p>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Επαληθευσε το OSPF <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Τρεις εντολές λένε όλη την ιστορία: είμαστε γείτονες, τι έμαθα, και τι κάνει το OSPF στα interfaces μου.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ο ελεγχος υγειας OSPF</span>
+    <pre class="term"><span class="cmt"># 1. Γείτονες — FULL σημαίνει ότι η σχέση δουλεύει</span>
+<span class="pc">R1#</span> <span class="out">show ip ospf neighbor</span>
+<span class="out">Neighbor ID   Pri   State      Dead Time   Address        Interface
+2.2.2.2         1   FULL/DR    00:00:36    192.168.90.2   GigabitEthernet0/2</span>
+
+<span class="cmt"># 2. Τι έβαλε το OSPF στον πίνακα δρομολόγησης</span>
+<span class="pc">R1#</span> <span class="out">show ip route ospf</span>
+<span class="out">O     10.30.1.0/24 [110/2] via 192.168.90.2, 00:04:11, GigabitEthernet0/2
+O*E2  0.0.0.0/0 [110/1] via 192.168.90.2   ← το originated default</span>
+
+<span class="cmt"># 3. Ποια interfaces τρέχουν OSPF, το cost και το state τους</span>
+<span class="pc">R1#</span> <span class="out">show ip ospf interface brief</span>
+<span class="out">Interface    PID   Area   IP Address/Mask     Cost  State Nbrs F/C
+Gi0/2        1     0      192.168.90.1/30     1     P2P   1/1
+Gi0/1        1     0      192.168.10.1/24     1     DR    0/0</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Κανενας Γειτονας; Ελεγξε Αυτα τα Τεσσερα, με τη Σειρα</span>
+    <p>Η adjacency του OSPF είναι σχολαστική επίτηδες. Όταν το <code>show ip ospf neighbor</code> είναι άδειο: <strong>(1)</strong> μπορούν καν οι router να κάνουν ping μεταξύ τους· <strong>(2)</strong> μήπως το <code>passive-interface default</code> έκανε σιωπηλό το link που θα έπρεπε να μιλάει (η αιτία #1 αυτοτραυματισμού — κάνε του <code>no passive-interface</code>)· <strong>(3)</strong> ταιριάζουν τα hello/dead timers και οι <strong>subnet masks</strong> και στα δύο άκρα του link (ασύμφωνη mask = καμία adjacency, και φαίνεται μια χαρά μεμονωμένα)· <strong>(4)</strong> είναι και οι δύο πλευρές στην <strong>ίδια area</strong>. Ένας γείτονας κολλημένος να ταλαντεύεται σε <code>EXSTART/EXCHANGE</code> είναι δικό του θηρίο: αυτό είναι σχεδόν πάντα <strong>ασυμφωνία MTU</strong> — ευθυγράμμισε τα MTU αλλιώς η ανταλλαγή database δεν ολοκληρώνεται ποτέ.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Statics η OSPF; — Ενας Ειλικρινης Πινακας Αποφασεων</h2>
+  <p class="section-thesis"><em>Δεν είναι θρησκευτικό ερώτημα. Μέτρησε τους router σου και τις εφεδρικές διαδρομές σου.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Κατασταση</th><th>Χρησιμοποιησε</th></tr></thead>
+    <tbody>
+      <tr><td>Ένας router + ISP</td><td>Ένα default static. Το OSPF δεν θα πρόσθετε τίποτα.</td></tr>
+      <tr><td>Δύο router, ένα link</td><td>Τα statics είναι εντάξει· είναι εντάξει και το OSPF και αυτο-τεκμηριώνεται.</td></tr>
+      <tr><td>3+ router, ή οποιαδήποτε εφεδρική διαδρομή</td><td>OSPF area 0. Το static spaghetti με failover είναι εκεί που φυτρώνουν οι διακοπές.</td></tr>
+      <tr><td>Dual WAN σε ένα edge</td><td>Floating static + IP SLA tracking (ή άφησε και τα δύο defaults στο OSPF αν το μιλάνε οι ISP).</td></tr>
+      <tr><td>Διαδρομή που δεν πρέπει ποτέ να κινηθεί</td><td>Ένα /32 ή συγκεκριμένο static — το AD 1 νικά το OSPF 110, σκόπιμα.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Rosetta Δρομολογησης</h2>
+  <p class="section-thesis"><em>Ίδιες έννοιες, ίδια μαθηματικά, διαφορετική ορθογραφία. Το distance του RouterOS = το administrative distance του IOS.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>/ip route add dst-address=0.0.0.0/0 gateway=…</td><td><code>ip route 0.0.0.0 0.0.0.0 &lt;next-hop&gt;</code></td></tr>
+      <tr><td>distance=10 σε backup route</td><td>Floating static: trailing AD (<code>… 198.51.100.1 10</code>)</td></tr>
+      <tr><td>check-gateway=ping / netwatch</td><td>IP SLA + track object στο static</td></tr>
+      <tr><td>/routing ospf instance + area area=backbone</td><td><code>router ospf 1</code> + <code>area 0</code></td></tr>
+      <tr><td>/routing ospf interface-template networks=…</td><td><code>network &lt;net&gt; &lt;wildcard&gt; area 0</code></td></tr>
+      <tr><td>passive=yes σε template</td><td><code>passive-interface</code></td></tr>
+      <tr><td>/ip route print</td><td><code>show ip route</code></td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Η επιλογή διαδρομής είναι τρεις ερωτήσεις με σταθερή σειρά:</strong> μεγαλύτερο prefix, μετά administrative distance (connected 0 &lt; static 1 &lt; OSPF 110), μετά metric. Κάθε «γιατί πήγε ΕΤΣΙ» λύνεται πάνω σε αυτή τη λίστα.</li>
+      <li><strong>Τα statics χρησιμοποιούν subnet masks· τα ACL και οι δηλώσεις network του OSPF χρησιμοποιούν wildcards.</strong> Κράτα τις δύο οικογένειες masks ξεκάθαρες και οι μισές κλασικές τυπογραφικές εξαφανίζονται.</li>
+      <li><strong>Το default route είναι το άλογο της δουλειάς:</strong> <code>ip route 0.0.0.0 0.0.0.0 &lt;ISP&gt;</code>. Σε Ethernet, δείχνε πάντα τα statics σε ένα next-hop IP, όχι σε interface εξόδου.</li>
+      <li><strong>Η δρομολόγηση πρέπει να δουλεύει και προς τις δύο κατευθύνσεις.</strong> Όταν ένα καινούργιο route «δεν δουλεύει», το κομμάτι που λείπει είναι συνήθως το route επιστροφής στον απέναντι router.</li>
+      <li><strong>Τα floating statics δίνουν failover για ένα επιπλέον ψηφίο</strong> — ένα trailing AD. Αλλά κάνουν failover μόνο όταν η κύρια φύγει από τον πίνακα· αν η θύρα μένει up ενώ ο ISP είναι νεκρός, χρειάζεσαι IP SLA tracking.</li>
+      <li><strong>Το OSPF κερδίζει τη θέση του σε τρεις router ή οποιαδήποτε πλεονασμό.</strong> Μία area (0), ρητά router-id, <code>passive-interface default</code> με εξαιρέσεις, και <code>default-information originate</code> στην άκρη.</li>
+      <li><strong>Κάνε debug adjacencies με τη σταθερή λίστα:</strong> προσβασιμότητα → passive-interface → ταίριασμα timers/mask → ίδια area· και τα loop EXSTART σημαίνουν MTU. Είναι σχολαστικό, αλλά σχολαστικό με προβλέψιμο τρόπο.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Δικτυο multi-site η dual-WAN στην Κρητη;</h3>
+    <p>Σχεδιάζω δρομολόγηση που κάνει failover χωρίς κανείς να αγγίξει πληκτρολόγιο &mdash; backbones OSPF, tracked failover σε Starlink ή LTE ως backup διαδρομή, καθαρή τεκμηρίωση &mdash; σε Cisco, MikroTik, ή συνδυασμό. Μετά το δοκιμάζω βγάζοντας μόνος μου το κύριο link.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

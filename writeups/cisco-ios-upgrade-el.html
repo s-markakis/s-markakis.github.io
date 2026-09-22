@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Upgrading Safely — S. Markakis</title>
+<meta name="description" content="Αναβάθμισε ένα switch ή router Cisco χωρίς να το χαλάσεις μόνιμα — έλεγξε χώρο, επιβεβαίωσε το hash της εικόνας, όρισε μεταβλητές boot, και τη διαφορά ανάμεσα σε κλασικό bundle boot και install mode σε IOS-XE, με σχέδιο rollback.">
+<meta property="og:title" content="Cisco IOS: Upgrading Safely — S. Markakis">
+<meta property="og:description" content="Αναβάθμισε ένα switch ή router Cisco χωρίς να το χαλάσεις μόνιμα — έλεγξε χώρο, επιβεβαίωσε το hash της εικόνας, όρισε μεταβλητές boot, και τη διαφορά ανάμεσα σε κλασικό bundle boot και install mode σε IOS-XE, με σχέδιο rollback.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-ios-upgrade-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-ios-upgrade.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-ios-upgrade.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-ios-upgrade-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-ios-upgrade.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-ios-upgrade-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-ios-upgrade.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Upgrading Safely",
+  "description": "Αναβάθμισε ένα switch ή router Cisco χωρίς να το χαλάσεις μόνιμα — έλεγξε χώρο, επιβεβαίωσε το hash της εικόνας, όρισε μεταβλητές boot, και τη διαφορά ανάμεσα σε κλασικό bundle boot και install mode σε IOS-XE, με σχέδιο rollback.",
+  "datePublished": "2026-08-03",
+  "dateModified": "2026-08-03",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-ios-upgrade-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-ios-upgrade.png",
+  "keywords": [
+    "cisco",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-ios-upgrade"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-ios-upgrade.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Ασφαλης Αναβαθμιση</h1>
+  <p class="post-subtitle">Η δουλειά που κανείς δεν θέλει να κάνει απομακρυσμένα: η αντικατάσταση του λειτουργικού σε μια ζωντανή συσκευή. Κάν' το λάθος και οδηγείς στο site με ένα καλώδιο console. Κάν' το σωστά — επιβεβαίωσε την εικόνα, όρισε τη μεταβλητή boot, κράτα την παλιά — και είναι ένα προγραμματισμένο reboot. Ορίστε η πειθαρχημένη εκδοχή.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">IOS Upgrade</span>
+    <span class="tag">Boot System</span>
+    <span class="tag">IOS-XE</span>
+    <span class="tag">install mode</span>
+    <span class="tag">Maintenance</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: upgrade flow -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="up" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="130" fill="#e1ded7"/>
+      <g font-family="'Inter',sans-serif" font-size="10" font-weight="700" fill="#1a1a18" text-anchor="middle">
+        <rect x="20" y="44" width="98" height="42" rx="5" fill="#d4d2cc" stroke="#c8c5be"/><text x="69" y="62">1 · CHECK</text><text x="69" y="76" font-size="8" font-weight="400" fill="#888880">χώρος + έκδοση</text>
+        <rect x="146" y="44" width="98" height="42" rx="5" fill="#d4d2cc" stroke="#c8c5be"/><text x="195" y="62">2 · COPY</text><text x="195" y="76" font-size="8" font-weight="400" fill="#888880">εικόνα σε flash</text>
+        <rect x="272" y="44" width="98" height="42" rx="5" fill="#d4d2cc" stroke="#c8c5be"/><text x="321" y="62">3 · VERIFY</text><text x="321" y="76" font-size="8" font-weight="400" fill="#c63d1f">hash md5</text>
+        <rect x="398" y="44" width="98" height="42" rx="5" fill="#d4d2cc" stroke="#c8c5be"/><text x="447" y="62">4 · BOOT VAR</text><text x="447" y="76" font-size="8" font-weight="400" fill="#888880">+ save</text>
+        <rect x="524" y="44" width="98" height="42" rx="5" fill="#cfe0ee" stroke="#3a5a78"/><text x="573" y="62" fill="#3a5a78">5 · RELOAD</text><text x="573" y="76" font-size="8" font-weight="400" fill="#3a5a78">σε παράθυρο</text>
+      </g>
+      <line x1="118" y1="65" x2="144" y2="65" style="stroke:#c63d1f;stroke-width:1.4;marker-end:url(#up)"/>
+      <line x1="244" y1="65" x2="270" y2="65" style="stroke:#c63d1f;stroke-width:1.4;marker-end:url(#up)"/>
+      <line x1="370" y1="65" x2="396" y2="65" style="stroke:#c63d1f;stroke-width:1.4;marker-end:url(#up)"/>
+      <line x1="496" y1="65" x2="522" y2="65" style="stroke:#c63d1f;stroke-width:1.4;marker-end:url(#up)"/>
+      <text x="360" y="112" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Παράλειψε το βήμα 3 και ένα κατεστραμμένο download καίει τη συσκευή στο reboot. Η παλιά εικόνα μένει στη flash ως το αλεξίπτωτό σου.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Μια αναβάθμιση IOS είναι εννοιολογικά απλή — βάλε ένα νέο αρχείο εικόνας στη flash, πες στη συσκευή να κάνει boot από αυτό, reboot — αλλά ο τρόπος αστοχίας είναι σοβαρός: μια συσκευή που δεν κάνει boot χρειάζεται φυσική πρόσβαση από console και ανάκτηση ROMMON, που για ένα απομακρυσμένο site σημαίνει ταξίδι. Η πειθαρχία που το αποτρέπει είναι εξολοκλήρου το να <strong>κάνεις πράγματα με τη σωστή σειρά και να επιβεβαιώνεις σε κάθε βήμα</strong>: επιβεβαίωσε ότι υπάρχει χώρος, επιβεβαίωσε ότι το download δεν καταστράφηκε, δείξε τη μεταβλητή boot στη νέα εικόνα, κράτα την παλιά, και κάνε reboot μέσα σε παράθυρο συντήρησης με έτοιμο rollback.</p>
+    <p>Υπάρχει επίσης μια διχάλα στον δρόμο. Το κλασικό IOS και οι παλιότεροι Catalyst κάνουν boot από μία μοναδική εικόνα <strong>bundle</strong> με <code>boot system</code> — αυτό είναι το μεγαλύτερο μέρος αυτού του post. Οι νεότερες πλατφόρμες <strong>IOS-XE</strong> (Catalyst 9000, ISR 4000, πολλά τρέχοντα switch) προτιμούν το <strong>install mode</strong> με <code>install add/activate/commit</code>, που είναι πιο ασφαλές και έχει ενσωματωμένο rollback. Καλύπτουμε και τα δύο, και ποιο έχεις εσύ. Αυτό είναι το λειτουργικό αδέρφι του <a href="cisco-backup-restore.html">post Backup &amp; Restore</a> — ίδια νοοτροπία «κράτα ένα αλεξίπτωτο», εφαρμοσμένη στο ίδιο το OS.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Λειτουργίες αρχείων και τα δύο configs — δες <a href="cisco-backup-restore.html">Backup &amp; Restore</a></li>
+      <li>Η σωστή εικόνα για το ακριβές μοντέλο + άδειά σου, κατεβασμένη από τη Cisco με το δημοσιευμένο hash της</li>
+      <li>Έναν server TFTP/SCP, ένα παράθυρο συντήρησης, και — ιδανικά — πρόσβαση από console ως απόλυτο fallback</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Πριν Αγγιξεις Οτιδηποτε <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Τρεις ερωτήσεις, όλες read-only: τι τρέχω, υπάρχει χώρος για τη νέα εικόνα, και έχω κάνει backup το config. Απάντησέ τες πριν αντιγράψεις έστω ένα byte.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — οι ελεγχοι πριν την απογειωση</span>
+    <pre class="term"><span class="cmt"># Ποιο μοντέλο, τρέχουσα έκδοση, και πώς κάνει boot;</span>
+<span class="pc">SW1#</span> <span class="out">show version | include IOS|System image|Model</span>
+<span class="out">Cisco IOS Software, C2960X Software ... Version 15.2(7)E3
+System image file is "flash:c2960x-universalk9-mz.152-7.E3.bin"
+Model number : WS-C2960X-24TS-L</span>
+
+<span class="cmt"># Υπάρχει χώρος; Σύγκρινε τα "bytes free" με το μέγεθος της νέας εικόνας.</span>
+<span class="pc">SW1#</span> <span class="out">dir flash: | include bytes</span>
+<span class="out">128169984 bytes total (39124992 bytes free)</span>
+
+<span class="cmt"># Κάνε πρώτα backup το config εκτός συσκευής (δες το post Backup)</span>
+<span class="pc">SW1#</span> <span class="out">copy running-config tftp:</span>
+<span class="cmt"># και ιδανικά αντίγραψε έξω και την ΤΡΕΧΟΥΣΑ εικόνα, ώστε να μπορείς να την επαναφέρεις.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Η Ελλειπης Flash Ειναι το Πιο Συχνο Τειχος</span>
+    <p>Τα access switch έρχονται συχνά με μικρή flash, και μια νέα εικόνα συν την παλιά μπορεί να μη χωράνε. Μην διαγράφεις τυφλά την τρέχουσα εικόνα για να κάνεις χώρο — αν το νέο αντίγραφο είναι κατεστραμμένο, μόλις αφαίρεσες το μόνο λειτουργικό OS σου. Αντ' αυτού: επιβεβαίωσε το μέγεθος της νέας εικόνας, και αν ο χώρος είναι στενός, αφαίρεσε <em>παλιά αρχεία crash ή αχρησιμοποίητες εικόνες</em> (<code>delete flash:old-image.bin</code>) — ποτέ αυτή από την οποία κάνεις αυτή τη στιγμή boot — και ξανακάνε <code>dir</code>. Σε stacked switch, κάθε μέλος χρειάζεται την εικόνα· αυτό χειρίζεται καθαρά το install mode (ενότητα 05).</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Αντεγραψε &amp; Επιβεβαιωσε την Εικονα</h2>
+  <p class="section-thesis"><em>Βάλε την εικόνα στη flash, μετά — το βήμα που παραλείπει ο κόσμος και μετανιώνει — επιβεβαίωσε το hash της έναντι της δημοσιευμένης τιμής της Cisco. Ένα κομμένο ή κατεστραμμένο download που κάνει boot είναι πολύ χειρότερο από ένα που δεν κάνει.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — αντιγραψε μεσα, μετα επιβεβαιωσε το MD5</span>
+    <pre class="term"><span class="pc">SW1#</span> <span class="out">copy tftp: flash:</span>
+<span class="out">Address or name of remote host []? </span><span class="out">192.168.1.50</span>
+<span class="out">Source filename []? </span><span class="out">c2960x-universalk9-mz.152-7.E12.bin</span>
+<span class="out">!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+23891456 bytes copied in 74.2 secs</span>
+
+<span class="cmt"># ΤΟ βήμα που σε σώζει: επιβεβαίωσε έναντι του δημοσιευμένου MD5/SHA της Cisco.</span>
+<span class="pc">SW1#</span> <span class="out">verify /md5 flash:c2960x-universalk9-mz.152-7.E12.bin</span>
+<span class="out">verify /md5 (flash:...E12.bin) = a3f5c9...  ✓ ταιριάζει με Cisco.com</span>
+<span class="cmt"># Αν αυτό το hash ΔΕΝ ταιριάζει με τη σελίδα download, ΣΤΑΜΑΤΑ. Ξανακατέβασέ το.
+# Μια κατεστραμμένη εικόνα που κάνει μερικό boot μπορεί να κολλήσει σε ROMMON — επίσκεψη στο site.</span></pre>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Ορισε τη Μεταβλητη Boot</h2>
+  <p class="section-thesis"><em>Το να αντιγράψεις την εικόνα δεν κάνει τη συσκευή να τη χρησιμοποιεί — αυτό το κάνει η μεταβλητή boot. Δείξε την στη νέα εικόνα, κράτα την παλιά ως fallback, αποθήκευσε, και επιβεβαίωσε πριν κάνεις reload.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — boot πρωτα το νεο, το παλιο ως fallback</span>
+    <pre class="term"><span class="pc">SW1(config)#</span> <span class="out">boot system flash:c2960x-universalk9-mz.152-7.E12.bin</span>
+<span class="cmt"># Μια ΔΕΥΤΕΡΗ δήλωση boot = αυτόματο fallback αν αποτύχει η πρώτη εικόνα</span>
+<span class="pc">SW1(config)#</span> <span class="out">boot system flash:c2960x-universalk9-mz.152-7.E3.bin</span>
+<span class="pc">SW1(config)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Επιβεβαίωσε ότι το config register κάνει κανονικό boot (0x2102) — ΟΧΙ 0x2142</span>
+<span class="pc">SW1#</span> <span class="out">show boot | include register|BOOT</span>
+<span class="out">BOOT path-list : flash:...E12.bin;flash:...E3.bin
+Configuration Register is 0x2102</span>
+
+<span class="cmt"># ΑΠΟΘΗΚΕΥΣΕ — μια μη αποθηκευμένη δήλωση boot ξεχνιέται στο reload</span>
+<span class="pc">SW1#</span> <span class="out">write memory</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Η Σειρα των Δηλωσεων boot = Σειρα Boot</span>
+    <p>Το IOS δοκιμάζει τις γραμμές <code>boot system</code> από πάνω προς τα κάτω, οπότε η <strong>νέα εικόνα πρέπει να είναι πρώτη</strong> και η παλιά δεύτερη. Δύο λάθη καίνε εγκαταστάσεις: το να ξεχάσεις <code>write memory</code> (η συσκευή κάνει reload σε ό,τι είχε το startup-config, αγνοώντας την αλλαγή σου), και το να έχει το config register οριστεί σε <code>0x2142</code> από παλιά ανάκτηση κωδικού (αγνοεί εντελώς το startup-config και ανεβαίνει κενή). Και τα δύο είναι μία εντολή <code>show</code> μακριά από το να πιαστούν — επιβεβαίωσε <code>show boot</code> και το register <em>πριν</em> κάνεις reload, όχι μετά.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Κανε Reload &amp; Επιβεβαιωσε <span class="danger-badge">Επιδραση σε Υπηρεσια</span></h2>
+  <p class="section-thesis"><em>Κάνε reboot μέσα σε παράθυρο συντήρησης, με οπλισμένο timer ασφαλείας σε περίπτωση που η νέα εικόνα δεν γυρίσει όπως περιμένεις. Μετά επιβεβαίωσε ότι πραγματικά τρέχεις τη νέα έκδοση.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — το reload, με αλεξιπτωτο</span>
+    <pre class="term"><span class="cmt"># Προαιρετικό αλλά σοφό σε απομακρυσμένο εξοπλισμό: όπλισε ένα δίχτυ ασφαλείας ΠΡΙΝ κάνεις reload.
+# Αν η συσκευή γυρίσει λάθος και δεν μπορείς να τη διορθώσεις, αυτό την κάνει reload ξανά
+# στην (ακόμα παρούσα) παλιά εικόνα μετά το παράθυρο. Ακύρωσέ το αν όλα είναι εντάξει.</span>
+<span class="pc">SW1#</span> <span class="out">reload in 15</span>          <span class="cmt"># κράτα ένα re-reload για 15 λεπτά μπροστά</span>
+<span class="cmt"># ... μετά κάνε το πραγματικό reload:</span>
+<span class="pc">SW1#</span> <span class="out">reload</span>
+<span class="out">System configuration has been modified. Save? [yes/no]: </span><span class="out">yes</span>
+<span class="out">Proceed with reload? [confirm]</span>
+
+<span class="cmt"># --- η συσκευή κάνει reboot στη νέα εικόνα ---</span>
+
+<span class="cmt"># Επιβεβαίωσε ότι πραγματικά έπιασε η αναβάθμιση, μετά ακύρωσε το δίχτυ ασφαλείας</span>
+<span class="pc">SW1#</span> <span class="out">show version | include Version</span>
+<span class="out">Cisco IOS Software ... Version 15.2(7)E12   ← νέο!</span>
+<span class="pc">SW1#</span> <span class="out">reload cancel</span>     <span class="cmt"># όλα καλά — αφόπλισε το αλεξίπτωτο</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Αν Γυρισει Λαθος — Κανε Rollback</span>
+    <p>Επειδή κράτησες την παλιά εικόνα και την έβαλες ως δεύτερη δήλωση boot, το rollback είναι γρήγορο: <code>no boot system flash:...E12.bin</code> για να ρίξεις τη νέα (αφήνοντας την παλιά), <code>write memory</code>, <code>reload</code> — είσαι πίσω στη γνωστή-καλή έκδοση με ένα reboot. Γι' αυτό ακριβώς δεν διαγράφεις την παλιά εικόνα για να κάνεις χώρο. Αν η συσκευή δεν κάνει καθόλου boot, το console + ROMMON (<code>boot flash:...E3.bin</code> από το prompt <code>rommon&gt;</code>) είναι η τελευταία ελπίδα — γι' αυτό ένα καλώδιο console είναι πάντα στην τσάντα.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">IOS-XE Install Mode — Ο Συγχρονος Δρομος</h2>
+  <p class="section-thesis"><em>Τα Catalyst 9000, ISR 4000 και τρέχουσες πλατφόρμες IOS-XE αντικαθιστούν το ζογκλάρισμα boot-system με ένα πακεταρισμένο workflow install που στήνει, ενεργοποιεί, και κάνει commit — με ενσωματωμένο χρονισμένο rollback. Αν το <code>show version</code> λέει IOS-XE, προτίμησε αυτό.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS-XE — add, activate (auto-reload), commit</span>
+    <pre class="term"><span class="cmt"># Επιβεβαίωσε ότι είσαι σε INSTALL mode (όχι BUNDLE) — οι εντολές install το χρειάζονται</span>
+<span class="pc">SW1#</span> <span class="out">show version | include INSTALL|BUNDLE</span>
+
+<span class="cmt"># 1. Στήσε το πακέτο σε όλα τα μέλη του stack (καμία επίδραση σε υπηρεσία)</span>
+<span class="pc">SW1#</span> <span class="out">install add file flash:cat9k_iosxe.17.09.05.SPA.bin</span>
+
+<span class="cmt"># 2. Ενεργοποίησε — αυτό κάνει reload το switch. "prompt-level none" για scripted·
+#    ξεκινάει έναν timer rollback μέσα στον οποίο πρέπει να επιβεβαιώσεις, αλλιώς επαναφέρεται.</span>
+<span class="pc">SW1#</span> <span class="out">install activate</span>
+
+<span class="cmt"># --- κάνει reload στη νέα εικόνα ---</span>
+
+<span class="cmt"># 3. Ικανοποιημένος; Κάνε commit για να το μονιμοποιήσεις και να σταματήσεις το auto-rollback.</span>
+<span class="pc">SW1#</span> <span class="out">install commit</span>
+
+<span class="cmt"># Δεν είσαι ικανοποιημένος; Πριν κάνεις commit, γύρνα στην προηγούμενη εικόνα:</span>
+<span class="pc">SW1#</span> <span class="out">install rollback to committed</span>
+<span class="pc">SW1#</span> <span class="out">install remove inactive</span>   <span class="cmt"># αργότερα: πάρε πίσω χώρο από παλιά πακέτα</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Μην Αναμειγνυεις τα Δυο Modes</span>
+    <p>Το install-mode και το bundle-mode είναι διαφορετικοί κόσμοι. Σε μια συσκευή IOS-XE που τρέχει σε install mode, το <code>boot system</code> που δείχνει σε ένα ακατέργαστο <code>.bin</code> μπορεί να την αφήσει ασυνεπή· αντίστροφα οι εντολές <code>install</code> δεν κάνουν τίποτα χρήσιμο σε bundle mode. Έλεγξε πρώτα με <code>show version</code> και χρησιμοποίησε το αντίστοιχο workflow. Το μεγάλο πλεονέκτημα του install mode είναι το <strong>βήμα commit</strong>: η ενεργοποίηση είναι προσωρινή και κάνει auto-rollback αν δεν επιβεβαιώσεις — οπότε μια κακή αναβάθμιση σε απομακρυσμένο switch αναιρείται μόνη της αντί να σε αφήσει κολλημένο. Αυτή η ασφάλεια είναι ο λόγος που είναι το σύγχρονο default.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Η Λιστα Ελεγχου Αναβαθμισης</h2>
+  <p class="section-thesis"><em>Όλο το post ως runbook. Τύπωσέ το· ακολούθησέ το κάθε φορά· μην παραλείψεις γραμμή.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Βημα</th><th>Εντολη / ενεργεια</th></tr></thead>
+    <tbody>
+      <tr><td>1 · Επιβεβαίωσε μοντέλο &amp; έκδοση</td><td><code>show version</code> — πάρε την ακριβή εικόνα για αυτό το μοντέλο + άδεια.</td></tr>
+      <tr><td>2 · Έλεγξε χώρο</td><td><code>dir flash:</code> — αρκετός για νέα + κράτα παλιά.</td></tr>
+      <tr><td>3 · Κάνε backup config &amp; εικόνα</td><td><code>copy run tftp:</code>· αντίγραψε την τρέχουσα εικόνα εκτός συσκευής.</td></tr>
+      <tr><td>4 · Αντίγραψε νέα εικόνα</td><td><code>copy tftp: flash:</code></td></tr>
+      <tr><td>5 · Επιβεβαίωσε hash</td><td><code>verify /md5 flash:...</code> — πρέπει να ταιριάζει με τη Cisco. Μη διαπραγματεύσιμο.</td></tr>
+      <tr><td>6 · Μεταβλητή boot</td><td><code>boot system</code> πρώτα νέα, παλιά δεύτερη· έλεγξε <code>show boot</code>· register 0x2102.</td></tr>
+      <tr><td>7 · Αποθήκευσε</td><td><code>write memory</code></td></tr>
+      <tr><td>8 · Reload σε παράθυρο</td><td>Όπλισε <code>reload in</code>· <code>reload</code>· επιβεβαίωσε <code>show version</code>· <code>reload cancel</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Ο κίνδυνος δεν είναι η αναβάθμιση, είναι μια συσκευή που δεν κάνει boot.</strong> Κάθε βήμα σε αυτό το post υπάρχει για να κρατήσει ένα εφεδρικό OS στη συσκευή και να πιάσει προβλήματα πριν το reboot, όχι μετά.</li>
+      <li><strong>Επιβεβαίωσε το hash, πάντα.</strong> <code>verify /md5</code> έναντι της δημοσιευμένης τιμής της Cisco. Μια κατεστραμμένη εικόνα που κάνει μισό boot σε ROMMON είναι επίσκεψη στο site· μια ασυμφωνία που πιάνεται στο CLI είναι ένα ξανακατέβασμα.</li>
+      <li><strong>Το αντίγραφο δεν είναι boot — όρισε τη μεταβλητή boot.</strong> Νέα εικόνα πρώτη, παλιά δεύτερη (auto-fallback), επιβεβαίωσε <code>show boot</code> και register 0x2102, και <code>write memory</code> αλλιώς ξεχνιέται.</li>
+      <li><strong>Κράτα την παλιά εικόνα.</strong> Είναι το rollback σου με ένα reboot (<code>no boot system</code> τη νέα, reload). Ποτέ μην τη διαγράψεις για να κάνεις χώρο — κόψε αντ' αυτού αρχεία crash ή αχρησιμοποίητες εικόνες.</li>
+      <li><strong>Κάνε reload σε παράθυρο με αλεξίπτωτο.</strong> Το <code>reload in 15</code> πριν το πραγματικό reload σε επαναφέρει αν φερθεί άσχημα η νέα εικόνα και δεν μπορείς να τη φτάσεις· <code>reload cancel</code> μόλις επιβεβαιωθεί ότι είναι καλή.</li>
+      <li><strong>IOS-XE; Χρησιμοποίησε install mode.</strong> Το <code>install add/activate/commit</code> στήνει με ασφάλεια και κάνει auto-rollback μέχρι να κάνεις commit — πολύ πιο ασφαλές για απομακρυσμένο εξοπλισμό από το ζογκλάρισμα boot-system.</li>
+      <li><strong>Είναι η εκδοχή σε επίπεδο OS της πειθαρχίας backup σου.</strong> Ίδια νοοτροπία με τα backups config: ποτέ μην αφαιρείς το μόνο λειτουργικό αντίγραφό σου, κράτα πάντα δρόμο πίσω.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Εκκρεμεις αναβαθμισεις Cisco που φοβασαι να τρεξεις στην Κρητη;</h3>
+    <p>Μια αναβάθμιση IOS δεν πρέπει να είναι αυτό που σε κρατάει ξύπνιο ανήσυχο. Τις σχεδιάζω και τις τρέχω σταδιακά σε παράθυρο συντήρησης, επιβεβαιωμένες πρώτα έναντι γνωστών CVE, με έτοιμη διαδρομή rollback πριν το reboot &mdash; μαζί με αυτές που κάνουν τον κόσμο νευρικό να τις κάνει απομακρυσμένα.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

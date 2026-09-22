@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Το Firewall του RouterOS, Σωστα — S. Markakis</title>
+<meta name="description" content="Connection tracking, μια default-deny input chain που δεν μπορεί να σε κλειδώσει έξω, μια forward chain με FastTrack που δεν σπάει το QoS, και rate-limiting με address-list για brute-force — χτισμένο από πρώτες αρχές.">
+<meta property="og:title" content="MikroTik: Το Firewall του RouterOS, Σωστα — S. Markakis">
+<meta property="og:description" content="Connection tracking, μια default-deny input chain που δεν μπορεί να σε κλειδώσει έξω, μια forward chain με FastTrack που δεν σπάει το QoS, και rate-limiting με address-list για brute-force — χτισμένο από πρώτες αρχές.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-firewall-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-firewall.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-firewall.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-firewall-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-firewall.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-firewall-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-firewall.html">
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Το Firewall του RouterOS, Σωστα",
+  "description": "Connection tracking, μια default-deny input chain που δεν μπορεί να σε κλειδώσει έξω, μια forward chain με FastTrack που δεν σπάει το QoS, και rate-limiting με address-list για brute-force — χτισμένο από πρώτες αρχές.",
+  "datePublished": "2026-08-29",
+  "dateModified": "2026-08-29",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-firewall-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-firewall.png",
+  "keywords": [
+    "mikrotik",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-firewall"
+  },
+  "timeRequired": "PT11M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-firewall.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Το Firewall του RouterOS<br>Σωστα</h1>
+  <p class="post-subtitle">Κάθε MikroTik έρχεται με ένα default firewall που είναι στην πραγματικότητα αξιοπρεπές — και σχεδόν κάθε χαλασμένο MikroTik που κάνουμε audit το είχε κάποιος «βελτιώσει» αντιγράφοντας κανόνες που δεν καταλάβαινε. Αυτό το post χτίζει το firewall από πρώτες αρχές: connection tracking, μια default-deny input chain που δεν μπορεί να σε κλειδώσει έξω, μια forward chain με FastTrack που δεν σαμποτάρει το QoS σου, και address lists που κάνουν τις brute-force επιθέσεις βαρετές.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">Firewall</span>
+    <span class="tag">Connection Tracking</span>
+    <span class="tag">FastTrack</span>
+    <span class="tag">Address Lists</span>
+    <span class="tag">Θωρακιση</span>
+    <span class="tag">MTCNA+</span>
+  </div>
+  <hr class="title-rule">
+
+
+  <!-- Hero diagram: the two chains -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="fa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="210" fill="#e1ded7"/>
+      <!-- router box -->
+      <rect x="230" y="40" width="260" height="130" rx="8" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="62" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#1a1a18;text-anchor:middle;">RouterOS</text>
+      <!-- input chain -->
+      <rect x="255" y="76" width="210" height="30" rx="4" fill="#e6ddd2" stroke="#c08020"/>
+      <text x="360" y="95" style="font-family:ui-monospace,monospace;font-size:10px;fill:#8a5a10;text-anchor:middle;">chain=input → ο ίδιος ο router</text>
+      <!-- forward chain -->
+      <rect x="255" y="122" width="210" height="30" rx="4" fill="#dde5d2" stroke="#558840"/>
+      <text x="360" y="141" style="font-family:ui-monospace,monospace;font-size:10px;fill:#3a6a28;text-anchor:middle;">chain=forward → κίνηση που περνά μέσα του</text>
+      <!-- arrows -->
+      <line x1="60" y1="91" x2="250" y2="91" style="stroke:#c08020;stroke-width:2;marker-end:url(#fa)"/>
+      <text x="130" y="82" style="font-family:'Inter',sans-serif;font-size:9px;fill:#8a5a10;">SSH/WinBox προς τον router</text>
+      <line x1="60" y1="137" x2="250" y2="137" style="stroke:#558840;stroke-width:2;"/>
+      <line x1="470" y1="137" x2="660" y2="137" style="stroke:#558840;stroke-width:2;marker-end:url(#fa)"/>
+      <text x="130" y="128" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a6a28;">client LAN → internet</text>
+      <text x="565" y="128" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a6a28;">έξοδος από το WAN</text>
+      <text x="360" y="196" style="font-family:'Inter',sans-serif;font-size:9.5px;fill:#888880;text-anchor:middle;">Δύο διαφορετικές ερωτήσεις: «μπορείς να μου μιλήσεις ΕΜΕΝΑ;» (input) vs «μπορείς να μιλήσεις ΜΕΣΩ εμού;» (forward). Το να τις μπερδεύεις είναι το bug #1 στα firewalls.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το firewall του RouterOS είναι netfilter από κάτω — η ίδια μηχανή με το iptables του Linux — και ανταμείβει το ίδιο mental model: τα πακέτα διασχίζουν <strong>chains</strong> κανόνων από πάνω προς τα κάτω, <strong>κερδίζει ο πρώτος κανόνας που ταιριάζει</strong>, και ένας πίνακας <strong>connection-tracking</strong> αφήνει έναν φθηνό κανόνα («ήδη established; accept») να χειρίζεται το 99% των πακέτων ώστε οι ακριβές αποφάσεις να τρέχουν μόνο στο πρώτο πακέτο κάθε σύνδεσης.</p>
+    <p>Όλα σε αυτό το post κρέμονται από τρεις βασικούς κανόνες: <strong>το input προστατεύει τον router, το forward προστατεύει το δίκτυο, και ό,τι δεν γίνεται ρητά accept ρίχνεται.</strong> Θα χτίσουμε και τις δύο chains με τη σειρά που δεν μπορεί να σε κλειδώσει έξω, θα συνδέσουμε την απομόνωση inter-VLAN που υποσχέθηκε το <a href="mikrotik-vlans.html">post του VLAN</a>, θα ανάψουμε το FastTrack χωρίς να σπάσουμε τις ουρές του <a href="mikrotik-qos.html">post του QoS</a>, και θα κλείσουμε με το pattern address-list που μετατρέπει το SSH brute-force από απειλή σε γραμμή log.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-terminal.html">RouterOS Terminal</a> — ειδικά το Safe Mode, που αυτό το post υποθέτει ότι χρησιμοποιείς</li>
+      <li><a href="mikrotik-vlans.html">VLAN Segmentation</a> αν θέλεις οι κανόνες inter-VLAN να σημαίνουν κάτι</li>
+      <li>Ένας δοκιμαστικός router ή CHR — όχι το production edge, όχι στο πρώτο πέρασμα</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Connection Tracking — η Μηχανη Κατω απο τα Παντα</h2>
+  <p class="section-thesis"><em>Το firewall δεν κρίνει πακέτα· κρίνει συνδέσεις. Κατάλαβε τις τέσσερις καταστάσεις και κάθε κανόνας σε αυτό το post γίνεται προφανής.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>State</th><th>Σημασια — και τι να κανεις με αυτο</th></tr></thead>
+    <tbody>
+      <tr><td>new</td><td>Πρώτο πακέτο μιας σύνδεσης. Η μόνη κατάσταση που χρειάζεται πραγματική απόφαση.</td></tr>
+      <tr><td>established</td><td>Ανήκει σε σύνδεση που έχουμε ήδη επιτρέψει. Accept, φθηνά, πρώτα.</td></tr>
+      <tr><td>related</td><td>Νέα σύνδεση που γεννήθηκε από μια επιτρεπόμενη (FTP data, σφάλματα ICMP). Accept μαζί με established.</td></tr>
+      <tr><td>invalid</td><td>Ο tracker δεν μπορεί να το τοποθετήσει — αδέσποτα RST, spoofed σκουπίδια, ασύμμετρα κατάλοιπα. Drop, πάντα.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — δες τον tracker να κανει τη δουλεια του (ασφαλες)</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip/firewall/connection print where dst-address~":443"</span>
+<span class="out"> #  PROTO  SRC-ADDRESS           DST-ADDRESS          TCP-STATE   TIMEOUT
+ 0  tcp    192.168.88.34:52114   142.250.184.4:443    established 23h59m
+ 1  tcp    192.168.88.51:49220   104.18.32.7:443      established 23h58m</span>
+
+<span class="cmt"># Κάθε κανόνας παρακάτω που λέει connection-state= συμβουλεύεται αυτόν τον πίνακα.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Γιατι το State-First Ειναι Επισης Κανονας Επιδοσης</span>
+    <p>Ένα φορτωμένο edge ξενοδοχείου σπρώχνει εκατομμύρια πακέτα το λεπτό μέσα από το firewall, αλλά μόνο μερικές εκατοντάδες <em>νέες</em> συνδέσεις. Με το accept established/related στην κορυφή της chain, οι ακριβοί κανόνες από κάτω — address lists, ταίριασμα interface, έλεγχοι port — τρέχουν μόνο σε εκείνες τις μερικές εκατοντάδες. Ταξινόμησε τις chains σου κατά συχνότητα ταιριάσματος και το CPU μόλις που καταλαβαίνει ότι υπάρχει firewall· ταξινόμησέ τες απρόσεκτα και ένα hEX αρχίζει να ρίχνει πακέτα στα 300 Mb/s.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Η Input Chain — Προστατεψε τον Router</h2>
+  <p class="section-thesis"><em>Το input είναι κίνηση απευθυνόμενη στον ίδιο τον router: WinBox, SSH, ερωτήματα DNS, pings. Ο στόχος είναι μια chain που καταλήγει σε drop — χτισμένη με σειρά που δεν μπορεί να σε αφήσει απ' έξω.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — default-deny input, σειρα χωρις κινδυνο lockout</span>
+    <pre class="term"><span class="cmt"># SAFE MODE ΠΡΩΤΑ. Ctrl+X στο terminal — αν κοπείς μόνος σου,
+# η πτώση του session επαναφέρει τα πάντα. Μη διαπραγματεύσιμο για δουλειά firewall.</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="cmt">[Safe Mode taken]</span>
+
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip/firewall/address-list</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/address-list></span> <span class="out">add list=MGMT address=192.168.88.0/24 comment="management subnet"</span>
+
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip/firewall/filter</span>
+<span class="cmt"># 1. Το φθηνό accept που χειρίζεται σχεδόν τα πάντα</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=accept connection-state=established,related comment="accept est/rel"</span>
+<span class="cmt"># 2. Σκότωσε τα σκουπίδια νωρίς</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=drop connection-state=invalid comment="drop invalid"</span>
+<span class="cmt"># 3. ICMP — κράτα το ping και το path-MTU να δουλεύουν</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=accept protocol=icmp comment="accept icmp"</span>
+<span class="cmt"># 4. Management, μόνο από τη λίστα management</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=accept src-address-list=MGMT comment="mgmt access"</span>
+<span class="cmt"># 5. Το LAN χρειάζεται το DNS του router (αφαίρεσέ το αν οι clients χρησιμοποιούν εξωτερικό DNS)</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=accept protocol=udp dst-port=53 in-interface-list=LAN comment="LAN dns"</span>
+<span class="cmt"># 6. Ο ΤΟΙΧΟΣ — ό,τι άλλο, φεύγει</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=drop comment="drop all else"</span>
+
+<span class="cmt"># Ακόμα συνδεδεμένος; Ωραία. Άφησε το Safe Mode (Ctrl+X ξανά) για να γίνει commit.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ο Κανονας Drop Ειναι Μονοδρομη Πορτα</span>
+    <p>Οι κανόνες 1–5 πριν τον κανόνα 6 δεν είναι προτίμηση στιλ. Πρόσθεσε το τελικό drop <em>πρώτα</em> (ή μετακίνησέ το πάνω ενώ «αναδιοργανώνεις») και τη στιγμή που γίνεται commit, τα πακέτα του δικού σου session σταματούν να ταιριάζουν με τίποτα από πάνω του — το established σώζει ένα <em>υπάρχον</em> session SSH, αλλά το WinBox reconnect, το DNS, και κάθε μελλοντικό login πεθαίνουν. Αυτός είναι ο πιο συχνός τρόπος που ο κόσμος «τούβλωνει» απομακρυσμένα MikroTik. Το Safe Mode υπάρχει ακριβώς γι' αυτό· το δεύτερο επίπεδο προστασίας είναι το να τεσταρίζεις από ξεχωριστό session <em>πριν</em> κλείσεις αυτό που έκανε την αλλαγή.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Η Forward Chain — Προστατεψε το Δικτυο</h2>
+  <p class="section-thesis"><em>Το forward είναι ό,τι διασχίζει τον router: LAN προς internet, VLAN προς VLAN, internet προς τα port-forwards σου. Ίδια λογική default-deny, δύο νέες ιδέες — FastTrack και η εξαίρεση DSTNAT.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — default-deny forward</span>
+    <pre class="term"><span class="cmt"># 1. Κάνε FastTrack τον όγκο established (δες το section 04 πριν το ενεργοποιήσεις!)</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=fasttrack-connection hw-offload=yes connection-state=established,related comment="fasttrack"</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=accept connection-state=established,related comment="accept est/rel"</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=drop connection-state=invalid comment="drop invalid"</span>
+
+<span class="cmt"># 2. Απομόνωση inter-VLAN — οι επισκέπτες και το IoT βλέπουν μόνο internet, τίποτα άλλο
+#    (interface lists από το post VLAN: LAN = όλα τα SVI, WAN = uplinks)</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=drop in-interface=vlan20-guest out-interface-list=LAN comment="guest isolation"</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=drop in-interface=vlan30-iot out-interface-list=LAN comment="iot isolation"</span>
+
+<span class="cmt"># 3. Από το internet, μπαίνει μόνο κίνηση port-forwarded</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=accept connection-state=new connection-nat-state=dstnat in-interface-list=WAN comment="allow port-forwards"</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=drop connection-state=new in-interface-list=WAN comment="drop unsolicited WAN"</span>
+
+<span class="cmt"># 4. LAN προς τον κόσμο</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=accept in-interface-list=LAN out-interface-list=WAN comment="LAN to internet"</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=drop comment="drop all else"</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Το connection-nat-state=dstnat Ειναι το Post Port-Forward, Ολοκληρωμενο</span>
+    <p>Το <a href="mikrotik-port-forwarding.html">post port-forwarding</a> δημιούργησε κανόνες dst-nat· αυτή η chain αποφασίζει αν εκείνη η κίνηση μπορεί πραγματικά να περάσει. Το ταίριασμα <code>connection-nat-state=dstnat</code> αντί για απαρίθμηση ports σημαίνει ότι κάθε τρέχον και μελλοντικό port-forward επιτρέπεται αυτόματα — και <em>μόνο</em> τα port-forwards, γιατί αυθόρμητη κίνηση WAN που δεν χτύπησε κανόνα dst-nat αποτυγχάνει στο ταίριασμα και πεθαίνει στον επόμενο κανόνα. Πρόσθεσε ένα forward, μην ξαναγγίξεις το filter.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">FastTrack — Δωρεαν Ταχυτητα, με μια Κοφτερη Ακμη</h2>
+  <p class="section-thesis"><em>Το FastTrack αφήνει τις established συνδέσεις να παρακάμπτουν το μεγαλύτερο μέρος του firewall, του NAT, και — αυτή είναι η κοφτερή ακμή — τη μηχανή ουρών. Μπορεί να διπλασιάσει το throughput σε μικρά CPU, και απενεργοποιεί σιωπηλά το QoS.</em></p>
+
+  <p>Όταν μια σύνδεση γίνεται fasttracked, τα πακέτα της παρακάμπτουν τους υπόλοιπους κανόνες filter, το μεγαλύτερο μέρος του mangle, και <strong>τα simple queues και τα queue trees δεν τα βλέπουν ποτέ</strong>. Σε ένα hEX που σπρώχνει ένα gigabit, αυτή είναι η διαφορά ανάμεσα σε 60% CPU και 15%. Στο δίκτυο ξενοδοχείου από το <a href="mikrotik-qos.html">post του QoS</a>, είναι επίσης ο λόγος που τα όρια bandwidth επισκεπτών σταμάτησαν να δουλεύουν τη μέρα που κάποιος ενεργοποίησε το FastTrack «για επίδοση».</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — καν' το fasttrack επιλεκτικα οταν μετραει το QoS</span>
+    <pre class="term"><span class="cmt"># Option A — κανένα QoS σε αυτό το box: κάνε fasttrack τα πάντα (κανόνας section 03)</span>
+
+<span class="cmt"># Option B — QoS μόνο στην κίνηση επισκεπτών: εξαίρεσε τους επισκέπτες από το fasttrack
+# ώστε οι ουρές να τους διαμορφώνουν ακόμα, κάνε fasttrack τα υπόλοιπα</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=forward action=fasttrack-connection connection-state=established,related src-address=!10.20.0.0/24 dst-address=!10.20.0.0/24 comment="fasttrack non-guest"</span>
+
+<span class="cmt"># Έλεγξε τι πραγματικά γίνεται fasttracked:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip/firewall/filter print stats where action=fasttrack-connection</span>
+<span class="out"> #  CHAIN    ACTION                 BYTES         PACKETS
+ 0  forward  fasttrack-connection   84 812 331 90    71 224 118</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — «Οι Ουρες μου Δειχνουν Μηδεν Κινηση»</span>
+    <p>Αν οι ουρές αναφέρουν σχεδόν καμία κίνηση ενώ οι χρήστες ξεκάθαρα κορένουν τη γραμμή, το FastTrack τρώει τα πακέτα πριν τρέξει η μηχανή ουρών. Οι μετρητές δεν λένε ψέματα — απλώς μετράνε ό,τι τους επιτρέπεται να δουν. Είτε περιόρισε τον κανόνα fasttrack γύρω από την κίνηση που διαμορφώνεις (Option B), είτε δέξου ότι σε εκείνο το box παίρνεις FastTrack <em>ή</em> QoS ανά flow, όχι και τα δύο. Το ίδιο ισχύει για routing βασισμένο σε mangle: τα fasttracked flows αγνοούν routing marks που μπήκαν μετά το πρώτο πακέτο.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Address Lists — το Firewall Που Ανανεωνεται Μονο του</h2>
+  <p class="section-thesis"><em>Ένα address list είναι ένα ονομασμένο σύνολο IP που οι κανόνες μπορούν να ταιριάξουν — και στο οποίο οι κανόνες μπορούν να ΓΡΑΨΟΥΝ, με timeouts. Αυτό κλείνει τον κύκλο: το firewall παρατηρεί, καταγράφει, και αντιδρά.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — κλασικη σταδιακη παγιδα SSH brute-force</span>
+    <pre class="term"><span class="cmt"># Όποιος ανοίγει μια ΝΕΑ σύνδεση προς :22 καταγράφεται στο stage1.
+# Το να το ξανακάνει μέσα σε ένα λεπτό τον προάγει στάδιο προς στάδιο σε ban 10 ημερών.
+# Οι κανόνες πρέπει να κάθονται ΠΑΝΩ από το accept mgmt στην input chain.</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=drop protocol=tcp dst-port=22 src-address-list=ssh-blacklist comment="drop banned"</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=add-src-to-address-list protocol=tcp dst-port=22 connection-state=new src-address-list=ssh-stage2 address-list=ssh-blacklist address-list-timeout=10d comment="stage3: ban"</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=add-src-to-address-list protocol=tcp dst-port=22 connection-state=new src-address-list=ssh-stage1 address-list=ssh-stage2 address-list-timeout=1m comment="stage2"</span>
+<span class="pc">[admin@MikroTik] /ip/firewall/filter></span> <span class="out">add chain=input action=add-src-to-address-list protocol=tcp dst-port=22 connection-state=new address-list=ssh-stage1 address-list-timeout=1m comment="stage1"</span>
+
+<span class="cmt"># Μια εβδομάδα μετά, σε οποιοδήποτε box εκτεθειμένο στο internet:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip/firewall/address-list print count-only where list=ssh-blacklist</span>
+<span class="out">347</span>   <span class="cmt">← 347 bots που κάνουν ban τον εαυτό τους, μηδέν προσπάθεια admin</span></pre>
+  </div>
+
+  <p>Η ίδια primitive λύνει τη μισή πρακτική δουλειά firewall: μια λίστα <code>MGMT</code> που επεξεργάζεσαι σε ένα μέρος αντί για πέντε κανόνες· μια allow-list χωρών που τροφοδοτείται από ένα script· μια λίστα <code>wireguard-peers</code> που θα χρησιμοποιήσει το post του VPN. Όταν ένα κριτήριο ταιριάσματος εμφανίζεται σε παραπάνω από έναν κανόνα, πιθανότατα πρέπει να γίνει address list.</p>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Επαληθευσε οτι Οντως Πυροδοτειται <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Ένα firewall που δεν έχεις τεσταρίσει είναι υπόθεση εργασίας. Μετρητές, logging, και μια σκόπιμη επίθεση από το VLAN επισκεπτών το μετατρέπουν σε γεγονός.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Τι αποδεικνυει</th></tr></thead>
+    <tbody>
+      <tr><td>/ip/firewall/filter print stats</td><td>Μετρητές πακέτων ανά κανόνα — ένας κανόνας με 0 πακέτα για πάντα είναι νεκρό βάρος ή λάθος σειρά.</td></tr>
+      <tr><td>/ip/firewall/connection print</td><td>Ζωντανός πίνακας συνδέσεων — states, timeouts, ποιος μιλά με ποιον.</td></tr>
+      <tr><td>/ip/firewall/address-list print</td><td>Τρέχουσα συμμετοχή λίστας, μαζί με dynamic εγγραφές με χρονόμετρα αντίστροφης μέτρησης.</td></tr>
+      <tr><td>/log print where topics~"firewall"</td><td>Hits σε κανόνες με log=yes — άναψέ το ανά κανόνα ενώ τεσταρίζεις, σβήσ' το μετά.</td></tr>
+      <tr><td>/tool/torch</td><td>Ζωντανή προβολή ανά flow ενός interface ενώ παράγεις δοκιμαστική κίνηση.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Μετά το τίμιο τεστ, ίδια πειθαρχία με το <a href="mikrotik-vlans.html">post του VLAN</a>: σύνδεσε ένα laptop στο VLAN επισκεπτών και <em>προσπάθησε να μπεις</em>. Κάνε ping στο subnet του CCTV (πρέπει να αποτύχει), WinBox στον router (πρέπει να αποτύχει), κάνε browse το internet (πρέπει να δουλέψει), μετά δες τις προσπάθειές σου να προσγειώνονται στο <code>filter print stats</code> πάνω στους κανόνες απομόνωσης. Ένας μετρητής που ανέβηκε ενώ επιτιθόσουν είναι η μόνη απόδειξη που σου δίνει ποτέ ένας κανόνας drop.</p>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το input προστατεύει τον router, το forward προστατεύει το δίκτυο</strong> — δύο chains, δύο ερωτήσεις, και το να τις μπερδεύεις είναι το πώς «το firewall» αποτυγχάνει να σταματήσει ό,τι όλοι υπέθεταν ότι σταματούσε.</li>
+      <li><strong>State πρωτα:</strong> accept established/related στην κορυφή, drop invalid αμέσως μετά. Όλα από κάτω τότε τρέχουν μόνο σε νέες συνδέσεις — σωστό <em>και</em> γρήγορο.</li>
+      <li><strong>Χτίζε προς το τελικό drop, σε Safe Mode,</strong> και τεσταρίζε από δεύτερο session πριν κάνεις commit. Ο κανόνας drop-all είναι μονόδρομη πόρτα αν λείπει κάτι από πάνω του.</li>
+      <li><strong>Το connection-nat-state=dstnat</strong> δέχεται ακριβώς τα port-forwards σου, παρόντα και μελλοντικά, χωρίς να απαριθμήσεις ούτε ένα port στο filter.</li>
+      <li><strong>Το FastTrack παρακαμπτει ουρές και το μεγαλύτερο μέρος του mangle.</strong> Είναι δωρεάν throughput σε boxes χωρίς QoS και σιωπηλός δολοφόνος QoS σε boxes με αυτό — περιόρισέ το ή παράλειψέ το.</li>
+      <li><strong>Τα address lists με timeouts κάνουν το firewall αυτο-ανανεωμένο</strong> — η σταδιακή παγίδα brute-force κάνει ban εκατοντάδες bots με τέσσερις κανόνες και καμία συντήρηση.</li>
+      <li><strong>Οι μετρητές είναι η μόνη αλήθεια.</strong> Επιτέθεσε στο δικό σου δίκτυο από το VLAN επισκεπτών και δες τους κανόνες drop να μετράνε — αυτό είναι ένα τεσταρισμένο firewall.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Το firewall του MikroTik σου προστατευει η προσποιειται;</h3>
+    <p>Κάνω audit και ξαναχτίζω firewalls RouterOS σε default-deny και στις δύο chains, με απομόνωση που έχω πραγματικά τεσταρίσει αντί να την έχω υποθέσει, και παγίδες brute-force στα management ports όπου έχουν τη μεγαλύτερη σημασία.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

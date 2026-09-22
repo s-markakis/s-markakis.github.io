@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Network Architecture: The Multihomed Edge — S. Markakis</title>
+<meta name="description" content="Designing a resilient internet edge — provider-assigned dual-WAN vs provider-independent BGP, active/backup vs active/active, and where NAT/CGNAT belongs (including the double-NAT and Starlink-CGNAT traps).">
+<meta property="og:title" content="Network Architecture: The Multihomed Edge — S. Markakis">
+<meta property="og:description" content="Designing a resilient internet edge — provider-assigned dual-WAN vs provider-independent BGP, active/backup vs active/active, and where NAT/CGNAT belongs (including the double-NAT and Starlink-CGNAT traps).">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/arch-multihomed-edge-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/arch-multihomed-edge.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/arch-multihomed-edge.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/arch-multihomed-edge-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/arch-multihomed-edge.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/arch-multihomed-edge-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/arch-multihomed-edge.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Network Architecture: The Multihomed Edge",
+  "description": "Designing a resilient internet edge — provider-assigned dual-WAN vs provider-independent BGP, active/backup vs active/active, and where NAT/CGNAT belongs (including the double-NAT and Starlink-CGNAT traps).",
+  "datePublished": "2026-07-31",
+  "dateModified": "2026-07-31",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/arch-multihomed-edge-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/arch-multihomed-edge.png",
+  "keywords": [
+    "mikrotik",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#arch-multihomed-edge"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="arch-multihomed-edge.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>Architecture</span> &nbsp;·&nbsp; Σχεδιαση &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Αρχιτεκτονικη Δικτυου<br>Το Multihomed Edge</h1>
+  <p class="post-subtitle">Δύο ISP είναι εύκολο. Δύο ISP που κάνουν failover καθαρά, δεν διαρρέουν transit, κρατάνε τις ίδιες δημόσιες IP, και βάζουν το NAT εκεί που ανήκει — αυτό είναι αρχιτεκτονική. Αυτός είναι ο σχεδιασμός ενός ανθεκτικού internet edge για μια επιχείρηση, WISP, ή οργανισμό πολλαπλών sites, από την ιδιοκτησία διευθύνσεων μέχρι την τοποθέτηση CGNAT.</p>
+  <div class="tags">
+    <span class="tag">Architecture</span>
+    <span class="tag">BGP</span>
+    <span class="tag">Multihoming</span>
+    <span class="tag">CGNAT</span>
+    <span class="tag">WISP</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το edge είναι εκεί που το δίκτυό σου συναντά το internet, και οι σχεδιαστικές του αποφάσεις είναι αυτές που δεν αλλάζεις εύκολα αργότερα: <strong>ποιανού διευθύνσεις χρησιμοποιείς</strong>, <strong>πώς δουλεύει πραγματικά το failover</strong>, και <strong>πού κάθεται το NAT</strong>. Κάν' τα σωστά και η προσθήκη χωρητικότητας ή τρίτου ISP είναι ρουτίνα· κάν' τα λάθος και θα αναριθμείς όλο το estate τη μέρα που αλλάζεις provider.</p>
+    <p>Η βασική επιλογή είναι <strong>provider-dependent έναντι provider-independent</strong>. Αν χρησιμοποιείς διευθύνσεις του ISP (PA) και μία στατική IP, «multihoming» σημαίνει dual-WAN failover με NAT — φθηνό, απλό, αλλά η δημόσια IP σου αλλάζει όταν πεθάνει το primary, σπάζοντας τις inbound υπηρεσίες. Αν κατέχεις τις δικές σου διευθύνσεις (ένα PI block + ένα ASN) και μιλάς <a href="cisco-bgp-dual-isp.html">BGP</a> και με τους δύο ISP, κρατάς τις <em>ίδιες</em> δημόσιες IP σε όλο το failover — το πραγματικό multihomed edge, και υποχρεωτικό για όποιον φιλοξενεί inbound υπηρεσίες ή τρέχει <a href="mikrotik-bgp-dual-isp.html">WISP</a>. Αυτό το post είναι η αρχιτεκτονική γύρω από αυτά τα builds· το config του BGP είναι δικό του ζευγάρι posts.</p>
+    <div class="prereqs-label">Διαβασε μαζι με</div>
+    <ul class="prereqs-list">
+      <li>Τα builds BGP — dual-ISP <a href="cisco-bgp-dual-isp.html">Cisco</a> / <a href="mikrotik-bgp-dual-isp.html">MikroTik</a></li>
+      <li>Η επιλογή χωρίς BGP — <a href="cisco-ipsla-failover.html">IP SLA dual-WAN</a> / <a href="starlink-mikrotik-failover.html">Starlink failover</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Ιδιοκτησια Διευθυνσεων — Η Αποφαση Πισω Απο Τα Παντα</h2>
+  <p class="section-thesis"><em>Διευθύνσεις PA (provider-assigned) ή PI (provider-independent). Αυτή η μία επιλογή καθορίζει αν το failover κρατάει τις δημόσιες IP σου — και άρα αν επιβιώνουν οι inbound υπηρεσίες.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Πτυχη</th><th>PA + dual-WAN NAT</th></tr></thead>
+    <tbody>
+      <tr><td>Κόστος / πολυπλοκότητα</td><td>Χαμηλό — χωρίς ASN, χωρίς BGP</td></tr>
+      <tr><td>Δημόσια IP στο failover</td><td><strong>Αλλάζει</strong> (σε αυτή του backup ISP)</td></tr>
+      <tr><td>Επιβιώνουν οι inbound υπηρεσίες;</td><td>Όχι (χρειάζεται κόλπα dynamic DNS)</td></tr>
+      <tr><td>Κατάλληλο για</td><td>Sites μόνο outbound, SMB</td></tr>
+    </tbody>
+  </table>
+  <table class="cheat">
+    <thead><tr><th>Πτυχη</th><th>PI + BGP multihoming</th></tr></thead>
+    <tbody>
+      <tr><td>Κόστος / πολυπλοκότητα</td><td>Υψηλότερο — ASN + PI block + BGP</td></tr>
+      <tr><td>Δημόσια IP στο failover</td><td><strong>Παραμένει ίδια</strong></td></tr>
+      <tr><td>Επιβιώνουν οι inbound υπηρεσίες;</td><td>Ναι — ίδιες IP και στα δύο paths</td></tr>
+      <tr><td>Κατάλληλο για</td><td>Hosting, WISP, οργανισμούς πολλαπλών sites</td></tr>
+    </tbody>
+  </table>
+  <div class="callout defender">
+    <span class="callout-label">◆ Η Ειλικρινης Συσταση Αναλογα Με Το Μεγεθος</span>
+    <p>Οι περισσότερες μικρές επιχειρήσεις <strong>δεν</strong> χρειάζονται BGP — ένα edge PA dual-WAN με καθαρό <a href="cisco-ipsla-failover.html">IP-SLA failover</a> είναι η σωστή, φθηνή απάντηση για sites με βαρύ outbound, και οι inbound υπηρεσίες μπορούν να ζουν πίσω από ένα cloud reverse proxy που κρύβει την αλλαγή IP. Περνάς σε <strong>PI + BGP</strong> όταν φιλοξενείς υπηρεσίες στις οποίες συνδέεται ο κόσμος, τρέχεις WISP/ISP, ή συμβατικά δεν μπορεί να αλλάξει η δημόσια IP σου. Μην πουλάς BGP σε μια καφετέρια· μην τρέχεις επιχείρηση hosting πάνω σε dynamic DNS.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Active/Backup Εναντι Active/Active</h2>
+  <p class="section-thesis"><em>Δύο links μπορούν να κάθονται ένα-ζεστό-ένα-κρύο, ή και τα δύο να κουβαλάνε κίνηση. Η επιλογή διαμορφώνει το BGP policy σου και τον σχεδιασμό χωρητικότητας.</em></p>
+  <p>Το <strong>active/backup</strong> είναι το απλούστερο και συνήθως σωστό: το primary κουβαλάει τα πάντα, το backup μένει σε αδράνεια μέχρι να χρειαστεί. Σε όρους BGP αυτό είναι <a href="cisco-bgp-dual-isp.html">local-preference</a> για outbound και <a href="cisco-bgp-dual-isp.html">AS-path prepend</a> για να κατευθύνεις το inbound στο primary. Το <strong>active/active</strong> χρησιμοποιεί και τα δύο links ταυτόχρονα για περισσότερο συνολικό throughput — αλλά πρέπει να σχεδιάσεις για την περίπτωση αποτυχίας: αν κάθε link τρέχει στο 70% και το ένα πεθάνει, ο επιζών δεν μπορεί να απορροφήσει 140%, οπότε στην ουσία σχεδιάζεις κάθε ένα να μένει κάτω από 50%. Το active/active κάνει επίσης το inbound traffic engineering δύσκολο (μπορείς μόνο να <em>υπαινιχθείς</em> στο internet, σύμφωνα με τα BGP posts). Προτίμα active/backup εκτός αν πραγματικά χρειάζεσαι τη συνδυασμένη χωρητικότητα <em>και</em> μπορείς να ζήσεις μέσα στο όριο του επιζώντος.</p>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Που Καθεται Το NAT/CGNAT</h2>
+  <p class="section-thesis"><em>Η τοποθέτηση του NAT είναι αρχιτεκτονική απόφαση, όχι ένα checkbox. Βάλ' το στο λάθος σημείο και το failover κατακρεουργεί την κίνηση, ή η πλατφόρμα συνδρομητών σου δεν κλιμακώνει. Αυτό είναι το κομμάτι που το πεδίο πάντα κάνει λάθος.</em></p>
+  <p>Για ένα edge <strong>PA dual-WAN</strong>, το NAT ζει στον edge router και πρέπει να <em>ακολουθεί το ζωντανό WAN</em> — ένας κανόνας masquerade/PAT ανά interface, keyed στο egress, ώστε οι μεταφράσεις να κινούνται με το path στο failover (η παγίδα καλύπτεται στα posts <a href="mikrotik-dhcp-nat.html">NAT</a> και dual-WAN). Για ένα edge <strong>BGP/PI</strong> με δημόσιο χώρο, εσωτερικά hosts που χρησιμοποιούν δημόσιες IP μπορεί να μη χρειάζονται καθόλου NAT — καθαρότερο, αλλά σχεδίασε το firewall ανάλογα. Για ένα <strong>WISP/ISP</strong> που εξυπηρετεί πολλούς συνδρομητές πίσω από περιορισμένο IPv4, το <strong>CGNAT</strong> (RFC 6598 / 100.64.0.0/10) κάθεται σε ένα σημείο συγκέντρωσης, όχι σε κάθε CPE — με κατανομή port-block ανά συνδρομητή και logging για νομική ιχνηλασιμότητα. Και η πραγματικότητα του Starlink από τις field notes: το standard Starlink σου δίνει ήδη CGNAT, οπότε είναι <em>μόνο για επιβίωση outbound</em> και δεν μπορεί να φιλοξενήσει inbound — σχεδίασε γύρω από αυτό από την πρώτη μέρα.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Double-NAT Και Η Σιωπηλη Αποτυχια Inbound</span>
+    <p>Η επαναλαμβανόμενη καταστροφή του edge είναι το <strong>double-NAT</strong>: το router σου κάνει NAT, και ο ISP <em>επίσης</em> κάνει CGNAT (συνηθισμένο σε LTE και Starlink), οπότε δεν έχεις καθόλου πραγματική δημόσια IP και τα inbound port-forward δεν κάνουν τίποτα, σιωπηλά. Επιβεβαίωνε πάντα αν κάθε uplink σου δίνει γνήσια δημόσια διεύθυνση ή μία CGNAT — αλλάζει ολόκληρο τον σχεδιασμό inbound. Αν ένα backup path είναι CGNAT (LTE/Starlink), σχεδίασέ το ως μόνο-outbound και κράτα τις inbound υπηρεσίες στο path που έχει δημόσια IP, ή βάλε μπροστά τους ένα VPN/reverse-proxy που καλεί <em>προς τα έξω</em>.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Η ιδιοκτησία διευθύνσεων είναι η απόφαση πίσω από τα πάντα</strong> — PA+NAT αλλάζει την IP σου στο failover· PI+BGP την κρατάει. Αυτό καθορίζει αν επιβιώνουν οι inbound υπηρεσίες.</li>
+      <li><strong>Τα περισσότερα SMB δεν χρειάζονται BGP</strong> — PA dual-WAN με καθαρό IP-SLA failover είναι σωστό και φθηνό. Πέρνα σε PI+BGP για hosting, WISP, ή συμβόλαια σταθερότητας IP.</li>
+      <li><strong>Active/backup ως προεπιλογή·</strong> active/active μόνο αν χρειάζεσαι τη χωρητικότητα και μπορείς να επιβιώσεις με ένα link.</li>
+      <li><strong>Η τοποθέτηση του NAT είναι αρχιτεκτονική</strong> — ανά-WAN και path-following σε dual-WAN· συχνά καθόλου σε edge BGP/PI· CGNAT σε σημείο συγκέντρωσης για WISP.</li>
+      <li><strong>Επιβεβαίωνε δημόσια έναντι CGNAT σε κάθε uplink</strong> — το double-NAT σκοτώνει σιωπηλά το inbound· τα backups Starlink/LTE είναι μόνο για επιβίωση outbound.</li>
+      <li><strong>Σχεδίασε το edge για την περίπτωση αποτυχίας</strong>, όχι για το happy path — αυτό είναι όλο το νόημα του multihoming.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Δυο ISP αλλα καμια σιγουρια οτι θα κανουν failover καθαρα;</h3>
+    <p>Ένα δεύτερο link ISP δεν αξίζει τίποτα αν το NAT και οι κανόνες inbound σπάνε τη στιγμή που αναλαμβάνει. Χτίζω edges dual-WAN και BGP-multihomed όπου το failover πραγματικά κρατάει ζωντανές τις inbound υπηρεσίες, όχι μόνο το outbound browsing.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

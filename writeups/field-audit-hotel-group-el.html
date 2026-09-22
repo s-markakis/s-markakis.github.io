@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Field Notes: Auditing a Small Hotel Group — S. Markakis</title>
+<meta name="description" content="An anonymised security audit across three small family hotels — a flat network with guests on the same wire as the booking PC and cameras, an exposed router management plane, and the guest-to-card-data finding that got remediation approved the same afternoon.">
+<meta property="og:title" content="Field Notes: Auditing a Small Hotel Group — S. Markakis">
+<meta property="og:description" content="An anonymised security audit across three small family hotels — a flat network with guests on the same wire as the booking PC and cameras, an exposed router management plane, and the guest-to-card-data finding that got remediation approved the same afternoon.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/field-audit-hotel-group-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/field-audit-hotel-group.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/field-audit-hotel-group.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/field-audit-hotel-group-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/field-audit-hotel-group.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/field-audit-hotel-group-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/field-audit-hotel-group.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Field Notes: Auditing a Small Hotel Group",
+  "description": "An anonymised security audit across three small family hotels — a flat network with guests on the same wire as the booking PC and cameras, an exposed router management plane, and the guest-to-card-data finding that got remediation approved the same afternoon.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/field-audit-hotel-group-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/field-audit-hotel-group.png",
+  "keywords": [
+    "mikrotik",
+    "offensive",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#field-audit-hotel-group"
+  },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="field-audit-hotel-group.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>Field Notes / Audit</span> &nbsp;·&nbsp; Case Study &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Field Notes<br>Audit Ενος Μικρου Ομιλου Ξενοδοχειων</h1>
+  <p class="post-subtitle">Τα build posts δείχνουν πώς πρέπει να μοιάζει ένα δίκτυο. Αυτό είναι πώς συνήθως μοιάζουν όταν κανείς δεν έχει ελέγξει — ένα ανωνυμοποιημένο write-up ενός security audit σε τρία μικρά οικογενειακά ξενοδοχεία που μοιράζονται μία part-time επαφή IT. Καμία παραβίαση, καμία δραματοποίηση· απλά μια ώρα scanning που μετέτρεψε το «το Wi-Fi μας είναι εντάξει» σε μια λίστα ευρημάτων δύο σελίδων, και το ένα finding που θα τους κόστιζε ένα περιστατικό GDPR.</p>
+  <div class="tags">
+    <span class="tag">Security Audit</span>
+    <span class="tag">Case Study</span>
+    <span class="tag">MikroTik</span>
+    <span class="tag">Segmentation</span>
+    <span class="tag">Hospitality</span>
+    <span class="tag">GDPR</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="callout defender">
+    <span class="callout-label">◆ Ανωνυμοποιημενο &amp; Εξουσιοδοτημενο</span>
+    <p>Διεξήχθη κάτω από υπογεγραμμένο engagement με γραπτό scope. Ο πελάτης, οι διευθύνσεις, και τα αναγνωριστικά στοιχεία έχουν αλλαχθεί ή γενικευθεί· τα ευρήματα είναι αντιπροσωπευτικά των πραγματικών, όχι αντίγραφο. Μοιράστηκε με άδεια. Το θέμα είναι το <em>pattern</em> — γιατί είναι το ίδιο pattern στα περισσότερα μικρά δίκτυα φιλοξενίας.</p>
+  </div>
+
+  <div class="thesis-card">
+    <p>Τρία μικρά ξενοδοχεία, ίδιος όμιλος ιδιοκτησίας, ίδια ιστορία με χιλιάδες άλλα: το δίκτυο μεγάλωσε από όποιον ήταν φθηνότερος εκείνη τη χρονιά, και «ασφάλεια» σήμαινε έναν κωδικό Wi-Fi. Έκλεισαν το audit επειδή μια πλατφόρμα κρατήσεων ρώτησε αν τα δεδομένα επισκεπτών τους ήταν «segmented» και κανείς δεν ήξερε ποια ήταν η ειλικρινής απάντηση. Η ειλικρινής απάντηση ήταν όχι.</p>
+    <p>Ένα audit σαν αυτό δεν είναι red-team engagement — είναι μια δομημένη ματιά στην έκθεση και το config, ο αμυντικός καθρέφτης του <a href="attacking-mikrotik.html">Attacking MikroTik Gear</a> και του <a href="cisco-attacking-ios.html">Attacking Cisco Gear</a>. Κοιτάς τι είναι προσβάσιμο, τι είναι default, τι είναι flat, και τι θα συνέβαινε αν ένα laptop επισκέπτη γινόταν εχθρικό. Το μεγαλύτερο μέρος της αξίας βρίσκεται στην πρώτη ώρα· το υπόλοιπο είναι να το γράψεις ώστε ο ιδιοκτήτης να μπορεί να δράσει πάνω του. Να τι έφερε στην επιφάνεια αυτή η ώρα.</p>
+    <div class="prereqs-label">Πλαισιο για τον αναγνωστη</div>
+    <ul class="prereqs-list">
+      <li>Μεικτός εξοπλισμός: ένα MikroTik edge σε δύο sites, ένα consumer router στο τρίτο</li>
+      <li>Μία part-time επαφή IT και στα τρία, χωρίς τεκμηρίωση, χωρίς monitoring</li>
+      <li>Κάθε site: ένα flat δίκτυο με επισκέπτες, προσωπικό, το PC κρατήσεων, και κάμερες όλα μαζί</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Η Πρωτη Ωρα — Τα Παντα Σε Ενα Καλωδιο</h2>
+  <p class="section-thesis"><em>Πριν από οποιοδήποτε έξυπνο testing, χαρτογραφείς τι υπάρχει. Ένα μόνο σάρωμα του LAN κάθε site έλεγε όλη την ιστορία: ένα subnet, τα πάντα πάνω του, τίποτα ανάμεσα σε τίποτα.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Απο ενα port guest — ο,τι θα εβλεπε κι ενας περιεργος επισκεπτης</span>
+    <pre class="term"><span class="cmt"># Συνδεδεμένος στο guest Wi-Fi. Ένα /24, και τα πάντα απαντάνε πάνω του:</span>
+<span class="pc">$</span> <span class="out">nmap -sn 192.168.0.0/24</span>
+<span class="out">  192.168.0.1   router (MikroTik)
+  192.168.0.10  RECEPTION-PC        # the booking / PMS terminal
+  192.168.0.23  NVR-LOBBY           # camera recorder
+  192.168.0.41  guest laptop (me)
+  192.168.0.55  BOOKING-BACKUP      # a NAS with... everything</span>
+<span class="cmt"># Χωρίς VLANs. Μια συσκευή guest είναι peer του PC κρατήσεων και των καμερών.</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Finding #1 — Χωρις Segmentation (High)</span>
+    <p>Η κίνηση guest, staff, payment, και CCTV μοιραζόταν όλη το ίδιο broadcast domain σε κάθε site. Ο κωδικός Wi-Fi κρατούσε τους αγνώστους έξω από το link internet· δεν έκανε <strong>τίποτα</strong> για να σταματήσει έναν επισκέπτη — ή malware στη συσκευή ενός επισκέπτη — από το να φτάσει τη μηχανή που επεξεργάζεται κρατήσεις και στοιχεία κάρτας. Αυτό είναι το finding πίσω από την ερώτηση της πλατφόρμας κρατήσεων, και ο λόγος που το <a href="guest-wifi-isolation.html">guest Wi-Fi χρειάζεται δικό του δίκτυο</a>. Αποκατάσταση: VLAN segmentation με default-deny ανάμεσα σε ζώνες — ο σχεδιασμός από το <a href="cisco-field-hotel.html">field build ξενοδοχείου</a>.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Το Management Plane — Ορθανοιχτο</h2>
+  <p class="section-thesis"><em>Η επόμενη ματιά είναι πάντα το ίδιο το router. Στα δύο sites MikroTik, η επιφάνεια διαχείρισης ήταν προσβάσιμη και οι εκδόσεις παλιές — ακριβώς ο συνδυασμός που προειδοποιεί το offensive post.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Τι βρηκαμε</th><th>Γιατι ειναι finding</th></tr></thead>
+    <tbody>
+      <tr><td>Winbox προσβάσιμο από το WAN</td><td>Management plane εκτεθειμένο στο internet — η ριζική αιτία κάθε μαζικής παραβίασης RouterOS (High)</td></tr>
+      <tr><td>RouterOS δύο+ χρόνια πίσω</td><td>Γνωστά CVEs ισχύουν για μια εκτεθειμένη υπηρεσία (High)</td></tr>
+      <tr><td>Default <code>admin</code>, αδύναμος κωδικός</td><td>Δεν χρειάζεται exploit για να πάρεις το router (Critical σε ένα site)</td></tr>
+      <tr><td>Χωρίς off-box logging</td><td>Μια παραβίαση θα ήταν αόρατη· τα τοπικά logs σβήνονται σε reboot (Medium)</td></tr>
+      <tr><td>Bandwidth-test server ενεργός</td><td>Επιφάνεια DoS και brute-force αφημένη ενεργή (Low)</td></tr>
+    </tbody>
+  </table>
+  <div class="callout defender">
+    <span class="callout-label">◆ Αποκατασταση — Το Περασμα Hardening</span>
+    <p>Τίποτα από αυτά δεν χρειαζόταν νέο hardware. Χρειαζόταν το checklist <a href="mikrotik-hardening.html">Securing RouterOS</a>: ένα firewall input default-drop ώστε το Winbox να είναι απρόσιτο από το WAN, ένα <a href="mikrotik-upgrades.html">upgrade</a> (packages <em>και</em> firmware), ονομαστικοί λογαριασμοί με ισχυρούς κωδικούς, το default admin εξαφανισμένο, περιττές υπηρεσίες σβησμένες, και <a href="mikrotik-observability.html">remote syslog</a> στραμμένο σε έναν φθηνό collector. Μισή μέρα ανά site, και η internet-facing attack surface πήγε ουσιαστικά στο μηδέν.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Αυτο Που Μετρουσε — Απο Τον Επισκεπτη Στα Δεδομενα Καρτας</h2>
+  <p class="section-thesis"><em>Κάθε audit έχει ένα headline finding — αυτό που μετατρέπει μια αφηρημένη αναφορά σε απόφαση. Εδώ ήταν η ευθεία γραμμή από το guest Wi-Fi μέχρι τη μηχανή που κρατούσε διαβατήρια και στοιχεία κάρτας.</em></p>
+  <p>Επειδή τα πάντα μοιράζονταν ένα subnet, μια συσκευή guest μπορούσε να ανοίξει τα file shares του PC κρατήσεων και να φτάσει το NAS με ετικέτα <code>BOOKING-BACKUP</code> — που κρατούσε, σε απλούς φακέλους, σαρωμένα διαβατήρια, αρχεία πληρωμών κάρτας, και χρόνια εξαγωγών κρατήσεων. Καμία authentication πρόκληση που να αξίζει το όνομά της, κανένα όριο δικτύου στη μέση. Ένας μόνο επισκέπτης με παραβιασμένο laptop, ή απλά ένας περίεργος, ήταν ένα κλικ μακριά από ένα αναφερτέο περιστατικό προσωπικών δεδομένων κάτω από το GDPR — με τα πρόστιμα και το καθήκον ειδοποίησης που ακολουθούν.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Finding #2 — Δεδομενα Πληρωμων/Προσωπικα Προσβασιμα Απο Το Guest Wi-Fi (Critical)</span>
+    <p>Αυτό είναι το finding που νιώθουν πραγματικά οι ιδιοκτήτες, γιατί δεν είναι «το config σου είναι ατακτοποίητο» — είναι «ένας επισκέπτης μπορεί να φτάσει τα διαβατήρια». Η διόρθωση είναι το ίδιο segmentation από το Finding #1 συν σφίξιμο του ίδιου του NAS (authentication, χωρίς ανώνυμα shares, κρυπτογράφηση at rest). Διατυπωμένο σε επιχειρηματικούς όρους — κανονιστική έκθεση, όχι διαγράμματα πακέτων — είναι επίσης το finding που έφερε την έγκριση όλης της αποκατάστασης εκείνο το απόγευμα.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Τι Πηραν — Μια Αναφορα Πανω Στην Οποια Μπορουσαν Να Δρασουν</h2>
+  <p class="section-thesis"><em>Τα ευρήματα δεν αξίζουν τίποτα αν αυτός που πληρώνει δεν μπορεί να δράσει πάνω τους. Το παραδοτέο γράφτηκε πρώτα για τον ιδιοκτήτη και δεύτερα για την επαφή IT — σοβαρότητα, αντίκτυπος σε απλή γλώσσα, και μια διόρθωση ανά αντικείμενο.</em></p>
+  <p>Η αναφορά κατέταξε κάθε finding με βάση το πραγματικό ρίσκο, είπε τι σήμαινε το καθένα σε όρους που καταλαβαίνει ένας ξενοδόχος («ένας επισκέπτης μπορεί να φτάσει τον υπολογιστή κρατήσεων»), και έδωσε μια συγκεκριμένη αποκατάσταση με εκτίμηση προσπάθειας. Τίποτα σε αυτήν δεν απαιτούσε forklift upgrade — segmentation πάνω στα υπάρχοντα MikroTik, ένα πέρασμα hardening, ένα upgrade, και κλείδωμα του NAS. Ξαναδοκιμάσαμε μετά τις διορθώσεις και εκδώσαμε ένα σύντομο σημείωμα επαλήθευσης που ο ιδιοκτήτης μπορούσε να δείξει στην πλατφόρμα κρατήσεων. Αυτό το σημείωμα επαλήθευσης, όχι η λίστα ευρημάτων, ήταν αυτό που στην πραγματικότητα είχαν ζητήσει χωρίς να το ξέρουν.</p>
+  <div class="callout defender">
+    <span class="callout-label">💡 Το Pattern, Οχι Ο Πελατης</span>
+    <p>Τίποτα εδώ δεν ήταν εξωτικό. Flat δίκτυο, εκτεθειμένο management, αδύναμα credentials, ευαίσθητα δεδομένα προσβάσιμα από την πλευρά του επισκέπτη — είναι τα ίδια τέσσερα findings στα περισσότερα μικρά δίκτυα φιλοξενίας, και το καθένα χαρτογραφείται σε μια διόρθωση που είναι ήδη γραμμένη σε αυτά τα posts. Η αξία του audit δεν είναι η ανακάλυψη κάτι καινούργιου· είναι το να βρεις τα συνηθισμένα προβλήματα <em>πριν</em> τα βρει κάποιος άλλος, και να τα μεταφράσεις σε αποφάσεις που μπορεί να πάρει ο ιδιοκτήτης.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το μεγαλύτερο μέρος της αξίας ενός audit βρίσκεται στην πρώτη ώρα.</strong> Ένας χάρτης subnet και μια ματιά στην επιφάνεια του router σου λένε αμέσως το σχήμα του προβλήματος.</li>
+      <li><strong>Ο κωδικός Wi-Fi δεν είναι όριο ασφαλείας.</strong> Ένα flat δίκτυο βάζει τους επισκέπτες στο ίδιο καλώδιο με τις πληρωμές και το CCTV — το segmentation είναι ο πραγματικός έλεγχος.</li>
+      <li><strong>Εκτεθειμένο management + παλιό firmware + αδύναμα creds</strong> είναι το επαναλαμβανόμενο finding του router, και δεν χρειάζεται καινούργιο hardware για να διορθωθεί — μόνο το πέρασμα hardening.</li>
+      <li><strong>Το headline finding είναι αυτό που νιώθει ο ιδιοκτήτης</strong> — «ένας επισκέπτης μπορεί να φτάσει τα διαβατήρια» φέρνει έγκριση αποκατάστασης εκεί που μια κριτική config δεν θα την έφερνε.</li>
+      <li><strong>Γράψε για αυτόν που πληρώνει.</strong> Σοβαρότητα, αντίκτυπος σε απλή γλώσσα, και μια διόρθωση ανά αντικείμενο — συν ένα σημείωμα re-test που μπορούν να δείξουν σε συνεργάτη.</li>
+      <li><strong>Είναι pattern, όχι πελάτης.</strong> Τα ίδια τέσσερα findings επαναλαμβάνονται σε μικρά δίκτυα φιλοξενίας· η νίκη είναι να τα πιάσεις πρώτος.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Θα μπορουσε ενας επισκεπτης στο Wi-Fi σου να φτασει το συστημα κρατησεων σου αυτη τη στιγμη;</h3>
+    <p>Έτσι μοιάζει ένα πραγματικό security audit για ένα ακίνητο φιλοξενίας όταν το τρέχω εγώ &mdash; έκθεση, segmentation, και τι δεδομένα είναι πραγματικά προσβάσιμα από πού, γραμμένα σε απλή γλώσσα πάνω στην οποία μπορεί να δράσει ο ιδιοκτήτης, όχι μόνο η ομάδα IT.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

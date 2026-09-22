@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Port Forwarding on MikroTik — S. Markakis</title>
+<meta name="description" content="Ρύθμιση κανόνων port forwarding dst-nat σε MikroTik RouterOS για inbound υπηρεσίες.">
+<meta property="og:title" content="MikroTik: Port Forwarding — S. Markakis">
+<meta property="og:description" content="Ρύθμιση κανόνων port forwarding dst-nat σε MikroTik RouterOS για inbound υπηρεσίες.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-port-forwarding-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-port-forwarding.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-port-forwarding.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-port-forwarding-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-port-forwarding.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-port-forwarding-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-port-forwarding.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  /* ── TOKENS ─────────────────────────────────────────── */
+  :root {
+    --bg:        #f0efe9;
+    --card:      #fff;
+    --code-bg:   #e8e6e0;
+    --term-bg:   #e8e6e0;
+    --rule:      #e0deda;
+    --body:      #5e5a52;
+    --mid:       #0f0f0f;
+    --head:      #0f0f0f;
+    --accent:    #c63d1f;
+    --gotcha:    #c08020;
+    --defender:  #3a5a78;
+    --font-disp: 'Barlow Condensed', sans-serif;
+    --font-body:'Inter',-apple-system,sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  /* ── RESET & BASE ────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; background: var(--bg); color: var(--body); }
+  body { font-family: var(--font-body); font-weight: 400; line-height: 1.7;
+         background: var(--bg); min-height: 100vh; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+
+  /* ── LAYOUT ──────────────────────────────────────────── */
+  .wrap { position: relative; z-index: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+
+  /* ── HEADER ──────────────────────────────────────────── */
+  .post-meta {
+    font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--body); margin-bottom: 0.8rem;
+  }
+  .post-meta span { color: var(--accent); font-weight: 600; }
+  h1.post-title {
+    font-family: var(--font-disp); font-weight: 900; font-size: 3rem;
+    line-height: 1.05; color: var(--head); text-transform: uppercase;
+    letter-spacing: 0.02em; margin-bottom: 1rem;
+  }
+  .post-subtitle {
+    font-size: 1.05rem; color: var(--mid); font-weight: 400;
+    margin-bottom: 1.4rem; line-height: 1.5;
+  }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 2rem; }
+  .tag {
+    font-family: var(--font-body); font-weight: 600; font-size: 0.7rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    border: 1px solid var(--head); border-radius: 999px;
+    padding: 0.18em 0.75em; color: var(--mid);
+  }
+  hr.title-rule { border: none; border-top: 1px solid var(--rule); margin-bottom: 2rem; }
+
+  /* ── THESIS CARD ─────────────────────────────────────── */
+  .thesis-card {
+    background: var(--card); border-radius: 6px;
+    border-left: 3px solid var(--accent);
+    padding: 1.6rem 1.8rem; margin-bottom: 2.6rem;
+  }
+  .thesis-card p { color: var(--mid); font-size: 0.98rem; line-height: 1.7; }
+  .thesis-card p + p { margin-top: 0.8rem; }
+  .prereqs-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.8rem;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+    margin-top: 1.2rem; margin-bottom: 0.5rem;
+  }
+  .prereqs-list { list-style: none; padding: 0; }
+  .prereqs-list li {
+    font-size: 0.88rem; color: var(--mid); padding: 0.15rem 0;
+    padding-left: 1rem; position: relative;
+  }
+  .prereqs-list li::before {
+    content: "›"; position: absolute; left: 0; color: var(--accent); font-weight: 700;
+  }
+
+  /* ── SECTION HEADINGS ────────────────────────────────── */
+  .section-num {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.82rem;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent);
+    margin-bottom: 0.2rem; margin-top: 2.8rem;
+  }
+  h2.section-title {
+    font-family: var(--font-disp); font-weight: 800; font-size: 1.9rem;
+    color: var(--head); text-transform: uppercase; letter-spacing: 0.03em;
+    line-height: 1.1; margin-bottom: 0.5rem;
+  }
+  .section-thesis {
+    font-style: italic; color: var(--mid); font-size: 0.95rem;
+    margin-bottom: 1.4rem; line-height: 1.6;
+    border-bottom: 1px solid var(--rule); padding-bottom: 0.8rem;
+  }
+  h3.sub {
+    font-family: var(--font-disp); font-weight: 700; font-size: 1.15rem;
+    color: var(--mid); text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 1.6rem 0 0.5rem;
+  }
+
+  /* ── BODY COPY ───────────────────────────────────────── */
+  p { margin-bottom: 1rem; color: var(--body); font-size: 0.96rem; }
+  strong { color: var(--mid); font-weight: 600; }
+  em.accent { color: var(--accent); font-style: normal; font-weight: 600; }
+
+  /* ── TERMINAL BLOCKS ─────────────────────────────────── */
+  .term-wrap {
+    background: var(--term-bg); border-radius: 5px;
+    border: 1px solid var(--rule); margin: 1.2rem 0;
+    overflow-x: auto;
+  }
+  .term-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.7rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--body); background: var(--rule);
+    padding: 0.3rem 0.9rem; display: block;
+    border-bottom: 1px solid var(--rule);
+  }
+  pre.term {
+    font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.75;
+    padding: 1rem 1.2rem; white-space: pre; color: var(--mid);
+    background: none; border: none; margin: 0;
+  }
+  span.pc  { color: var(--accent); font-weight: 500; }
+  span.out { color: var(--mid); }
+  span.cmt { color: var(--body); font-style: italic; }
+
+  /* ── CODE / CONFIG BLOCKS ────────────────────────────── */
+  .code-wrap {
+    background: var(--code-bg); border-radius: 5px;
+    border: 1px solid var(--rule); margin: 1.2rem 0;
+    overflow-x: auto;
+  }
+  .code-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.7rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--body); background: var(--rule);
+    padding: 0.3rem 0.9rem; display: block;
+    border-bottom: 1px solid var(--rule);
+  }
+  pre.code {
+    font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.75;
+    padding: 1rem 1.2rem; white-space: pre; color: var(--mid);
+    background: none; border: none; margin: 0;
+  }
+  span.kw { color: var(--accent); font-weight: 500; }
+  span.cm { color: var(--body); font-style: italic; }
+  span.st { color: var(--mid); }
+
+  /* ── INLINE CODE ─────────────────────────────────────── */
+  code {
+    font-family: var(--font-mono); font-size: 0.82em;
+    background: var(--code-bg); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 0.1em 0.4em; color: var(--mid);
+  }
+
+  /* ── CALLOUTS ────────────────────────────────────────── */
+  .callout {
+    border-radius: 5px; padding: 1rem 1.2rem;
+    margin: 1.4rem 0; font-size: 0.9rem;
+  }
+  .callout-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.72rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    display: block; margin-bottom: 0.4rem;
+  }
+  .callout p { margin: 0; font-size: 0.9rem; }
+  .callout p + p { margin-top: 0.5rem; }
+
+  .gotcha {
+    background: var(--card);
+    border-left: 3px solid var(--gotcha);
+  }
+  .gotcha .callout-label { color: var(--gotcha); }
+
+  .didnt-work {
+    background: var(--code-bg);
+    border-left: 3px solid var(--rule);
+  }
+  .didnt-work .callout-label { color: var(--body); }
+
+  .defender {
+    background: var(--card);
+    border-left: 3px solid var(--defender);
+  }
+  .defender .callout-label { color: var(--defender); }
+
+  /* ── SVG DIAGRAM WRAPPER ─────────────────────────────── */
+  .diagram-wrap {
+    margin: 1.6rem 0; border-radius: 6px;
+    border: 1px solid var(--rule); overflow: hidden;
+    background: var(--card);
+  }
+  .diagram-wrap svg { display: block; width: 100%; height: auto; }
+
+  /* ── IMAGES ──────────────────────────────────────────── */
+  .hero-img {
+    width: 100%; border-radius: 6px; margin-bottom: 2rem;
+    border: 1px solid var(--rule);
+    display: block; object-fit: cover; max-height: 340px;
+    filter: saturate(0.88) contrast(1.04);
+  }
+  .inline-img-wrap {
+    margin: 1.4rem 0; border-radius: 5px;
+    border: 1px solid var(--rule); overflow: hidden;
+    background: var(--card);
+  }
+  .inline-img-label {
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.7rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--body); background: var(--rule);
+    padding: 0.3rem 0.9rem; display: block;
+    border-bottom: 1px solid var(--rule);
+  }
+  .inline-img-wrap img {
+    width: 100%; display: block;
+    filter: saturate(0.88) contrast(1.02);
+  }
+  .inline-img-caption {
+    font-size: 0.78rem; color: var(--body); font-style: italic;
+    padding: 0.45rem 0.9rem;
+    border-top: 1px solid var(--rule);
+    background: var(--card);
+  }
+
+  /* ── TAKEAWAYS ───────────────────────────────────────── */
+  .takeaways {
+    background: var(--card); border-radius: 6px;
+    padding: 1.6rem 1.8rem; margin: 2.4rem 0;
+  }
+  .takeaways-title {
+    font-family: var(--font-disp); font-weight: 800; font-size: 1.1rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--head); margin-bottom: 1rem;
+  }
+  .takeaways ol { padding-left: 1.4rem; }
+  .takeaways li {
+    font-size: 0.92rem; color: var(--mid); margin-bottom: 0.55rem;
+    line-height: 1.55;
+  }
+  .takeaways li strong { color: var(--mid); }
+
+  /* ── CTA CARD ────────────────────────────────────────── */
+  .cta-card {
+    background: var(--card); border-radius: 6px;
+    border-top: 3px solid var(--accent);
+    padding: 1.8rem 2rem; margin-top: 2.8rem; text-align: center;
+  }
+  .cta-card h3 {
+    font-family: var(--font-disp); font-weight: 800; font-size: 1.5rem;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--head); margin-bottom: 0.6rem;
+  }
+  .cta-card p {
+    font-size: 0.93rem; color: var(--mid); max-width: 520px;
+    margin: 0 auto 1.2rem;
+  }
+  .cta-btn {
+    display: inline-block;
+    background: var(--accent); color: #fff;
+    font-family: var(--font-disp); font-weight: 700; font-size: 0.85rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.65em 1.8em; border-radius: 4px;
+    transition: opacity 0.15s;
+  }
+  .cta-btn:hover { opacity: 0.88; text-decoration: none; }
+
+  /* ── FOOTER ──────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--rule); margin-top: 4rem;
+    padding: 1.2rem 1.5rem;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.78rem; color: var(--body); letter-spacing: 0.04em;
+  }
+  footer a { color: var(--body); }
+  footer a:hover { color: var(--accent); }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Port Forwarding",
+  "description": "Ρύθμιση κανόνων port forwarding dst-nat σε MikroTik RouterOS για inbound υπηρεσίες.",
+  "datePublished": "2026-05-04",
+  "dateModified": "2026-05-04",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-port-forwarding-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-port-forwarding.png",
+  "keywords": [
+    "mikrotik",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-port-forwarding"
+  },
+  "timeRequired": "PT19M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-port-forwarding.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <!-- Header -->
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Μαιος 2026</p>
+  <h1 class="post-title">Port Forwarding<br>σε MikroTik</h1>
+  <p class="post-subtitle">DST-NAT από τις πρώτες αρχές — μεμονωμένες θύρες, εύρη θυρών, hairpin NAT, δυναμική IP με DDNS, και τι κάνεις όταν το Starlink CGNAT κάνει το forwarding αδύνατο.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">NAT</span>
+    <span class="tag">DST-NAT</span>
+    <span class="tag">Firewall</span>
+    <span class="tag">DDNS</span>
+    <span class="tag">Starlink / CGNAT</span>
+    <span class="tag">SMB / Hospitality</span>
+    <span class="tag">MTCNA+</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero image -->
+  <svg viewBox="0 0 720 245" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;background:#eae8e3;"><defs><style>.wb-bg{fill:#eae8e3}.wb-win{fill:#e1ded7;stroke:#c8c5be;stroke-width:1}.wb-bar{fill:#c8c5be}.wb-btn{fill:#dddbd5;stroke:#c8c5be;stroke-width:1;rx:2}.wb-tbl{fill:#f5f4f1;stroke:#c8c5be;stroke-width:1}.wb-row{fill:#dddbd5}.wb-sel{fill:#d4d2cc}.wb-t{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:11px;fill:#1a1a18}.wb-s{font-family:"Barlow",sans-serif;font-size:10px;fill:#555550}.wb-m{font-family:"JetBrains Mono",monospace;font-size:9px;fill:#555550}.wb-lbl{font-family:"Barlow",sans-serif;font-size:9px;fill:#888880}.wb-acc{fill:#c63d1f}.wb-acc-t{font-family:"JetBrains Mono",monospace;font-size:9px;fill:#c63d1f}</style></defs><rect width="720" height="245" class="wb-bg"/><rect x="13" y="11" width="700" height="225" fill="#c8c5be" rx="3"/><rect x="10" y="8" width="700" height="225" class="wb-win" rx="3"/><rect x="10" y="8" width="700" height="22" class="wb-bar" rx="3"/><rect x="10" y="19" width="700" height="11" class="wb-bar"/><text x="18" y="23" class="wb-t" style="font-size:10px;fill:#555550">IP > Firewall - WinBox</text><circle cx="700" cy="19" r="4" fill="#c63d1f"/><circle cx="688" cy="19" r="4" fill="#888880"/><circle cx="676" cy="19" r="4" fill="#888880"/><rect x="10" y="30" width="700" height="20" fill="#dddbd5"/><rect x="14" y="30" width="98" height="20" fill="#dddbd5" stroke="#c8c5be" stroke-width="1"/><text x="63" y="43" class="wb-s" style="text-anchor:middle;font-weight:400">Filter Rules</text><rect x="114" y="30" width="35" height="20" fill="#d4d2cc" stroke="#c8c5be" stroke-width="1"/><text x="131" y="43" class="wb-s" style="text-anchor:middle;font-weight:700">NAT</text><rect x="151" y="30" width="56" height="20" fill="#dddbd5" stroke="#c8c5be" stroke-width="1"/><text x="179" y="43" class="wb-s" style="text-anchor:middle;font-weight:400">Mangle</text><rect x="209" y="30" width="35" height="20" fill="#dddbd5" stroke="#c8c5be" stroke-width="1"/><text x="226" y="43" class="wb-s" style="text-anchor:middle;font-weight:400">Raw</text><rect x="246" y="30" width="91" height="20" fill="#dddbd5" stroke="#c8c5be" stroke-width="1"/><text x="291" y="43" class="wb-s" style="text-anchor:middle;font-weight:400">Connections</text><rect x="10" y="50" width="700" height="18" fill="#dddbd5"/><rect x="16" y="51" width="28" height="18" fill="#dddbd5" stroke="#c8c5be" stroke-width="1" rx="2"/><text x="30" y="63" class="wb-s" style="text-anchor:middle">Add</text><rect x="47" y="51" width="46" height="18" fill="#dddbd5" stroke="#c8c5be" stroke-width="1" rx="2"/><text x="70" y="63" class="wb-s" style="text-anchor:middle">Remove</text><rect x="96" y="51" width="46" height="18" fill="#dddbd5" stroke="#c8c5be" stroke-width="1" rx="2"/><text x="119" y="63" class="wb-s" style="text-anchor:middle">Enable</text><rect x="145" y="51" width="52" height="18" fill="#dddbd5" stroke="#c8c5be" stroke-width="1" rx="2"/><text x="171" y="63" class="wb-s" style="text-anchor:middle">Disable</text><rect x="200" y="51" width="94" height="18" fill="#dddbd5" stroke="#c8c5be" stroke-width="1" rx="2"/><text x="247" y="63" class="wb-s" style="text-anchor:middle">Reset Counters</text><rect x="297" y="51" width="52" height="18" fill="#dddbd5" stroke="#c8c5be" stroke-width="1" rx="2"/><text x="323" y="63" class="wb-s" style="text-anchor:middle">Comment</text><rect x="12" y="70" width="696" height="18" class="wb-row"/><text x="16" y="83" class="wb-lbl" style="font-weight:600"></text><line x1="30" y1="70" x2="30" y2="88" stroke="#c8c5be" stroke-width="1"/><text x="32" y="83" class="wb-lbl" style="font-weight:600">#</text><line x1="52" y1="70" x2="52" y2="88" stroke="#c8c5be" stroke-width="1"/><text x="54" y="83" class="wb-lbl" style="font-weight:600">Action</text><line x1="122" y1="70" x2="122" y2="88" stroke="#c8c5be" stroke-width="1"/><text x="124" y="83" class="wb-lbl" style="font-weight:600">Chain</text><line x1="187" y1="70" x2="187" y2="88" stroke="#c8c5be" stroke-width="1"/><text x="189" y="83" class="wb-lbl" style="font-weight:600">Proto</text><line x1="237" y1="70" x2="237" y2="88" stroke="#c8c5be" stroke-width="1"/><text x="239" y="83" class="wb-lbl" style="font-weight:600">Dst.Port</text><line x1="302" y1="70" x2="302" y2="88" stroke="#c8c5be" stroke-width="1"/><text x="304" y="83" class="wb-lbl" style="font-weight:600">In.If</text><line x1="377" y1="70" x2="377" y2="88" stroke="#c8c5be" stroke-width="1"/><text x="379" y="83" class="wb-lbl" style="font-weight:600">To Addresses</text><line x1="497" y1="70" x2="497" y2="88" stroke="#c8c5be" stroke-width="1"/><text x="499" y="83" class="wb-lbl" style="font-weight:600">Comment</text><line x1="706" y1="70" x2="706" y2="88" stroke="#c8c5be" stroke-width="1"/><rect x="12" y="88" width="696" height="17" fill="#f5f4f1" stroke="#c8c5be" stroke-width="0.5"/><text x="17" y="100" class="wb-m" style="fill:#555550">✓</text><text x="33" y="100" class="wb-m" style="fill:#555550">0</text><text x="55" y="100" class="wb-m" style="fill:#555550">masquerade</text><text x="125" y="100" class="wb-m" style="fill:#555550">srcnat</text><text x="190" y="100" class="wb-m" style="fill:#555550"></text><text x="240" y="100" class="wb-m" style="fill:#555550"></text><text x="305" y="100" class="wb-m" style="fill:#555550">ether1</text><text x="380" y="100" class="wb-m" style="fill:#555550"></text><text x="500" y="100" class="wb-m" style="fill:#555550">Masquerade WAN</text><rect x="12" y="106" width="696" height="17" fill="#d4d2cc" stroke="#c8c5be" stroke-width="0.5"/><text x="17" y="118" class="wb-m" style="fill:#c63d1f">✓</text><text x="33" y="118" class="wb-m" style="fill:#555550">1</text><text x="55" y="118" class="wb-m" style="fill:#555550">dst-nat</text><text x="125" y="118" class="wb-m" style="fill:#555550">dstnat</text><text x="190" y="118" class="wb-m" style="fill:#555550">tcp</text><text x="240" y="118" class="wb-m" style="fill:#555550">8080</text><text x="305" y="118" class="wb-m" style="fill:#555550">ether1</text><text x="380" y="118" class="wb-m" style="fill:#555550">192.168.10.50:80</text><text x="500" y="118" class="wb-m" style="fill:#555550">Forward 8080→webserver</text><rect x="12" y="124" width="696" height="17" fill="#f5f4f1" stroke="#c8c5be" stroke-width="0.5"/><text x="17" y="136" class="wb-m" style="fill:#555550">✓</text><text x="33" y="136" class="wb-m" style="fill:#555550">2</text><text x="55" y="136" class="wb-m" style="fill:#555550">dst-nat</text><text x="125" y="136" class="wb-m" style="fill:#555550">dstnat</text><text x="190" y="136" class="wb-m" style="fill:#555550">tcp</text><text x="240" y="136" class="wb-m" style="fill:#555550">3389</text><text x="305" y="136" class="wb-m" style="fill:#555550">ether1</text><text x="380" y="136" class="wb-m" style="fill:#555550">192.168.10.100:3389</text><text x="500" y="136" class="wb-m" style="fill:#555550">RDP forward</text><rect x="12" y="142" width="696" height="17" fill="#f5f4f1" stroke="#c8c5be" stroke-width="0.5"/><text x="17" y="154" class="wb-m" style="fill:#555550">✓</text><text x="33" y="154" class="wb-m" style="fill:#555550">3</text><text x="55" y="154" class="wb-m" style="fill:#555550">dst-nat</text><text x="125" y="154" class="wb-m" style="fill:#555550">dstnat</text><text x="190" y="154" class="wb-m" style="fill:#555550">tcp</text><text x="240" y="154" class="wb-m" style="fill:#555550">37777-37780</text><text x="305" y="154" class="wb-m" style="fill:#555550">ether1</text><text x="380" y="154" class="wb-m" style="fill:#555550">192.168.20.10</text><text x="500" y="154" class="wb-m" style="fill:#555550">Camera NVR ports</text><rect x="10" y="219" width="700" height="14" class="wb-bar"/><text x="16" y="229" class="wb-lbl">4 items</text></svg>
+
+  <!-- Thesis card -->
+  <div class="thesis-card">
+    <p>Το port forwarding σε MikroTik είναι δύο κανόνες που δουλεύουν μαζί: ένας κανόνας <code>dst-nat</code> στο NAT chain που ξαναγράφει τον προορισμό, και ένας κανόνας <code>accept</code> στο forward chain που αφήνει το ξαναγραμμένο πακέτο να περάσει. Οι περισσότεροι οδηγοί σου δείχνουν μόνο τον κανόνα NAT και σε αφήνουν να αναρωτιέσαι γιατί δεν δουλεύει τίποτα. Αυτό το tutorial εξηγεί και τα δύο, μετά χτίζει πάνω τα τρία σενάρια που θα συναντήσεις πραγματικά στο πεδίο: μια στατική WAN IP, μια δυναμική IP με DDNS, και μια σύνδεση Starlink CGNAT όπου το παραδοσιακό forwarding είναι εντελώς αδύνατο.</p>
+    <p>Στο τέλος θα έχεις ένα καθαρό, ελέγξιμο σύνολο κανόνων — όχι έναν σωρό εντολές copy-paste — και ένα ξεκάθαρο mental model για να διαγνώσεις αποτυχίες forwarding όταν αναπόφευκτα συμβούν.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>RouterOS v7.x σε οποιαδήποτε συσκευή — οι εντολές είναι ίδιες σε hEX, CCR, CRS, CHR</li>
+      <li>Άνεση επιπέδου MTCNA: καταλαβαίνεις τι είναι το NAT και γιατί υπάρχει</li>
+      <li>Ξέρεις το όνομα του WAN interface σου (<code>ether1</code>, <code>pppoe-out1</code>, <code>bridge-wan</code>, κλπ)</li>
+      <li>Ο host LAN που θες να εκθέσεις έχει static IP ή static DHCP lease</li>
+      <li>Για το Τμήμα 05: έναν node συνδεδεμένο σε Tailscale ή VPS για το workaround του CGNAT</li>
+    </ul>
+  </div>
+
+  <!-- ── SECTION 01 ── -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Πως Δουλευει το DST-NAT</h2>
+  <p class="section-thesis"><em>Το port forwarding είναι ξαναγράψιμο διεύθυνσης — κατάλαβε το μοντέλο δύο-κανόνων πριν αγγίξεις το CLI.</em></p>
+
+  <p>Όταν ένα πακέτο φτάνει στο interface WAN σου με προορισμό την public IP σου στη θύρα 8080, το RouterOS το επεξεργάζεται πρώτα μέσω του <strong>NAT chain</strong>, μετά του <strong>forward chain</strong>. Αυτά είναι ξεχωριστά βήματα και πρέπει να περάσουν και τα δύο για να φτάσει το πακέτο στον προορισμό του.</p>
+
+  <p>Ο κανόνας NAT (<code>action=dst-nat</code>) ξαναγράφει τη διεύθυνση προορισμού και τη θύρα του πακέτου — αλλάζοντας το <code>203.0.113.1:8080</code> σε <code>192.168.10.50:80</code>, για παράδειγμα. Το πακέτο τώρα φαίνεται σαν να κατευθυνόταν πάντα στον εσωτερικό server σου. Αλλά χωρίς έναν αντίστοιχο <strong>κανόνα accept στο forward chain</strong>, η default πολιτική drop το σκοτώνει πριν διασχίσει τον router. Και οι δύο κανόνες απαιτούνται.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <style>
+          .bg    { fill: #e1ded7; }
+          .node  { fill: #dddbd5; stroke: #c8c5be; stroke-width: 1.5; }
+          .proc  { fill: #dddbd5; stroke: #c8c5be; stroke-width: 1.5; }
+          .acc   { fill: #c63d1f; }
+          .lbl   { font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+                   font-size: 13px; fill: #1a1a18; text-anchor: middle; }
+          .sub   { font-family: 'Barlow', sans-serif; font-size: 10px;
+                   fill: #888880; text-anchor: middle; }
+          .mono  { font-family: 'JetBrains Mono', monospace; font-size: 9px;
+                   fill: #555550; text-anchor: middle; }
+          .arr   { stroke: #888880; stroke-width: 1.5; fill: none; marker-end: url(#ag); }
+          .arr-r { stroke: #c63d1f; stroke-width: 1.5; fill: none; marker-end: url(#ar); }
+          .arr-d { stroke: #c08020; stroke-width: 1.5; stroke-dasharray: 4,3;
+                   fill: none; marker-end: url(#ad); }
+          .note  { font-family: 'Barlow', sans-serif; font-style: italic;
+                   font-size: 10px; fill: #888880; text-anchor: middle; }
+          .badge { fill: #c63d1f; }
+          .badge-t { font-family: 'JetBrains Mono', monospace; font-size: 8.5px;
+                     fill: #fff; text-anchor: middle; }
+          .step  { font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+                   font-size: 10px; fill: #c63d1f; text-anchor: middle; }
+        </style>
+        <marker id="ag" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#888880"/>
+        </marker>
+        <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#c63d1f"/>
+        </marker>
+        <marker id="ad" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#c08020"/>
+        </marker>
+      </defs>
+      <rect width="720" height="300" class="bg"/>
+
+      <!-- Internet -->
+      <rect x="20" y="115" width="95" height="55" class="node" rx="5"/>
+      <text x="67" y="138" class="lbl">Internet</text>
+      <text x="67" y="153" class="mono">203.0.113.1</text>
+      <text x="67" y="163" class="sub">:8080</text>
+
+      <!-- Arrow 1 -->
+      <line x1="115" y1="142" x2="168" y2="142" class="arr"/>
+
+      <!-- NAT chain box -->
+      <rect x="170" y="95" width="130" height="95" class="proc" rx="5"/>
+      <text x="235" y="118" class="lbl">NAT Chain</text>
+      <text x="235" y="133" class="sub">action=dst-nat</text>
+      <rect x="185" y="143" width="100" height="14" fill="#c63d1f" rx="3"/>
+      <text x="235" y="154" class="badge-t">ξαναγραφει dst IP+port</text>
+      <text x="235" y="175" class="mono">→ 192.168.10.50:80</text>
+
+      <!-- Step label 1 -->
+      <text x="235" y="88" class="step">STEP 1</text>
+
+      <!-- Arrow 2 -->
+      <line x1="300" y1="142" x2="353" y2="142" class="arr-r"/>
+
+      <!-- Forward chain box -->
+      <rect x="355" y="95" width="130" height="95" class="proc" rx="5"/>
+      <text x="420" y="118" class="lbl">Forward Chain</text>
+      <text x="420" y="133" class="sub">action=accept</text>
+      <rect x="370" y="143" width="100" height="14" fill="#c63d1f" rx="3"/>
+      <text x="420" y="154" class="badge-t">επιτρεπει το ξαναγραμμενο pkt</text>
+      <text x="420" y="175" class="sub">χωρις αυτο → DROP</text>
+
+      <!-- Step label 2 -->
+      <text x="420" y="88" class="step">STEP 2</text>
+
+      <!-- Arrow 3 good -->
+      <line x1="485" y1="142" x2="578" y2="142" class="arr-r"/>
+
+      <!-- Server -->
+      <rect x="580" y="108" width="115" height="68" class="node" rx="5"/>
+      <text x="637" y="133" class="lbl">LAN Server</text>
+      <text x="637" y="149" class="mono">192.168.10.50</text>
+      <text x="637" y="162" class="sub">η θυρα 80 απανταει</text>
+
+      <!-- Drop arrow (forward chain miss) -->
+      <path d="M420,190 L420,240" class="arr-d"/>
+      <rect x="375" y="242" width="90" height="24" fill="#eae8e3" stroke="#c08020" stroke-width="1" rx="3"/>
+      <text x="420" y="259" style="font-family:'Barlow',sans-serif;font-size:10px;fill:#c08020;font-weight:600;text-anchor:middle">DROP — χωρις κανονα fwd ✗</text>
+
+      <!-- Title -->
+      <text x="360" y="35" class="lbl" fill="#555550">Το Μοντελο Δυο-Κανονων</text>
+      <text x="360" y="52" class="note">Το DST-NAT ξαναγράφει τον προορισμό. Ο κανόνας accept του forward chain το αφήνει να περάσει. Και τα δύο απαιτούνται.</text>
+    </svg>
+  </div>
+
+  <p>Ένα τρίτο κομμάτι έχει σημασία στην πράξη: <strong>masquerade / src-nat στο μονοπάτι επιστροφής</strong>. Όταν ο server απαντά, στέλνει την απάντηση πίσω στο RouterOS, που ξαναεφαρμόζει NAT αντίστροφα για να επιστρέψει την αρχική πηγή. Αυτό συμβαίνει αυτόματα σαν μέρος του connection tracking — δεν το ρυθμίζεις ξεχωριστά, αλλά γι' αυτό οι κανόνες accept <code>connection-state=established,related</code> στο forward chain σου είναι απαραίτητοι.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Μονο ο Κανονας NAT Δεν Αρκει</span>
+    <p>Το πιο κοινό λάθος: προσθέτεις τον κανόνα <code>dst-nat</code>, δοκιμάζεις, και δεν παίρνεις απάντηση. Το πακέτο ξαναγράφεται σωστά — είναι το forward chain που το κάνει drop. Πρόσθεσε πάντα και τους δύο κανόνες. Αν τρέχεις το default firewall script του RouterOS (δημιουργείται στο πρώτο boot), χρειάζεσαι έναν ρητό κανόνα accept στο forward chain αλλιώς η forwarded κίνησή σου θα χτυπήσει το default drop.</p>
+  </div>
+
+  <!-- ── SECTION 02 ── -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Βασικο DST-NAT — Στατικη IP WAN</h2>
+  <p class="section-thesis"><em>Η καθαρότερη περίπτωση: έχεις μια σταθερή public IP και θες να εκθέσεις μία υπηρεσία. Κάν' το σωστό πρώτα — όλα τα υπόλοιπα χτίζονται πάνω σε αυτό.</em></p>
+
+  <p>Σενάριο: η IP WAN σου είναι <code>203.0.113.1</code> στο interface <code>ether1</code>. Θες η εξωτερική κίνηση στη θύρα TCP 8080 να φτάνει έναν εσωτερικό web server στο <code>192.168.10.50</code> στη θύρα 80. Δύο κανόνες, με σειρά.</p>
+
+  <div class="inline-img-wrap">
+    <span class="inline-img-label">RouterOS — IP › Firewall › Filter Rules — forward chain (Winbox)</span>
+    <svg viewBox="0 0 700 185" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w-bg{fill:#d4d2cc;} .w-bar{fill:#c8c5be;} .w-btn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .w-panel{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;} .w-main{fill:#eae8e3;}
+  .w-hdr{fill:#c8c5be;} .w-row{fill:#eae8e3;stroke:#c8c5be;stroke-width:0.5;}
+  .w-rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;}
+  .w-input{fill:#fff;stroke:#c8c5be;stroke-width:1;}
+  .w-accent{fill:#c63d1f;} .w-sbtn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .wt{font-family:'Barlow',sans-serif;font-size:9px;fill:#555550;}
+  .wm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550;}
+  .wh{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;}
+  .ws{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880;}
+</style></defs>
+<rect width="700" height="185" class="w-bg"/>
+<rect x="0" y="0" width="700" height="20" class="w-bar"/>
+<text x="8" y="14" class="wh" style="font-size:10px;">WinBox — IP > Firewall > Filter Rules (forward chain)</text>
+<rect x="662" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="669" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">–</text>
+<rect x="678" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="685" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">×</text>
+<rect x="0" y="20" width="700" height="165" class="w-main"/>
+<rect x="0" y="20" width="700" height="18" class="w-hdr"/>
+<text x="8" y="32" class="wt" style="font-weight:600;fill:#1a1a18;">IP &gt; Firewall &gt; Filter Rules</text>
+<rect x="8" y="54" width="40" height="13" class="w-sbtn" rx="2"/>
+<text x="28" y="63" class="wt" style="text-anchor:middle;">+ Add</text>
+<rect x="0" y="70" width="700" height="13" class="w-hdr"/>
+<text x="8" y="79" class="ws" style="font-weight:600;">#</text>
+<text x="24" y="79" class="ws" style="font-weight:600;">CHAIN</text>
+<text x="90" y="79" class="ws" style="font-weight:600;">ACTION</text>
+<text x="155" y="79" class="ws" style="font-weight:600;">PROTO</text>
+<text x="205" y="79" class="ws" style="font-weight:600;">IN-IFACE</text>
+<text x="275" y="79" class="ws" style="font-weight:600;">DST-ADDR</text>
+<text x="370" y="79" class="ws" style="font-weight:600;">DST-PORT</text>
+<text x="420" y="79" class="ws" style="font-weight:600;">CONN-STATE</text>
+<text x="530" y="79" class="ws" style="font-weight:600;">COMMENT</text>
+<!-- Row 0 - fasttrack -->
+<rect x="0" y="83" width="700" height="16" class="w-row"/>
+<text x="8" y="94" class="wm">0</text>
+<text x="24" y="94" class="wm">forward</text>
+<text x="90" y="94" class="wm">fasttrack</text>
+<text x="155" y="94" class="wm">—</text>
+<text x="205" y="94" class="wm">—</text>
+<text x="275" y="94" class="wm">—</text>
+<text x="370" y="94" class="wm">—</text>
+<text x="420" y="94" class="wm">estab,related</text>
+<text x="530" y="94" class="wm" style="fill:#888880;">fasttrack</text>
+<!-- Row 1 - rate limit (drop) -->
+<rect x="0" y="99" width="700" height="16" class="w-rowh"/>
+<text x="8" y="110" class="wm">1</text>
+<text x="24" y="110" class="wm">forward</text>
+<text x="90" y="110" class="wm" style="fill:#c08020;">drop</text>
+<text x="155" y="110" class="wm">tcp</text>
+<text x="205" y="110" class="wm">ether1</text>
+<text x="275" y="110" class="wm">192.168.10.50</text>
+<text x="370" y="110" class="wm">80</text>
+<text x="420" y="110" class="wm">new</text>
+<text x="530" y="110" class="wm" style="fill:#888880;">rate-limit new conns</text>
+<!-- Row 2 - log -->
+<rect x="0" y="115" width="700" height="16" class="w-row"/>
+<text x="8" y="126" class="wm">2</text>
+<text x="24" y="126" class="wm">forward</text>
+<text x="90" y="126" class="wm">log</text>
+<text x="155" y="126" class="wm">tcp</text>
+<text x="205" y="126" class="wm">ether1</text>
+<text x="275" y="126" class="wm">192.168.10.50</text>
+<text x="370" y="126" class="wm">80</text>
+<text x="420" y="126" class="wm">new</text>
+<text x="530" y="126" class="wm" style="fill:#888880;">FWD-HIT log</text>
+<!-- Row 3 - accept (highlighted) -->
+<rect x="0" y="131" width="700" height="16" fill="#c63d1f" opacity="0.12" stroke="#c8c5be" stroke-width="0.5"/>
+<text x="8" y="142" class="wm">3</text>
+<text x="24" y="142" class="wm">forward</text>
+<text x="90" y="142" class="wm" style="fill:#3a5a78;">accept</text>
+<text x="155" y="142" class="wm">tcp</text>
+<text x="205" y="142" class="wm">ether1</text>
+<text x="275" y="142" class="wm" style="fill:#c63d1f;">192.168.10.50</text>
+<text x="370" y="142" class="wm" style="fill:#c63d1f;">80</text>
+<text x="420" y="142" class="wm">new</text>
+<text x="530" y="142" class="wm" style="fill:#888880;">Allow fwd→webserver</text>
+<!-- Status -->
+<rect x="0" y="173" width="700" height="12" class="w-hdr"/>
+<text x="8" y="182" class="ws">4 rules — order: rate-limit DROP before ACCEPT, LOG before ACCEPT</text>
+</svg>
+    <span class="inline-img-caption">Κανόνες forward chain με σειρά: fasttrack established → rate-limit drop → log → accept. Οι κανόνες log και rate-limit πρέπει να εμφανίζονται <em>πριν</em> τον κανόνα accept για την ίδια θύρα.</span>
+  </div>
+
+  <h3 class="sub">Κανονας 1 — DST-NAT (Ξαναγραφη)</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — κανονας DST-NAT</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall nat add \</span>
+<span class="out">    chain=dstnat \</span>
+<span class="out">    protocol=tcp \</span>
+<span class="out">    dst-address=203.0.113.1 \</span>
+<span class="out">    dst-port=8080 \</span>
+<span class="out">    in-interface=ether1 \</span>
+<span class="out">    action=dst-nat \</span>
+<span class="out">    to-addresses=192.168.10.50 \</span>
+<span class="out">    to-ports=80 \</span>
+<span class="out">    comment="Forward 8080 → webserver:80"</span>
+<span class="cmt"># Το dst-address= είναι προαιρετικό αλλά καλή πρακτική — κλειδώνει τον κανόνα στην IP WAN σου
+# συγκεκριμένα, όχι σε οποιαδήποτε IP στο ether1.
+# Το in-interface= το περιορίζει περαιτέρω μόνο σε inbound κίνηση WAN.</span></pre>
+  </div>
+
+  <h3 class="sub">Κανονας 2 — Accept στο Forward Chain</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — κανονας accept στο forward chain</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall filter add \</span>
+<span class="out">    chain=forward \</span>
+<span class="out">    protocol=tcp \</span>
+<span class="out">    dst-address=192.168.10.50 \</span>
+<span class="out">    dst-port=80 \</span>
+<span class="out">    in-interface=ether1 \</span>
+<span class="out">    connection-state=new \</span>
+<span class="out">    action=accept \</span>
+<span class="out">    comment="Allow forwarded traffic to webserver:80"</span>
+<span class="cmt"># connection-state=new: ταιριάζει μόνο νέες συνδέσεις.
+# Οι απαντήσεις established/related χειρίζονται από έναν ευρύτερο κανόνα accept
+# που θα έπρεπε να υπάρχει ήδη στο default forward chain σου.
+# Βάλε αυτόν τον κανόνα ΠΑΝΩ από οποιονδήποτε γενικό κανόνα drop στο forward chain.</span></pre>
+  </div>
+
+  <h3 class="sub">Επαληθευση</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — επαληθευσε NAT και συνδεσεις</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall nat print</span>
+<span class="out">Flags: X - disabled, I - invalid, D - dynamic
+ #    CHAIN    ACTION   PROTO  DST-ADDRESS      DST-PORT  TO-ADDRESSES     TO-PORTS
+ 0    dstnat   dst-nat  tcp    203.0.113.1      8080      192.168.10.50    80</span>
+
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall connection print where dst-address~"192.168.10.50"</span>
+<span class="cmt"># Μετά από μια δοκιμαστική σύνδεση από έξω, αυτό θα πρέπει να δείξει μια ενεργή καταχώρηση.
+# Καμία καταχώρηση = το πακέτο δεν έφτασε ποτέ στον κανόνα NAT (έλεγξε το όνομα in-interface).
+# Καταχώρηση υπάρχει αλλά καμία απάντηση = drop στο forward chain (έλεγξε τους κανόνες filter).</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Θεση Κανονα στο Chain</span>
+    <p>Το RouterOS επεξεργάζεται τους κανόνες firewall από πάνω προς τα κάτω και σταματά στο πρώτο match. Αν έχεις έναν ευρύ κανόνα <code>drop</code> ή <code>reject</code> πριν τον νέο κανόνα <code>accept</code> στο forward chain, η κίνησή σου θα γίνει drop πριν φτάσει ποτέ στο accept. Χρησιμοποίησε πάντα το <code>/ip firewall filter print</code> για να επιβεβαιώσεις τη σειρά κανόνων. Χρησιμοποίησε <code>place-before=</code> όταν προσθέτεις κανόνες για να τους εισάγεις στη σωστή θέση αντί να τους προσθέτεις στο τέλος.</p>
+  </div>
+
+  <!-- ── SECTION 03 ── -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Ευρη Θυρων και Hairpin NAT</h2>
+  <p class="section-thesis"><em>Το forwarding ενός εύρους θυρών είναι μια αλλαγή παραμέτρου. Το Hairpin NAT είναι η διόρθωση για όταν οι δικοί σου clients LAN δεν μπορούν να φτάσουν τον server μέσω της public IP του.</em></p>
+
+  <h3 class="sub">Ευρη Θυρων</h3>
+  <p>Για να κάνεις forward ένα εύρος θυρών — ας πούμε, έναν game server που χρησιμοποιεί UDP 27015–27020, ή ένα σύστημα IP κάμερας που χρησιμοποιεί TCP 37777–37780 — χρησιμοποίησε το syntax εύρους <code>dst-port</code>. Το RouterOS διατηρεί τον αριθμό θύρας προορισμού μέσα στο εύρος εκτός αν το παρακάμψεις ρητά με <code>to-ports</code>.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — DST-NAT ευρους θυρων</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall nat add \</span>
+<span class="out">    chain=dstnat \</span>
+<span class="out">    protocol=tcp \</span>
+<span class="out">    dst-port=37777-37780 \</span>
+<span class="out">    in-interface=ether1 \</span>
+<span class="out">    action=dst-nat \</span>
+<span class="out">    to-addresses=192.168.20.10 \</span>
+<span class="out">    comment="Forward camera NVR ports 37777-37780"</span>
+<span class="cmt"># Χωρίς to-ports= εδώ — η θύρα διατηρείται μέσα στο εύρος.
+# Θύρα 37777 στο WAN → 37777 στο 192.168.20.10, κλπ.
+# Για UDP streams κάμερας, άλλαξε protocol=udp.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Πολλαπλα Πρωτοκολλα Χρειαζονται Ξεχωριστους Κανονες</span>
+    <p>Αν μια υπηρεσία χρησιμοποιεί και TCP και UDP στην ίδια θύρα (π.χ. κάποιοι VoIP και game servers), χρειάζεσαι <strong>δύο ξεχωριστούς κανόνες DST-NAT</strong> — έναν για <code>protocol=tcp</code> και έναν για <code>protocol=udp</code>. Το RouterOS δεν υποστηρίζει <code>protocol=tcp,udp</code> σε έναν κανόνα. Το να ξεχάσεις τον κανόνα UDP είναι μια κλασική αποτυχία forwarding μισό-ανοιχτή — το TCP συνδέεται, το UDP κάνει drop, η υπηρεσία συμπεριφέρεται περίεργα.</p>
+  </div>
+
+  <h3 class="sub">Hairpin NAT (NAT Loopback)</h3>
+  <p>Το Hairpin NAT λύνει ένα συγκεκριμένο πρόβλημα: ένας client LAN προσπαθεί να φτάσει τον server σου χρησιμοποιώντας την <em>public</em> IP διεύθυνσή σου (π.χ. <code>203.0.113.1:8080</code>) αντί για την ιδιωτική της. Χωρίς hairpin NAT, το πακέτο φτάνει στο RouterOS από μέσα, γίνεται DST-NAT στο <code>192.168.10.50</code>, αλλά η απάντηση του server πηγαίνει απευθείας πίσω στον client LAN χωρίς να περάσει από τον router — ο client δεν βλέπει ποτέ έγκυρη απάντηση γιατί η πηγή δεν ταιριάζει.</p>
+
+  <p>Η διόρθωση είναι ένας κανόνας masquerade στο srcnat chain που εφαρμόζεται μόνο σε αυτή την κίνηση hairpin, ώστε ο router να μεσολαβεί και στις δύο πλευρές της σύνδεσης.</p>
+
+  <div class="inline-img-wrap">
+    <span class="inline-img-label">RouterOS — Hairpin NAT srcnat rule (Winbox)</span>
+    <svg viewBox="0 0 720 190" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w-bg{fill:#d4d2cc;} .w-bar{fill:#c8c5be;} .w-btn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .w-panel{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;} .w-main{fill:#eae8e3;}
+  .w-hdr{fill:#c8c5be;} .w-row{fill:#eae8e3;stroke:#c8c5be;stroke-width:0.5;}
+  .w-rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;}
+  .w-input{fill:#fff;stroke:#c8c5be;stroke-width:1;}
+  .w-accent{fill:#c63d1f;} .w-sbtn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .wt{font-family:'Barlow',sans-serif;font-size:9px;fill:#555550;}
+  .wm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550;}
+  .wh{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;}
+  .ws{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880;}
+</style></defs>
+<rect width="720" height="190" class="w-bg"/>
+<rect x="0" y="0" width="720" height="20" class="w-bar"/>
+<text x="8" y="14" class="wh" style="font-size:10px;">WinBox — IP > Firewall > NAT</text>
+<rect x="682" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="689" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">–</text>
+<rect x="698" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="705" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">×</text>
+<rect x="0" y="20" width="720" height="170" class="w-main"/>
+<rect x="0" y="20" width="720" height="18" class="w-hdr"/>
+<text x="8" y="32" class="wt" style="font-weight:600;fill:#1a1a18;">IP &gt; Firewall &gt; NAT</text>
+<rect x="8" y="40" width="50" height="14" fill="#dddbd5" rx="2,2,0,0"/>
+<text x="33" y="50" class="wt" style="text-anchor:middle;fill:#888880;">Filter</text>
+<rect x="60" y="40" width="36" height="14" class="w-sbtn" rx="2,2,0,0"/>
+<text x="78" y="50" class="wt" style="text-anchor:middle;fill:#1a1a18;">NAT</text>
+<rect x="98" y="40" width="50" height="14" fill="#dddbd5" rx="2,2,0,0"/>
+<text x="123" y="50" class="wt" style="text-anchor:middle;fill:#888880;">Mangle</text>
+<rect x="8" y="54" width="40" height="13" class="w-sbtn" rx="2"/>
+<text x="28" y="63" class="wt" style="text-anchor:middle;">+ Add</text>
+<!-- Table header -->
+<rect x="0" y="70" width="720" height="13" class="w-hdr"/>
+<text x="8" y="79" class="ws" style="font-weight:600;">#</text>
+<text x="24" y="79" class="ws" style="font-weight:600;">CHAIN</text>
+<text x="90" y="79" class="ws" style="font-weight:600;">ACTION</text>
+<text x="160" y="79" class="ws" style="font-weight:600;">PROTO</text>
+<text x="210" y="79" class="ws" style="font-weight:600;">DST-ADDR</text>
+<text x="300" y="79" class="ws" style="font-weight:600;">DST-PORT</text>
+<text x="365" y="79" class="ws" style="font-weight:600;">IN-IFACE</text>
+<text x="440" y="79" class="ws" style="font-weight:600;">TO-ADDRESSES</text>
+<text x="545" y="79" class="ws" style="font-weight:600;">TO-PORTS</text>
+<text x="610" y="79" class="ws" style="font-weight:600;">COMMENT</text>
+<!-- Row 0 srcnat masquerade -->
+<rect x="0" y="83" width="720" height="16" class="w-row"/>
+<text x="8" y="94" class="wm">0</text>
+<text x="24" y="94" class="wm">srcnat</text>
+<text x="90" y="94" class="wm">masquerade</text>
+<text x="160" y="94" class="wm">—</text>
+<text x="210" y="94" class="wm">—</text>
+<text x="300" y="94" class="wm">—</text>
+<text x="365" y="94" class="wm">ether1</text>
+<text x="440" y="94" class="wm">—</text>
+<text x="545" y="94" class="wm">—</text>
+<text x="610" y="94" class="wm" style="fill:#888880;">masquerade WAN</text>
+<!-- Row 1 dstnat (highlighted) -->
+<rect x="0" y="99" width="720" height="16" fill="#c63d1f" opacity="0.12" stroke="#c8c5be" stroke-width="0.5"/>
+<text x="8" y="110" class="wm">1</text>
+<text x="24" y="110" class="wm">dstnat</text>
+<text x="90" y="110" class="wm" style="fill:#c63d1f;">dst-nat</text>
+<text x="160" y="110" class="wm">tcp</text>
+<text x="210" y="110" class="wm">203.0.113.1</text>
+<text x="300" y="110" class="wm">8080</text>
+<text x="365" y="110" class="wm">ether1</text>
+<text x="440" y="110" class="wm" style="fill:#c63d1f;">192.168.10.50</text>
+<text x="545" y="110" class="wm" style="fill:#c63d1f;">80</text>
+<text x="610" y="110" class="wm" style="fill:#888880;">Fwd 8080→web:80</text>
+<!-- Row 2 hairpin -->
+<rect x="0" y="115" width="720" height="16" class="w-rowh"/>
+<text x="8" y="126" class="wm">2</text>
+<text x="24" y="126" class="wm">srcnat</text>
+<text x="90" y="126" class="wm">masquerade</text>
+<text x="160" y="126" class="wm">tcp</text>
+<text x="210" y="126" class="wm">—</text>
+<text x="300" y="126" class="wm">80</text>
+<text x="365" y="126" class="wm">bridge-lan</text>
+<text x="440" y="126" class="wm">192.168.10.50</text>
+<text x="545" y="126" class="wm">—</text>
+<text x="610" y="126" class="wm" style="fill:#888880;">Hairpin NAT</text>
+<!-- Status -->
+<rect x="0" y="178" width="720" height="12" class="w-hdr"/>
+<text x="8" y="187" class="ws">3 rules (NAT) — dstnat rules processed before forward chain</text>
+</svg>
+    <span class="inline-img-caption">Ο κανόνας hairpin srcnat (γραμμή 2) στον πίνακα NAT. Ταιριάζει κίνηση που ξεκινά από το LAN με προορισμό την IP LAN του server και κάνει masquerade την πηγή ώστε οι απαντήσεις να κάνουν route πίσω μέσω του router.</span>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — κανονας hairpin NAT</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall nat add \</span>
+<span class="out">    chain=srcnat \</span>
+<span class="out">    protocol=tcp \</span>
+<span class="out">    src-address=192.168.10.0/24 \</span>
+<span class="out">    dst-address=192.168.10.50 \</span>
+<span class="out">    dst-port=80 \</span>
+<span class="out">    out-interface=bridge-lan \</span>
+<span class="out">    action=masquerade \</span>
+<span class="out">    comment="Hairpin NAT — LAN clients reaching server via public IP"</span>
+<span class="cmt"># src-address= = το subnet LAN σου (όπου ζει ο client)
+# dst-address= = η IP LAN του server (αφού το DST-NAT το έχει ήδη ξαναγράψει)
+# out-interface= = το bridge LAN ή interface VLAN σου
+# Αυτός ο κανόνας πυροδοτείται μόνο ΑΦΟΥ ο κανόνας DST-NAT έχει ήδη ξαναγράψει το dst-address.
+# Επανέλαβε για κάθε forwarded θύρα αν οι clients LAN χρειάζονται hairpin πρόσβαση σε όλες.</span></pre>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">✕ Τι Δεν Δουλεψε — Χρηση dst-address= με την Public IP στον Κανονα Hairpin</span>
+    <p>Ένα κοινό λάθος είναι να ορίσεις <code>dst-address=203.0.113.1</code> (την public IP) στον κανόνα hairpin srcnat. Μέχρι το srcnat chain να δει το πακέτο, το DST-NAT έχει ήδη ξαναγράψει τον προορισμό σε <code>192.168.10.50</code>. Το srcnat chain δεν βλέπει ποτέ την public IP. Ο κανόνας πρέπει να ταιριάζει με τη <em>post-NAT</em> διεύθυνση LAN, όχι την αρχική public.</p>
+  </div>
+
+  <!-- ── SECTION 04 ── -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Δυναμικη IP + DDNS</h2>
+  <p class="section-thesis"><em>Οι περισσότερες οικιακές και πολλές επιχειρηματικές συνδέσεις αλλάζουν IP περιοδικά. Το IP Cloud δίνει στο RouterOS ένα σταθερό hostname που ακολουθεί τη διεύθυνσή σου — χωρίς να χρειάζεται υπηρεσία DDNS τρίτων.</em></p>
+
+  <p>Όταν η IP WAN σου είναι δυναμική, ο κανόνας DST-NAT με ένα hardcoded <code>dst-address=</code> σπάει τη στιγμή που αλλάζει η IP σου. Η λύση είναι να αφαιρέσεις εντελώς το match <code>dst-address=</code> και να βασιστείς μόνο στο <code>in-interface=</code> — κάθε κίνηση που χτυπά το interface WAN σου στην καθορισμένη θύρα γίνεται forward. Η ενσωματωμένη υπηρεσία <strong>IP Cloud</strong> του RouterOS τότε σου δίνει ένα σταθερό hostname <code>*.sn.mynetname.net</code> που πάντα κάνει resolve στην τρέχουσα IP WAN σου.</p>
+
+  <div class="inline-img-wrap">
+    <span class="inline-img-label">RouterOS — IP › Cloud (Winbox)</span>
+    <svg viewBox="0 0 620 175" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w-bg{fill:#d4d2cc;} .w-bar{fill:#c8c5be;} .w-btn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .w-panel{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;} .w-main{fill:#eae8e3;}
+  .w-hdr{fill:#c8c5be;} .w-row{fill:#eae8e3;stroke:#c8c5be;stroke-width:0.5;}
+  .w-rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;}
+  .w-input{fill:#fff;stroke:#c8c5be;stroke-width:1;}
+  .w-accent{fill:#c63d1f;} .w-sbtn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .wt{font-family:'Barlow',sans-serif;font-size:9px;fill:#555550;}
+  .wm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550;}
+  .wh{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;}
+  .ws{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880;}
+</style></defs>
+<rect width="620" height="175" class="w-bg"/>
+<rect x="0" y="0" width="620" height="20" class="w-bar"/>
+<text x="8" y="14" class="wh" style="font-size:10px;">WinBox — IP > Cloud</text>
+<rect x="582" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="589" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">–</text>
+<rect x="598" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="605" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">×</text>
+<rect x="0" y="20" width="620" height="155" class="w-main"/>
+<rect x="0" y="20" width="620" height="18" class="w-hdr"/>
+<text x="8" y="32" class="wt" style="font-weight:600;fill:#1a1a18;">IP &gt; Cloud</text>
+<!-- Form fields -->
+<text x="16" y="58" class="wt">DDNS Enabled:</text>
+<rect x="180" y="46" width="14" height="14" class="w-input" rx="2"/>
+<rect x="183" y="49" width="8" height="8" class="w-accent" rx="1"/>
+<text x="200" y="57" class="wt" style="fill:#3a5a78;font-weight:600;">yes</text>
+<text x="16" y="78" class="wt">DDNS Update Interval:</text>
+<rect x="180" y="66" width="100" height="16" class="w-input" rx="2"/>
+<text x="186" y="78" class="wm">00:01:00</text>
+<text x="16" y="98" class="wt">Update Time:</text>
+<rect x="180" y="86" width="14" height="14" class="w-input" rx="2"/>
+<rect x="183" y="89" width="8" height="8" class="w-accent" rx="1"/>
+<text x="16" y="120" class="wt">Public Address:</text>
+<rect x="180" y="108" width="160" height="16" fill="#dddbd5" stroke="#c8c5be" stroke-width="1" rx="2"/>
+<text x="186" y="120" class="wm" style="fill:#c63d1f;">203.0.113.1</text>
+<text x="16" y="142" class="wt">DNS Name:</text>
+<rect x="180" y="130" width="280" height="16" fill="#dddbd5" stroke="#c8c5be" stroke-width="1" rx="2"/>
+<text x="186" y="142" class="wm" style="fill:#c63d1f;">a1b2c3d4e5f6.sn.mynetname.net</text>
+<text x="16" y="162" class="wt">Status:</text>
+<rect x="180" y="151" width="80" height="14" fill="#3a5a78" opacity="0.15" stroke="#3a5a78" stroke-width="0.5" rx="2"/>
+<text x="220" y="161" class="wt" style="fill:#3a5a78;font-weight:600;text-anchor:middle;">updated</text>
+<!-- Status bar -->
+<rect x="0" y="163" width="620" height="12" class="w-hdr"/>
+<text x="8" y="172" class="ws">IP Cloud updates your DNS record every minute automatically</text>
+</svg>
+    <span class="inline-img-caption">IP › Cloud σε Winbox. Ενεργοποίησε το DDNS και ο router καταγράφει την τρέχουσα public IP του στην υπηρεσία cloud του MikroTik, ενημερώνοντάς την αυτόματα κάθε λεπτό.</span>
+  </div>
+
+  <h3 class="sub">Ενεργοποιηση IP Cloud</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — ενεργοποιηση IP Cloud DDNS</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip cloud set ddns-enabled=yes</span>
+
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip cloud print</span>
+<span class="out">          ddns-enabled: yes</span>
+<span class="out">      ddns-update-interval: 00:01:00</span>
+<span class="out">           update-time: yes</span>
+<span class="out">         public-address: 203.0.113.1</span>
+<span class="out">  public-address-ipv6: (none)</span>
+<span class="out">             dns-name: a1b2c3d4e5f6.sn.mynetname.net</span>
+<span class="out">               status: updated</span>
+<span class="cmt"># Το dns-name είναι το μόνιμο hostname σου. Μοιράσου το με clients/ομάδα.
+# Ενημερώνεται κάθε λεπτό by default. Status "updated" = δουλεύει.
+# Απαιτεί ο router να έχει πρόσβαση στο internet (προφανώς).</span></pre>
+  </div>
+
+  <h3 class="sub">Κανονας DST-NAT για Δυναμικη IP</h3>
+  <p>Με δυναμική IP, αφαίρεσε το match <code>dst-address=</code>. Ο κανόνας τώρα κάνει forward βάσει interface και θύρας μόνο — σωστή συμπεριφορά, αφού δεν μπορείς να προβλέψεις την επόμενη IP WAN σου.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — DST-NAT χωρις σταθερο dst-address</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall nat add \</span>
+<span class="out">    chain=dstnat \</span>
+<span class="out">    protocol=tcp \</span>
+<span class="out">    dst-port=8080 \</span>
+<span class="out">    in-interface=ether1 \</span>
+<span class="out">    action=dst-nat \</span>
+<span class="out">    to-addresses=192.168.10.50 \</span>
+<span class="out">    to-ports=80 \</span>
+<span class="out">    comment="Forward 8080 → webserver:80 (dynamic IP)"</span>
+<span class="cmt"># Χωρίς dst-address= — ο κανόνας πυροδοτείται σε κάθε IP που λαμβάνεται στο ether1.
+# Αυτό είναι σκόπιμο για σενάρια δυναμικής IP.
+# Ο κανόνας accept του forward chain από το Τμήμα 02 παραμένει αμετάβλητος.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ονομα Interface PPPoE εναντιον Φυσικης Θυρας</span>
+    <p>Σε συνδέσεις fibre ή DSL, η IP WAN σου ζει σε ένα interface <code>pppoe-out1</code>, όχι στο <code>ether1</code>. Αν ορίσεις <code>in-interface=ether1</code> αλλά το WAN σου είναι PPPoE, ο κανόνας δεν θα ταιριάξει ποτέ γιατί η inbound κίνηση φτάνει στο <code>pppoe-out1</code>. Επιβεβαίωσε με <code>/ip address print</code> και <code>/interface print</code> — η IP WAN σου θα πρέπει να εμφανίζεται ενάντια στο όνομα interface που χρησιμοποιείς στους κανόνες NAT σου.</p>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">✕ Τι Δεν Δουλεψε — Scripts DDNS Τριτων με Συχνες Αλλαγες IP</span>
+    <p>Πριν το IP Cloud γίνει αξιόπιστο, πολλοί οδηγοί πρότειναν να τρέχεις ένα προγραμματισμένο script που καλεί έναν πάροχο DDNS τρίτων (No-IP, DynDNS, κλπ) μέσω <code>/tool fetch</code>. Αυτό δουλεύει αλλά εισάγει εξαρτήσεις: το API του παρόχου μπορεί να αλλάξει, τα credentials λήγουν, και τα rate limits μπορούν να προκαλέσουν αποτυχίες ενημέρωσης. Το IP Cloud είναι ενσωματωμένο στο RouterOS, δεν απαιτεί credentials, και ενημερώνεται αυτόματα. Χρησιμοποίησέ το εκτός αν έχεις συγκεκριμένο λόγο να χρησιμοποιήσεις πάροχο τρίτων.</p>
+  </div>
+
+  <!-- ── SECTION 05 ── -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Starlink / CGNAT — Οταν το Forwarding Σπαει</h2>
+  <p class="section-thesis"><em>Το Starlink σε βάζει πίσω από Carrier-Grade NAT. Δεν κατέχεις μια public IP — το DST-NAT είναι δομικά αδύνατο. Ορίστε η αρχιτεκτονική που δουλεύει αντ' αυτού.</em></p>
+
+  <p>Το Starlink (και πολλοί mobile ISPs 4G/LTE) χρησιμοποιούν CGNAT: ο router σου λαμβάνει μια private IP στο εύρος <code>100.64.0.0/10</code>, και η υποδομή του Starlink χειρίζεται το τελικό NAT προς το public internet. Δεν έχεις κανέναν έλεγχο πάνω σε αυτό το εξωτερικό NAT — δεν μπορείς να κάνεις forward θύρες μέσα από αυτό γιατί δεν κατέχεις την public IP.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <style>
+          .bg3   { fill: #e1ded7; }
+          .node3 { fill: #dddbd5; stroke: #c8c5be; stroke-width: 1.5; }
+          .lbl3  { font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+                   font-size: 12px; fill: #1a1a18; text-anchor: middle; }
+          .sub3  { font-family: 'Barlow', sans-serif; font-size: 9.5px;
+                   fill: #888880; text-anchor: middle; }
+          .mono3 { font-family: 'JetBrains Mono', monospace; font-size: 8.5px;
+                   fill: #555550; text-anchor: middle; }
+          .arr3  { stroke: #888880; stroke-width: 1.5; fill: none; marker-end: url(#ag3); }
+          .arr3r { stroke: #c63d1f; stroke-width: 1.5; fill: none; marker-end: url(#ar3); }
+          .arr3b { stroke: #3a5a78; stroke-width: 1.5; stroke-dasharray: 5,3;
+                   fill: none; marker-end: url(#ab3); }
+          .dead3 { stroke: #c08020; stroke-width: 1.5; stroke-dasharray: 4,3;
+                   fill: none; }
+          .note3 { font-family: 'Barlow', sans-serif; font-style: italic;
+                   font-size: 10px; fill: #888880; text-anchor: middle; }
+          .zone  { fill: none; stroke: #c8c5be; stroke-width: 1; stroke-dasharray: 3,2; }
+        </style>
+        <marker id="ag3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#888880"/>
+        </marker>
+        <marker id="ar3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#c63d1f"/>
+        </marker>
+        <marker id="ab3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 z" fill="#3a5a78"/>
+        </marker>
+      </defs>
+      <rect width="720" height="240" class="bg3"/>
+
+      <!-- Starlink zone -->
+      <rect x="15" y="25" width="240" height="185" class="zone" rx="5"/>
+      <text x="135" y="20" class="lbl3" fill="#888880">STARLINK CGNAT</text>
+
+      <!-- Internet client -->
+      <rect x="25" y="40" width="100" height="50" class="node3" rx="4"/>
+      <text x="75" y="62" class="lbl3">Internet</text>
+      <text x="75" y="76" class="sub3">προσπαθει να συνδεθει</text>
+
+      <!-- CGNAT barrier -->
+      <rect x="150" y="40" width="90" height="80" fill="#eae8e3" stroke="#c08020" stroke-width="1.5" stroke-dasharray="4,2" rx="4"/>
+      <text x="195" y="68" class="lbl3" fill="#c08020">CGNAT</text>
+      <text x="195" y="83" class="sub3">το Starlink κατεχει</text>
+      <text x="195" y="94" class="sub3">αυτη την public IP</text>
+      <text x="195" y="108" class="mono3">κανενας ελεγχος θυρων</text>
+
+      <!-- Dead arrow: internet → CGNAT blocked -->
+      <line x1="125" y1="75" x2="148" y2="75" class="dead3" marker-end="url(#ad3)"/>
+      <text x="137" y="68" style="font-family:'Barlow',sans-serif;font-size:9px;fill:#c08020;font-weight:600;text-anchor:middle">μπλοκαρισμενο</text>
+
+      <marker id="ad3" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L6,3 z" fill="#c08020"/>
+      </marker>
+
+      <!-- Router WAN -->
+      <rect x="25" y="130" width="100" height="65" class="node3" rx="4"/>
+      <text x="75" y="153" class="lbl3">RouterOS</text>
+      <text x="75" y="167" class="mono3">100.64.x.x</text>
+      <text x="75" y="180" class="sub3">private IP CGNAT</text>
+
+      <!-- Tailscale -->
+      <ellipse cx="400" cy="112" rx="75" ry="35" fill="#eae8e3" stroke="#3a5a78" stroke-width="1.5" stroke-dasharray="4,2"/>
+      <text x="400" y="107" class="lbl3" fill="#3a5a78">Tailscale</text>
+      <text x="400" y="122" class="sub3">overlay tunnel</text>
+
+      <!-- VPS -->
+      <rect x="548" y="45" width="115" height="65" class="node3" rx="4"/>
+      <text x="605" y="68" class="lbl3">VPS / Jump Host</text>
+      <text x="605" y="83" class="mono3">203.0.113.1</text>
+      <text x="605" y="96" class="sub3">πραγματικη public IP</text>
+
+      <!-- Internal server -->
+      <rect x="548" y="140" width="115" height="65" class="node3" rx="4"/>
+      <text x="605" y="163" class="lbl3">LAN Server</text>
+      <text x="605" y="178" class="mono3">192.168.10.50</text>
+      <text x="605" y="191" class="sub3">πισω απο CGNAT</text>
+
+      <!-- Arrows: router → tailscale → VPS -->
+      <line x1="125" y1="155" x2="323" y2="120" class="arr3b"/>
+      <line x1="475" y1="95" x2="546" y2="75" class="arr3b"/>
+
+      <!-- Arrow: VPS → internet client (reverse proxy) -->
+      <line x1="548" y1="70" x2="230" y2="60" class="arr3r"/>
+      <text x="390" y="48" style="font-family:'Barlow',sans-serif;font-size:9.5px;fill:#c63d1f;text-anchor:middle">ο client φτανει την public IP του VPS</text>
+      <text x="390" y="60" style="font-family:'Barlow',sans-serif;font-style:italic;font-size:9px;fill:#888880;text-anchor:middle">το VPS κανει reverse-proxy μεσω tunnel</text>
+
+      <!-- Arrow: server → tailscale -->
+      <line x1="548" y1="168" x2="477" y2="125" class="arr3b"/>
+
+      <text x="360" y="220" class="note3">Το CGNAT μπλοκάρει inbound. Λύση: ξεκίνα το tunnel outbound από πίσω από το CGNAT, κάνε proxy inbound μέσω ενός VPS με πραγματική public IP.</text>
+    </svg>
+  </div>
+
+  <p>Υπάρχουν δύο βιώσιμα workarounds, με σειρά προτίμησης:</p>
+
+  <p><strong>Επιλογή Α — Tailscale funnel (απλούστερο):</strong> Το Tailscale Funnel εκθέτει έναν node συνδεδεμένο σε Tailscale στο public internet μέσω της υποδομής του Tailscale. Δεν χρειάζεται VPS. Περιορισμένο σε HTTPS στη θύρα 443. Καλό για ένα dashboard ξενοδοχείου, μια σελίδα προεπισκόπησης κάμερας, ή οποιαδήποτε web υπηρεσία.</p>
+
+  <p><strong>Επιλογή Β — VPS reverse proxy μέσω Tailscale tunnel:</strong> Ένα φτηνό VPS (€3–5/μήνα) έχει πραγματική public IP. Ο router RouterOS σου συνδέεται στο VPS μέσω Tailscale. Το VPS τρέχει nginx ή HAProxy για να λαμβάνει inbound συνδέσεις σε οποιαδήποτε θύρα και να τις κάνει proxy μέσω του tunnel Tailscale στον server LAN σου. Πλήρης έλεγχος θυρών, οποιοδήποτε πρωτόκολλο.</p>
+
+  <h3 class="sub">Επιλογη Α — Tailscale Funnel</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">Node Tailscale (Linux) — ενεργοποιηση Funnel</span>
+    <pre class="term"><span class="pc">admin@lan-server:~$</span> <span class="out">tailscale funnel 443</span>
+<span class="cmt"># Εκθέτει τη θύρα 443 σε αυτόν τον node στο public internet μέσω Tailscale.
+# Το Tailscale τερματίζει το TLS. Ο node σου λαμβάνει απλό HTTP στην 80 τοπικά.
+# URL πρόσβασης: https://{node-name}.{tailnet}.ts.net
+# Απαιτεί λογαριασμό Tailscale με ενεργοποιημένο Funnel (το δωρεάν tier το υποστηρίζει).</span>
+
+<span class="pc">admin@lan-server:~$</span> <span class="out">tailscale funnel status</span>
+<span class="out">https://lan-server.tail1234.ts.net/ proxy http://127.0.0.1:80</span></pre>
+  </div>
+
+  <h3 class="sub">Επιλογη Β — VPS Reverse Proxy</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">VPS (nginx) — reverse proxy μεσω Tailscale tunnel</span>
+    <pre class="term"><span class="cmt"># Στο VPS: block stream nginx που κάνει proxy TCP 8080 → server LAN μέσω IP Tailscale</span>
+<span class="pc">root@vps:~$</span> <span class="out">cat /etc/nginx/stream.conf</span>
+<span class="out">stream {</span>
+<span class="out">    upstream lan_server {</span>
+<span class="out">        server 100.x.x.lan-server:80;  # Tailscale IP of your LAN server</span>
+<span class="out">    }</span>
+<span class="out">    server {</span>
+<span class="out">        listen 8080;</span>
+<span class="out">        proxy_pass lan_server;</span>
+<span class="out">    }</span>
+<span class="out">}</span>
+<span class="cmt"># Ο client συνδέεται στην public IP:8080 του VPS.
+# Το nginx κάνει proxy μέσω του tunnel Tailscale στον server LAN σου.
+# Ο server LAN σου δεν χρειάζεται ποτέ public IP.
+# Ο router RouterOS χρειάζεται ένα instance Tailscale που τρέχει (container ή node στο LAN).</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Starlink Παρεχει Public IP σε Καποια Business Πλανα</span>
+    <p>Το Starlink Business (όχι το οικιακό) μπορεί να παρέχει μια πραγματική static public IP σαν add-on. Αν κάνεις deploy για ξενοδοχείο ή βίλα σε Business πλάνο, έλεγξε τον λογαριασμό σου — μπορεί στην πραγματικότητα να έχεις μια routable public IP και να μπορείς να χρησιμοποιήσεις κανονικό DST-NAT. Επιβεβαίωσε με <code>/ip address print</code>: αν η IP WAN σου ξεκινά με <code>100.64</code>–<code>100.127</code>, είσαι πίσω από CGNAT. Οποιαδήποτε άλλη διεύθυνση είναι πιθανώς public (επιβεβαίωσε με το <a href="https://whatismyip.com" target="_blank">whatismyip.com</a> — σύγκρινε με ό,τι δείχνει το RouterOS).</p>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">✕ Τι Δεν Δουλεψε — Port Forwarding στο App του Starlink</span>
+    <p>Το app του Starlink δεν έχει επιλογή port forwarding — αυτό μπερδεύει πολλούς operators που περιμένουν να δουλέψει σαν consumer router. Το app ελέγχει ρυθμίσεις του πιάτου, όχι NAT. Κάποιοι οδηγοί προτείνουν να ενεργοποιήσεις "bypass mode" (βάζοντας το πιάτο Starlink σε λειτουργία bridge/passthrough και συνδέοντας το RouterOS απευθείας). Αυτό περνά μεν την IP WAN — αλλά αυτή η IP είναι ακόμα η διεύθυνση CGNAT <code>100.64.x.x</code>. Το bypass mode δεν σου δίνει public IP. Τα workarounds παραπάνω παραμένουν απαραίτητα.</p>
+  </div>
+
+  <!-- ── SECTION 06 ── -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Θωρακιση Firewall για Forwarded Θυρες</h2>
+  <p class="section-thesis"><em>Κάθε ανοιχτή θύρα είναι επιφάνεια επίθεσης. Περιόρισε σφιχτά τους κανόνες forward σου, κάνε log τα hits, και βάλε rate-limit στις προσπάθειες σύνδεσης πριν μια συσκευή επισκέπτη ή ένας internet scanner κάνει κατάχρηση της εκτεθειμένης υπηρεσίας σου.</em></p>
+
+  <h3 class="sub">Περιορισε κατα Source IP Οπου Γινεται</h3>
+  <p>Αν η υπηρεσία που κάνεις forward την προσπελαύνουν μόνο γνωστές IPs — ένας απομακρυσμένος admin, ένα συγκεκριμένο γραφείο, ένας κόμβος εξόδου VPN — πρόσθεσε <code>src-address=</code> και στους κανόνες NAT και forward. Αυτό είναι το βήμα θωράκισης με τη μεγαλύτερη επίδραση και δεν κοστίζει τίποτα.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — περιορισε forwarded θυρα σε γνωστη πηγη</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall nat add \</span>
+<span class="out">    chain=dstnat \</span>
+<span class="out">    protocol=tcp \</span>
+<span class="out">    dst-port=3389 \</span>
+<span class="out">    in-interface=ether1 \</span>
+<span class="out">    src-address=198.51.100.0/24 \</span>
+<span class="out">    action=dst-nat \</span>
+<span class="out">    to-addresses=192.168.10.100 \</span>
+<span class="out">    to-ports=3389 \</span>
+<span class="out">    comment="RDP forward — office subnet only"</span>
+<span class="cmt"># Χωρίς src-address=, η θύρα RDP σου είναι εκτεθειμένη σε ολόκληρο το internet.
+# Με αυτό, μόνο πακέτα από 198.51.100.0/24 πυροδοτούν το forward.
+# Όλοι οι υπόλοιποι χτυπούν το default drop σιωπηλά — καμία απάντηση, κανένα banner.</span></pre>
+  </div>
+
+  <h3 class="sub">Rate-Limit Νεων Συνδεσεων</h3>
+  <p>Για υπηρεσίες που πρέπει να είναι δημόσια προσβάσιμες (ένα web interface PMS ξενοδοχείου, ένα portal κάμερας), πρόσθεσε έναν κανόνα rate-limit σύνδεσης στο forward chain για να αμβλύνεις κίνηση brute-force και scanner.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — rate-limit νεων συνδεσεων σε forwarded θυρα</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall filter add \</span>
+<span class="out">    chain=forward \</span>
+<span class="out">    protocol=tcp \</span>
+<span class="out">    dst-address=192.168.10.50 \</span>
+<span class="out">    dst-port=80 \</span>
+<span class="out">    connection-state=new \</span>
+<span class="out">    connection-rate=30/1m \</span>
+<span class="out">    action=drop \</span>
+<span class="out">    comment="Drop excessive new connections to webserver"</span>
+<span class="cmt"># connection-rate=30/1m: κάνε drop αν υπάρχουν πάνω από 30 νέες συνδέσεις ανά λεπτό
+# από μία πηγή. Οι νόμιμοι χρήστες δεν θα το χτυπήσουν αυτό.
+# Βάλε αυτόν τον κανόνα ΠΡΙΝ τον κανόνα accept για την ίδια θύρα.
+# Το connection-rate ταιριάζει ανά-πηγή-IP.</span></pre>
+  </div>
+
+  <h3 class="sub">Log και Ειδοποιηση σε Hits Forwarded Θυρας</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — καν' log νεες συνδεσεις σε forwarded θυρα</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall filter add \</span>
+<span class="out">    chain=forward \</span>
+<span class="out">    protocol=tcp \</span>
+<span class="out">    dst-address=192.168.10.50 \</span>
+<span class="out">    dst-port=80 \</span>
+<span class="out">    connection-state=new \</span>
+<span class="out">    in-interface=ether1 \</span>
+<span class="out">    action=log \</span>
+<span class="out">    log-prefix="FWD-HIT" \</span>
+<span class="out">    comment="Log new inbound connections to webserver"</span>
+<span class="cmt"># Το action=log ΔΕΝ σταματά το πακέτο — κάνει log και συνεχίζει στον επόμενο κανόνα.
+# Ο κανόνας accept για αυτή τη θύρα πρέπει ακόμα να ακολουθεί.
+# Φίλτραρε καταχωρήσεις log: /log print where message~"FWD-HIT"</span></pre>
+  </div>
+
+  <div class="inline-img-wrap">
+    <span class="inline-img-label">RouterOS — IP › Firewall › Filter Rules — forward chain (Winbox)</span>
+    <svg viewBox="0 0 700 185" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w-bg{fill:#d4d2cc;} .w-bar{fill:#c8c5be;} .w-btn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .w-panel{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;} .w-main{fill:#eae8e3;}
+  .w-hdr{fill:#c8c5be;} .w-row{fill:#eae8e3;stroke:#c8c5be;stroke-width:0.5;}
+  .w-rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:0.5;}
+  .w-input{fill:#fff;stroke:#c8c5be;stroke-width:1;}
+  .w-accent{fill:#c63d1f;} .w-sbtn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1;}
+  .wt{font-family:'Barlow',sans-serif;font-size:9px;fill:#555550;}
+  .wm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550;}
+  .wh{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;}
+  .ws{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880;}
+</style></defs>
+<rect width="700" height="185" class="w-bg"/>
+<rect x="0" y="0" width="700" height="20" class="w-bar"/>
+<text x="8" y="14" class="wh" style="font-size:10px;">WinBox — IP > Firewall > Filter Rules (forward chain)</text>
+<rect x="662" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="669" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">–</text>
+<rect x="678" y="3" width="14" height="14" class="w-btn" rx="2"/><text x="685" y="13" style="font-size:9px;font-family:monospace;fill:#555550;text-anchor:middle">×</text>
+<rect x="0" y="20" width="700" height="165" class="w-main"/>
+<rect x="0" y="20" width="700" height="18" class="w-hdr"/>
+<text x="8" y="32" class="wt" style="font-weight:600;fill:#1a1a18;">IP &gt; Firewall &gt; Filter Rules</text>
+<rect x="8" y="54" width="40" height="13" class="w-sbtn" rx="2"/>
+<text x="28" y="63" class="wt" style="text-anchor:middle;">+ Add</text>
+<rect x="0" y="70" width="700" height="13" class="w-hdr"/>
+<text x="8" y="79" class="ws" style="font-weight:600;">#</text>
+<text x="24" y="79" class="ws" style="font-weight:600;">CHAIN</text>
+<text x="90" y="79" class="ws" style="font-weight:600;">ACTION</text>
+<text x="155" y="79" class="ws" style="font-weight:600;">PROTO</text>
+<text x="205" y="79" class="ws" style="font-weight:600;">IN-IFACE</text>
+<text x="275" y="79" class="ws" style="font-weight:600;">DST-ADDR</text>
+<text x="370" y="79" class="ws" style="font-weight:600;">DST-PORT</text>
+<text x="420" y="79" class="ws" style="font-weight:600;">CONN-STATE</text>
+<text x="530" y="79" class="ws" style="font-weight:600;">COMMENT</text>
+<!-- Row 0 - fasttrack -->
+<rect x="0" y="83" width="700" height="16" class="w-row"/>
+<text x="8" y="94" class="wm">0</text>
+<text x="24" y="94" class="wm">forward</text>
+<text x="90" y="94" class="wm">fasttrack</text>
+<text x="155" y="94" class="wm">—</text>
+<text x="205" y="94" class="wm">—</text>
+<text x="275" y="94" class="wm">—</text>
+<text x="370" y="94" class="wm">—</text>
+<text x="420" y="94" class="wm">estab,related</text>
+<text x="530" y="94" class="wm" style="fill:#888880;">fasttrack</text>
+<!-- Row 1 - rate limit (drop) -->
+<rect x="0" y="99" width="700" height="16" class="w-rowh"/>
+<text x="8" y="110" class="wm">1</text>
+<text x="24" y="110" class="wm">forward</text>
+<text x="90" y="110" class="wm" style="fill:#c08020;">drop</text>
+<text x="155" y="110" class="wm">tcp</text>
+<text x="205" y="110" class="wm">ether1</text>
+<text x="275" y="110" class="wm">192.168.10.50</text>
+<text x="370" y="110" class="wm">80</text>
+<text x="420" y="110" class="wm">new</text>
+<text x="530" y="110" class="wm" style="fill:#888880;">rate-limit new conns</text>
+<!-- Row 2 - log -->
+<rect x="0" y="115" width="700" height="16" class="w-row"/>
+<text x="8" y="126" class="wm">2</text>
+<text x="24" y="126" class="wm">forward</text>
+<text x="90" y="126" class="wm">log</text>
+<text x="155" y="126" class="wm">tcp</text>
+<text x="205" y="126" class="wm">ether1</text>
+<text x="275" y="126" class="wm">192.168.10.50</text>
+<text x="370" y="126" class="wm">80</text>
+<text x="420" y="126" class="wm">new</text>
+<text x="530" y="126" class="wm" style="fill:#888880;">FWD-HIT log</text>
+<!-- Row 3 - accept (highlighted) -->
+<rect x="0" y="131" width="700" height="16" fill="#c63d1f" opacity="0.12" stroke="#c8c5be" stroke-width="0.5"/>
+<text x="8" y="142" class="wm">3</text>
+<text x="24" y="142" class="wm">forward</text>
+<text x="90" y="142" class="wm" style="fill:#3a5a78;">accept</text>
+<text x="155" y="142" class="wm">tcp</text>
+<text x="205" y="142" class="wm">ether1</text>
+<text x="275" y="142" class="wm" style="fill:#c63d1f;">192.168.10.50</text>
+<text x="370" y="142" class="wm" style="fill:#c63d1f;">80</text>
+<text x="420" y="142" class="wm">new</text>
+<text x="530" y="142" class="wm" style="fill:#888880;">Allow fwd→webserver</text>
+<!-- Status -->
+<rect x="0" y="173" width="700" height="12" class="w-hdr"/>
+<text x="8" y="182" class="ws">4 rules — order: rate-limit DROP before ACCEPT, LOG before ACCEPT</text>
+</svg>
+    <span class="inline-img-caption">Κανόνες forward chain με σειρά: fasttrack established → rate-limit drop → log → accept. Οι κανόνες log και rate-limit πρέπει να εμφανίζονται <em>πριν</em> τον κανόνα accept για την ίδια θύρα.</span>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">🛡 Ματια Defender — Θωρακιση &amp; Παρακολουθηση</span>
+    <p><strong>Μην κάνεις ποτέ forward RDP (3389) ή SSH (22) χωρίς περιορισμό source IP.</strong> Αυτές είναι οι θύρες με τη μεγαλύτερη αξία για αυτοματοποιημένους scanners. Αν πρέπει να τις εκθέσεις, μετακίνησέ τες σε μη-στάνταρ θύρα ΚΑΙ περιόρισέ τες κατά source IP. Ακόμα καλύτερα: βάλ' τες πίσω από Tailscale και μην κάνεις καθόλου forward.</p>
+    <p><strong>Χρησιμοποίησε τον πίνακα συνδέσεων σαν audit trail σου.</strong> Το <code>/ip firewall connection print</code> δείχνει όλες τις ενεργές και πρόσφατες συνδέσεις μέσω του router. Σταυρωμένη αναφορά με τις καταχωρήσεις log prefix σου για να εντοπίσεις απρόσμενες source IPs. Οτιδήποτε έξω από το αναμενόμενο γεωγραφικό εύρος σου αξίζει έρευνα.</p>
+    <p><strong>Για δίκτυα φιλοξενίας: οι θύρες κάμερας και PMS είναι στόχοι υψηλής αξίας.</strong> Οι κάμερες IP ειδικά παραβιάζονται τακτικά σε εκτεθειμένες θύρες. Αν ένας vendor σου λέει να κάνεις forward θύρες κάμερας δημόσια, αντίστασε — ρώτησε για την επιλογή VPN ή cloud relay τους. Αν το forwarding είναι αναπόφευκτο, περιόρισέ το στο γνωστό εύρος IP του vendor και όρισε ένα rate limit.</p>
+    <p><strong>Έλεγξε τις ανοιχτές θύρες σου περιοδικά.</strong> Το <code>/ip firewall nat print where chain=dstnat</code> σου δίνει μια πλήρη λίστα με το τι κάνεις τώρα forward. Τρέξε το τριμηνιαία — σε ενεργά δίκτυα, οι κανόνες συσσωρεύονται και τα ξεχασμένα forwards είναι πραγματική επιφάνεια επίθεσης.</p>
+  </div>
+
+  <!-- ── TAKEAWAYS ── -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το port forwarding απαιτεί πάντα δύο κανόνες.</strong> Ο κανόνας DST-NAT ξαναγράφει τον προορισμό. Ο κανόνας accept του forward chain αφήνει το ξαναγραμμένο πακέτο να περάσει. Το να ξεχάσεις τον δεύτερο κανόνα είναι ο πιο κοινός λόγος που το forwarding αποτυγχάνει σιωπηλά.</li>
+      <li><strong>Η θέση κανόνα δεν είναι προαιρετική — είναι η λογική.</strong> Το RouterOS επεξεργάζεται κανόνες top-down και σταματά στο πρώτο match. Ένας κανόνας accept σε λάθος θέση μετά από έναν ευρύ κανόνα drop δεν κάνει τίποτα. Επιβεβαίωνε πάντα τη σειρά κανόνων με <code>/ip firewall filter print</code> μετά την προσθήκη νέων κανόνων.</li>
+      <li><strong>Για δυναμικές IPs, αφαίρεσε το <code>dst-address=</code> από τον κανόνα NAT και χρησιμοποίησε IP Cloud για DDNS.</strong> Το hardcode της IP WAN σου στον κανόνα NAT θα σπάσει σιωπηλά όταν αλλάξει. Το IP Cloud είναι ενσωματωμένο, δωρεάν, και δεν απαιτεί εξωτερικές εξαρτήσεις.</li>
+      <li><strong>Το Hairpin NAT απαιτεί την post-NAT διεύθυνση LAN, όχι την public IP.</strong> Το srcnat chain βλέπει κίνηση αφού το DST-NAT έχει ήδη ξαναγράψει τον προορισμό. Το match στην public IP σε έναν κανόνα hairpin δεν θα πυροδοτηθεί ποτέ.</li>
+      <li><strong>Το Starlink CGNAT δεν είναι πρόβλημα ρύθμισης router.</strong> Κανένας αριθμός κανόνων DST-NAT δεν θα δουλέψει όταν δεν κατέχεις την public IP. Η αλλαγή αρχιτεκτονικής — outbound tunnel Tailscale + VPS reverse proxy — είναι η σωστή λύση, όχι ένα workaround.</li>
+      <li><strong>Κάθε forwarded θύρα χρειάζεται review θωράκισης.</strong> Τουλάχιστον: περιόρισε κατά source IP όπου γίνεται, πρόσθεσε ένα rate limit σύνδεσης για δημόσια-ορατές υπηρεσίες, και κάνε log νέες συνδέσεις. Μια forwarded θύρα χωρίς logging είναι αόρατη στο incident response trail σου.</li>
+      <li><strong>Έλεγξε τους κανόνες NAT σου τριμηνιαία.</strong> Συσσωρευμένοι κανόνες DST-NAT από παλιά deployments είναι μια κοινή ξεχασμένη επιφάνεια επίθεσης. Το <code>/ip firewall nat print where chain=dstnat</code> παίρνει πέντε δευτερόλεπτα και θα έπρεπε να είναι στο checklist συντήρησής σου.</li>
+    </ol>
+  </div>
+
+  <!-- ── CTA ── -->
+  <div class="cta-card">
+    <h3>Δεν ειναι σιγουρο τι ειναι πραγματικα εκτεθειμενο στο internet;</h3>
+    <p>Ελέγχω και θωρακίζω περιμέτρους δικτύου για ιδιοκτησίες φιλοξενίας ψάχνοντας ακριβώς ό,τι θα έβρισκε πρώτο ένας ευκαιριακός scanner — ανοιχτές θύρες, sloppy κανόνες NAT, εκτεθειμένα συστήματα κάμερας ή PMS, και deployments Starlink που κανείς δεν θωράκισε σωστά.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div><!-- /.wrap -->
+
+<!-- ── FOOTER ──────────────────────────────────────────── -->
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

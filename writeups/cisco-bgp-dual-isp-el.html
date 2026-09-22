@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: BGP & Dual-ISP Multihoming — S. Markakis</title>
+<meta name="description" content="Στήσε ένα πραγματικό multihomed BGP edge σε Cisco IOS — δύο eBGP upstreams, έλεγχος outbound path με local-preference, inbound με AS-path prepend, υποχρεωτικό anti-transit filtering, και αυτόματο failover.">
+<meta property="og:title" content="Cisco IOS: BGP &amp; Dual-ISP Multihoming — S. Markakis">
+<meta property="og:description" content="Στήσε ένα πραγματικό multihomed BGP edge σε Cisco IOS — δύο eBGP upstreams, έλεγχος outbound path με local-preference, inbound με AS-path prepend, υποχρεωτικό anti-transit filtering, και αυτόματο failover.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-bgp-dual-isp-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-bgp-dual-isp.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-bgp-dual-isp.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-bgp-dual-isp-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-bgp-dual-isp.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-bgp-dual-isp-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-bgp-dual-isp.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: BGP & Dual-ISP Multihoming",
+  "description": "Στήσε ένα πραγματικό multihomed BGP edge σε Cisco IOS — δύο eBGP upstreams, έλεγχος outbound path με local-preference, inbound με AS-path prepend, υποχρεωτικό anti-transit filtering, και αυτόματο failover.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-bgp-dual-isp-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-bgp-dual-isp.png",
+  "keywords": [
+    "cisco",
+    "routing"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-bgp-dual-isp"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-bgp-dual-isp.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Routing &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>BGP &amp; Dual-ISP Multihoming</h1>
+  <p class="post-subtitle">Όλη η σειρά σταματά στο OSPF, που τρέχει το inside σου. Το BGP τρέχει το outside — το πρωτόκολλο που κολλάει μαζί το internet και αυτό στο οποίο στρέφεσαι τη μέρα που ένα μόνο default route μέσω ενός ISP δεν είναι πια αρκετό. Αυτό χτίζει ένα πραγματικό dual-ISP edge: δύο upstreams, λογικό έλεγχο path inbound και outbound, και failover που απλώς συμβαίνει όταν πέσει ένα session.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">BGP</span>
+    <span class="tag">Multihoming</span>
+    <span class="tag">Dual-ISP</span>
+    <span class="tag">Routing</span>
+    <span class="tag">CCNP</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το OSPF είναι <em>interior</em> gateway protocol — εμπιστεύεται κάθε router στο domain σου και μοιράζεται πλήρη τοπολογία. Το BGP είναι το αντίθετο: ένα <em>path-vector, policy-driven</em> πρωτόκολλο φτιαγμένο για το internet, όπου δεν εμπιστεύεσαι κανέναν και διαφημίζεις προσβασιμότητα, όχι τοπολογία. Το τρέχεις τη στιγμή που έχεις <strong>δύο ISP και δικό σου address space</strong> (ένα PI /24 και ένα ASN), και θέλεις να επιβιώσεις όταν πεθάνει ένας upstream χωρίς τηλεφώνημα.</p>
+    <p>Οι τρεις δουλειές ενός multihomed edge: στήσε <strong>eBGP sessions</strong> προς τους δύο ISP, έλεγξε την επιλογή path <strong>outbound</strong> (από ποιον upstream φεύγει η κίνησή σου) και <strong>inbound</strong> (από ποιον upstream σε φτάνει το internet), και κάνε το failover αυτόματο. Το outbound το κατευθύνεις με <strong>local-preference</strong>· το inbound το σπρώχνεις με <strong>AS-path prepending</strong> — δεν μπορείς να διατάξεις το internet, μόνο να το νύξεις. Αυτή είναι η γέφυρα από το <a href="cisco-routing-ospf.html">post του OSPF</a> προς το πώς το edge πραγματικά μιλάει με τον κόσμο, και έχει δίδυμο σε MikroTik στο <a href="mikrotik-bgp-dual-isp.html">RouterOS BGP</a>.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Δικό σου ASN και ένα provider-independent prefix (ή ένα lab με private ASN)</li>
+      <li>Δύο ISP uplinks, με peering address και το δικό τους AS number</li>
+      <li>Άνεση με <a href="cisco-acls.html">ACL</a> και prefix-lists — η policy του BGP στηρίζεται πάνω τους</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Στησε και τα Δυο eBGP Sessions</h2>
+  <p class="section-thesis"><em>Ένα neighbor statement ανά ISP, το prefix σου διαφημισμένο, και — μη διαπραγματεύσιμα στο edge — filters ώστε να μην κάνεις ποτέ leak ένα route που δεν πρέπει. Ένα unfiltered multihomed router μπορεί κατά λάθος να γίνει transit provider ανάμεσα σε δύο Tier-1.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — δυο eBGP peers, διαφημισε το /24 μας, φιλτραρε αυστηρα</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">router bgp 65001</span>
+<span class="pc">R1(config-router)#</span> <span class="out">bgp router-id 203.0.113.1</span>
+<span class="pc">R1(config-router)#</span> <span class="out">no bgp default ipv4-unicast</span>       <span class="cmt"># το ρητό είναι πιο ασφαλές</span>
+
+<span class="cmt"># ISP-A και ISP-B, ο καθένας ένα external AS</span>
+<span class="pc">R1(config-router)#</span> <span class="out">neighbor 198.51.100.1 remote-as 64500</span>
+<span class="pc">R1(config-router)#</span> <span class="out">neighbor 203.0.113.9 remote-as 64501</span>
+
+<span class="pc">R1(config-router)#</span> <span class="out">address-family ipv4 unicast</span>
+<span class="pc">R1(config-router-af)#</span> <span class="out">neighbor 198.51.100.1 activate</span>
+<span class="pc">R1(config-router-af)#</span> <span class="out">neighbor 203.0.113.9 activate</span>
+<span class="cmt"># Διαφήμισε ΜΟΝΟ το δικό μας aggregate.</span>
+<span class="pc">R1(config-router-af)#</span> <span class="out">network 192.0.2.0 mask 255.255.255.0</span>
+<span class="cmt"># Ποτέ μην ξανα-διαφημίζεις τα routes ενός ISP στον άλλον — φίλτραρε outbound.</span>
+<span class="pc">R1(config-router-af)#</span> <span class="out">neighbor 198.51.100.1 prefix-list OUR-NETS out</span>
+<span class="pc">R1(config-router-af)#</span> <span class="out">neighbor 203.0.113.9 prefix-list OUR-NETS out</span>
+<span class="pc">R1(config)#</span> <span class="out">ip prefix-list OUR-NETS permit 192.0.2.0/24</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ενα Unfiltered Edge Γινεται Κατα Λαθος Transit</span>
+    <p>Χωρίς αυτό το outbound filter, το router σου θα διαφημίζει ευχαρίστως routes που έμαθε από τον ISP-A πίσω στον ISP-B. Και οι δύο upstreams τότε νομίζουν ότι μπορούν να φτάσουν όλο το internet <em>μέσα από το μικρό σου edge router</em>, και τα uplinks σου λιώνουν κάτω από transit κίνηση που ποτέ δεν σκόπευες να κουβαλήσεις. Ένα outbound prefix-list που επιτρέπει μόνο το δικό σου aggregate είναι υποχρεωτικό σε κάθε multihomed edge — είναι η διαφορά ανάμεσα σε multihoming και ένα χάλια απόγευμα. Προαιρετικά περιόρισε τη ζημιά με <code>neighbor … maximum-prefix</code>.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Outbound — Το Local-Preference Διαλεγει την Εξοδο</h2>
+  <p class="section-thesis"><em>Το local-preference είναι το knob με το μεγαλύτερο βάρος που ελέγχεις πλήρως, και αποφασίζει από ποιον upstream φεύγει <strong>η δική σου</strong> κίνηση. Το μεγαλύτερο κερδίζει. Βάλ' το inbound από τον προτιμώμενο ISP.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — προτιμησε τον ISP-A outbound μεσω local-preference</span>
+    <pre class="term"><span class="cmt"># Σήμανε ό,τι μαθεύτηκε από τον ISP-A με υψηλότερο local-pref (default 100).</span>
+<span class="pc">R1(config)#</span> <span class="out">route-map PREFER-A-IN permit 10</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">set local-preference 200</span>
+<span class="pc">R1(config)#</span> <span class="out">router bgp 65001</span>
+<span class="pc">R1(config-router-af)#</span> <span class="out">neighbor 198.51.100.1 route-map PREFER-A-IN in</span>
+<span class="cmt"># Τώρα όλη η outbound κίνηση προτιμά τον ISP-A· ο ISP-B είναι hot standby.
+# Αν πέσει το session του ISP-A, εκείνα τα routes εξαφανίζονται και αναλαμβάνει ο ISP-B.</span>
+<span class="pc">R1#</span> <span class="out">show ip bgp | include 0.0.0.0|200</span></pre>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Inbound — AS-Path Prepend (Μονο Νυξη Μπορεις)</h2>
+  <p class="section-thesis"><em>Δεν ελέγχεις πώς σε φτάνει το internet — τα απομακρυσμένα δίκτυα διαλέγουν το πιο σύντομο AS-path προς το prefix σου. Για να κάνεις τον ISP-B backup για το <strong>inbound</strong>, κάνε το path μέσα από αυτόν να φαίνεται πιο μακρύ κάνοντας prepend το δικό σου AS μερικές φορές.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — κανε τον ISP-B το λιγοτερο προτιμωμενο inbound path</span>
+    <pre class="term"><span class="cmt"># Διαφήμισε στον ISP-B με το AS μας prepended 3x -> μακρύτερο path -> λιγότερο
+# προτιμώμενο από το υπόλοιπο internet. Ο ISP-A κουβαλά το inbound.</span>
+<span class="pc">R1(config)#</span> <span class="out">route-map PREPEND-B-OUT permit 10</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">set as-path prepend 65001 65001 65001</span>
+<span class="pc">R1(config)#</span> <span class="out">router bgp 65001</span>
+<span class="pc">R1(config-router-af)#</span> <span class="out">neighbor 203.0.113.9 route-map PREPEND-B-OUT out</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Η Ασυμμετρια Που Ριχνει τον Κοσμο</span>
+    <p>Το outbound και το inbound είναι <strong>ξεχωριστά προβλήματα</strong> με ξεχωριστά knobs, και το να ξεχάσεις το ένα σου δίνει ασύμμετρο routing που κατά βάση δουλεύει μέχρι που σταματά. Το local-preference είναι τοπική απόφαση — ποτέ δεν φεύγει από το AS σου — άρα κατευθύνει μόνο το <em>δικό σου</em> egress. Το AS-path prepend ταξιδεύει μαζί με τη διαφήμιση, άρα είναι το εργαλείο για <em>ingress</em> — αλλά είναι νύξη, όχι διαταγή· ένα δίκτυο κοντά στον ISP-B μπορεί να έρχεται ακόμα από εκεί. Για πραγματικό έλεγχο inbound θα χρησιμοποιούσες BGP <strong>communities</strong> που τιμά ο ISP (π.χ. «βάλε local-pref χαμηλά στην πλευρά σου»). Το prepending είναι η φορητή λύση του 80%.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Default-Only vs Full Tables, και Επαληθευση <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Τα περισσότερα edges δεν χρειάζονται 950k+ internet routes. Το να παίρνεις default route από κάθε ISP κρατά τη μνήμη χαμηλά και το failover απλό· πάρε full tables μόνο όταν χρειάζεσαι βελτιστοποίηση path ανά προορισμό.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — δεξου μονο default inbound, μετα ελεγχος υγειας</span>
+    <pre class="term"><span class="cmt"># Ζήτα από κάθε ISP να μας στέλνει μόνο ένα default (ή φίλτραρε σε 0.0.0.0/0 inbound).</span>
+<span class="pc">R1(config-router-af)#</span> <span class="out">neighbor 198.51.100.1 prefix-list DEFAULT-ONLY in</span>
+<span class="pc">R1(config)#</span> <span class="out">ip prefix-list DEFAULT-ONLY permit 0.0.0.0/0</span>
+
+<span class="cmt"># --- Επαληθευση ---</span>
+<span class="pc">R1#</span> <span class="out">show ip bgp summary</span>            <span class="cmt"># και οι δύο neighbors σε Established, prefixes &gt; 0</span>
+<span class="pc">R1#</span> <span class="out">show ip bgp 0.0.0.0</span>            <span class="cmt"># best path = ISP-A (local-pref 200)</span>
+<span class="pc">R1#</span> <span class="out">show ip route bgp</span>              <span class="cmt"># το επιλεγμένο default στο RIB</span>
+<span class="cmt"># Δοκιμή failover: κλείσε το interface του ISP-A, δες το BGP να επανασυγκλίνει στον ISP-B.</span></pre>
+  </div>
+  <table class="cheat">
+    <thead><tr><th>Συμπτωμα</th><th>Που να κοιταξεις</th></tr></thead>
+    <tbody>
+      <tr><td>Neighbor κολλημένος σε Active/Idle</td><td>Καμία προσβασιμότητα TCP 179 ή AS mismatch — <code>show ip bgp neighbors</code>.</td></tr>
+      <tr><td>Session up, χωρίς routes</td><td>Λείπει <code>activate</code> στο address-family, ή το inbound filter είναι πολύ σφιχτό.</td></tr>
+      <tr><td>Η κίνηση φεύγει από λάθος ISP</td><td>Το local-preference δεν έχει εφαρμοστεί inbound από τον προτιμώμενο peer.</td></tr>
+      <tr><td>Το inbound ακόμα ευνοεί το backup</td><td>Το prepend είναι πολύ αδύναμο, ή ένα απομακρυσμένο δίκτυο είναι απλώς πιο κοντά στον ISP-B — χρησιμοποίησε communities.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το BGP τρέχει το edge, το OSPF τρέχει το inside.</strong> Στρέφεσαι σε αυτό όταν έχεις δύο ISP και δικό σου address space και θέλεις να επιβιώσεις όταν πεθάνει ο ένας.</li>
+      <li><strong>Φίλτραρε outbound, πάντα.</strong> Ένα unfiltered multihomed edge γίνεται κατά λάθος transit ανάμεσα στους δύο ISP σου — διαφήμισε μόνο το δικό σου aggregate.</li>
+      <li><strong>Outbound = local-preference</strong> (το μεγαλύτερο κερδίζει, βάλ' το inbound από τον προτιμώμενο ISP). Ποτέ δεν φεύγει από το AS σου, άρα κατευθύνει μόνο το egress σου.</li>
+      <li><strong>Inbound = AS-path prepend</strong> — νύξη, όχι διαταγή. Κάνε το backup path να φαίνεται πιο μακρύ· χρησιμοποίησε communities του ISP όταν χρειάζεσαι πραγματικό έλεγχο.</li>
+      <li><strong>Το outbound και το inbound είναι ξεχωριστά προβλήματα.</strong> Λύσε και τα δύο ή δέξου ασύμμετρο routing.</li>
+      <li><strong>Το default-only φτάνει για τα περισσότερα edges.</strong> Πάρε full tables μόνο όταν χρειάζεσαι βελτιστοποίηση ανά προορισμό· το failover είναι αυτόματο όταν πέσει ένα session.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Δυο ISP αλλα μονο ο ενας χρησιμοποιειται στην πραξη;</h3>
+    <p>Ένα floating static route δεν είναι multihoming, είναι ένα fallback με ένα single point of failure. Χτίζω BGP edges σε Cisco και MikroTik με πραγματικό έλεγχο path inbound και outbound, και failover που επανασυγκλίνει μόνο του &mdash; χωρίς χειροκίνητη παρέμβαση, χωρίς προσευχή.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

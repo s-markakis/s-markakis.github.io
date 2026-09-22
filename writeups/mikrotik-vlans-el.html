@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>VLAN Segmentation σε MikroTik — S. Markakis</title>
+<meta name="description" content="Config VLAN σε MikroTik RouterOS — bridge VLAN filtering, tagging, και inter-VLAN routing.">
+<meta property="og:title" content="MikroTik: VLANs — S. Markakis">
+<meta property="og:description" content="Config VLAN σε MikroTik RouterOS — bridge VLAN filtering, tagging, και inter-VLAN routing.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-vlans-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-vlans.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-vlans.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-vlans-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-vlans.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-vlans-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-vlans.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  .mockup-wrap{margin:1.4rem 0;border-radius:5px;border:1px solid var(--rule);overflow:hidden;}
+  .mockup-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  .mockup-caption{font-size:.78rem;color:var(--body);font-style:italic;padding:.45rem .9rem;border-top:1px solid var(--rule);background:var(--card);}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+
+  /* ── WINBOX 4.1 MOCKUP STYLES ────────────────────────────────────────── */
+  .wb4-wrap { margin:1.4rem 0; border-radius:6px; border:1px solid var(--rule);
+              overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+  .wb4-path { background:var(--head); color:#fff; font-family:var(--font-mono);
+              font-size:.72rem; padding:.4rem 1rem; display:flex;
+              align-items:center; gap:.3rem; flex-wrap:wrap; }
+  .wb4-path span.sep { color:#888880; }
+  .wb4-path span.active { color:var(--accent); font-weight:600; }
+  .wb4-caption { font-size:.78rem; color:var(--body); font-style:italic;
+                 padding:.45rem .9rem; border-top:1px solid var(--rule);
+                 background:var(--card); }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: VLANs",
+  "description": "Config VLAN σε MikroTik RouterOS — bridge VLAN filtering, tagging, και inter-VLAN routing.",
+  "datePublished": "2026-05-04",
+  "dateModified": "2026-05-04",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-vlans-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-vlans.png",
+  "keywords": [
+    "mikrotik",
+    "switching"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-vlans"
+  },
+  "timeRequired": "PT26M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-vlans.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Μαιος 2026</p>
+  <h1 class="post-title">VLAN Segmentation<br>σε MikroTik</h1>
+  <p class="post-subtitle">Tagged trunks, untagged access ports, και IP interfaces ανά VLAN — και σε εξοπλισμό hAP/RB και CRS. Το θεμέλιο πάνω στο οποίο χτίζεται κάθε segmented δίκτυο.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">VLANs</span>
+    <span class="tag">802.1Q</span>
+    <span class="tag">Trunk</span>
+    <span class="tag">Access Port</span>
+    <span class="tag">CRS</span>
+    <span class="tag">hAP</span>
+    <span class="tag">Φιλοξενια</span>
+    <span class="tag">MTCNA+</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero topology diagram -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg">
+      <defs><style>
+        .bg{fill:#e1ded7}
+        .n{fill:#dddbd5;stroke:#c8c5be;stroke-width:1.5}
+        .hl{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle}
+        .hm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550;text-anchor:middle}
+        .hs{font-family:'Barlow',sans-serif;font-size:8.5px;fill:#888880;text-anchor:middle}
+        .trunk{stroke:#1a1a18;stroke-width:2.5;fill:none;marker-end:url(#ta)}
+        .v10{stroke:#c63d1f;stroke-width:1.5;fill:none;marker-end:url(#v10a)}
+        .v20{stroke:#3a5a78;stroke-width:1.5;fill:none;marker-end:url(#v20a)}
+        .v30{stroke:#c08020;stroke-width:1.5;fill:none;marker-end:url(#v30a)}
+        .v40{stroke:#558840;stroke-width:1.5;fill:none;marker-end:url(#v40a)}
+        .tag10{fill:#c63d1f;rx:3} .tag20{fill:#3a5a78;rx:3}
+        .tag30{fill:#c08020;rx:3} .tag40{fill:#558840;rx:3}
+        .tagt{font-family:'JetBrains Mono',monospace;font-size:7.5px;fill:#fff;text-anchor:middle}
+      </style>
+        <marker id="ta" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#1a1a18"/></marker>
+        <marker id="v10a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+        <marker id="v20a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#3a5a78"/></marker>
+        <marker id="v30a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c08020"/></marker>
+        <marker id="v40a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#558840"/></marker>
+      </defs>
+      <rect width="720" height="230" class="bg"/>
+
+      <!-- Router / CRS -->
+      <rect x="280" y="10" width="160" height="70" class="n" rx="5"/>
+      <text x="360" y="35" class="hl">MikroTik</text>
+      <text x="360" y="49" class="hs">hAP / CRS / CCR</text>
+      <!-- VLAN tag badges on router -->
+      <rect x="289" y="57" width="28" height="13" fill="#c63d1f" rx="2"/>
+      <text x="303" y="67" class="tagt">V10</text>
+      <rect x="321" y="57" width="28" height="13" fill="#3a5a78" rx="2"/>
+      <text x="335" y="67" class="tagt">V20</text>
+      <rect x="353" y="57" width="28" height="13" fill="#c08020" rx="2"/>
+      <text x="367" y="67" class="tagt">V30</text>
+      <rect x="385" y="57" width="28" height="13" fill="#558840" rx="2"/>
+      <text x="399" y="67" class="tagt">V40</text>
+
+      <!-- Trunk line down -->
+      <line x1="360" y1="80" x2="360" y2="115" class="trunk"/>
+      <text x="390" y="102" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18;">TRUNK (tagged)</text>
+
+      <!-- Switch / distribution -->
+      <rect x="280" y="115" width="160" height="40" class="n" rx="4"/>
+      <text x="360" y="133" class="hl">Switch / Bridge</text>
+      <text x="360" y="146" class="hs">802.1Q tagging</text>
+
+      <!-- Access ports branching out -->
+      <!-- MGMT V10 -->
+      <line x1="295" y1="155" x2="100" y2="185" class="v10"/>
+      <rect x="20" y="185" width="115" height="38" class="n" rx="4"/>
+      <rect x="24" y="188" width="28" height="13" fill="#c63d1f" rx="2"/>
+      <text x="38" y="198" class="tagt">MGMT</text>
+      <text x="77" y="199" class="hl" style="font-size:10px;">PC Προσωπικου</text>
+      <text x="77" y="211" class="hm">192.168.10.x</text>
+      <text x="77" y="221" class="hs">untagged access</text>
+
+      <!-- SERVERS V20 -->
+      <line x1="330" y1="155" x2="240" y2="185" class="v20"/>
+      <rect x="165" y="185" width="115" height="38" class="n" rx="4"/>
+      <rect x="169" y="188" width="34" height="13" fill="#3a5a78" rx="2"/>
+      <text x="186" y="198" class="tagt">SERVER</text>
+      <text x="222" y="199" class="hl" style="font-size:10px;">NAS / PMS</text>
+      <text x="222" y="211" class="hm">192.168.20.x</text>
+      <text x="222" y="221" class="hs">untagged access</text>
+
+      <!-- GUEST V30 -->
+      <line x1="390" y1="155" x2="480" y2="185" class="v30"/>
+      <rect x="440" y="185" width="115" height="38" class="n" rx="4"/>
+      <rect x="444" y="188" width="30" height="13" fill="#c08020" rx="2"/>
+      <text x="459" y="198" class="tagt">GUEST</text>
+      <text x="497" y="199" class="hl" style="font-size:10px;">Guest WiFi</text>
+      <text x="497" y="211" class="hm">192.168.30.x</text>
+      <text x="497" y="221" class="hs">untagged access</text>
+
+      <!-- IoT V40 -->
+      <line x1="425" y1="155" x2="620" y2="185" class="v40"/>
+      <rect x="585" y="185" width="115" height="38" class="n" rx="4"/>
+      <rect x="589" y="188" width="22" height="13" fill="#558840" rx="2"/>
+      <text x="600" y="198" class="tagt">IoT</text>
+      <text x="634" y="199" class="hl" style="font-size:10px;">Καμερες / AC</text>
+      <text x="634" y="211" class="hm">192.168.40.x</text>
+      <text x="634" y="221" class="hs">untagged access</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Ένα flat δίκτυο βάζει κάθε συσκευή — laptop επισκεπτών, PC προσωπικού, κάμερες IP, τερματικά πληρωμών, και management interfaces — στο ίδιο broadcast domain. Μια συσκευή που έχει συμβιβαστεί φτάνει όλες τις άλλες. Ένας θερμοστάτης IoT με λάθος config μπορεί να κάνει broadcast-storm σε όλο το ακίνητο. Τα VLAN το διορθώνουν αυτό δημιουργώντας απομονωμένα segments Layer 2 που μοιράζονται φυσική υποδομή αλλά δεν μπορούν να επικοινωνήσουν χωρίς ρητή απόφαση routing.</p>
+    <p>Αυτός ο οδηγός χτίζει ένα πλήρες setup VLAN για δίκτυο φιλοξενίας: Management (VLAN 10), Servers (VLAN 20), Guest WiFi (VLAN 30), και IoT (VLAN 40). Καλύπτουμε το μοντέλο VLAN βασισμένο σε bridge του RouterOS v7 που χρησιμοποιείται σε <strong>συσκευές hAP / RB</strong>, και το μοντέλο switch chip με hardware offload που χρησιμοποιείται σε <strong>συσκευές CRS</strong>. Το μοντέλο trunk/access port και το config των IP interfaces είναι πανομοιότυπα και για τα δύο — μόνο η προσέγγιση VLAN filtering διαφέρει.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>RouterOS v7.x — ο χειρισμός VLAN άλλαξε σημαντικά από το v6· αυτός ο οδηγός είναι μόνο για v7</li>
+      <li>Άνεση επιπέδου MTCNA: ξέρεις τι είναι ένα bridge και ένα IP interface</li>
+      <li>Ένα πλάνο δικτύου: VLAN ID, subnets, και ποιο φυσικό port κουβαλά ποιο VLAN</li>
+      <li>Πρόσβαση console ή απευθείας Ethernet στον router πριν ξεκινήσεις — θα χάσεις σύντομα connectivity</li>
+      <li>Για CRS: ένα switch σειράς CRS3xx που τρέχει SwOS ή RouterOS σε switch mode</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Tagged vs Untagged — Το Mental Model</h2>
+  <p class="section-thesis"><em>Κάθε σύγχυση VLAN καταλήγει σε μία παρεξηγημένη έννοια: πού ζει το tag και πού αφαιρείται.</em></p>
+
+  <p>Ένα VLAN tag 802.1Q είναι μια κεφαλίδα 4 bytes που εισάγεται σε ένα frame Ethernet, κουβαλώντας ένα VLAN ID 12-bit (1–4094). Τα switches χρησιμοποιούν αυτό το tag για να αποφασίσουν σε ποιο broadcast domain ανήκει ένα frame. Το tag προστίθεται, περνά, και αφαιρείται σε συγκεκριμένα σημεία του δικτύου:</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <defs><style>
+        .dbg{fill:#e1ded7}
+        .dn{fill:#dddbd5;stroke:#c8c5be;stroke-width:1.5}
+        .dl{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle}
+        .dm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550;text-anchor:middle}
+        .ds{font-family:'Barlow',sans-serif;font-size:8.5px;fill:#888880;text-anchor:middle}
+        .da{stroke:#888880;stroke-width:1.5;fill:none;marker-end:url(#daa)}
+        .dar{stroke:#c63d1f;stroke-width:1.5;fill:none;marker-end:url(#dra)}
+        .frame{fill:#eae8e3;stroke:#c8c5be;stroke-width:1}
+        .ftag{fill:#c63d1f;stroke:#c63d1f;stroke-width:.5}
+        .ftagn{fill:#dddbd5;stroke:#c8c5be;stroke-width:.5}
+      </style>
+        <marker id="daa" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#888880"/></marker>
+        <marker id="dra" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="200" class="dbg"/>
+
+      <!-- PC (untagged) -->
+      <rect x="16" y="75" width="90" height="50" class="dn" rx="4"/>
+      <text x="61" y="97" class="dl">PC</text>
+      <text x="61" y="111" class="ds">στελνει untagged</text>
+      <text x="61" y="121" class="ds">frame Ethernet</text>
+
+      <!-- Frame untagged -->
+      <rect x="115" y="88" width="55" height="24" class="frame" rx="2"/>
+      <rect x="115" y="88" width="18" height="24" class="ftagn" rx="2"/>
+      <text x="124" y="104" class="dm">DST</text>
+      <text x="151" y="104" class="dm">DATA</text>
+
+      <!-- Arrow PC → Switch -->
+      <line x1="106" y1="100" x2="175" y2="100" class="da"/>
+      <text x="140" y="82" class="ds">untagged</text>
+
+      <!-- Access port / switch -->
+      <rect x="177" y="55" width="110" height="90" fill="#eae8e3" stroke="#c8c5be" stroke-width="1.5" rx="5"/>
+      <text x="232" y="78" class="dl">Switch Port</text>
+      <text x="232" y="92" class="ds">ACCESS port</text>
+      <text x="232" y="105" class="ds">PVID = 10</text>
+      <rect x="195" y="112" width="74" height="14" fill="#c63d1f" rx="3"/>
+      <text x="232" y="123" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#fff;text-anchor:middle;">adds tag: VLAN10</text>
+
+      <!-- Frame tagged -->
+      <rect x="300" y="88" width="68" height="24" class="frame" rx="2"/>
+      <rect x="300" y="88" width="20" height="24" fill="#c63d1f" rx="2"/>
+      <text x="310" y="104" style="font-family:'JetBrains Mono',monospace;font-size:7px;fill:#fff;text-anchor:middle;">V10</text>
+      <text x="326" y="97" class="dm">DST</text>
+      <text x="346" y="97" class="dm">DATA</text>
+
+      <!-- Arrow switch → trunk -->
+      <line x1="287" y1="100" x2="370" y2="100" class="dar"/>
+      <text x="328" y="82" class="ds" style="fill:#c63d1f;">tagged</text>
+
+      <!-- Trunk link -->
+      <rect x="372" y="55" width="100" height="90" fill="#eae8e3" stroke="#1a1a18" stroke-width="2" rx="5"/>
+      <text x="422" y="78" class="dl">TRUNK</text>
+      <text x="422" y="92" class="ds">κουβαλα ολα τα VLAN</text>
+      <text x="422" y="105" class="ds">tagged (802.1Q)</text>
+      <text x="422" y="118" class="ds">V10+V20+V30+V40</text>
+
+      <!-- Arrow trunk → router -->
+      <line x1="472" y1="100" x2="550" y2="100" class="dar"/>
+      <text x="511" y="82" class="ds" style="fill:#c63d1f;">tagged</text>
+
+      <!-- Router -->
+      <rect x="552" y="65" width="110" height="70" class="dn" rx="5"/>
+      <text x="607" y="90" class="dl">Router</text>
+      <text x="607" y="104" class="ds">VLAN interfaces</text>
+      <text x="607" y="116" class="ds">αφαιρει tag, κανει route</text>
+      <text x="607" y="128" class="ds">ξανα-tag αν χρειαστει</text>
+
+      <text x="360" y="178" style="font-family:'Barlow',sans-serif;font-style:italic;font-size:9.5px;fill:#888880;text-anchor:middle;">PC στέλνει untagged → το access port προσθέτει tag → το trunk κουβαλά tagged frames → ο router αφαιρεί το tag και κάνει route ανάμεσα σε VLAN</text>
+    </svg>
+  </div>
+
+  <p><strong>Access port</strong> — συνδέεται με μια τελική συσκευή (PC, εκτυπωτή, κάμερα IP). Δέχεται untagged frames από τη συσκευή, προσθέτει το tag VLAN πριν το forward. Αφαιρεί το tag πριν το στείλει πίσω στη συσκευή. Η τελική συσκευή δεν βλέπει ποτέ tag.</p>
+  <p><strong>Trunk port</strong> — συνδέει switches μεταξύ τους, ή ένα switch με έναν router. Κουβαλά πολλά VLAN ταυτόχρονα, κάθε frame tagged. Η συσκευή που δέχεται πρέπει να καταλαβαίνει tags 802.1Q.</p>
+  <p><strong>PVID (Port VLAN ID)</strong> — το VLAN που ανατίθεται σε untagged frames που φτάνουν σε ένα access port. Στο RouterOS, αυτό ρυθμίζεται ανά bridge port.</p>
+
+  <div class="wb4-wrap">
+<div class="wb4-path">Bridge <span class="sep">›</span> Bridge <span class="sep">›</span> <span class="active">+ Add</span></div>
+<svg viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w4bg{fill:#1e1e1e} .w4sb{fill:#252525} .w4work{fill:#eae8e3}
+  .w4hdr{fill:#2a2a2a} .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}
+  .w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+  .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+  .w4btn{fill:#333;stroke:#444;stroke-width:.5;rx:3}
+  .w4btnr{fill:#c63d1f;rx:3}
+  .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}
+  .w4sel{fill:#3a3a3a;stroke:#555;stroke-width:.5}
+  .w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+  .w4t{font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#eae8e3}
+  .w4ts{font-family:'Inter','Barlow',sans-serif;font-size:8px;fill:#888880}
+  .w4tm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+  .w4tma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+  .w4th{font-family:'Inter','Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18}
+  .w4tl{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+  .w4acc{fill:#c63d1f} .w4ok{fill:#3a5a78}
+  .w4tag10{fill:#c63d1f} .w4tag20{fill:#3a5a78}
+  .w4tag30{fill:#c08020} .w4tag40{fill:#558840}
+</style></defs>
+<rect width="680" height="240" class="w4bg"/>
+<rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+<text x="10" y="16" style="font-family:'Inter','Barlow',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  admin@192.168.88.1</text>
+<circle cx="644" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="658" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="672" cy="12" r="5" fill="#c63d1f" stroke="#c63d1f" stroke-width=".5"/>
+<rect x="0" y="24" width="138" height="216" class="w4sb"/><text x="8" y="41" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> INTERFACE</text><text x="12" y="59" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Interfaces</text><rect x="0" y="66" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/><rect x="0" y="66" width="3" height="16" fill="#c63d1f"/><text x="12" y="77" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Bridge</text><text x="12" y="95" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Wireless</text><text x="8" y="113" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> IP</text><text x="12" y="131" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Addresses</text><text x="12" y="149" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">DHCP Server</text><text x="12" y="167" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Firewall</text><text x="8" y="185" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> ROUTING</text><text x="12" y="203" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Routes</text>
+<rect x="138" y="24" width="542" height="216" class="w4work"/>
+<rect x="138" y="24" width="542" height="26" fill="#dddbd5"/><rect x="144" y="29" width="44" height="16" fill="#c63d1f" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="166" y="40" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text><rect x="193" y="29" width="62" height="16" fill="#3a3a3a" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="224" y="40" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">− Remove</text><rect x="260" y="29" width="38" height="16" fill="#e1ded7" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="279" y="40" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;font-weight:500;">Edit</text>
+<rect x="138" y="50" width="542" height="16" fill="#c8c5be"/><text x="144" y="61" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">NAME</text><text x="264" y="61" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">MTU</text><text x="314" y="61" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">VLAN-FILT</text><text x="404" y="61" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">FRAME-TYPES</text><text x="534" y="61" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">COMMENT</text>
+<rect x="138" y="66" width="542" height="16" class="w4row"/>
+<text x="144" y="77" class="w4tm">bridge1</text>
+<text x="264" y="77" class="w4tm">1500</text>
+<text x="314" y="77" class="w4tma" style="font-weight:600;">yes</text>
+<text x="404" y="77" class="w4tm">admit-all</text>
+<text x="534" y="77" class="w4tm" style="fill:#888880;">Main LAN bridge</text>
+<!-- Form panel open on right -->
+<rect x="400" y="90" width="278" height="148" class="w4form" rx="4"/>
+<rect x="400" y="90" width="278" height="20" fill="#1a1a18" rx="4"/>
+<rect x="400" y="102" width="278" height="8" fill="#1a1a18"/>
+<text x="412" y="104" style="font-family:'Inter',sans-serif;font-weight:600;font-size:9px;fill:#eae8e3;">New Bridge</text>
+<text x="650" y="104" style="font-family:'Inter',sans-serif;font-size:10px;fill:#888880;text-anchor:middle;">×</text>
+<!-- Form fields -->
+<text x="410" y="128" class="w4tl">Name</text>
+<rect x="460" y="118" width="205" height="16" class="w4inp" rx="2"/>
+<text x="466" y="129" class="w4tm">bridge1</text>
+<text x="410" y="150" class="w4tl">VLAN Filtering</text>
+<rect x="460" y="140" width="16" height="16" class="w4inp" rx="2"/>
+<rect x="463" y="143" width="10" height="10" fill="#c63d1f" rx="1"/>
+<text x="480" y="151" class="w4tl" style="fill:#c63d1f;font-weight:600;">yes</text>
+<text x="410" y="172" class="w4tl">Frame Types</text>
+<rect x="460" y="162" width="205" height="16" class="w4inp" rx="2"/>
+<text x="466" y="173" class="w4tm">admit-all  ▾</text>
+<text x="410" y="194" class="w4tl">Comment</text>
+<rect x="460" y="184" width="205" height="16" class="w4inp" rx="2"/>
+<text x="466" y="195" class="w4tm">Main LAN bridge</text>
+<!-- Apply/Cancel -->
+<rect x="538" y="210" width="50" height="16" fill="#c63d1f" rx="3"/>
+<text x="563" y="221" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">Apply</text>
+<rect x="596" y="210" width="44" height="16" fill="#3a3a3a" rx="3"/>
+<text x="618" y="221" style="font-family:'Inter',sans-serif;font-size:8px;fill:#eae8e3;text-anchor:middle;">Cancel</text>
+<!-- Status bar -->
+<rect x="138" y="222" width="542" height="18" fill="#dddbd5"/>
+<text x="144" y="233" class="w4ts">Bridge created  ·  VLAN filtering: enabled</text>
+</svg>
+<div class="wb4-caption">Bridge › tab Bridge › κλικ στο <strong>+ Add</strong>. Βάλε Name = <code>bridge1</code>, τσέκαρε <strong>VLAN Filtering = yes</strong>, Frame Types = <code>admit-all</code>. Κλικ Apply.</div>
+</div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το RouterOS v7 Χρησιμοποιει Bridge-Based VLANs, Οχι την Παλια Μεθοδο Switch Chip</span>
+    <p>Στο RouterOS v6, τα VLAN συχνά γινόντουσαν config απευθείας στο switch chip χρησιμοποιώντας <code>/interface ethernet switch</code>. Στο v7, η σωστή και υποστηριζόμενη μέθοδος είναι bridge-based VLAN filtering: όλα τα interfaces μπαίνουν σε ένα bridge, και η policy VLAN ορίζεται στο bridge και στα ports του. Η παλιά μέθοδος switch chip ακόμα υπάρχει σε κάποιο hardware αλλά δεν συνιστάται για νέες αναπτύξεις. Όλα σε αυτόν τον οδηγό χρησιμοποιούν τη μέθοδο bridge του v7.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Πλανο VLAN</h2>
+  <p class="section-thesis"><em>Γράψε το πλάνο πριν αγγίξεις το CLI — κάθε εντολή που πληκτρολογείς πρέπει να αντιστοιχεί απευθείας σε μια γραμμή αυτού του πίνακα.</em></p>
+
+  <div class="mockup-wrap">
+    <span class="mockup-label">Πλανο VLAN Φιλοξενιας — προσαρμοσε τα ID και τα subnets στο δικτυο σου</span>
+    <svg viewBox="0 0 720 178" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;background:#e1ded7;">
+      <defs><style>
+        .pt{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle}
+        .ps{font-family:'Barlow',sans-serif;font-size:9px;fill:#555550}
+        .pm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550}
+        .ph{fill:#c8c5be}.pr{fill:#eae8e3;stroke:#c8c5be;stroke-width:.5}.prh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.5}
+      </style></defs>
+      <rect width="720" height="178" fill="#e1ded7"/>
+      <rect x="0" y="0" width="720" height="18" class="ph"/>
+      <text x="40" y="13" class="pt">VLAN ID</text>
+      <text x="120" y="13" class="pt">ΟΝΟΜΑ</text>
+      <text x="230" y="13" class="pt">SUBNET</text>
+      <text x="340" y="13" class="pt">GATEWAY</text>
+      <text x="440" y="13" class="pt">ΕΥΡΟΣ DHCP</text>
+      <text x="580" y="13" class="pt">ΣΥΣΚΕΥΕΣ</text>
+      <line x1="75" y1="0" x2="75" y2="178" stroke="#c8c5be" stroke-width=".5"/>
+      <line x1="170" y1="0" x2="170" y2="178" stroke="#c8c5be" stroke-width=".5"/>
+      <line x1="285" y1="0" x2="285" y2="178" stroke="#c8c5be" stroke-width=".5"/>
+      <line x1="395" y1="0" x2="395" y2="178" stroke="#c8c5be" stroke-width=".5"/>
+      <line x1="495" y1="0" x2="495" y2="178" stroke="#c8c5be" stroke-width=".5"/>
+
+      <!-- VLAN 10 MGMT -->
+      <rect x="0" y="18" width="720" height="20" style="fill:#c63d1f;fill-opacity:.1;stroke:#c8c5be;stroke-width:.5"/>
+      <text x="40" y="32" class="pm" style="fill:#c63d1f;font-weight:600;">10</text>
+      <text x="85" y="32" class="ps">Management</text>
+      <text x="175" y="32" class="pm">192.168.10.0/24</text>
+      <text x="290" y="32" class="pm">192.168.10.1</text>
+      <text x="400" y="32" class="pm">.100 – .200</text>
+      <text x="500" y="32" class="ps">PC προσωπικου, Winbox, SSH</text>
+
+      <!-- VLAN 20 SERVERS -->
+      <rect x="0" y="38" width="720" height="20" style="fill:#3a5a78;fill-opacity:.1;stroke:#c8c5be;stroke-width:.5"/>
+      <text x="40" y="52" class="pm" style="fill:#3a5a78;font-weight:600;">20</text>
+      <text x="85" y="52" class="ps">Servers</text>
+      <text x="175" y="52" class="pm">192.168.20.0/24</text>
+      <text x="290" y="52" class="pm">192.168.20.1</text>
+      <text x="400" y="52" class="pm">.10 – .50</text>
+      <text x="500" y="52" class="ps">NAS, PMS, server backup</text>
+
+      <!-- VLAN 30 GUEST -->
+      <rect x="0" y="58" width="720" height="20" style="fill:#c08020;fill-opacity:.1;stroke:#c8c5be;stroke-width:.5"/>
+      <text x="40" y="72" class="pm" style="fill:#c08020;font-weight:600;">30</text>
+      <text x="85" y="72" class="ps">Guest WiFi</text>
+      <text x="175" y="72" class="pm">192.168.30.0/24</text>
+      <text x="290" y="72" class="pm">192.168.30.1</text>
+      <text x="400" y="72" class="pm">.100 – .250</text>
+      <text x="500" y="72" class="ps">Laptop και τηλεφωνα επισκεπτων</text>
+
+      <!-- VLAN 40 IoT -->
+      <rect x="0" y="78" width="720" height="20" style="fill:#558840;fill-opacity:.1;stroke:#c8c5be;stroke-width:.5"/>
+      <text x="40" y="92" class="pm" style="fill:#558840;font-weight:600;">40</text>
+      <text x="85" y="92" class="ps">IoT</text>
+      <text x="175" y="92" class="pm">192.168.40.0/24</text>
+      <text x="290" y="92" class="pm">192.168.40.1</text>
+      <text x="400" y="92" class="pm">.10 – .100</text>
+      <text x="500" y="92" class="ps">Καμερες, AC, κλειδαριες</text>
+
+      <!-- Port assignment header -->
+      <rect x="0" y="106" width="720" height="16" class="ph"/>
+      <text x="8" y="118" style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:10px;fill:#1a1a18;">ΑΝΑΘΕΣΕΙΣ PORT</text>
+
+      <rect x="0" y="122" width="720" height="16" class="pr"/>
+      <text x="8" y="133" class="ps"><tspan style="font-family:'JetBrains Mono',monospace;font-size:8.5px;">ether1</tspan>  — WAN (χωρίς VLAN, uplink internet)</text>
+      <rect x="0" y="138" width="720" height="16" class="prh"/>
+      <text x="8" y="149" class="ps"><tspan style="font-family:'JetBrains Mono',monospace;font-size:8.5px;">ether2</tspan>  — TRUNK port → downstream switch ή CRS (κουβαλά VLAN 10+20+30+40 tagged)</text>
+      <rect x="0" y="154" width="720" height="16" class="pr"/>
+      <text x="8" y="165" class="ps"><tspan style="font-family:'JetBrains Mono',monospace;font-size:8.5px;">ether3</tspan>  — ACCESS port → VLAN 10 untagged (PC προσωπικού / management)</text>
+      <rect x="0" y="170" width="720" height="8" class="prh"/>
+      <text x="8" y="176" class="ps" style="font-size:7.5px;"><tspan style="font-family:'JetBrains Mono',monospace;">ether4</tspan> — ACCESS port → VLAN 40 untagged (συσκευή IoT)</text>
+    </svg>
+    <span class="mockup-caption">Προσάρμοσε τα VLAN ID και τα subnets στο περιβάλλον σου. Το pattern 192.168.x.0/24 χρησιμοποιείται εδώ για σαφήνεια — οποιοδήποτε εύρος RFC1918 δουλεύει. Κράτα αυτόν τον πίνακα ως αναφορά σου σε όλα τα βήματα config.</span>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">hAP / RB — Bridge VLAN Filtering</h2>
+  <p class="section-thesis"><em>Σε συσκευές hAP και RB, τα VLAN ζουν στο bridge. Τρία βήματα: χτίσε το bridge με VLAN filtering ενεργό, όρισε trunk και access ports, δημιούργησε IP interfaces VLAN.</em></p>
+
+  <p>Το μοντέλο bridge VLAN του RouterOS v7 δουλεύει έτσι: ένα bridge κρατά όλα τα ports LAN. Το VLAN filtering ενεργοποιείται στο ίδιο το bridge. Κάθε port ανατίθεται ως tagged ή untagged μέλος για συγκεκριμένα VLAN. Το bridge επιβάλλει την policy tagging σε software (ή με switch chip offload σε υποστηριζόμενο hardware).</p>
+
+  <h3 class="sub">Βημα 1 — Δημιουργησε το Bridge με VLAN Filtering</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — δημιουργησε bridge με VLAN filtering</span>
+    <pre class="term"><span class="cmt"># ── ΒΗΜΑ ΜΗΔΕΝ: ενεργοποίησε vlan-filtering στο bridge ───────────────────
+# Χωρίς vlan-filtering=yes, ο πίνακας VLAN και οι ρυθμίσεις PVID αγνοούνται
+# εντελώς — όλα τα ports συμπεριφέρονται σαν να είναι στο ίδιο flat δίκτυο.
+# Ρύθμισέ το ΠΡΩΤΑ, πριν προσθέσεις ports ή ορίσεις τον πίνακα VLAN.</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge add \</span>
+<span class="out">    name=bridge1 \</span>
+<span class="out">    vlan-filtering=yes \</span>
+<span class="out">    frame-types=admit-all \</span>
+<span class="out">    comment="Main LAN bridge with VLAN filtering"</span>
+<span class="cmt"># vlan-filtering=yes: ενεργοποιεί την επιβολή 802.1Q σε αυτό το bridge.
+# Χωρίς αυτό, τα tags VLAN αγνοούνται και όλα τα ports είναι στο ίδιο domain.
+# frame-types=admit-all: το bridge δέχεται και tagged και untagged frames.
+# Τα επιμέρους ports θα περιορίσουν περαιτέρω τι δέχονται.</span></pre>
+  </div>
+
+  <h3 class="sub">Βημα 2 — Προσθεσε Ports στο Bridge</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — προσθεσε trunk και access ports</span>
+    <pre class="term"><span class="cmt"># ── TRUNK PORT (ether2 → downstream switch) ──────────────────────────────
+# Κουβαλά όλα τα VLAN tagged. frame-types=admit-only-vlan-tagged σημαίνει
+# ότι τα untagged frames που φτάνουν εδώ γίνονται drop.</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge port add \</span>
+<span class="out">    interface=ether2 \</span>
+<span class="out">    bridge=bridge1 \</span>
+<span class="out">    frame-types=admit-only-vlan-tagged \</span>
+<span class="out">    comment="Trunk → downstream switch"</span>
+
+<span class="cmt"># ── ACCESS PORT (ether3 → VLAN 10, PC προσωπικού) ────────────────────────
+# pvid=10 σημαίνει ότι τα untagged frames που φτάνουν εδώ ανατίθενται στο VLAN 10.
+# frame-types=admit-only-untagged-and-priority-tagged σημαίνει ότι τα tagged
+# frames από το PC γίνονται drop — οι τελικές συσκευές δεν πρέπει να στέλνουν tags.</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge port add \</span>
+<span class="out">    interface=ether3 \</span>
+<span class="out">    bridge=bridge1 \</span>
+<span class="out">    pvid=10 \</span>
+<span class="out">    frame-types=admit-only-untagged-and-priority-tagged \</span>
+<span class="out">    comment="Access port → VLAN 10 MGMT"</span>
+
+<span class="cmt"># ── ACCESS PORT (ether4 → VLAN 40, IoT) ──────────────────────────────────</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge port add \</span>
+<span class="out">    interface=ether4 \</span>
+<span class="out">    bridge=bridge1 \</span>
+<span class="out">    pvid=40 \</span>
+<span class="out">    frame-types=admit-only-untagged-and-priority-tagged \</span>
+<span class="out">    comment="Access port → VLAN 40 IoT"</span></pre>
+  </div>
+
+  <h3 class="sub">Βημα 3 — Οριστε τον Πινακα VLAN</h3>
+  <p>Ο πίνακας VLAN του bridge ορίζει ποια ports είναι tagged ή untagged μέλη κάθε VLAN. Αυτό είναι ξεχωριστό από το config των ports — και τα δύο πρέπει να ρυθμιστούν σωστά.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — πινακας VLAN του bridge</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge vlan</span>
+
+<span class="cmt"># VLAN 10 — Management
+# ether2 (trunk): tagged μέλος  |  ether3 (access): untagged μέλος
+# το ίδιο το bridge1: tagged — απαραίτητο για το δικό του IP του router σε αυτό το VLAN</span>
+<span class="pc">[admin@MikroTik] /interface/bridge/vlan></span> <span class="out">add \</span>
+<span class="out">    bridge=bridge1 vlan-ids=10 \</span>
+<span class="out">    tagged=bridge1,ether2 \</span>
+<span class="out">    untagged=ether3</span>
+
+<span class="cmt"># VLAN 20 — Servers (μόνο trunk — δεν υπάρχουν τοπικά access ports σε αυτό το παράδειγμα)</span>
+<span class="pc">[admin@MikroTik] /interface/bridge/vlan></span> <span class="out">add \</span>
+<span class="out">    bridge=bridge1 vlan-ids=20 \</span>
+<span class="out">    tagged=bridge1,ether2</span>
+
+<span class="cmt"># VLAN 30 — Guest WiFi (μόνο trunk — το AP στο downstream switch χειρίζεται το access)</span>
+<span class="pc">[admin@MikroTik] /interface/bridge/vlan></span> <span class="out">add \</span>
+<span class="out">    bridge=bridge1 vlan-ids=30 \</span>
+<span class="out">    tagged=bridge1,ether2</span>
+
+<span class="cmt"># VLAN 40 — IoT</span>
+<span class="pc">[admin@MikroTik] /interface/bridge/vlan></span> <span class="out">add \</span>
+<span class="out">    bridge=bridge1 vlan-ids=40 \</span>
+<span class="out">    tagged=bridge1,ether2 \</span>
+<span class="out">    untagged=ether4</span>
+
+<span class="cmt"># Επιβεβαίωση:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge vlan print</span>
+<span class="out"> #  BRIDGE   VLAN-IDS  TAGGED           UNTAGGED</span>
+<span class="out"> 0  bridge1  10        bridge1,ether2   ether3</span>
+<span class="out"> 1  bridge1  20        bridge1,ether2</span>
+<span class="out"> 2  bridge1  30        bridge1,ether2</span>
+<span class="out"> 3  bridge1  40        bridge1,ether2   ether4</span></pre>
+  </div>
+
+  <div class="wb4-wrap">
+<div class="wb4-path">Bridge <span class="sep">›</span> Ports <span class="sep">›</span> <span class="active">+ Add</span></div>
+<svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w4bg{fill:#1e1e1e} .w4sb{fill:#252525} .w4work{fill:#eae8e3}
+  .w4hdr{fill:#2a2a2a} .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}
+  .w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+  .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+  .w4btn{fill:#333;stroke:#444;stroke-width:.5;rx:3}
+  .w4btnr{fill:#c63d1f;rx:3}
+  .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}
+  .w4sel{fill:#3a3a3a;stroke:#555;stroke-width:.5}
+  .w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+  .w4t{font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#eae8e3}
+  .w4ts{font-family:'Inter','Barlow',sans-serif;font-size:8px;fill:#888880}
+  .w4tm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+  .w4tma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+  .w4th{font-family:'Inter','Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18}
+  .w4tl{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+  .w4acc{fill:#c63d1f} .w4ok{fill:#3a5a78}
+  .w4tag10{fill:#c63d1f} .w4tag20{fill:#3a5a78}
+  .w4tag30{fill:#c08020} .w4tag40{fill:#558840}
+</style></defs>
+<rect width="680" height="260" class="w4bg"/>
+<rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+<text x="10" y="16" style="font-family:'Inter','Barlow',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  admin@192.168.88.1</text>
+<circle cx="644" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="658" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="672" cy="12" r="5" fill="#c63d1f" stroke="#c63d1f" stroke-width=".5"/>
+<rect x="0" y="24" width="138" height="236" class="w4sb"/><text x="8" y="41" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> INTERFACE</text><text x="12" y="59" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Interfaces</text><rect x="0" y="66" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/><rect x="0" y="66" width="3" height="16" fill="#c63d1f"/><text x="12" y="77" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Bridge</text><text x="12" y="95" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Wireless</text><text x="8" y="113" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> IP</text><text x="12" y="131" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Addresses</text><text x="12" y="149" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">DHCP Server</text><text x="12" y="167" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Firewall</text>
+<rect x="138" y="24" width="542" height="236" class="w4work"/>
+<!-- Sub-tabs -->
+<rect x="138" y="24" width="542" height="20" fill="#dddbd5"/>
+<rect x="140" y="25" width="50" height="18" fill="#e1ded7" rx="2,2,0,0"/>
+<text x="165" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#1a1a18;text-anchor:middle;font-weight:600;">Bridge</text>
+<rect x="192" y="25" width="40" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="212" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">Ports</text>
+<rect x="234" y="25" width="44" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="256" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">VLANs</text>
+<rect x="138" y="44" width="542" height="26" fill="#dddbd5"/><rect x="144" y="49" width="44" height="16" fill="#c63d1f" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="166" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text><rect x="193" y="49" width="62" height="16" fill="#3a3a3a" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="224" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">− Remove</text><rect x="260" y="49" width="38" height="16" fill="#e1ded7" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="279" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;font-weight:500;">Edit</text>
+<rect x="138" y="70" width="542" height="16" fill="#c8c5be"/><text x="144" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">INTERFACE</text><text x="234" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">BRIDGE</text><text x="314" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">PVID</text><text x="354" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">FRAME-TYPES</text><text x="514" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">HW</text><text x="549" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">STATE</text><text x="614" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">COMMENT</text>
+<!-- Row 0 trunk ether2 -->
+<rect x="138" y="86" width="542" height="16" class="w4row"/>
+<text x="144" y="97" class="w4tm">ether2</text>
+<text x="234" y="97" class="w4tm">bridge1</text>
+<text x="314" y="97" class="w4tm">1</text>
+<text x="354" y="97" class="w4tm">admit-only-vlan-tagged</text>
+<text x="514" y="97" class="w4tm" style="fill:#3a5a78;">yes</text>
+<text x="549" y="97" class="w4tm" style="fill:#3a5a78;">fwd</text>
+<text x="614" y="97" class="w4ts" style="fill:#888880;">Trunk</text>
+<!-- Row 1 access ether3 (selected) -->
+<rect x="138" y="102" width="542" height="16" class="w4hl"/>
+<text x="144" y="113" class="w4tm">ether3</text>
+<text x="234" y="113" class="w4tm">bridge1</text>
+<text x="314" y="113" class="w4tma" style="font-weight:600;">10</text>
+<text x="354" y="113" class="w4tm">admit-only-untagged</text>
+<text x="514" y="113" class="w4tm" style="fill:#3a5a78;">yes</text>
+<text x="549" y="113" class="w4tm" style="fill:#3a5a78;">fwd</text>
+<text x="614" y="113" class="w4ts" style="fill:#c63d1f;">MGMT</text>
+<!-- Row 2 access ether4 -->
+<rect x="138" y="118" width="542" height="16" class="w4rowh"/>
+<text x="144" y="129" class="w4tm">ether4</text>
+<text x="234" y="129" class="w4tm">bridge1</text>
+<text x="314" y="129" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#558840;font-weight:600;">40</text>
+<text x="354" y="129" class="w4tm">admit-only-untagged</text>
+<text x="514" y="129" class="w4tm" style="fill:#3a5a78;">yes</text>
+<text x="549" y="129" class="w4tm" style="fill:#3a5a78;">fwd</text>
+<text x="614" y="129" class="w4ts" style="fill:#558840;">IoT</text>
+<!-- Form panel for ether3 -->
+<rect x="390" y="142" width="286" height="104" class="w4form" rx="4"/>
+<rect x="390" y="142" width="286" height="20" fill="#1a1a18" rx="4"/>
+<rect x="390" y="154" width="286" height="8" fill="#1a1a18"/>
+<text x="400" y="156" style="font-family:'Inter',sans-serif;font-weight:600;font-size:9px;fill:#eae8e3;">Edit Bridge Port — ether3</text>
+<text x="408" y="174" class="w4tl">Interface</text>
+<rect x="470" y="164" width="195" height="14" class="w4inp" rx="2"/>
+<text x="475" y="174" class="w4tm">ether3  ▾</text>
+<text x="408" y="191" class="w4tl">PVID</text>
+<rect x="470" y="181" width="60" height="14" class="w4inp" rx="2"/>
+<text x="475" y="191" class="w4tma" style="font-weight:600;">10</text>
+<text x="408" y="208" class="w4tl">Frame Types</text>
+<rect x="470" y="198" width="195" height="14" class="w4inp" rx="2"/>
+<text x="475" y="208" class="w4tm">admit-only-untagged  ▾</text>
+<rect x="538" y="228" width="50" height="14" fill="#c63d1f" rx="3"/>
+<text x="563" y="238" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">Apply</text>
+<rect x="596" y="228" width="44" height="14" fill="#3a3a3a" rx="3"/>
+<text x="618" y="238" style="font-family:'Inter',sans-serif;font-size:8px;fill:#eae8e3;text-anchor:middle;">Cancel</text>
+<!-- Status -->
+<rect x="138" y="244" width="542" height="16" fill="#dddbd5"/>
+<text x="144" y="254" class="w4ts">3 ports  ·  ether3 selected  ·  PVID 10  ·  frame-types: untagged only</text>
+</svg>
+<div class="wb4-caption">Tab Bridge › Ports. Πρόσθεσε <strong>ether2</strong> με frame-types = <code>admit-only-vlan-tagged</code> (trunk). Πρόσθεσε <strong>ether3</strong> με PVID = <code>10</code>, frame-types = <code>admit-only-untagged</code> (access). Επανέλαβε για κάθε access port με το δικό του PVID.</div>
+</div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το bridge1 Πρεπει να Ειναι Tagged Μελος Καθε VLAN</span>
+    <p>Το ίδιο το interface bridge (<code>bridge1</code>) πρέπει να είναι στη λίστα <code>tagged=</code> για κάθε VLAN στο οποίο θέλεις ο router να κάνει route ή να σερβίρει DHCP. Αν το παραλείψεις, το VLAN interface που δημιουργείς στο Βήμα 4 δεν θα έχει δρόμο να στείλει ή να δεχτεί κίνηση. Αυτός είναι ο πιο συχνός λόγος που δεν δουλεύει το DHCP αφού προστεθούν VLAN — το bridge δεν είναι tagged μέλος στη δική του εγγραφή του πίνακα VLAN.</p>
+  </div>
+
+  <div class="wb4-wrap">
+<div class="wb4-path">Bridge <span class="sep">›</span> VLANs <span class="sep">›</span> <span class="active">+ Add</span></div>
+<svg viewBox="0 0 680 245" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w4bg{fill:#1e1e1e} .w4sb{fill:#252525} .w4work{fill:#eae8e3}
+  .w4hdr{fill:#2a2a2a} .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}
+  .w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+  .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+  .w4btn{fill:#333;stroke:#444;stroke-width:.5;rx:3}
+  .w4btnr{fill:#c63d1f;rx:3}
+  .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}
+  .w4sel{fill:#3a3a3a;stroke:#555;stroke-width:.5}
+  .w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+  .w4t{font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#eae8e3}
+  .w4ts{font-family:'Inter','Barlow',sans-serif;font-size:8px;fill:#888880}
+  .w4tm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+  .w4tma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+  .w4th{font-family:'Inter','Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18}
+  .w4tl{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+  .w4acc{fill:#c63d1f} .w4ok{fill:#3a5a78}
+  .w4tag10{fill:#c63d1f} .w4tag20{fill:#3a5a78}
+  .w4tag30{fill:#c08020} .w4tag40{fill:#558840}
+</style></defs>
+<rect width="680" height="245" class="w4bg"/>
+<rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+<text x="10" y="16" style="font-family:'Inter','Barlow',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  admin@192.168.88.1</text>
+<circle cx="644" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="658" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="672" cy="12" r="5" fill="#c63d1f" stroke="#c63d1f" stroke-width=".5"/>
+<rect x="0" y="24" width="138" height="221" class="w4sb"/><text x="8" y="41" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> INTERFACE</text><text x="12" y="59" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Interfaces</text><rect x="0" y="66" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/><rect x="0" y="66" width="3" height="16" fill="#c63d1f"/><text x="12" y="77" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Bridge</text><text x="12" y="95" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Wireless</text><text x="8" y="113" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> IP</text><text x="12" y="131" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Addresses</text><text x="12" y="149" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">DHCP Server</text><text x="12" y="167" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Firewall</text>
+<rect x="138" y="24" width="542" height="221" class="w4work"/>
+<!-- Sub-tabs — VLANs active -->
+<rect x="138" y="24" width="542" height="20" fill="#dddbd5"/>
+<rect x="140" y="25" width="50" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="165" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">Bridge</text>
+<rect x="192" y="25" width="40" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="212" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">Ports</text>
+<rect x="234" y="25" width="44" height="18" fill="#e1ded7" rx="2,2,0,0"/>
+<text x="256" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#1a1a18;text-anchor:middle;font-weight:600;">VLANs</text>
+<rect x="138" y="44" width="542" height="26" fill="#dddbd5"/><rect x="144" y="49" width="44" height="16" fill="#c63d1f" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="166" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text><rect x="193" y="49" width="62" height="16" fill="#3a3a3a" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="224" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">− Remove</text><rect x="260" y="49" width="38" height="16" fill="#e1ded7" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="279" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;font-weight:500;">Edit</text>
+<rect x="138" y="70" width="542" height="16" fill="#c8c5be"/><text x="144" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">VLAN-IDS</text><text x="209" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">BRIDGE</text><text x="289" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">TAGGED</text><text x="484" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">UNTAGGED</text><text x="594" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">COMMENT</text>
+<!-- Row V10 -->
+<rect x="138" y="86" width="542" height="17" style="fill:#c63d1f;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="97" class="w4tma" style="font-weight:700;">10</text>
+<text x="209" y="97" class="w4tm">bridge1</text>
+<text x="289" y="97" class="w4tm">bridge1, ether2</text>
+<text x="484" y="97" class="w4tm">ether3</text>
+<text x="594" y="97" class="w4ts" style="fill:#888880;">MGMT</text>
+<!-- Row V20 -->
+<rect x="138" y="103" width="542" height="17" style="fill:#3a5a78;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="114" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#3a5a78;font-weight:700;">20</text>
+<text x="209" y="114" class="w4tm">bridge1</text>
+<text x="289" y="114" class="w4tm">bridge1, ether2</text>
+<text x="484" y="114" class="w4ts">—</text>
+<text x="594" y="114" class="w4ts" style="fill:#888880;">Servers</text>
+<!-- Row V30 -->
+<rect x="138" y="120" width="542" height="17" style="fill:#c08020;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="131" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c08020;font-weight:700;">30</text>
+<text x="209" y="131" class="w4tm">bridge1</text>
+<text x="289" y="131" class="w4tm">bridge1, ether2</text>
+<text x="484" y="131" class="w4ts">—</text>
+<text x="594" y="131" class="w4ts" style="fill:#888880;">Guest WiFi</text>
+<!-- Row V40 -->
+<rect x="138" y="137" width="542" height="17" style="fill:#558840;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="148" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#558840;font-weight:700;">40</text>
+<text x="209" y="148" class="w4tm">bridge1</text>
+<text x="289" y="148" class="w4tm">bridge1, ether2</text>
+<text x="484" y="148" class="w4tm">ether4</text>
+<text x="594" y="148" class="w4ts" style="fill:#888880;">IoT</text>
+<!-- Note box -->
+<rect x="144" y="162" width="528" height="36" fill="#dddbd5" rx="3" stroke="#c8c5be" stroke-width=".5"/>
+<text x="154" y="175" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#c63d1f;font-weight:600;">⚠  Το bridge1 πρέπει να εμφανίζεται στο Tagged για κάθε VLAN</text>
+<text x="154" y="188" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;">Χωρίς αυτό, τα VLAN sub-interfaces δεν έχουν δρόμο να στείλουν/δεχτούν frames — το DHCP θα αποτύχει σιωπηλά.</text>
+<!-- Status -->
+<rect x="138" y="229" width="542" height="16" fill="#dddbd5"/>
+<text x="144" y="239" class="w4ts">4 VLANs configured  ·  bridge1 tagged on all  ·  VLAN filtering: active</text>
+</svg>
+<div class="wb4-caption">Tab Bridge › VLANs. Πρόσθεσε μία γραμμή ανά VLAN. Για κάθε μία: βάλε VLAN-IDs, βάλε Tagged = <code>bridge1,ether2</code>, βάλε Untagged = το/τα access port(s) για εκείνο το VLAN. <strong>το bridge1 πρέπει να είναι στο Tagged σε κάθε γραμμή.</strong></div>
+</div>
+  <h3 class="sub">Βημα 4 — VLAN Interfaces και IP Addresses</h3>
+  <p>Δημιούργησε ένα VLAN sub-interface πάνω στο <code>bridge1</code> για κάθε VLAN. Ανάθεσε ένα gateway IP. Εδώ ο router τερματίζει την κίνηση κάθε VLAN.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — VLAN interfaces και διευθυνσεις IP</span>
+    <pre class="term"><span class="cmt"># Δημιούργησε VLAN interfaces πάνω στο bridge1:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface vlan</span>
+<span class="pc">[admin@MikroTik] /interface/vlan></span> <span class="out">add name=vlan10 vlan-id=10 interface=bridge1 comment="MGMT"</span>
+<span class="pc">[admin@MikroTik] /interface/vlan></span> <span class="out">add name=vlan20 vlan-id=20 interface=bridge1 comment="Servers"</span>
+<span class="pc">[admin@MikroTik] /interface/vlan></span> <span class="out">add name=vlan30 vlan-id=30 interface=bridge1 comment="Guest WiFi"</span>
+<span class="pc">[admin@MikroTik] /interface/vlan></span> <span class="out">add name=vlan40 vlan-id=40 interface=bridge1 comment="IoT"</span>
+
+<span class="cmt"># Ανάθεσε gateway IPs:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip address</span>
+<span class="pc">[admin@MikroTik] /ip/address></span> <span class="out">add address=192.168.10.1/24 interface=vlan10 comment="MGMT gateway"</span>
+<span class="pc">[admin@MikroTik] /ip/address></span> <span class="out">add address=192.168.20.1/24 interface=vlan20 comment="Servers gateway"</span>
+<span class="pc">[admin@MikroTik] /ip/address></span> <span class="out">add address=192.168.30.1/24 interface=vlan30 comment="Guest gateway"</span>
+<span class="pc">[admin@MikroTik] /ip/address></span> <span class="out">add address=192.168.40.1/24 interface=vlan40 comment="IoT gateway"</span>
+
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip address print</span>
+<span class="out"> #  ADDRESS           NETWORK         INTERFACE</span>
+<span class="out"> 0  192.168.10.1/24   192.168.10.0    vlan10</span>
+<span class="out"> 1  192.168.20.1/24   192.168.20.0    vlan20</span>
+<span class="out"> 2  192.168.30.1/24   192.168.30.0    vlan30</span>
+<span class="out"> 3  192.168.40.1/24   192.168.40.0    vlan40</span></pre>
+  </div>
+
+  <div class="wb4-wrap">
+<div class="wb4-path">IP <span class="sep">›</span> Addresses <span class="sep">›</span> <span class="active">+ Add</span></div>
+<svg viewBox="0 0 680 230" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w4bg{fill:#1e1e1e} .w4sb{fill:#252525} .w4work{fill:#eae8e3}
+  .w4hdr{fill:#2a2a2a} .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}
+  .w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+  .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+  .w4btn{fill:#333;stroke:#444;stroke-width:.5;rx:3}
+  .w4btnr{fill:#c63d1f;rx:3}
+  .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}
+  .w4sel{fill:#3a3a3a;stroke:#555;stroke-width:.5}
+  .w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+  .w4t{font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#eae8e3}
+  .w4ts{font-family:'Inter','Barlow',sans-serif;font-size:8px;fill:#888880}
+  .w4tm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+  .w4tma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+  .w4th{font-family:'Inter','Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18}
+  .w4tl{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+  .w4acc{fill:#c63d1f} .w4ok{fill:#3a5a78}
+  .w4tag10{fill:#c63d1f} .w4tag20{fill:#3a5a78}
+  .w4tag30{fill:#c08020} .w4tag40{fill:#558840}
+</style></defs>
+<rect width="680" height="230" class="w4bg"/>
+<rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+<text x="10" y="16" style="font-family:'Inter','Barlow',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  admin@192.168.88.1</text>
+<circle cx="644" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="658" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="672" cy="12" r="5" fill="#c63d1f" stroke="#c63d1f" stroke-width=".5"/>
+<rect x="0" y="24" width="138" height="206" class="w4sb"/><text x="8" y="41" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> INTERFACE</text><text x="12" y="59" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Interfaces</text><text x="12" y="77" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Bridge</text><text x="12" y="95" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Wireless</text><text x="8" y="113" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> IP</text><rect x="0" y="120" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/><rect x="0" y="120" width="3" height="16" fill="#c63d1f"/><text x="12" y="131" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Addresses</text><text x="12" y="149" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">DHCP Server</text><text x="12" y="167" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Routes</text><text x="12" y="185" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Firewall</text>
+<rect x="138" y="24" width="542" height="206" class="w4work"/>
+<rect x="138" y="24" width="542" height="26" fill="#dddbd5"/><rect x="144" y="29" width="44" height="16" fill="#c63d1f" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="166" y="40" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text><rect x="193" y="29" width="62" height="16" fill="#3a3a3a" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="224" y="40" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">− Remove</text><rect x="260" y="29" width="38" height="16" fill="#e1ded7" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="279" y="40" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;font-weight:500;">Edit</text>
+<rect x="138" y="50" width="542" height="16" fill="#c8c5be"/><text x="144" y="61" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">ADDRESS</text><text x="284" y="61" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">NETWORK</text><text x="414" y="61" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">INTERFACE</text><text x="544" y="61" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">COMMENT</text>
+<!-- existing WAN -->
+<rect x="138" y="66" width="542" height="16" class="w4rowh"/>
+<text x="144" y="77" class="w4tm">203.0.113.1/30</text><text x="284" y="77" class="w4tm">203.0.113.0</text>
+<text x="414" y="77" class="w4tm">ether1</text><text x="544" y="77" class="w4ts" style="fill:#888880;">WAN</text>
+<!-- vlan10 row (highlighted) -->
+<rect x="138" y="82" width="542" height="16" style="fill:#c63d1f;fill-opacity:.12;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="93" class="w4tma">192.168.10.1/24</text>
+<text x="284" y="93" class="w4tm">192.168.10.0</text>
+<text x="414" y="93" class="w4tm">vlan10</text>
+<text x="544" y="93" class="w4ts" style="fill:#c63d1f;">MGMT gateway</text>
+<!-- vlan20 -->
+<rect x="138" y="98" width="542" height="16" style="fill:#3a5a78;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="109" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#3a5a78;">192.168.20.1/24</text>
+<text x="284" y="109" class="w4tm">192.168.20.0</text>
+<text x="414" y="109" class="w4tm">vlan20</text>
+<text x="544" y="109" class="w4ts" style="fill:#3a5a78;">Servers gateway</text>
+<!-- vlan30 -->
+<rect x="138" y="114" width="542" height="16" style="fill:#c08020;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="125" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c08020;">192.168.30.1/24</text>
+<text x="284" y="125" class="w4tm">192.168.30.0</text>
+<text x="414" y="125" class="w4tm">vlan30</text>
+<text x="544" y="125" class="w4ts" style="fill:#c08020;">Guest gateway</text>
+<!-- vlan40 -->
+<rect x="138" y="130" width="542" height="16" style="fill:#558840;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="141" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#558840;">192.168.40.1/24</text>
+<text x="284" y="141" class="w4tm">192.168.40.0</text>
+<text x="414" y="141" class="w4tm">vlan40</text>
+<text x="544" y="141" class="w4ts" style="fill:#558840;">IoT gateway</text>
+<!-- form panel -->
+<rect x="400" y="155" width="276" height="60" class="w4form" rx="4"/>
+<rect x="400" y="155" width="276" height="18" fill="#1a1a18" rx="4"/>
+<rect x="400" y="165" width="276" height="8" fill="#1a1a18"/>
+<text x="410" y="168" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#eae8e3;font-weight:600;">New Address</text>
+<text x="410" y="184" class="w4tl">Address</text>
+<rect x="455" y="176" width="100" height="13" class="w4inp" rx="2"/>
+<text x="460" y="186" class="w4tma">192.168.10.1/24</text>
+<text x="410" y="200" class="w4tl">Interface</text>
+<rect x="455" y="192" width="100" height="13" class="w4inp" rx="2"/>
+<text x="460" y="202" class="w4tm">vlan10  ▾</text>
+<rect x="570" y="192" width="46" height="13" fill="#c63d1f" rx="2"/>
+<text x="593" y="202" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">Apply</text>
+<!-- status -->
+<rect x="138" y="214" width="542" height="16" fill="#dddbd5"/>
+<text x="144" y="224" class="w4ts">5 addresses  ·  4 VLAN interfaces assigned  ·  WAN on ether1</text>
+</svg>
+<div class="wb4-caption">IP › Addresses › <strong>+ Add</strong>. Βάλε Address = <code>192.168.10.1/24</code>, Interface = <code>vlan10</code>. Επανέλαβε για vlan20, vlan30, vlan40 με τα αντίστοιχα gateway IP τους.</div>
+</div>
+  <h3 class="sub">Βημα 5 — DHCP Servers ανα VLAN</h3>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — DHCP server ανα VLAN (επαναλαβε για καθε ενα)</span>
+    <pre class="term"><span class="cmt"># Πρόσθεσε IP pool και DHCP server για κάθε VLAN.
+# Το παράδειγμα δείχνει το VLAN 10 — επανέλαβε το pattern για 20, 30, 40.</span>
+
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip pool add name=pool-vlan10 ranges=192.168.10.100-192.168.10.200</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip dhcp-server add \</span>
+<span class="out">    name=dhcp-vlan10 \</span>
+<span class="out">    interface=vlan10 \</span>
+<span class="out">    address-pool=pool-vlan10 \</span>
+<span class="out">    lease-time=12h \</span>
+<span class="out">    disabled=no</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip dhcp-server network add \</span>
+<span class="out">    address=192.168.10.0/24 \</span>
+<span class="out">    gateway=192.168.10.1 \</span>
+<span class="out">    dns-server=192.168.10.1 \</span>
+<span class="out">    comment="VLAN 10 MGMT network"</span>
+
+<span class="cmt"># Επανέλαβε με τα ονόματα vlan20/30/40 και τα αντίστοιχα subnets τους.
+# Για το Guest VLAN 30: σκέψου πιο σύντομο lease-time=2h και
+# μικρότερο pool — οι επισκέπτες κάνουν check in και out συχνά.</span></pre>
+  </div>
+
+<div class="wb4-wrap">
+<div class="wb4-path">IP <span class="sep">›</span> DHCP Server <span class="sep">›</span> <span class="active">+ Add</span></div>
+<svg viewBox="0 0 680 235" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w4bg{fill:#1e1e1e} .w4sb{fill:#252525} .w4work{fill:#eae8e3}
+  .w4hdr{fill:#2a2a2a} .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}
+  .w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+  .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+  .w4btn{fill:#333;stroke:#444;stroke-width:.5;rx:3}
+  .w4btnr{fill:#c63d1f;rx:3}
+  .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}
+  .w4sel{fill:#3a3a3a;stroke:#555;stroke-width:.5}
+  .w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+  .w4t{font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#eae8e3}
+  .w4ts{font-family:'Inter','Barlow',sans-serif;font-size:8px;fill:#888880}
+  .w4tm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+  .w4tma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+  .w4th{font-family:'Inter','Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18}
+  .w4tl{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+  .w4acc{fill:#c63d1f} .w4ok{fill:#3a5a78}
+  .w4tag10{fill:#c63d1f} .w4tag20{fill:#3a5a78}
+  .w4tag30{fill:#c08020} .w4tag40{fill:#558840}
+</style></defs>
+<rect width="680" height="235" class="w4bg"/>
+<rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+<text x="10" y="16" style="font-family:'Inter','Barlow',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  admin@192.168.88.1</text>
+<circle cx="644" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="658" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="672" cy="12" r="5" fill="#c63d1f" stroke="#c63d1f" stroke-width=".5"/>
+<rect x="0" y="24" width="138" height="211" class="w4sb"/><text x="8" y="41" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> INTERFACE</text><text x="12" y="59" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Interfaces</text><text x="12" y="77" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Bridge</text><text x="8" y="95" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> IP</text><text x="12" y="113" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Addresses</text><rect x="0" y="120" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/><rect x="0" y="120" width="3" height="16" fill="#c63d1f"/><text x="12" y="131" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">DHCP Server</text><text x="12" y="149" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Routes</text><text x="12" y="167" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Firewall</text>
+<rect x="138" y="24" width="542" height="211" class="w4work"/>
+<!-- DHCP sub-tabs -->
+<rect x="138" y="24" width="542" height="20" fill="#dddbd5"/>
+<rect x="140" y="25" width="58" height="18" fill="#e1ded7" rx="2,2,0,0"/>
+<text x="169" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#1a1a18;text-anchor:middle;font-weight:600;">DHCP Server</text>
+<rect x="200" y="25" width="46" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="223" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">Networks</text>
+<rect x="248" y="25" width="34" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="265" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">Leases</text>
+<rect x="138" y="44" width="542" height="26" fill="#dddbd5"/><rect x="144" y="49" width="44" height="16" fill="#c63d1f" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="166" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text><rect x="193" y="49" width="62" height="16" fill="#3a3a3a" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="224" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">− Remove</text><rect x="260" y="49" width="38" height="16" fill="#e1ded7" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="279" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;font-weight:500;">Edit</text>
+<rect x="138" y="70" width="542" height="16" fill="#c8c5be"/><text x="144" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">NAME</text><text x="264" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">INTERFACE</text><text x="354" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">POOL</text><text x="484" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">LEASE-TIME</text><text x="574" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">STATUS</text><text x="654" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">COMMENT</text>
+<rect x="138" y="86" width="542" height="16" style="fill:#c63d1f;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="97" class="w4tm">dhcp-vlan10</text>
+<text x="264" y="97" class="w4tm">vlan10</text>
+<text x="354" y="97" class="w4tm">pool-vlan10</text>
+<text x="484" y="97" class="w4tm">12h</text>
+<text x="574" y="97" class="w4tm" style="fill:#3a5a78;font-weight:600;">running</text>
+
+<rect x="138" y="102" width="542" height="16" style="fill:#3a5a78;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="113" class="w4tm">dhcp-vlan20</text>
+<text x="264" y="113" class="w4tm">vlan20</text>
+<text x="354" y="113" class="w4tm">pool-vlan20</text>
+<text x="484" y="113" class="w4tm">12h</text>
+<text x="574" y="113" class="w4tm" style="fill:#3a5a78;font-weight:600;">running</text>
+
+<rect x="138" y="118" width="542" height="16" style="fill:#c08020;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="129" class="w4tm">dhcp-vlan30</text>
+<text x="264" y="129" class="w4tm">vlan30</text>
+<text x="354" y="129" class="w4tm">pool-vlan30</text>
+<text x="484" y="129" class="w4tm">2h</text>
+<text x="574" y="129" class="w4tm" style="fill:#3a5a78;font-weight:600;">running</text>
+
+<rect x="138" y="134" width="542" height="16" style="fill:#558840;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="145" class="w4tm">dhcp-vlan40</text>
+<text x="264" y="145" class="w4tm">vlan40</text>
+<text x="354" y="145" class="w4tm">pool-vlan40</text>
+<text x="484" y="145" class="w4tm">12h</text>
+<text x="574" y="145" class="w4tm" style="fill:#3a5a78;font-weight:600;">running</text>
+
+<!-- Setup wizard hint -->
+<rect x="144" y="158" width="528" height="34" fill="#dddbd5" rx="3" stroke="#c8c5be" stroke-width=".5"/>
+<text x="154" y="170" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#3a5a78;font-weight:600;">Tip — Οδηγος Setup DHCP</text>
+<text x="154" y="182" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;">Κλικ + Add → ανοίγει ο οδηγός. Βάλε Interface = vlan10, συμπλήρωσε Address Space, Gateway, DNS, Pool range. Επανέλαβε ανά VLAN.</text>
+
+<!-- status -->
+<rect x="138" y="219" width="542" height="16" fill="#dddbd5"/>
+<text x="144" y="229" class="w4ts">4 DHCP servers  ·  all running  ·  shortest lease: Guest 2h</text>
+</svg>
+<div class="wb4-caption">IP › DHCP Server › <strong>+ Add</strong>. Ανοίγει ο οδηγός setup. Βάλε Interface = <code>vlan10</code>, συμπλήρωσε το εύρος του pool διευθύνσεων, gateway, και DNS. Επανέλαβε για κάθε VLAN. Το Guest VLAN (30) πρέπει να πάρει πιο σύντομο lease time — 2h.</div>
+</div>
+
+
+  <!-- ── SECTION 03.5 ── (vlan-filtering + downstream switch + port assignment) -->
+
+  <div style="background:var(--card);border-left:3px solid var(--accent);border-radius:6px;padding:.8rem 1.2rem;margin:2.4rem 0 .8rem;">
+    <p style="margin:0;font-family:var(--font-disp);font-weight:700;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);">Παραρτημα στο Section 03</p>
+  </div>
+
+  <h3 class="sub">Ενεργοποιησε Πρωτα το VLAN Filtering — Πριν απο Οτιδηποτε Αλλο</h3>
+
+  <p>Το VLAN filtering δεν είναι ενεργό εξ ορισμού σε ένα καινούριο bridge. Χωρίς αυτό, <strong>κάθε port είναι στο ίδιο broadcast domain ανεξάρτητα από PVID, frame-types, ή εγγραφές του πίνακα VLAN</strong> — όλα τα tags 802.1Q αγνοούνται σιωπηλά. Αυτός είναι ο πιο συχνός λόγος που ένα «setup VLAN» φαίνεται να δουλεύει αλλά δεν δίνει καμία απομόνωση.</p>
+
+  <p>Η σωστή σειρά είναι: δημιούργησε το bridge με <code>vlan-filtering=yes</code> βαλμένο από την αρχή. Αν κάνεις retrofit σε υπάρχον bridge, ενεργοποίησέ το με προσοχή — ισχύει αμέσως και θα ρίξει κάθε κίνηση που δεν ταιριάζει με τον πίνακα VLAN. Χρησιμοποίησε <code>/system safe-mode</code> πριν το κάνεις αυτό σε ζωντανό δίκτυο.</p>
+
+<div class="wb4-wrap">
+<div class="wb4-path">Bridge <span class="sep">›</span> Bridge <span class="sep">›</span> Edit bridge1 <span class="sep">›</span> <span class="active">VLAN Filtering = yes</span></div>
+<svg viewBox="0 0 680 220" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w4bg{fill:#1e1e1e} .w4sb{fill:#252525} .w4work{fill:#eae8e3}
+  .w4hdr{fill:#2a2a2a} .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}
+  .w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+  .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+  .w4btn{fill:#333;stroke:#444;stroke-width:.5}
+  .w4btnr{fill:#c63d1f}
+  .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}
+  .w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+  .w4t{font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#eae8e3}
+  .w4ts{font-family:'Inter','Barlow',sans-serif;font-size:8px;fill:#888880}
+  .w4tm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+  .w4tma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+  .w4th{font-family:'Inter','Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18}
+  .w4tl{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+</style></defs>
+<rect width="680" height="220" class="w4bg"/>
+<rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+<text x="10" y="16" style="font-family:'Inter','Barlow',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  admin@192.168.88.1</text>
+<circle cx="644" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="658" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="672" cy="12" r="5" fill="#c63d1f" stroke="#c63d1f" stroke-width=".5"/>
+<rect x="0" y="24" width="138" height="196" class="w4sb"/><text x="8" y="41" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> INTERFACE</text><text x="12" y="59" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Interfaces</text><rect x="0" y="66" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/><rect x="0" y="66" width="3" height="16" fill="#c63d1f"/><text x="12" y="77" style="font-family:'Inter',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Bridge</text><text x="12" y="95" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Wireless</text><text x="8" y="113" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> IP</text><text x="12" y="131" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Addresses</text><text x="12" y="149" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">DHCP Server</text><text x="12" y="167" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Firewall</text>
+<rect x="138" y="24" width="542" height="196" class="w4work"/>
+<rect x="138" y="24" width="542" height="20" fill="#dddbd5"/>
+<rect x="140" y="25" width="50" height="18" fill="#e1ded7" rx="2,2,0,0"/>
+<text x="165" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#1a1a18;text-anchor:middle;font-weight:600;">Bridge</text>
+<rect x="192" y="25" width="40" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="212" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">Ports</text>
+<rect x="234" y="25" width="44" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="256" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">VLANs</rect>
+<rect x="138" y="44" width="542" height="26" fill="#dddbd5"/><rect x="144" y="49" width="44" height="16" fill="#c63d1f" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="166" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text><rect x="193" y="49" width="38" height="16" fill="#e1ded7" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="212" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;font-weight:500;">Edit</text><rect x="236" y="49" width="62" height="16" fill="#3a3a3a" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="267" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">− Remove</text>
+<rect x="138" y="70" width="542" height="16" fill="#c8c5be"/><text x="144" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">NAME</text><text x="254" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">MTU</text><text x="300" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">VLAN-FILTERING</text><text x="420" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">FRAME-TYPES</text><text x="540" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">COMMENT</text>
+<rect x="138" y="86" width="542" height="16" class="w4hl"/>
+<text x="144" y="97" class="w4tma" style="font-weight:600;">bridge1</text>
+<text x="254" y="97" class="w4tm">1500</text>
+<rect x="298" y="88" width="32" height="12" fill="#c63d1f" rx="2"/>
+<text x="314" y="97" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#fff;text-anchor:middle;font-weight:700;">yes ✓</text>
+<text x="418" y="97" class="w4tm">admit-all</text>
+<text x="538" y="97" class="w4ts" style="fill:#888880;">Main LAN bridge</text>
+<!-- Edit form -->
+<rect x="350" y="108" width="326" height="102" class="w4form" rx="4"/>
+<rect x="350" y="108" width="326" height="20" fill="#1a1a18" rx="4"/>
+<rect x="350" y="120" width="326" height="8" fill="#1a1a18"/>
+<text x="362" y="122" style="font-family:'Inter',sans-serif;font-weight:600;font-size:9px;fill:#eae8e3;">Edit Bridge — bridge1</text>
+<text x="362" y="142" class="w4tl">Name</text>
+<rect x="420" y="133" width="240" height="14" class="w4inp" rx="2"/>
+<text x="426" y="143" class="w4tm">bridge1</text>
+<!-- VLAN Filtering highlighted -->
+<rect x="350" y="150" width="326" height="20" fill="#c63d1f" fill-opacity=".08" rx="2"/>
+<text x="362" y="163" class="w4tl" style="fill:#c63d1f;font-weight:600;">VLAN Filtering</text>
+<rect x="420" y="152" width="16" height="14" class="w4inp" rx="2"/>
+<rect x="423" y="155" width="10" height="8" fill="#c63d1f" rx="1"/>
+<text x="440" y="163" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#c63d1f;font-weight:700;">yes  ← ΠΡΕΠΕΙ να είναι ενεργό</text>
+<text x="362" y="183" class="w4tl">Frame Types</text>
+<rect x="420" y="174" width="240" height="14" class="w4inp" rx="2"/>
+<text x="426" y="184" class="w4tm">admit-all  ▾</text>
+<rect x="554" y="192" width="50" height="14" fill="#c63d1f" rx="3"/>
+<text x="579" y="202" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">Apply</text>
+<rect x="612" y="192" width="46" height="14" fill="#3a3a3a" rx="3"/>
+<text x="635" y="202" style="font-family:'Inter',sans-serif;font-size:8px;fill:#eae8e3;text-anchor:middle;">Cancel</text>
+<rect x="138" y="204" width="542" height="16" fill="#dddbd5"/>
+<text x="144" y="214" class="w4ts">⚠  Το VLAN filtering ΠΡΕΠΕΙ να ενεργοποιηθεί στο bridge πριν προσθέσεις ports ή τον πίνακα VLAN. Χωρίς αυτό, όλα τα tags 802.1Q αγνοούνται.</text>
+</svg>
+<div class="wb4-caption">Tab Bridge › Bridge → διπλό κλικ στο <strong>bridge1</strong> για να ανοίξει η φόρμα edit. Τσέκαρε <strong>VLAN Filtering = yes</strong>. Αυτός είναι ο master διακόπτης — τίποτα στον πίνακα VLAN ή στις ρυθμίσεις PVID των ports δεν έχει καμία επίδραση μέχρι να ενεργοποιηθεί αυτό. Κλικ Apply.</div>
+</div>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — επιβεβαιωσε οτι το vlan-filtering ειναι ενεργο</span>
+    <pre class="term"><span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge print</span>
+<span class="out">Flags: X - disabled, R - running</span>
+<span class="out"> 0  R  name="bridge1"  mtu=1500  vlan-filtering=yes  ← must be yes</span>
+<span class="cmt"># Αν vlan-filtering=no, κάθε port είναι στο ίδιο domain.
+# Για ενεργοποίηση σε υπάρχον bridge (προσοχή — σύντομη πτώση κίνησης):
+# /interface bridge set bridge1 vlan-filtering=yes</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το vlan-filtering=no Σημαινει Καμια Απομονωση</span>
+    <p>Ένα bridge με <code>vlan-filtering=no</code> κάνει forward όλα τα frames ανάμεσα σε όλα τα ports ανεξάρτητα από PVID ή πίνακα VLAN. Αν βάλεις μια συσκευή επισκέπτη στο ether3 (PVID 10) και έναν server στο ether4 (PVID 40), μπορούν να επικοινωνήσουν ελεύθερα — σαν να μην υπάρχουν VLAN. Ο πίνακας VLAN είναι χτισμένος αλλά εντελώς ανενεργός. Έλεγξε πάντα πρώτα αυτή τη ρύθμιση όταν κάνεις debug παράπονα «τα VLAN δεν απομονώνουν».</p>
+  </div>
+
+  <h3 class="sub">Downstream Managed Switch — Config Trunk και Access Port</h3>
+
+  <p>Όταν το trunk port του router (ether2) συνδέεται με ένα downstream managed switch, εκείνο το switch πρέπει επίσης να καταλαβαίνει tags 802.1Q. Δέχεται όλα τα VLAN tagged από τον router και τα διανέμει σε access ports για τελικές συσκευές. Το config στο downstream switch ακολουθεί ακριβώς το ίδιο μοντέλο bridge VLAN — τρέχει κι αυτό RouterOS.</p>
+
+  <p>Το downstream switch χρειάζεται: ένα trunk port προς τον router (ether1, <code>frame-types=admit-only-vlan-tagged</code>), ένα access port ανά VLAN με το σωστό PVID, και ταιριαστό πίνακα VLAN. Αν λείπει κάποιο VLAN από τον πίνακα VLAN του downstream switch, τα frames για εκείνο το VLAN ρίχνονται σιωπηλά σε εκείνο το switch — οι συσκευές πάνω του δεν θα πάρουν απαντήσεις DHCP και δεν θα φτάσουν το δίκτυο.</p>
+
+<div class="wb4-wrap">
+<div class="wb4-path">Bridge <span class="sep">›</span> Ports <span class="sep">›</span> <span class="active">downstream switch — trunk + access</span></div>
+<svg viewBox="0 0 680 275" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w4bg{fill:#1e1e1e} .w4sb{fill:#252525} .w4work{fill:#eae8e3}
+  .w4hdr{fill:#2a2a2a} .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}
+  .w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+  .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+  .w4btn{fill:#333;stroke:#444;stroke-width:.5}
+  .w4btnr{fill:#c63d1f}
+  .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}
+  .w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+  .w4t{font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#eae8e3}
+  .w4ts{font-family:'Inter','Barlow',sans-serif;font-size:8px;fill:#888880}
+  .w4tm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+  .w4tma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+  .w4th{font-family:'Inter','Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18}
+  .w4tl{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+</style></defs>
+<rect width="680" height="275" class="w4bg"/>
+<rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+<text x="10" y="16" style="font-family:'Inter','Barlow',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  admin@192.168.88.1 (downstream CRS switch)</text>
+<circle cx="644" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="658" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="672" cy="12" r="5" fill="#c63d1f" stroke="#c63d1f" stroke-width=".5"/>
+<rect x="0" y="24" width="138" height="251" class="w4sb"/><text x="8" y="41" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> INTERFACE</text><text x="12" y="59" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Interfaces</text><rect x="0" y="66" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/><rect x="0" y="66" width="3" height="16" fill="#c63d1f"/><text x="12" y="77" style="font-family:'Inter',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Bridge</text><text x="12" y="95" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Wireless</text><text x="8" y="113" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> IP</text><text x="12" y="131" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Addresses</text><text x="12" y="149" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">DHCP Server</text><text x="12" y="167" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Firewall</text>
+<rect x="138" y="24" width="542" height="251" class="w4work"/>
+<rect x="138" y="24" width="542" height="20" fill="#dddbd5"/>
+<rect x="140" y="25" width="50" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="165" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">Bridge</text>
+<rect x="192" y="25" width="40" height="18" fill="#e1ded7" rx="2,2,0,0"/>
+<text x="212" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#1a1a18;text-anchor:middle;font-weight:600;">Ports</text>
+<rect x="138" y="44" width="542" height="26" fill="#dddbd5"/><rect x="144" y="49" width="44" height="16" fill="#c63d1f" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="166" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text><rect x="193" y="49" width="38" height="16" fill="#e1ded7" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="212" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;font-weight:500;">Edit</text><rect x="236" y="49" width="62" height="16" fill="#3a3a3a" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="267" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">− Remove</text>
+<rect x="138" y="70" width="542" height="16" fill="#c8c5be"/><text x="144" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">INTERFACE</text><text x="229" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">BRIDGE</text><text x="304" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">PVID</text><text x="344" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">FRAME-TYPES</text><text x="519" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">HW</text><text x="554" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">COMMENT</text>
+<!-- uplink/trunk port -->
+<rect x="138" y="86" width="542" height="16" style="fill:#1a1a18;fill-opacity:.07;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="97" class="w4tm" style="fill:#3a5a78;font-weight:600;">ether1</text>
+<text x="229" y="97" class="w4tm">bridge1</text>
+<text x="304" y="97" class="w4tm">1</text>
+<text x="344" y="97" class="w4tm">admit-only-vlan-tagged</text>
+<text x="519" y="97" class="w4tm" style="fill:#3a5a78;">yes</text>
+<text x="554" y="97" class="w4ts" style="fill:#3a5a78;font-weight:600;">UPLINK TRUNK ← from router</text>
+<!-- access V10 staff -->
+<rect x="138" y="102" width="542" height="16" style="fill:#c63d1f;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="113" class="w4tm">ether2</text>
+<text x="229" y="113" class="w4tm">bridge1</text>
+<text x="304" y="113" class="w4tma" style="font-weight:700;">10</text>
+<text x="344" y="113" class="w4tm">admit-only-untagged</text>
+<text x="519" y="113" class="w4tm" style="fill:#3a5a78;">yes</text>
+<text x="554" y="113" class="w4ts" style="fill:#c63d1f;">ACCESS — MGMT</text>
+<!-- access V20 server -->
+<rect x="138" y="118" width="542" height="16" style="fill:#3a5a78;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="129" class="w4tm">ether3</text>
+<text x="229" y="129" class="w4tm">bridge1</text>
+<text x="304" y="129" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#3a5a78;font-weight:700;">20</text>
+<text x="344" y="129" class="w4tm">admit-only-untagged</text>
+<text x="519" y="129" class="w4tm" style="fill:#3a5a78;">yes</text>
+<text x="554" y="129" class="w4ts" style="fill:#3a5a78;">ACCESS — Servers</text>
+<!-- access V30 guest AP -->
+<rect x="138" y="134" width="542" height="16" style="fill:#c08020;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="145" class="w4tm">ether4</text>
+<text x="229" y="145" class="w4tm">bridge1</text>
+<text x="304" y="145" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c08020;font-weight:700;">30</text>
+<text x="344" y="145" class="w4tm">admit-only-untagged</text>
+<text x="519" y="145" class="w4tm" style="fill:#3a5a78;">yes</text>
+<text x="554" y="145" class="w4ts" style="fill:#c08020;">ACCESS — Guest AP</text>
+<!-- access V40 IoT -->
+<rect x="138" y="150" width="542" height="16" style="fill:#558840;fill-opacity:.1;stroke:#c8c5be;stroke-width:.4"/>
+<text x="144" y="161" class="w4tm">ether5</text>
+<text x="229" y="161" class="w4tm">bridge1</text>
+<text x="304" y="161" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#558840;font-weight:700;">40</text>
+<text x="344" y="161" class="w4tm">admit-only-untagged</text>
+<text x="519" y="161" class="w4tm" style="fill:#3a5a78;">yes</text>
+<text x="554" y="161" class="w4ts" style="fill:#558840;">ACCESS — IoT</text>
+<!-- AP trunk port (carries V30 tagged to AP) -->
+<rect x="138" y="166" width="542" height="16" style="fill:#c08020;fill-opacity:.18;stroke:#c63d1f;stroke-width:.6"/>
+<text x="144" y="177" class="w4tm">ether6</text>
+<text x="229" y="177" class="w4tm">bridge1</text>
+<text x="304" y="177" class="w4tm">30</text>
+<text x="344" y="177" class="w4tm">admit-only-vlan-tagged</text>
+<text x="519" y="177" class="w4tm" style="fill:#3a5a78;">yes</text>
+<text x="554" y="177" class="w4ts" style="fill:#c08020;font-weight:600;">TRUNK → AP (V30 tagged)</text>
+<!-- note box -->
+<rect x="144" y="188" width="528" height="48" fill="#dddbd5" rx="3" stroke="#c8c5be" stroke-width=".5"/>
+<text x="154" y="200" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#1a1a18;font-weight:700;">Ο πίνακας VLAN του downstream switch πρέπει να αντικατοπτρίζει του router</text>
+<text x="154" y="212" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;">Κάθε VLAN που φτάνει tagged στο ether1 (trunk) πρέπει να εμφανίζεται και στον πίνακα VLAN αυτού του switch</text>
+<text x="154" y="224" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;">με τα σωστά access ports ως untagged μέλη — αλλιώς τα tagged frames γίνονται drop σιωπηλά.</text>
+<text x="154" y="236" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;">Το ίδιο το bridge1 πρέπει επίσης να είναι tagged σε αυτό το switch ώστε το inter-VLAN routing να φτάσει τον ανάντη router.</text>
+<rect x="138" y="259" width="542" height="16" fill="#dddbd5"/>
+<text x="144" y="269" class="w4ts">Downstream CRS switch  ·  ether1 = trunk uplink  ·  ether2-5 = access ports  ·  ether6 = trunk to AP</text>
+</svg>
+<div class="wb4-caption">Στο downstream switch: το ether1 είναι το trunk uplink από τον router — <code>frame-types=admit-only-vlan-tagged</code>, καμία αλλαγή PVID. Τα ether2–5 είναι access ports — ένα ανά VLAN, το καθένα με σωστό PVID και <code>admit-only-untagged</code>. Αν ένα AP χρειάζεται να κουβαλήσει tagged ένα guest VLAN (π.χ. ether6 → AP με SSID στο VLAN 30), εκείνο το port χρησιμοποιεί επίσης <code>admit-only-vlan-tagged</code>.</div>
+</div>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — πινακας VLAN του downstream switch (πρεπει να ειναι ιδιος με του router)</span>
+    <pre class="term"><span class="cmt"># Στο DOWNSTREAM switch — τρέξε τις ίδιες εντολές όπως στον πίνακα VLAN του router.
+# Το ether1 είναι το trunk uplink από τον router.
+# Κάθε VLAN που φτάνει tagged στο ether1 χρειάζεται εγγραφή εδώ.</span>
+
+<span class="pc">[admin@DownstreamSwitch] ></span> <span class="out">/interface bridge vlan</span>
+<span class="pc">[admin@DownstreamSwitch] /interface/bridge/vlan></span> <span class="out">add \</span>
+<span class="out">    bridge=bridge1 vlan-ids=10 \</span>
+<span class="out">    tagged=bridge1,ether1 \</span>
+<span class="out">    untagged=ether2</span>
+<span class="cmt"># bridge1 tagged = επιτρέπει στον ανάντη router να κάνει route την κίνηση αυτού του VLAN
+# ether1 tagged = το trunk uplink κουβαλά το VLAN 10 tagged
+# ether2 untagged = το PC προσωπικού συνδέεται εδώ, δέχεται untagged frames</span>
+
+<span class="pc">[admin@DownstreamSwitch] /interface/bridge/vlan></span> <span class="out">add \</span>
+<span class="out">    bridge=bridge1 vlan-ids=20 \</span>
+<span class="out">    tagged=bridge1,ether1 \</span>
+<span class="out">    untagged=ether3</span>
+
+<span class="pc">[admin@DownstreamSwitch] /interface/bridge/vlan></span> <span class="out">add \</span>
+<span class="out">    bridge=bridge1 vlan-ids=30 \</span>
+<span class="out">    tagged=bridge1,ether1,ether6 \</span>
+<span class="out">    untagged=ether4</span>
+<span class="cmt"># Το ether6 είναι trunk προς ένα AP — κουβαλά το VLAN 30 tagged ώστε το AP
+# να μπορεί να κάνει broadcast το guest SSID στο VLAN 30.</span>
+
+<span class="pc">[admin@DownstreamSwitch] /interface/bridge/vlan></span> <span class="out">add \</span>
+<span class="out">    bridge=bridge1 vlan-ids=40 \</span>
+<span class="out">    tagged=bridge1,ether1 \</span>
+<span class="out">    untagged=ether5</span>
+
+<span class="cmt"># Επιβεβαίωση:
+# /interface bridge vlan print
+# Κάθε VLAN πρέπει να δείχνει το ether1 στο tagged και το σωστό port στο untagged.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — VLAN που Λειπει απο το Downstream Switch = Σιωπηλη Απωλεια</span>
+    <p>Αν το VLAN 30 υπάρχει στον router αλλά ξεχάσεις να το προσθέσεις στον πίνακα VLAN του downstream switch, κάθε frame με tag VLAN 30 που φτάνει στο ether1 ρίχνεται σε εκείνο το switch. Συσκευές συνδεδεμένες στο ether4 (PVID 30) δεν παίρνουν DHCP, καμία σύνδεση, και κανένα μήνυμα σφάλματος — απλώς δεν δουλεύει. Όταν κάνεις debug «ένα VLAN δεν δουλεύει», έλεγξε πάντα πρώτα τον πίνακα VLAN του downstream switch.</p>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">✕ Τι Δεν Δουλεψε — Unmanaged Switch σε Trunk Port</span>
+    <p>Το να βάλεις ένα unmanaged (χαζό) switch σε trunk port περνά όλα τα tagged frames σε ό,τι είναι συνδεδεμένο πάνω του. Οι τελικές συσκευές δέχονται ακατέργαστα 802.1Q-tagged frames που δεν μπορούν να επεξεργαστούν — δεν παίρνουν IP, και μπορεί να καταγράφουν μπερδεμένα σφάλματα. Τα unmanaged switches πρέπει να συνδέονται μόνο σε access ports όπου τα frames είναι ήδη untagged. Αν χρειάζεσαι να επεκτείνεις ένα trunk σε άλλο δωμάτιο ή όροφο, χρησιμοποίησε ένα managed switch που καταλαβαίνει 802.1Q.</p>
+  </div>
+
+  <h3 class="sub">Αναθεση Συγκεκριμενου VLAN σε ενα Port</h3>
+
+  <p>Το να μεταφέρεις μια συσκευή από το ένα VLAN στο άλλο — ας πούμε ένα PC προσωπικού στο VLAN 10 που ξανα-ανατίθεται στο VLAN 20 (Servers) — απαιτεί δύο αλλαγές: ενημέρωσε το PVID του port, και ενημέρωσε τον πίνακα VLAN του bridge ώστε το port να είναι untagged μέλος του νέου VLAN (και αφαιρεμένο από το παλιό).</p>
+
+<div class="wb4-wrap">
+<div class="wb4-path">Bridge <span class="sep">›</span> Ports <span class="sep">›</span> Edit port <span class="sep">›</span> <span class="active">change PVID</span></div>
+<svg viewBox="0 0 680 245" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w4bg{fill:#1e1e1e} .w4sb{fill:#252525} .w4work{fill:#eae8e3}
+  .w4hdr{fill:#2a2a2a} .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}
+  .w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+  .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+  .w4btn{fill:#333;stroke:#444;stroke-width:.5}
+  .w4btnr{fill:#c63d1f}
+  .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}
+  .w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+  .w4t{font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#eae8e3}
+  .w4ts{font-family:'Inter','Barlow',sans-serif;font-size:8px;fill:#888880}
+  .w4tm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+  .w4tma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+  .w4th{font-family:'Inter','Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18}
+  .w4tl{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+</style></defs>
+<rect width="680" height="245" class="w4bg"/>
+<rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+<text x="10" y="16" style="font-family:'Inter','Barlow',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  admin@192.168.88.1</text>
+<circle cx="644" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="658" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="672" cy="12" r="5" fill="#c63d1f" stroke="#c63d1f" stroke-width=".5"/>
+<rect x="0" y="24" width="138" height="221" class="w4sb"/><text x="8" y="41" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> INTERFACE</text><text x="12" y="59" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Interfaces</text><rect x="0" y="66" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/><rect x="0" y="66" width="3" height="16" fill="#c63d1f"/><text x="12" y="77" style="font-family:'Inter',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Bridge</text><text x="12" y="95" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Wireless</text><text x="8" y="113" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> IP</text><text x="12" y="131" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Addresses</text><text x="12" y="149" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">DHCP Server</text><text x="12" y="167" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;">Firewall</text>
+<rect x="138" y="24" width="542" height="221" class="w4work"/>
+<rect x="138" y="24" width="542" height="20" fill="#dddbd5"/>
+<rect x="192" y="25" width="40" height="18" fill="#e1ded7" rx="2,2,0,0"/>
+<text x="212" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#1a1a18;text-anchor:middle;font-weight:600;">Ports</text>
+<rect x="138" y="44" width="542" height="26" fill="#dddbd5"/><rect x="144" y="49" width="44" height="16" fill="#c63d1f" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="166" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text><rect x="193" y="49" width="38" height="16" fill="#e1ded7" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="212" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;font-weight:500;">Edit</text><rect x="236" y="49" width="62" height="16" fill="#3a3a3a" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="267" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">− Remove</text>
+<rect x="138" y="70" width="542" height="16" fill="#c8c5be"/><text x="144" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">INTERFACE</text><text x="229" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">BRIDGE</text><text x="304" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">PVID</text><text x="344" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">FRAME-TYPES</text><text x="519" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">STATE</text><text x="574" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">COMMENT</text>
+<rect x="138" y="86" width="542" height="16" class="w4row"/>
+<text x="144" y="97" class="w4tm">ether2</text><text x="229" y="97" class="w4tm">bridge1</text>
+<text x="304" y="97" class="w4tm">1</text><text x="344" y="97" class="w4tm">admit-only-vlan-tagged</text>
+<text x="519" y="97" class="w4tm" style="fill:#3a5a78;">fwd</text><text x="574" y="97" class="w4ts">Trunk</text>
+<!-- ether3 selected — currently VLAN 10 being changed to VLAN 20 -->
+<rect x="138" y="102" width="542" height="16" class="w4hl"/>
+<text x="144" y="113" class="w4tma" style="font-weight:600;">ether3</text>
+<text x="229" y="113" class="w4tm">bridge1</text>
+<text x="304" y="113" class="w4tma" style="font-weight:700;">20</text>
+<text x="344" y="113" class="w4tm">admit-only-untagged</text>
+<text x="519" y="113" class="w4tm" style="fill:#3a5a78;">fwd</text>
+<text x="574" y="113" class="w4ts" style="fill:#3a5a78;">Servers</text>
+<rect x="138" y="118" width="542" height="16" class="w4rowh"/>
+<text x="144" y="129" class="w4tm">ether4</text><text x="229" y="129" class="w4tm">bridge1</text>
+<text x="304" y="129" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#558840;font-weight:700;">40</text>
+<text x="344" y="129" class="w4tm">admit-only-untagged</text>
+<text x="519" y="129" class="w4tm" style="fill:#3a5a78;">fwd</text>
+<text x="574" y="129" class="w4ts" style="fill:#558840;">IoT</text>
+<!-- Edit form for ether3 — changing PVID -->
+<rect x="330" y="138" width="344" height="96" class="w4form" rx="4"/>
+<rect x="330" y="138" width="344" height="20" fill="#1a1a18" rx="4"/>
+<rect x="330" y="150" width="344" height="8" fill="#1a1a18"/>
+<text x="342" y="152" style="font-family:'Inter',sans-serif;font-weight:600;font-size:9px;fill:#eae8e3;">Edit Bridge Port — ether3</text>
+<text x="342" y="172" class="w4tl">Interface</text>
+<rect x="408" y="163" width="255" height="14" class="w4inp" rx="2"/>
+<text x="414" y="173" class="w4tm">ether3  ▾</text>
+<!-- PVID field highlighted -->
+<rect x="330" y="180" width="344" height="20" fill="#c63d1f" fill-opacity=".08" rx="2"/>
+<text x="342" y="193" class="w4tl" style="fill:#c63d1f;font-weight:600;">PVID</text>
+<rect x="408" y="182" width="60" height="14" class="w4inp" rx="2"/>
+<text x="414" y="193" class="w4tma" style="font-weight:700;font-size:10px;">20</text>
+<text x="474" y="193" style="font-family:'Inter',sans-serif;font-size:8px;fill:#888880;">← VLAN που ανατίθεται σε untagged frames</text>
+<text x="342" y="214" class="w4tl">Frame Types</text>
+<rect x="408" y="206" width="200" height="14" class="w4inp" rx="2"/>
+<text x="414" y="216" class="w4tm">admit-only-untagged  ▾</text>
+<rect x="616" y="206" width="46" height="14" fill="#c63d1f" rx="3"/>
+<text x="639" y="216" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">Apply</text>
+<!-- reminder note -->
+<rect x="144" y="192" width="180" height="36" fill="#dddbd5" rx="3" stroke="#c8c5be" stroke-width=".5"/>
+<text x="152" y="204" style="font-family:'Inter',sans-serif;font-size:8px;fill:#1a1a18;font-weight:700;">Αλλαγή VLAN ενός port:</text>
+<text x="152" y="215" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;">1. Edit port → άλλαξε PVID</text>
+<text x="152" y="225" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;">2. Ενημέρωσε τον πίνακα VLAN του bridge</text>
+<rect x="138" y="229" width="542" height="16" fill="#dddbd5"/>
+<text x="144" y="239" class="w4ts">ether3 PVID changed to 20 (Servers VLAN)  ·  also update Bridge › VLANs table to add ether3 as untagged on VLAN 20</text>
+</svg>
+<div class="wb4-caption">Bridge › Ports → διπλό κλικ στο port για edit. Άλλαξε το <strong>PVID</strong> στο στοχευόμενο VLAN ID (εδώ: 20 για Servers). Μετά πήγαινε στο Bridge › VLANs → επεξεργάσου το VLAN 10 και αφαίρεσε αυτό το port από το Untagged· επεξεργάσου το VLAN 20 και πρόσθεσέ το στο Untagged. Χρειάζονται και οι δύο αλλαγές — μόνο το PVID δεν αρκεί.</div>
+</div>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — μεταθεσε port απο VLAN 10 σε VLAN 20</span>
+    <pre class="term"><span class="cmt"># Βήμα 1: Άλλαξε το PVID στο port</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge port set \</span>
+<span class="out">    [find interface=ether3] \</span>
+<span class="out">    pvid=20 \</span>
+<span class="out">    comment="Servers — reassigned from VLAN 10"</span>
+
+<span class="cmt"># Βήμα 2: Αφαίρεσε το ether3 από τη λίστα untagged του VLAN 10</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge vlan set \</span>
+<span class="out">    [find vlan-ids=10] \</span>
+<span class="out">    untagged=""</span>
+<span class="cmt"># Αν άλλα ports είναι ακόμα untagged στο VLAN 10, γράψε τα ρητά:
+# untagged=ether5,ether6  (κράτα όλα εκτός από το ether3)</span>
+
+<span class="cmt"># Βήμα 3: Πρόσθεσε το ether3 στη λίστα untagged του VLAN 20</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge vlan set \</span>
+<span class="out">    [find vlan-ids=20] \</span>
+<span class="out">    untagged=ether3</span>
+
+<span class="cmt"># Επιβεβαίωσε ότι το port βλέπει τώρα κίνηση VLAN 20 — η συσκευή θα πρέπει
+# να πάρει διεύθυνση 192.168.20.x από το dhcp-vlan20 μετά την επανασύνδεση.</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip dhcp-server lease print \</span>
+<span class="out">    where server=dhcp-vlan20</span>
+<span class="cmt"># Θα πρέπει να εμφανιστεί νέο lease για τη συνδεδεμένη συσκευή του ether3.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Η Αλλαγη Μονο του PVID Δεν Αρκει</span>
+    <p>Το να βάλεις PVID=20 σε ένα port λέει στο bridge να κάνει tag τα εισερχόμενα untagged frames ως VLAN 20. Αλλά αν η εγγραφή του VLAN 20 στον πίνακα δεν αναφέρει αυτό το port ως untagged μέλος, το bridge δεν θα στείλει πίσω τα frames VLAN 20 από εκείνο το port untagged — η συσκευή δεν δέχεται τίποτα. Και το PVID και η εγγραφή στον πίνακα VLAN πρέπει να είναι συγχρονισμένα. Μετά από κάθε αλλαγή port, επαλήθευσε με <code>/interface bridge vlan print</code> ότι το port εμφανίζεται στη σωστή στήλη untagged του VLAN.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">CRS — VLAN Switching με Hardware Offload</h2>
+  <p class="section-thesis"><em>Οι συσκευές CRS3xx μπορούν να σπρώξουν το VLAN tagging μέσα στο switch chip, δουλεύοντας με line rate. Το μοντέλο config είναι το ίδιο — μόνο το flag offload διαφέρει.</em></p>
+
+  <p>Σε συσκευές CRS (Cloud Router Switch), το config του bridge VLAN filtering είναι πανομοιότυπο με τη μέθοδο hAP παραπάνω. Η διαφορά είναι ότι το hardware CRS μπορεί να κάνει offload το VLAN tagging στο ASIC του switch, παρακάμπτοντας εντελώς το CPU για αποφάσεις switching. Αυτό δίνει επίδοση line-rate ακόμα και σε 1G/10G με πολλά VLAN.</p>
+
+  <p>Για να ενεργοποιήσεις hardware offload, βάλε <code>hw=yes</code> σε bridge ports που υποστηρίζει το switch chip. Δεν υποστηρίζουν όλα τα ports σε όλες τις συσκευές CRS offload — έλεγξε το wiki του MikroTik για το συγκεκριμένο μοντέλο σου.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — ενεργοποιησε hardware offload στα ports bridge του CRS</span>
+    <pre class="term"><span class="cmt"># Ίδιο bridge και πίνακας VLAN όπως στη μέθοδο hAP.
+# Πρόσθεσε hw=yes σε ports που υποστηρίζουν offload switch chip:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge port set [find interface=ether2] hw=yes</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge port set [find interface=ether3] hw=yes</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge port set [find interface=ether4] hw=yes</span>
+
+<span class="cmt"># Επιβεβαίωσε ότι το hardware offload είναι ενεργό:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface bridge port print</span>
+<span class="out"> #  INTERFACE  BRIDGE   HW   PVID  FRAME-TYPES                      STATE</span>
+<span class="out"> 0  ether2     bridge1  yes  1     admit-only-vlan-tagged           forwarding</span>
+<span class="out"> 1  ether3     bridge1  yes  10    admit-only-untagged-and-prio...  forwarding</span>
+<span class="out"> 2  ether4     bridge1  yes  40    admit-only-untagged-and-prio...  forwarding</span>
+<span class="cmt"># HW=yes σημαίνει ότι το switch chip χειρίζεται το tagging — το CPU δεν εμπλέκεται
+# για κίνηση transit switching. Μόνο routed κίνηση (inter-VLAN) φτάνει στο CPU.</span>
+
+<span class="cmt"># Σε CRS μπορείς επίσης να επιβεβαιώσεις την ανάθεση ports του switch chip:</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface ethernet switch port print</span>
+<span class="cmt"># Ports με ορισμένο "master-port" ελέγχονται από το switch chip.</span></pre>
+  </div>
+
+  <div class="mockup-wrap">
+    <span class="mockup-label">RouterOS — Πινακας Bridge VLAN στο Winbox</span>
+    <svg viewBox="0 0 720 175" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;background:#eae8e3;">
+      <defs><style>
+        .wb-bar{fill:#c8c5be}.wb-sbtn{fill:#e1ded7;stroke:#c8c5be;stroke-width:1}
+        .wb-row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.5}.wb-rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.5}
+        .wbm{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#555550}
+        .wbh{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:10px;fill:#1a1a18}
+        .wbs{font-family:'Barlow',sans-serif;font-size:8px;fill:#888880}
+        .v10c{fill:#c63d1f;fill-opacity:.12;stroke:#c8c5be;stroke-width:.5}
+        .v20c{fill:#3a5a78;fill-opacity:.12;stroke:#c8c5be;stroke-width:.5}
+        .v30c{fill:#c08020;fill-opacity:.12;stroke:#c8c5be;stroke-width:.5}
+        .v40c{fill:#558840;fill-opacity:.12;stroke:#c8c5be;stroke-width:.5}
+      </style></defs>
+      <rect width="720" height="175" fill="#eae8e3"/>
+      <rect x="0" y="0" width="720" height="16" class="wb-bar"/>
+      <text x="6" y="11" class="wbh">Bridge › VLANs</text>
+      <rect x="0" y="16" width="720" height="12" class="wb-bar" style="fill:#dddbd5;"/>
+      <text x="6" y="25" class="wbs" style="font-weight:600;">#  VLAN-IDS  BRIDGE    TAGGED                  UNTAGGED   COMMENT</text>
+      <rect x="0" y="28" width="720" height="16" class="v10c"/>
+      <text x="6" y="39" class="wbm">0  <tspan style="fill:#c63d1f;font-weight:600;">10</tspan>        bridge1   bridge1, ether2         ether3     MGMT</text>
+      <rect x="0" y="44" width="720" height="16" class="v20c"/>
+      <text x="6" y="55" class="wbm">1  <tspan style="fill:#3a5a78;font-weight:600;">20</tspan>        bridge1   bridge1, ether2         —          Servers</text>
+      <rect x="0" y="60" width="720" height="16" class="v30c"/>
+      <text x="6" y="71" class="wbm">2  <tspan style="fill:#c08020;font-weight:600;">30</tspan>        bridge1   bridge1, ether2         —          Guest WiFi</text>
+      <rect x="0" y="76" width="720" height="16" class="v40c"/>
+      <text x="6" y="87" class="wbm">3  <tspan style="fill:#558840;font-weight:600;">40</tspan>        bridge1   bridge1, ether2         ether4     IoT</text>
+      <!-- Bridge Ports section -->
+      <rect x="0" y="100" width="720" height="14" class="wb-bar" style="fill:#dddbd5;"/>
+      <text x="6" y="111" class="wbs" style="font-weight:600;">Bridge › Ports</text>
+      <rect x="0" y="114" width="720" height="14" class="wb-row"/>
+      <text x="6" y="125" class="wbm">ether2   bridge1   admit-only-vlan-tagged              PVID 1    HW=yes   TRUNK</text>
+      <rect x="0" y="128" width="720" height="14" class="wb-rowh"/>
+      <text x="6" y="139" class="wbm">ether3   bridge1   admit-only-untagged-and-priority    PVID <tspan style="fill:#c63d1f;">10</tspan>   HW=yes   ACCESS MGMT</text>
+      <rect x="0" y="142" width="720" height="14" class="wb-row"/>
+      <text x="6" y="153" class="wbm">ether4   bridge1   admit-only-untagged-and-priority    PVID <tspan style="fill:#558840;">40</tspan>   HW=yes   ACCESS IoT</text>
+      <rect x="0" y="163" width="720" height="12" class="wb-bar" style="fill:#dddbd5;"/>
+      <text x="6" y="172" class="wbs">HW=yes on CRS = switch chip offload active · Tagged includes bridge1 itself for router IP interfaces</text>
+    </svg>
+    <span class="mockup-caption">Bridge › VLANs στο Winbox. Κάθε VLAN έχει <code>bridge1</code> στη στήλη tagged — αυτό είναι που δίνει στα VLAN interfaces του router τον δρόμο κίνησής τους. Οι έγχρωμες γραμμές αντιστοιχούν στο πλάνο VLAN παραπάνω.</span>
+  </div>
+
+  <div class="wb4-wrap">
+<div class="wb4-path">Bridge <span class="sep">›</span> Ports <span class="sep">›</span> Edit <span class="sep">›</span> <span class="active">HW = yes</span></div>
+<svg viewBox="0 0 680 195" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;">
+<defs><style>
+  .w4bg{fill:#1e1e1e} .w4sb{fill:#252525} .w4work{fill:#eae8e3}
+  .w4hdr{fill:#2a2a2a} .w4row{fill:#eae8e3;stroke:#c8c5be;stroke-width:.4}
+  .w4rowh{fill:#dddbd5;stroke:#c8c5be;stroke-width:.4}
+  .w4hl{fill:#c63d1f;fill-opacity:.13;stroke:#c63d1f;stroke-width:.5}
+  .w4btn{fill:#333;stroke:#444;stroke-width:.5;rx:3}
+  .w4btnr{fill:#c63d1f;rx:3}
+  .w4inp{fill:#fff;stroke:#c8c5be;stroke-width:.8}
+  .w4sel{fill:#3a3a3a;stroke:#555;stroke-width:.5}
+  .w4form{fill:#f0ede8;stroke:#c8c5be;stroke-width:.5}
+  .w4t{font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#eae8e3}
+  .w4ts{font-family:'Inter','Barlow',sans-serif;font-size:8px;fill:#888880}
+  .w4tm{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#555550}
+  .w4tma{font-family:'JetBrains Mono',monospace;font-size:8px;fill:#c63d1f}
+  .w4th{font-family:'Inter','Barlow Condensed',sans-serif;font-weight:700;font-size:9px;fill:#1a1a18}
+  .w4tl{font-family:'Inter','Barlow',sans-serif;font-size:8.5px;fill:#555550}
+  .w4acc{fill:#c63d1f} .w4ok{fill:#3a5a78}
+  .w4tag10{fill:#c63d1f} .w4tag20{fill:#3a5a78}
+  .w4tag30{fill:#c08020} .w4tag40{fill:#558840}
+</style></defs>
+<rect width="680" height="195" class="w4bg"/>
+<rect x="0" y="0" width="680" height="24" class="w4hdr"/>
+<text x="10" y="16" style="font-family:'Inter','Barlow',sans-serif;font-weight:600;font-size:10px;fill:#eae8e3;">WinBox 4.1  —  admin@192.168.88.1 (CRS326)</text>
+<circle cx="644" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="658" cy="12" r="5" fill="#3a3a3a" stroke="#555" stroke-width=".5"/>
+<circle cx="672" cy="12" r="5" fill="#c63d1f" stroke="#c63d1f" stroke-width=".5"/>
+<rect x="0" y="24" width="138" height="171" class="w4sb"/><text x="8" y="41" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> INTERFACE</text><text x="12" y="59" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Interfaces</text><rect x="0" y="66" width="138" height="16" fill="#c63d1f" fill-opacity=".2"/><rect x="0" y="66" width="3" height="16" fill="#c63d1f"/><text x="12" y="77" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#c63d1f;font-weight:600;">Bridge</text><text x="12" y="95" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Wireless</text><text x="8" y="113" style="font-family:'Inter','Barlow',sans-serif;font-size:7.5px;fill:#555;letter-spacing:.08em;"> IP</text><text x="12" y="131" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Addresses</text><text x="12" y="149" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">DHCP Server</text><text x="12" y="167" style="font-family:'Inter','Barlow',sans-serif;font-size:9px;fill:#888880;">Firewall</text>
+<rect x="138" y="24" width="542" height="171" class="w4work"/>
+<rect x="138" y="24" width="542" height="20" fill="#dddbd5"/>
+<rect x="140" y="25" width="50" height="18" fill="#c8c5be" rx="2,2,0,0"/>
+<text x="165" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">Bridge</text>
+<rect x="192" y="25" width="40" height="18" fill="#e1ded7" rx="2,2,0,0"/>
+<text x="212" y="37" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#1a1a18;text-anchor:middle;font-weight:600;">Ports</text>
+<rect x="138" y="44" width="542" height="26" fill="#dddbd5"/><rect x="144" y="49" width="44" height="16" fill="#c63d1f" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="166" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">+ Add</text><rect x="193" y="49" width="38" height="16" fill="#e1ded7" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="212" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;font-weight:500;">Edit</text><rect x="236" y="49" width="62" height="16" fill="#3a3a3a" rx="3" stroke="#c8c5be" stroke-width=".5"/><text x="267" y="60" style="font-family:'Inter',sans-serif;font-size:8px;fill:#fff;text-anchor:middle;font-weight:500;">− Remove</text>
+<rect x="138" y="70" width="542" height="16" fill="#c8c5be"/><text x="144" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">INTERFACE</text><text x="224" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">BRIDGE</text><text x="294" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">HW</text><text x="329" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">PVID</text><text x="369" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">FRAME-TYPES</text><text x="539" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">STATE</text><text x="594" y="81" style="font-family:'Inter',sans-serif;font-size:7.5px;fill:#555550;font-weight:700;letter-spacing:.04em;">COMMENT</text>
+<rect x="138" y="86" width="542" height="16" class="w4row"/>
+<text x="144" y="97" class="w4tm">ether1</text>
+<text x="224" y="97" class="w4tm">bridge1</text>
+<rect x="258" y="88" width="22" height="12" fill="#3a5a78" rx="2"/>
+<text x="269" y="97" style="font-family:'Inter',sans-serif;font-size:7px;fill:#fff;text-anchor:middle;font-weight:700;">yes</text>
+<text x="295" y="97" class="w4tm">1</text>
+<text x="335" y="97" class="w4tm">admit-only-vlan-tagged</text>
+<text x="505" y="97" class="w4tm" style="fill:#3a5a78;">fwd</text>
+<text x="560" y="97" class="w4ts" style="fill:#888880;">Trunk (uplink)</text>
+
+<rect x="138" y="102" width="542" height="16" class="w4hl"/>
+<text x="144" y="113" class="w4tm">ether2</text>
+<text x="224" y="113" class="w4tm">bridge1</text>
+<rect x="258" y="104" width="22" height="12" fill="#3a5a78" rx="2"/>
+<text x="269" y="113" style="font-family:'Inter',sans-serif;font-size:7px;fill:#fff;text-anchor:middle;font-weight:700;">yes</text>
+<text x="295" y="113" class="w4tma" style="font-weight:700;">10</text>
+<text x="335" y="113" class="w4tm">admit-only-untagged</text>
+<text x="505" y="113" class="w4tm" style="fill:#3a5a78;">fwd</text>
+<text x="560" y="113" class="w4ts" style="fill:#c63d1f;">ACCESS MGMT</text>
+
+<rect x="138" y="118" width="542" height="16" class="w4rowh"/>
+<text x="144" y="129" class="w4tm">ether3</text>
+<text x="224" y="129" class="w4tm">bridge1</text>
+<rect x="258" y="120" width="22" height="12" fill="#3a5a78" rx="2"/>
+<text x="269" y="129" style="font-family:'Inter',sans-serif;font-size:7px;fill:#fff;text-anchor:middle;font-weight:700;">yes</text>
+<text x="295" y="129" style="font-family:'JetBrains Mono',monospace;font-size:8px;fill:#558840;font-weight:700;">40</text>
+<text x="335" y="129" class="w4tm">admit-only-untagged</text>
+<text x="505" y="129" class="w4tm" style="fill:#3a5a78;">fwd</text>
+<text x="560" y="129" class="w4ts" style="fill:#558840;">ACCESS IoT</text>
+
+<!-- CPU savings note -->
+<rect x="144" y="140" width="528" height="24" fill="#dddbd5" rx="3" stroke="#c8c5be" stroke-width=".5"/>
+<text x="154" y="152" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#3a5a78;font-weight:600;">HW = yes  →  ενεργό offload switch chip</text>
+<text x="154" y="163" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;">Το VLAN tagging γίνεται χειρισμός από το ASIC. Το CPU επεξεργάζεται μόνο routed (inter-VLAN) κίνηση. Διαθέσιμο στη σειρά CRS3xx.</text>
+
+<rect x="138" y="179" width="542" height="16" fill="#dddbd5"/>
+<text x="144" y="189" class="w4ts">CRS326-24G-2S+  ·  switch chip: Marvell 98DX3236  ·  HW offload: available on all copper ports</text>
+</svg>
+<div class="wb4-caption">Μόνο CRS — Bridge › Ports. Επίλεξε κάθε port και βάλε <strong>HW = yes</strong> για να ενεργοποιήσεις offload switch chip. Το μπλε badge εμφανίζεται στη στήλη HW όταν το offload είναι ενεργό. Δεν υποστηρίζουν όλα τα ports σε όλα τα μοντέλα CRS offload — έλεγξε το wiki του MikroTik για το μοντέλο σου.</div>
+</div>
+  <div class="callout didnt-work">
+    <span class="callout-label">✕ Τι Δεν Δουλεψε — Το να Βαλεις vlan-filtering=yes σε Ζωντανο Bridge</span>
+    <p>Το να ενεργοποιήσεις <code>vlan-filtering=yes</code> σε ένα bridge που ήδη έχει ενεργά ports και clients προκαλεί άμεση διακοπή κίνησης. Το bridge αρχίζει να επιβάλλει την policy VLAN ακαριαία — πριν ορίσεις τον πίνακα VLAN. Frames που δεν ταιριάζουν σε καμία εγγραφή του πίνακα VLAN ρίχνονται. Η σωστή σειρά είναι: δημιούργησε το bridge με <code>vlan-filtering=yes</code> πριν προσθέσεις οποιαδήποτε ports, χτίσε τον πλήρη πίνακα VLAN, μετά πρόσθεσε ports. Αν κάνεις reconfigure ζωντανό δίκτυο, χρησιμοποίησε πρώτα <code>/system safe-mode</code>.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Επαληθευση και Δοκιμη</h2>
+  <p class="section-thesis"><em>Τέσσερις έλεγχοι επαλήθευσης — ένας σε κάθε επίπεδο. Μην παραλείψεις κανέναν.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — εντολες επιβεβαιωσης VLAN</span>
+    <pre class="term"><span class="cmt"># 1. Είναι τα VLAN interfaces up και έχουν τα σωστά IPs;</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/interface vlan print</span>
+<span class="out">Flags: R - running</span>
+<span class="out"> #  R  NAME    MTU   ARP      VLAN-ID  INTERFACE</span>
+<span class="out"> 0  R  vlan10  1500  enabled  10       bridge1</span>
+<span class="out"> 1  R  vlan20  1500  enabled  20       bridge1</span>
+<span class="out"> 2  R  vlan30  1500  enabled  30       bridge1</span>
+<span class="out"> 3  R  vlan40  1500  enabled  40       bridge1</span>
+<span class="cmt"># Όλα πρέπει να δείχνουν R (running). Αν όχι: λείπει το bridge1 από τη λίστα tagged.</span>
+
+<span class="cmt"># 2. Είναι οι DHCP servers bound και κάνουν leasing;</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip dhcp-server print</span>
+<span class="out"> #  NAME         INTERFACE  ADDRESS-POOL    LEASE-TIME  STATUS</span>
+<span class="out"> 0  dhcp-vlan10  vlan10     pool-vlan10     12h         running</span>
+<span class="out"> 1  dhcp-vlan20  vlan20     pool-vlan20     12h         running</span>
+<span class="out"> 2  dhcp-vlan30  vlan30     pool-vlan30     2h          running</span>
+<span class="out"> 3  dhcp-vlan40  vlan40     pool-vlan40     12h         running</span>
+
+<span class="cmt"># 3. Παίρνουν οι clients IPs; (μετά τη σύνδεση μιας συσκευής σε κάθε VLAN)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip dhcp-server lease print</span>
+<span class="out"> #  ADDRESS          MAC-ADDRESS        HOST-NAME   SERVER      STATUS</span>
+<span class="out"> 0  192.168.10.100   AA:BB:CC:DD:EE:01  staff-pc    dhcp-vlan10 bound</span>
+<span class="out"> 1  192.168.40.10    AA:BB:CC:DD:EE:02  camera-1    dhcp-vlan40 bound</span>
+
+<span class="cmt"># 4. Μπορεί ο router να κάνει ping σε κάθε VLAN gateway;</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ping 192.168.10.1 count=2 src-address=192.168.10.1</span>
+<span class="out">  0 192.168.10.1  56  64  0ms  echo reply</span>
+<span class="out">  1 192.168.10.1  56  64  0ms  echo reply</span>
+<span class="cmt"># Επανέλαβε για .20.1, .30.1, .40.1</span>
+
+<span class="cmt"># 5. Έλεγχος απομόνωσης VLAN — το IoT ΔΕΝ πρέπει να φτάνει το MGMT
+#    (τρέξ' το από μια συσκευή στο VLAN 40, πρέπει να κάνει timeout αν το firewall είναι σωστό)</span>
+<span class="pc">[admin@MikroTik] ></span> <span class="out">/ip firewall connection print count-only where \</span>
+<span class="out">    src-address~"192.168.40." and dst-address~"192.168.10."</span>
+<span class="cmt"># Πρέπει να είναι 0 αν υπάρχουν κανόνες firewall inter-VLAN.
+# Χωρίς κανόνες firewall, τα VLAN μπορούν να κάνουν route μεταξύ τους — δες την Οπτική του Defender.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Τα VLAN Κανουν Route by Default Χωρις Κανονες Firewall</span>
+    <p>Το να δημιουργήσεις VLAN δεν τα απομονώνει αυτόματα. Ο router έχει IP interfaces σε κάθε VLAN και θα κάνει ευχαρίστως route ανάμεσά τους εκτός αν η forward chain ρίχνει ρητά την inter-VLAN κίνηση. Ένας επισκέπτης στο VLAN 30 μπορεί να φτάσει το NAS σου στο VLAN 20 τη στιγμή που προσθέτεις IP interfaces — εκτός αν προσθέσεις κανόνες forward chain που το μπλοκάρουν. Δες τον οδηγό Firewall Filter Chains για το πλήρες σύνολο κανόνων firewall inter-VLAN. Τουλάχιστον, πρόσθεσε: <code>chain=forward in-interface=vlan30 out-interface=!WAN action=drop</code> για να απομονώσεις άμεσα τους επισκέπτες.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">🛡 Η Οπτικη του Defender / Operator</span>
+    <p><strong>Τα VLAN είναι security boundary μόνο αν τα αντιμετωπίσεις ως τέτοιο.</strong> Το συχνό λάθος είναι να δημιουργείς VLAN για segmentation αλλά να αφήνεις την forward chain του firewall ορθάνοιχτη. Το VLAN tagging εγγυάται μόνο απομόνωση Layer 2 — το routing Layer 3 ανάμεσα σε VLAN είναι ακόμα πλήρως λειτουργικό μέχρι να το σταματήσει το firewall. Αφού χτίσεις VLAN, το επόμενο βήμα σου είναι οι κανόνες forward chain από τον οδηγό Firewall Filter Chains.</p>
+    <p><strong>Η απομόνωση του Guest VLAN είναι ο πιο κρίσιμος κανόνας για φιλοξενία.</strong> Πρόσθεσε αυτό στην forward chain αμέσως μετά τη δημιουργία VLAN: <code>chain=forward in-interface=vlan30 out-interface-list=!WAN action=drop comment="isolate guest VLAN"</code>. Αυτός ο ένας κανόνας αποτρέπει τους επισκέπτες από το να φτάσουν οποιοδήποτε εσωτερικό δίκτυο. Τέσταρέ το: συνδέσου στο SSID επισκεπτών και επιβεβαίωσε ότι δεν μπορείς να κάνεις ping στο <code>192.168.10.1</code>.</p>
+    <p><strong>Το IoT VLAN πρέπει επίσης να έχει πρόσβαση μόνο σε WAN.</strong> Οι κάμερες IP και οι έξυπνες συσκευές έχουν φτωχό ιστορικό ασφάλειας. Δώσ' τους πρόσβαση internet μόνο (ενημερώσεις firmware, cloud services) και μπλόκαρε κάθε πρόσβαση στα VLAN management και servers: <code>chain=forward in-interface=vlan40 out-interface-list=!WAN action=drop</code>.</p>
+    <p><strong>Static DHCP leases για την υποδομή.</strong> Servers, συσκευές NAS, κάμερες, και access points πρέπει να έχουν static DHCP leases ώστε τα IP τους να μην αλλάζουν ποτέ. Αυτό κάνει τους κανόνες firewall, το monitoring, και το troubleshooting προβλέψιμα. Όρισέ τα μέσω <code>/ip dhcp-server lease add mac-address=... address=... server=dhcp-vlan20</code>.</p>
+    <p><strong>Βάλε tag τα πάντα, μην εμπιστεύεσαι τίποτα.</strong> Οποιοδήποτε unmanaged switch συνδεδεμένο σε trunk port θα περάσει όλα τα tags VLAN σε ό,τι είναι συνδεδεμένο πάνω του. Ένα unmanaged switch πρέπει να συνδέεται μόνο σε access ports — ποτέ σε trunk ports — εκτός αν είναι ένα managed switch που ελέγχεις.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Ενεργοποίησε <code>vlan-filtering=yes</code> στο bridge πριν προσθέσεις ports.</strong> Το να το ενεργοποιήσεις σε ζωντανό bridge ρίχνει κάθε κίνηση που δεν ταιριάζει με τον (ακόμα άδειο) πίνακα VLAN. Η σωστή σειρά είναι: δημιούργησε bridge με filtering → χτίσε πίνακα VLAN → πρόσθεσε ports → πρόσθεσε IP interfaces.</li>
+      <li><strong>Το <code>bridge1</code> πρέπει να είναι στη λίστα tagged κάθε VLAN που θέλεις να σερβίρει ο router.</strong> Χωρίς αυτό, το VLAN interface δεν έχει δρόμο να στείλει ή να δεχτεί frames. Αυτός είναι ο πιο συχνός λόγος που δεν δουλεύει το DHCP μετά το config VLAN.</li>
+      <li><strong>Τα access ports παίρνουν <code>pvid=</code> και <code>frame-types=admit-only-untagged</code>. Τα trunk ports παίρνουν <code>frame-types=admit-only-vlan-tagged</code>.</strong> Αυτές οι δύο ρυθμίσεις μαζί επιβάλλουν το σύνορο ανάμεσα σε tagged και untagged domains. Το να κάνεις λάθος στο ένα από τα δύο προκαλεί σιωπηλή απώλεια κίνησης που μοιάζει με πρόβλημα routing.</li>
+      <li><strong>Σε CRS, πρόσθεσε <code>hw=yes</code> στα bridge ports για line-rate VLAN switching.</strong> Χωρίς αυτό, όλο το switching περνά από το CPU — που είναι εντάξει για μικρά δίκτυα αλλά θα δημιουργήσει bottleneck σε ένα φορτωμένο ακίνητο με πολλούς clients.</li>
+      <li><strong>Τα VLAN δεν απομονώνουν κίνηση σε Layer 3 χωρίς κανόνες firewall.</strong> Το να δημιουργήσεις ένα guest VLAN και ένα IoT VLAN δεν τα εμποδίζει από το να κάνουν route το ένα στο άλλο — ο router θα κάνει forward ανάμεσά τους ελεύθερα. Πρόσθεσε κανόνες drop στην forward chain αμέσως μετά το χτίσιμο της δομής VLAN.</li>
+      <li><strong>Τεστάρε την απομόνωση ενεργά, όχι με υπόθεση.</strong> Σύνδεσε μια συσκευή σε κάθε VLAN και επιβεβαίωσε ότι παίρνει το σωστό IP, φτάνει το internet, και δεν φτάνει άλλα VLAN. Ένα VLAN που φαίνεται σωστό στο config αλλά δεν απομονώνει πραγματικά κίνηση είναι χειρότερο από κανένα VLAN — δημιουργεί ψεύτικη σιγουριά.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Προσωπικο, επισκεπτες, και καμερες ολα στο ιδιο VLAN;</h3>
+    <p>Σχεδιάζω και αναπτύσσω segmented δίκτυα για ακίνητα φιλοξενίας με πραγματική αρχιτεκτονική VLAN &mdash; απομόνωση επισκεπτών, περιορισμό IoT, και θωρακισμένο management plane. Τα περισσότερα ακίνητα που επισκέπτομαι ακόμα τρέχουν τα πάντα flat.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

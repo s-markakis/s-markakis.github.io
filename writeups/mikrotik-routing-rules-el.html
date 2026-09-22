@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: Policy Routing με Rules & Mangle — S. Markakis</title>
+<meta name="description" content="Τα δύο εργαλεία policy-routing του RouterOS — ελαφριά routing rules και connection-aware mangle routing-marks — πότε να χρησιμοποιήσεις ποιο, το pattern connection-mark-μετα-routing-mark που κρατά ένα flow καρφωμένο σε ένα WAN, και NAT ανά WAN.">
+<meta property="og:title" content="MikroTik: Policy Routing με Rules &amp; Mangle — S. Markakis">
+<meta property="og:description" content="Τα δύο εργαλεία policy-routing του RouterOS — ελαφριά routing rules και connection-aware mangle routing-marks — πότε να χρησιμοποιήσεις ποιο, το pattern connection-mark-μετα-routing-mark που κρατά ένα flow καρφωμένο σε ένα WAN, και NAT ανά WAN.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-routing-rules-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-routing-rules.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-routing-rules.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-routing-rules-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-routing-rules.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-routing-rules-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-routing-rules.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Policy Routing with Rules & Mangle",
+  "description": "RouterOS's two policy-routing tools — lightweight routing rules and connection-aware mangle routing-marks — when to use which, the connection-mark-then-routing-mark pattern that keeps a flow pinned to one WAN, and per-WAN NAT.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-routing-rules-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-routing-rules.png",
+  "keywords": [
+    "mikrotik",
+    "routing"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-routing-rules"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-routing-rules.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Routing &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">MikroTik<br>Policy Routing με Rules &amp; Mangle</h1>
+  <p class="post-subtitle">Ίδιος στόχος με το PBR της Cisco — κάνε route ανάλογα με το ποιος έστειλε το πακέτο, όχι μόνο πού πηγαίνει — αλλά το RouterOS το πετυχαίνει με δύο διαφορετικούς τρόπους, και το να ξέρεις ποιον να χρησιμοποιήσεις είναι η μισή δουλειά. Routing rules για τις απλές περιπτώσεις src/dst· mangle routing-marks για οτιδήποτε χρειάζεται επίγνωση σύνδεσης. Το δίδυμο του post Policy-Based Routing της Cisco.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Policy Routing</span>
+    <span class="tag">Mangle</span>
+    <span class="tag">Routing Marks</span>
+    <span class="tag">Dual-WAN</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το RouterOS σου δίνει <strong>δύο</strong> εργαλεία policy-routing, και το να διαλέξεις το σωστό γλιτώνει πολύ πόνο. Οι <strong>routing rules</strong> (<code>/routing rule</code>) είναι η ελαφριά επιλογή: ταίριαξε source/destination/interface και στείλε το lookup σε διαφορετικό πίνακα routing — γρήγορο, stateless, τέλειο για «αυτό το subnet χρησιμοποιεί εκείνον τον πίνακα». Τα <strong>mangle routing-marks</strong> είναι η ισχυρή επιλογή: σήμανε ένα πακέτο (ή ολόκληρη σύνδεση) στο firewall, μετά κάνε route με βάση εκείνο το mark — που σε αφήνει να αποφασίσεις με βάση <em>οτιδήποτε μπορεί να ταιριάξει το firewall</em> (port, protocol, connection state) και, το πιο σημαντικό, να κρατήσεις ένα flow καρφωμένο σε ένα WAN για όλη του τη ζωή.</p>
+    <p>Η διάκριση που έχει σημασία: οι routing rules δεν βλέπουν συνδέσεις, οπότε για dual-WAN σχεδόν πάντα θέλεις το pattern <strong>mangle + connection-mark + routing-mark</strong>, ώστε μια απάντηση να επιστρέφει από τον ίδιο δρόμο που έφυγε το αίτημα. Αυτό είναι το αντίστοιχο σε RouterOS του <a href="cisco-pbr.html">Cisco PBR</a> — ένα route-map <code>set ip next-hop</code> εκεί, δύο ξεχωριστοί μηχανισμοί εδώ.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Δύο δρόμοι εξόδου (dual-WAN, ένα tunnel) και ένα route ανά δρόμο στον δικό του πίνακα routing</li>
+      <li>Το μοντέλο <a href="mikrotik-firewall.html">firewall/mangle</a> και <a href="mikrotik-dhcp-nat.html">connection-tracking</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Η Απλη Περιπτωση — Routing Rules</h2>
+  <p class="section-thesis"><em>Όταν η απόφαση είναι απλώς «αυτό το source χρησιμοποιεί εκείνο το path», οι routing rules είναι το πιο καθαρό εργαλείο: ένα route σε έναν ονομασμένο πίνακα, και ένας κανόνας που δείχνει την κίνηση που ταιριάζει προς αυτόν.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — το subnet επισκεπτων χρησιμοποιει τον πινακα του ISP-B</span>
+    <pre class="term"><span class="cmt"># Ένα default route που ζει στον δικό του πίνακα routing (το v7 χρησιμοποιεί routing-table=).</span>
+<span class="pc">/routing table</span> <span class="out">add name=via-ISP-B fib</span>
+<span class="pc">/ip route</span> <span class="out">add dst-address=0.0.0.0/0 gateway=203.0.113.9 routing-table=via-ISP-B</span>
+
+<span class="cmt"># Κανόνας: source επισκέπτη -> κάνε lookup στο via-ISP-B αντί για main.</span>
+<span class="pc">/routing rule</span>
+<span class="out">add src-address=10.10.20.0/24 action=lookup-only-in-table table=via-ISP-B</span>
+<span class="cmt"># Ό,τι άλλο περνά κανονικά στον πίνακα main.</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — <code>lookup</code> vs <code>lookup-only-in-table</code></span>
+    <p>Το <code>action=lookup</code> δοκιμάζει τον πίνακά σου και μετά <em>γυρνά πίσω</em> στο main αν δεν υπάρχει ταίριασμα — βολικό, αλλά σημαίνει ότι ένα νεκρό gateway στον πίνακά σου γυρνά σιωπηλά στον default δρόμο (μερικές φορές καλό, μερικές φορές έκπληξη). Το <code>action=lookup-only-in-table</code> είναι αυστηρό: ταίριαξε αυτόν τον πίνακα ή drop, χωρίς fallback. Για failover dual-WAN συνήθως θέλεις <code>lookup</code> ώστε ένας νεκρός ISP-B να γυρνά πίσω στον ISP-A· για σκληρή απομόνωση (ο επισκέπτης δεν πρέπει <em>ποτέ</em> να χρησιμοποιήσει τον ISP-A) θέλεις <code>lookup-only-in-table</code>. Διάλεξε σκόπιμα.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Η Ισχυρη Περιπτωση — Marks Mangle</h2>
+  <p class="section-thesis"><em>Όταν η απόφαση εξαρτάται από ports, protocols, ή πρέπει να επιβιώσει ως σύνδεση, σήμανε τη σύνδεση μία φορά και τα πακέτα μετά, μετά κάνε route με βάση το mark. Αυτό είναι το βασικό pattern για πραγματικό dual-WAN.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — σημανε VoIP προς ISP-A, καρφωσε ολη τη συνδεση</span>
+    <pre class="term"><span class="pc">/ip firewall mangle</span>
+<span class="cmt"># 1. Σήμανε τη ΣΥΝΔΕΣΗ στο πρώτο πακέτο (εδώ: SIP/RTP).</span>
+<span class="out">add chain=prerouting protocol=udp port=5060,10000-20000 \
+    connection-state=new action=mark-connection new-connection-mark=voip-conn passthrough=yes</span>
+<span class="cmt"># 2. Γύρνα το connection-mark σε ROUTING-mark σε κάθε πακέτο της.</span>
+<span class="out">add chain=prerouting connection-mark=voip-conn \
+    action=mark-routing new-routing-mark=via-ISP-A passthrough=no</span>
+
+<span class="cmt"># 3. Ένα default route σε εκείνον τον πίνακα routing.</span>
+<span class="pc">/ip route</span> <span class="out">add dst-address=0.0.0.0/0 gateway=198.51.100.1 routing-table=via-ISP-A</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Γιατι Connection-Mark Πρωτα, Μετα Routing-Mark</span>
+    <p>Τα δύο βήματα — <code>mark-connection</code> στο νέο πακέτο, μετά <code>mark-routing</code> από εκείνο το connection-mark — είναι το pattern που κρατά ένα flow σε ένα WAN για όλη του τη ζωή. Ταίριαξε μόνο ανά-πακέτο και μια αλλαγή ταξινόμησης στη μέση της σύνδεσης (ή ένα unmarked πακέτο επιστροφής) μπορεί να σπάσει ένα flow στα δύο links, χαλώντας stateful NAT και οτιδήποτε παρακολουθεί η απέναντι πλευρά. Το να σημάνεις τη <em>σύνδεση</em> μία φορά και να παράγεις το routing-mark από αυτήν εγγυάται συμμετρία. Είναι η νούμερο ένα συνήθεια στο policy routing του RouterOS, και ο λόγος που το mangle νικά τις γυμνές routing rules για dual-WAN.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Μην Ξεχασεις το NAT και την Κινηση Επιστροφης</h2>
+  <p class="section-thesis"><em>Η κίνηση policy-routed ακόμα πρέπει να κάνει NAT μέσω του interface από το οποίο πραγματικά φεύγει, και οι απαντήσεις πρέπει να βρουν τον δρόμο τους πίσω. Δύο κανόνες που ξεχνά ο κόσμος, και τα συμπτώματα είναι μπερδεμένα.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — ενα masquerade ανα WAN, κλειδωμενο στο out-interface</span>
+    <pre class="term"><span class="pc">/ip firewall nat</span>
+<span class="out">add chain=srcnat out-interface=ISP-A-link action=masquerade
+add chain=srcnat out-interface=ISP-B-link action=masquerade</span>
+<span class="cmt"># Κάθε WAN κάνει NAT ό,τι φεύγει από αυτό. Χωρίς το ταιριαστό masquerade, κίνηση
+# policy-routed μέσω ISP-B φεύγει με source σχήματος ISP-A και ρίχνεται.
+# Για flows που ξεκινούν inbound στο δευτερεύον WAN, σήμανε επίσης συνδέσεις
+# που φτάνουν στο ISP-B ώστε οι απαντήσεις τους να κάνουν route πίσω μέσω ISP-B (ίδια 2 βήματα).</span></pre>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Επαληθευσε οτι τα Marks Πιανουν <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Κάθε στάδιο έχει μετρητή. Περπάτησέ τα με σειρά — hits mangle, το mark στη σύνδεση, το route που επιλέχθηκε — και το σπάσιμο είναι πάντα σε ένα αναγνωρίσιμο βήμα.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — το περπατημα ιχνηλατησης mark</span>
+    <pre class="term"><span class="pc">/ip firewall mangle print stats</span>      <span class="cmt"># έχουν οι κανόνες mark μετρητές πακέτων;</span>
+<span class="pc">/ip firewall connection print where connection-mark=voip-conn</span>
+<span class="pc">/routing rule print</span>                    <span class="cmt"># κανόνες παρόντες και σε σειρά</span>
+<span class="pc">/ip route print where routing-table=via-ISP-A</span>
+<span class="cmt"># Από ένα σημασμένο host, ένα traceroute πρέπει να βγαίνει από το προοριζόμενο gateway WAN.</span></pre>
+  </div>
+  <table class="cheat">
+    <thead><tr><th>Συμπτωμα</th><th>Που να κοιταξεις</th></tr></thead>
+    <tbody>
+      <tr><td>Η κίνηση αγνοεί την policy</td><td>Ο κανόνας mangle δεν ταιριάζει (λάθος chain/port), ή το route είναι σε λάθος πίνακα.</td></tr>
+      <tr><td>Το flow μοιράζεται και στα δύο WAN</td><td>Σημασμένο ανά-πακέτο, όχι ανά-σύνδεση — χρησιμοποίησε το mark connection→routing σε 2 βήματα.</td></tr>
+      <tr><td>Φεύγει από σωστό WAN, καμία απάντηση</td><td>Λείπει masquerade ανά-WAN, ή δεν έχει σημανθεί το return path.</td></tr>
+      <tr><td>Νεκρός ISP-B σκοτώνει το internet επισκεπτών</td><td><code>lookup-only-in-table</code> χωρίς fallback — γύρνα σε <code>lookup</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το RouterOS έχει δύο εργαλεία policy-routing:</strong> routing rules (απλό, stateless, src/dst) και mangle routing-marks (ισχυρό, connection-aware). Διάλεξε ανά δουλειά.</li>
+      <li><strong>Για πραγματικό dual-WAN, χρησιμοποίησε mangle</strong> — οι routing rules δεν μπορούν να κρατήσουν ένα flow καρφωμένο σε ένα WAN.</li>
+      <li><strong>Σήμανε πρώτα τη σύνδεση, μετά παράγαγε το routing-mark</strong> — αυτό εγγυάται ότι ένα flow μένει σε ένα link και οι απαντήσεις του επιστρέφουν συμμετρικά.</li>
+      <li><strong>Το <code>lookup</code> γυρνάει πίσω στο main· το <code>lookup-only-in-table</code> όχι.</strong> Διάλεξε ανάλογα με το αν ένα νεκρό path πρέπει να κάνει failover ή να μείνει απομονωμένο.</li>
+      <li><strong>Πρόσθεσε ένα masquerade ανά WAN</strong> κλειδωμένο στο out-interface, αλλιώς η κίνηση policy-routed φεύγει με λάθος source και πεθαίνει.</li>
+      <li><strong>Κάθε στάδιο έχει μετρητή</strong> — ιχνηλάτησε hits mangle → connection mark → επιλεγμένο route για να βρεις το σπάσιμο.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Dual-WAN που στελνει τη λαθος κινηση στο λαθος link;</h3>
+    <p>Χτίζω connection-aware policy routing σε MikroTik και Cisco όπου η κίνηση επισκεπτών, το VoIP, και τα backups μένουν ο καθένας στο σωστό path, καρφωμένα ανά-σύνδεση αντί να μαλώνουν για το ίδιο default route, με NAT που μένει καθαρό και στις δύο περιπτώσεις.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

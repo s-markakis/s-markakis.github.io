@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: RouterOS 7 Containers — S. Markakis</title>
+<meta name="description" content="Τρέξε images OCI/Docker πάνω στον ίδιο τον router — το security gate του device-mode, δικτύωση veth σε απομονωμένο bridge, pull και τρέξιμο ενός container (Pi-hole), persistence με mounts, και οι περιορισμοί αρχιτεκτονικής/storage.">
+<meta property="og:title" content="MikroTik: RouterOS 7 Containers — S. Markakis">
+<meta property="og:description" content="Τρέξε images OCI/Docker πάνω στον ίδιο τον router — το security gate του device-mode, δικτύωση veth σε απομονωμένο bridge, pull και τρέξιμο ενός container (Pi-hole), persistence με mounts, και οι περιορισμοί αρχιτεκτονικής/storage.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-containers-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-containers.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-containers.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-containers-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-containers.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-containers-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-containers.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: RouterOS 7 Containers",
+  "description": "Τρέξε images OCI/Docker πάνω στον ίδιο τον router — το security gate του device-mode, δικτύωση veth σε απομονωμένο bridge, pull και τρέξιμο ενός container (Pi-hole), persistence με mounts, και οι περιορισμοί αρχιτεκτονικής/storage.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-containers-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-containers.png",
+  "keywords": [
+    "mikrotik",
+    "automation"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-containers"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-containers.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Μοντερνο &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">MikroTik<br>RouterOS 7 Containers</h1>
+  <p class="post-subtitle">Το RouterOS 7 μπορεί να τρέξει containers — πραγματικά OCI images, πάνω στον ίδιο τον router. Pi-hole, ένα WireGuard UI, ένας Prometheus exporter, ένα μικρό web service: στο box που είναι ήδη always-on, αντί για ένα ξεχωριστό Raspberry Pi που πρέπει να τροφοδοτείς και να συντηρείς. Είναι το πιο "μικρό, κοφτερό, composable" feature που έχει βγάλει το MikroTik εδώ και χρόνια, και το documentation είναι λιγοστό. Ορίστε το ειλικρινές build.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Containers</span>
+    <span class="tag">Docker</span>
+    <span class="tag">Self-Hosting</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το feature container τρέχει OCI (Docker) images απευθείας πάνω σε RouterOS. <strong>Δεν</strong> είναι πλήρες Docker Engine — χωρίς compose, χωρίς swarm, ελάχιστο orchestration — αλλά τρέχει ένα μόνο image με interface, environment, και mounts, που καλύπτει εκπληκτικά πολλά: DNS ad-blocking, έναν metrics exporter, ένα management UI, έναν μικρό automation helper. Το επιχείρημα είναι consolidation: ο router είναι ήδη το always-on box σε κάθε site, οπότε ένα ελαφρύ service ανήκει εκεί αντί για μια άλλη συσκευή που πρέπει να τροφοδοτείς, να κάνεις patch, και να ανησυχείς γι' αυτήν.</p>
+    <p>Τρία πράγματα το κάνουν να μη μοιάζει MikroTik και μπερδεύουν κόσμο: χρειάζεται το <strong>πακέτο container</strong> και ένα σκόπιμο opt-in <strong>device-mode</strong> (ένα security gate — το επιβεβαιώνεις φυσικά), χρειάζεται πραγματικό <strong>storage</strong> για το root του image, και η <strong>αρχιτεκτονική του image πρέπει να ταιριάζει με το board</strong> (ARM/ARM64/x86). Κάνε αυτά τα τρία σωστά και το υπόλοιπο είναι δικτύωση που ήδη ξέρεις. Ταιριάζει με το <a href="mikrotik-fleet.html">fleet management</a> και, φυσικά, το post του <a href="mikrotik-prometheus.html">Prometheus exporter</a>.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Ένα board ικανό για containers με ελεύθερη RAM/CPU και storage (USB ή εσωτερικός δίσκος)</li>
+      <li>Φυσική πρόσβαση — η ενεργοποίηση containers απαιτεί επιβεβαίωση device-mode</li>
+      <li>Ένα image χτισμένο για την αρχιτεκτονική του board σου</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Το Security Gate — Package &amp; Device-Mode</h2>
+  <p class="section-thesis"><em>Τα containers είναι αρκετά ισχυρά ώστε το MikroTik τα βάζει πίσω από ένα ρητό, φυσικά επιβεβαιωμένο opt-in. Αυτό είναι σκόπιμο: ένα container είναι αυθαίρετος κώδικας πάνω στον router σου.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — εγκαταστησε το πακετο, ενεργοποιησε το mode (χρειαζεται επιβεβαιωση)</span>
+    <pre class="term"><span class="cmt"># 1. Εγκατέστησε το ξεχωριστό πακέτο 'container' (κατέβασε το extra
+#    package bundle για την έκδοση/αρχιτεκτονική σου, ανέβασέ το, κάνε reboot).</span>
+<span class="pc">&gt;</span> <span class="out">/system package print</span>       <span class="cmt"># επιβεβαίωσε ότι το 'container' είναι ενεργό μετά το reboot</span>
+
+<span class="cmt"># 2. Ενεργοποίησε υποστήριξη container σε device-mode. Αυτό ΔΕΝ θα ισχύσει
+#    μέχρι να το επιβεβαιώσεις με power-cycle ή πατώντας το κουμπί reset.</span>
+<span class="pc">&gt;</span> <span class="out">/system device-mode update container=yes</span>
+<span class="out">  ... η ενημέρωση device-mode απαιτεί επιβεβαίωση — κάνε power-cycle το board
+      ή πάτα το κουμπί reset/mode μέσα στο χρονικό όριο.</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Τα Containers Ειναι Αυθαιρετος Κωδικας στον Edge Router σου</span>
+    <p>Το gate φυσικής επιβεβαίωσης υπάρχει για έναν λόγο: ό,τι τρέχει μέσα στο container τρέχει πάνω στον router σου, με όποια πρόσβαση δικτύου δώσεις στο veth. Μεταχειρίσου τα container images σαν οποιαδήποτε third-party εξάρτηση — κάρφωσε versions, κάνε pull από trusted registries, και δώσε στο container το δικό του απομονωμένο bridge/VLAN με σφιχτό firewall, ποτέ ένα ίσιο bridge πάνω στο LAN σου. Σε ένα edge εκτεθειμένο στο internet, ένα συμβιβασμένο container είναι ένα foothold πίσω από την περίμετρό σου. Αυτή είναι ακριβώς η επιφάνεια που νοιάζονται τα posts <a href="mikrotik-hardening.html">hardening</a> και <a href="attacking-mikrotik.html">επιθετικό</a> — δύναμη με ευθύνη.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Δικτυωση — ενα veth στο Δικο του Bridge</h2>
+  <p class="section-thesis"><em>Ένα container παίρνει ένα interface virtual ethernet (veth). Βάλ' το σε ένα αφιερωμένο bridge με δικό του subnet, masquerade για εξερχόμενη κίνηση, και ελέγχεις ακριβώς τι μπορεί να φτάσει.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — veth, bridge container, NAT εξοδου</span>
+    <pre class="term"><span class="cmt"># Το virtual NIC του container, με gateway που δείχνει στο bridge μας.</span>
+<span class="pc">&gt;</span> <span class="out">/interface veth add name=veth-pihole address=172.19.0.2/24 gateway=172.19.0.1</span>
+
+<span class="cmt"># Ένα αφιερωμένο bridge για containers — ΟΧΙ το bridge του LAN σου.</span>
+<span class="pc">&gt;</span> <span class="out">/interface bridge add name=containers</span>
+<span class="pc">&gt;</span> <span class="out">/interface bridge port add bridge=containers interface=veth-pihole</span>
+<span class="pc">&gt;</span> <span class="out">/ip address add address=172.19.0.1/24 interface=containers</span>
+
+<span class="cmt"># Άφησε το container να φτάσει το internet (για να κάνει pull updates κλπ).</span>
+<span class="pc">&gt;</span> <span class="out">/ip firewall nat add chain=srcnat src-address=172.19.0.0/24 \
+    out-interface-list=WAN action=masquerade</span></pre>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Pull, Ρυθμιση, Τρεξιμο</h2>
+  <p class="section-thesis"><em>Δείξε το registry, όρισε environment και mounts, πρόσθεσε το container πάνω στο veth, και ξεκίνα το. Το Pi-hole είναι καλός πρώτος στόχος — DNS ad-blocking για ολόκληρο το site, hosted πάνω στον router.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — ενα container Pi-hole πανω στον router</span>
+    <pre class="term"><span class="cmt"># Από πού να κάνει pull, και ένα temp dir σε πραγματικό storage για τα layers.</span>
+<span class="pc">&gt;</span> <span class="out">/container config set registry-url=https://registry-1.docker.io tmpdir=disk1/pull</span>
+
+<span class="cmt"># Env vars και ένα persistent mount (ώστε το config να επιβιώνει σε rebuild του container).</span>
+<span class="pc">&gt;</span> <span class="out">/container envs add name=ph-envs key=TZ value="Europe/Athens"</span>
+<span class="pc">&gt;</span> <span class="out">/container mounts add name=ph-etc src=disk1/pihole/etc dst=/etc/pihole</span>
+
+<span class="cmt"># Δημιούργησε το container πάνω στο veth, με root στο δίσκο, μετά ξεκίνα το.</span>
+<span class="pc">&gt;</span> <span class="out">/container add remote-image=pihole/pihole:latest interface=veth-pihole \
+    root-dir=disk1/pihole/root envlist=ph-envs mounts=ph-etc \
+    logging=yes start-on-boot=yes</span>
+<span class="pc">&gt;</span> <span class="out">/container print</span>       <span class="cmt"># status: extracting -> stopped</span>
+<span class="pc">&gt;</span> <span class="out">/container start [find]</span>  <span class="cmt"># -> running· δείξε το DNS του LAN στο 172.19.0.2</span></pre>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Persistence, Ορια &amp; ο Ελεγχος Πραγματικοτητας <span class="safe-badge">Ασφαλες να Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Τα containers είναι βολικά αλλά τα μικρά boards δεν είναι servers. Γνώρισε τους περιορισμούς πριν χτίσεις ένα site γύρω από ένα.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Περιορισμος</th><th>Τι σημαινει στην πραξη</th></tr></thead>
+    <tbody>
+      <tr><td>Η αρχιτεκτονική πρέπει να ταιριάζει</td><td>ARM image σε ARM board — ένα image x86 δεν θα τρέξει σε RB. Έλεγξε το tag.</td></tr>
+      <tr><td>Απαιτειται storage</td><td>root-dir + layers χρειάζονται πραγματικό δίσκο (USB/NVMe)· τα flash-only boards δεν μπορούν.</td></tr>
+      <tr><td>Η RAM/CPU είναι μέτρια</td><td>Εντάξει για Pi-hole/exporters· όχι για κάτι πεινασμένο. Παρακολούθα το <code>/system resource</code>.</td></tr>
+      <tr><td>Χρησιμοποιησε mounts για state</td><td>Ό,τι δεν είναι σε mount χάνεται σε rebuild — κάνε persist το config ρητά.</td></tr>
+      <tr><td>Χωρις compose/orchestration</td><td>Ένα image τη φορά, καλωδιωμένο με το χέρι. Είναι helper, όχι platform.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout defender">
+    <span class="callout-label">💡 Που Πραγματικα Λαμπει</span>
+    <p>Οι killer χρήσεις είναι οι μικροί, always-on helpers που παλιά δικαιολογούσαν ένα ξεχωριστό Raspberry Pi: DNS filtering με <strong>Pi-hole</strong>, ένας <strong>Prometheus/SNMP exporter</strong> (δες το <a href="mikrotik-prometheus.html">post metrics</a>), ένα <strong>WireGuard UI</strong> για το <a href="mikrotik-wireguard.html">VPN</a>, ένα webhook/automation shim. Ένα box λιγότερο ανά site για τροφοδοσία, patch, και απώλεια. Ταίριαξε τη φιλοδοξία με το board και είναι ένα πραγματικά κομψό κομμάτι consolidation.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το RouterOS 7 τρέχει images OCI πάνω στον router</strong> — ένα ελαφρύ single-container host, όχι πλήρες Docker. Φοβερό για always-on helpers.</li>
+      <li><strong>Τρία gates:</strong> το πακέτο container, ένα φυσικά επιβεβαιωμένο opt-in device-mode, και πραγματικό storage. Και τα τρία απαιτούνται.</li>
+      <li><strong>Η αρχιτεκτονική του image πρέπει να ταιριάζει με το board</strong> — ARM/ARM64/x86. Η πιο κοινή αιτία "δεν ξεκινά".</li>
+      <li><strong>Δώσε στα containers δικό τους bridge/subnet και σφιχτό firewall</strong> — ένα container είναι αυθαίρετος κώδικας πίσω από την περίμετρό σου· ποτέ μην το κάνεις bridge ίσια πάνω στο LAN.</li>
+      <li><strong>Κάνε persist το state με mounts·</strong> οτιδήποτε άλλο χάνεται σε rebuild. Τα μικρά boards έχουν μέτρια RAM/CPU — μέγεθος ανάλογα.</li>
+      <li><strong>Καλύτερο για Pi-hole, exporters, ένα WireGuard UI</strong> — οι helpers που παλιά χρειάζονταν ξεχωριστό Pi. Ένα box λιγότερο ανά site.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Τρεχεις ενα Raspberry Pi σε καθε site μονο για Pi-hole η monitoring;</h3>
+    <p>Πιθανότατα κατέχεις ήδη το hardware για αυτό. Τρέχω DNS filtering, metrics, και VPN UIs σαν containers πάνω στα boxes RouterOS που ήδη έχεις, σωστά απομονωμένα και firewalled — έναν server λιγότερο για να αγοράσεις και να συντηρήσεις.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

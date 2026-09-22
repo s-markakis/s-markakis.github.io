@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: First-Hop Redundancy (HSRP &amp; VRRP) — S. Markakis</title>
+<meta name="description" content="Μια εφεδρική πύλη που επιβιώνει έναν νεκρό router — HSRP και VRRP εξηγημένα: virtual IP, εκλογή active/standby, interface tracking, load sharing, και η παγίδα του preempt.">
+<meta property="og:title" content="Cisco IOS: First-Hop Redundancy (HSRP &amp; VRRP) — S. Markakis">
+<meta property="og:description" content="Μια εφεδρική πύλη που επιβιώνει έναν νεκρό router — HSRP και VRRP εξηγημένα: virtual IP, εκλογή active/standby, interface tracking, load sharing, και η παγίδα του preempt.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-hsrp-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-hsrp.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-hsrp.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-hsrp-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-hsrp.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-hsrp-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-hsrp.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: First-Hop Redundancy (HSRP & VRRP)",
+  "description": "Μια εφεδρική πύλη που επιβιώνει έναν νεκρό router — HSRP και VRRP εξηγημένα: virtual IP, εκλογή active/standby, interface tracking, load sharing, και η παγίδα του preempt.",
+  "datePublished": "2026-07-22",
+  "dateModified": "2026-07-22",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-hsrp-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-hsrp.png",
+  "keywords": [
+    "cisco",
+    "routing"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-hsrp"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-hsrp.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Εφεδρεια στο Πρωτο Hop</h1>
+  <p class="post-subtitle">Μπορείς να έχεις δύο από όλα — δύο switch, δύο uplinks, δύο ISP — και ακόμα να χάσεις ολόκληρο το site όταν πεθάνει ένας router, επειδή κάθε host δείχνει σε μία μοναδική default πύλη. Το HSRP και το VRRP δίνουν σε αυτή την πύλη έναν παλμό: ένα virtual IP που κάνει failover ανάμεσα σε δύο router σε ένα δευτερόλεπτο, αόρατα.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">HSRP</span>
+    <span class="tag">VRRP</span>
+    <span class="tag">FHRP</span>
+    <span class="tag">Redundancy</span>
+    <span class="tag">Gateway</span>
+    <span class="tag">CCNA</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: virtual gateway -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="210" fill="#e1ded7"/>
+      <text x="360" y="28" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">ΜΙΑ VIRTUAL ΠΥΛΗ, ΔΥΟ ΠΡΑΓΜΑΤΙΚΟΙ ROUTER</text>
+      <!-- routers -->
+      <rect x="120" y="52" width="150" height="52" rx="6" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="195" y="72" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">R1 · ACTIVE</text>
+      <text x="195" y="90" style="font-family:ui-monospace,monospace;font-size:9px;fill:#3a5a78;text-anchor:middle;">.2 · priority 110</text>
+      <rect x="450" y="52" width="150" height="52" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="525" y="72" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#555550;text-anchor:middle;">R2 · STANDBY</text>
+      <text x="525" y="90" style="font-family:ui-monospace,monospace;font-size:9px;fill:#888880;text-anchor:middle;">.3 · priority 90</text>
+      <!-- hellos between -->
+      <line x1="270" y1="78" x2="450" y2="78" stroke="#c08020" stroke-width="1.4" stroke-dasharray="4,3"/>
+      <text x="360" y="72" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#8a5a10;text-anchor:middle;">hellos (3δ)</text>
+      <!-- VIP -->
+      <ellipse cx="360" cy="130" rx="78" ry="20" fill="#e8c8c0" stroke="#c63d1f"/>
+      <text x="360" y="128" style="font-family:ui-monospace,monospace;font-size:10px;fill:#c63d1f;text-anchor:middle;font-weight:600;">VIP .1</text>
+      <text x="360" y="141" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">virtual MAC 0000.0c07.acXX</text>
+      <line x1="195" y1="104" x2="330" y2="118" stroke="#c63d1f" stroke-width="1.2"/>
+      <line x1="525" y1="104" x2="390" y2="118" stroke="#888880" stroke-width="1.2" stroke-dasharray="3,2"/>
+      <!-- hosts -->
+      <rect x="286" y="168" width="148" height="26" rx="4" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="185" style="font-family:'Inter',sans-serif;font-size:9px;fill:#555550;text-anchor:middle;">κάθε host: πύλη = .1</text>
+      <line x1="360" y1="150" x2="360" y2="168" stroke="#c63d1f" stroke-width="1.4"/>
+      <text x="600" y="205" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#888880;text-anchor:end;">Το R1 πεθαίνει → το R2 διεκδικεί το .1 + το virtual MAC → οι hosts δεν το καταλαβαίνουν ποτέ</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Ένας host έχει ακριβώς μία default πύλη, και είναι μοναδικό σημείο αστοχίας. Χτίσε ένα υπέροχα εφεδρικό δίκτυο — διπλά switch, συνενωμένα uplinks (δες <a href="cisco-stp-etherchannel.html">STP &amp; EtherChannel</a>), ακόμα και διπλοί ISP (δες <a href="cisco-routing-ospf.html">Routing &amp; OSPF</a>) — και ακόμα όλα περνάνε μέσα από ένα IP πύλης καρφωμένο σε κάθε DHCP scope. Εκείνος ο router κάνει reboot και ολόκληρο το subnet σκοτεινιάζει μέχρι κάποιος να ξανακατευθύνει εκατοντάδες συσκευές. Απαράδεκτο.</p>
+    <p>Ένα <strong>First-Hop Redundancy Protocol</strong> το διορθώνει επινοώντας ένα <strong>virtual IP</strong> και ένα virtual MAC που επιπλέουν ανάμεσα σε δύο (ή περισσότερους) router. Οι hosts δείχνουν στο virtual IP για πάντα· από πίσω ένας router είναι <em>active</em> και απαντάει γι' αυτό ενώ ο άλλος περιμένει, ακούγοντας τον παλμό του active router. Όταν ο παλμός σταματήσει, ο standby αναλαμβάνει το virtual IP και MAC σε περίπου ένα δευτερόλεπτο — καμία επανεκμάθηση ARP, καμία επαναρύθμιση host, συνήθως ούτε ένα χαμένο ping. Η έκδοση της Cisco είναι το <strong>HSRP</strong>· το ισοδύναμο ανοιχτού προτύπου είναι το <strong>VRRP</strong>. Αυτό το post χτίζει και τα δύο, προσθέτει interface tracking ώστε ένα νεκρό uplink να ενεργοποιεί κι αυτό failover, και καλύπτει τη συμπεριφορά preempt που ξαφνιάζει τους πάντες.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Inter-VLAN routing / SVI — δες <a href="cisco-vlans-trunking.html">VLAN &amp; Trunking</a></li>
+      <li>Δύο L3 switch ή router που μοιράζονται το ίδιο subnet(s)</li>
+      <li>Άνεση στο διάβασμα output <code>show</code> και την ιδέα ισοπαλίας priority</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">HSRP — Το Ζευγος Active/Standby</h2>
+  <p class="section-thesis"><em>Δύο router, ένα virtual IP, ένας αριθμός group. Το υψηλότερο priority γίνεται active· το άλλο περιμένει. Οι hosts χρησιμοποιούν το virtual IP ως πύλη τους και δεν ξέρουν ποτέ ποιος φυσικός router απαντάει.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — HSRP και στους δυο router (πυλη VLAN 10)</span>
+    <pre class="term"><span class="cmt"># ── R1 — ο επιδιωκόμενος active router ──</span>
+<span class="pc">R1(config)#</span> <span class="out">interface vlan 10</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip address 192.168.10.2 255.255.255.0</span>   <span class="cmt"># το ΠΡΑΓΜΑΤΙΚΟ ip του R1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">standby version 2</span>                        <span class="cmt"># v2: καλύτεροι timers, IPv6</span>
+<span class="pc">R1(config-if)#</span> <span class="out">standby 10 ip 192.168.10.1</span>                <span class="cmt"># group 10, VIRTUAL ip .1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">standby 10 priority 110</span>                   <span class="cmt"># υψηλότερο = προτιμώμενο active</span>
+<span class="pc">R1(config-if)#</span> <span class="out">standby 10 preempt</span>                        <span class="cmt"># διεκδίκησε ξανά active όταν επανέλθει</span>
+<span class="pc">R1(config-if)#</span> <span class="out">standby 10 name VLAN10-GW</span>
+
+<span class="cmt"># ── R2 — ο standby (καθρέφτης, χαμηλότερο priority, δικό του πραγματικό IP) ──</span>
+<span class="pc">R2(config-if)#</span> <span class="out">ip address 192.168.10.3 255.255.255.0</span>
+<span class="pc">R2(config-if)#</span> <span class="out">standby version 2</span>
+<span class="pc">R2(config-if)#</span> <span class="out">standby 10 ip 192.168.10.1</span>                <span class="cmt"># ΙΔΙΟ virtual ip + group</span>
+<span class="pc">R2(config-if)#</span> <span class="out">standby 10 priority 90</span>
+<span class="pc">R2(config-if)#</span> <span class="out">standby 10 preempt</span>
+
+<span class="cmt"># Κάθε host στο VLAN 10 χρησιμοποιεί το 192.168.10.1 ως default πύλη.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Virtual IP Δεν Ειναι το Πραγματικο IP Κανενος Router</span>
+    <p>Ένα συχνό λάθος αρχάριου είναι να βάλεις το <code>standby ip</code> στη δική του διεύθυνση interface του R1. Το virtual IP πρέπει να είναι μια <strong>τρίτη, αχρησιμοποίητη διεύθυνση</strong> στο subnet (εδώ .1), ξεχωριστή από το .2 του R1 και το .3 του R2. Όλο το νόημα είναι ότι το .1 ανήκει στην <em>ομάδα</em>, όχι σε μια συσκευή — γι' αυτό μπορεί να κινείται. Επίσης: και οι δύο router πρέπει να χρησιμοποιούν τον <strong>ίδιο αριθμό group και έκδοση</strong>, αλλιώς σχηματίζουν δύο ξεχωριστές ομάδες και οι δύο νομίζουν ότι είναι active (θα δεις συμπτώματα διπλής-πύλης).</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Παρακολουθησε το να Δουλευει &amp; να Κανει Failover <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Μία εντολή σου λέει ποιος είναι active, ποια είναι το virtual IP και MAC, και αν είναι ρυθμισμένο το preempt. Μετά βγάλε ένα καλώδιο και δες τον standby να αναλαμβάνει.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — show standby, πριν και μετα την αστοχια</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show standby brief</span>
+<span class="out">                     P indicates configured to preempt.
+Interface   Grp  Pri P State    Active          Standby         Virtual IP
+Vl10        10   110 P Active   local           192.168.10.3    192.168.10.1</span>
+
+<span class="pc">R1#</span> <span class="out">show standby vlan 10</span>
+<span class="out">Vlan10 - Group 10 (version 2)
+  State is Active
+  Virtual IP address is 192.168.10.1
+  Active virtual MAC address is 0000.0c9f.f00a  (v2 group 10 = ...f00a)
+  Hello time 3 sec, hold time 10 sec
+  Preemption enabled</span>
+
+<span class="cmt"># Βγάλε το uplink του R1 / κάνε shut το interface του — το R2 προάγεται μέσα στο holdtime:</span>
+<span class="out">%HSRP-5-STATECHANGE: Vlan10 Grp 10 state Standby -> Active</span>
+<span class="cmt"># Οι hosts συνεχίζουν να κάνουν ping την πύλη σε όλη τη διάρκεια — το VIP + virtual MAC μετακινήθηκαν.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Σφιξε τους Timers (Λιγο)</span>
+    <p>Τα default HSRP hellos είναι 3 δ με holdtime 10 δ — οπότε μια σιωπηλή αστοχία μπορεί να σκοτεινιάσει το subnet μέχρι δέκα δευτερόλεπτα. Το <code>standby 10 timers msec 250 msec 800</code> κόβει το failover σε κάτω από ένα δευτερόλεπτο. Μην πας παράλογα χαμηλά: πολύ επιθετικοί timers προκαλούν ψευδή failover κάτω από φόρτο CPU ή σύντομη συμφόρηση, που είναι χειρότερο από ένα λίγο πιο αργό. Το sub-second είναι αρκετό· συνδύασέ το με tracking (επόμενη ενότητα) ώστε το failover να ενεργοποιείται από το <em>πραγματικό</em> πρόβλημα, όχι ένα χαμένο hello.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Interface Tracking — Failover για τον Σωστο Λογο</h2>
+  <p class="section-thesis"><em>Το HSRP by default κάνει failover μόνο αν ο active router πεθάνει εντελώς. Αλλά η συνηθισμένη αστοχία είναι πιο λεπτή: ο router είναι μια χαρά, το UPLINK του είναι down. Το tracking κάνει το HSRP να παρακολουθεί το uplink και να παραμερίζει όταν είναι σπασμένη η διαδρομή — όχι η συσκευή.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — μειωσε το priority οταν πεσει το uplink</span>
+    <pre class="term"><span class="cmt"># Στο R1: αν πέσει το interface WAN/uplink, ρίξε το priority κατά 30</span>
+<span class="pc">R1(config)#</span> <span class="out">track 1 interface GigabitEthernet0/0 line-protocol</span>
+<span class="pc">R1(config)#</span> <span class="out">interface vlan 10</span>
+<span class="pc">R1(config-if)#</span> <span class="out">standby 10 track 1 decrement 30</span>
+
+<span class="cmt"># Μαθηματικά: το R1 ξεκινά στο 110. Το uplink πεθαίνει → 110 - 30 = 80, που είναι κάτω
+# από το 90 του R2. Με preempt στο R2, το R2 αναλαμβάνει. Το uplink επιστρέφει → το R1 πίσω στο
+# 110 → το R1 κάνει preempt και διεκδικεί ξανά το active. Το failover ακολουθεί τη ΔΙΑΔΡΟΜΗ, όχι
+# μόνο το σασί.</span>
+
+<span class="pc">R1#</span> <span class="out">show track 1</span>
+<span class="out">Track 1
+  Interface GigabitEthernet0/0 line-protocol
+  Line protocol is Up
+  Tracked by: HSRP Vlan10 10</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Tracking Βοηθαει Μονο αν το Decrement Περνα Πραγματικα το Οριο</span>
+    <p>Το decrement πρέπει να είναι αρκετά μεγάλο ώστε να ρίξει τον active router <em>κάτω</em> από το priority του standby. Αν το R1 είναι 110 και το R2 105, ένα <code>decrement 30</code> πάει το R1 στο 80 — καλό, κερδίζει το R2. Αλλά αν είχες αφήσει και τα δύο κοντά στο default (100), ένα μικρό decrement μπορεί να μην περάσει το όριο και το failover σιωπηλά να μη συμβεί ποτέ. Κάνε την αριθμητική: <code>active_priority − decrement &lt; standby_priority</code>. Και το <code>line-protocol</code> παρακολουθεί up/down· για να κάνεις failover όταν η απέναντι άκρη είναι απρόσιτη-αλλά-up, παρακολούθησε αντ' αυτού ένα αντικείμενο <strong>IP SLA</strong> — που είναι ακριβώς το επόμενο post σε αυτή τη σειρά.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Load Sharing — Μην Αφηνεις τον Μισο Εξοπλισμο σε Αδρανεια</h2>
+  <p class="section-thesis"><em>Με μία ομάδα HSRP, ο standby router δεν προωθεί τίποτα μέχρι μια αστοχία — ακριβό hardware να κάθεται αδρανές. Δύο ομάδες με αντεστραμμένα priorities κάνουν κάθε router active για τα μισά VLAN, οπότε δουλεύουν και οι δύο και ο ένας καλύπτει τον άλλο.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — R1 active για VLAN 10, R2 active για VLAN 20</span>
+    <pre class="term"><span class="cmt"># VLAN 10 → R1 active (priority 110), R2 standby</span>
+<span class="cmt"># VLAN 20 → R2 active (priority 110), R1 standby</span>
+
+<span class="pc">R1(config)#</span> <span class="out">interface vlan 20</span>
+<span class="pc">R1(config-if)#</span> <span class="out">standby 20 ip 192.168.20.1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">standby 20 priority 90</span>          <span class="cmt"># το R1 είναι STANDBY για το VLAN 20</span>
+<span class="pc">R1(config-if)#</span> <span class="out">standby 20 preempt</span>
+
+<span class="pc">R2(config)#</span> <span class="out">interface vlan 20</span>
+<span class="pc">R2(config-if)#</span> <span class="out">standby 20 ip 192.168.20.1</span>
+<span class="pc">R2(config-if)#</span> <span class="out">standby 20 priority 110</span>         <span class="cmt"># το R2 είναι ACTIVE για το VLAN 20</span>
+<span class="pc">R2(config-if)#</span> <span class="out">standby 20 preempt</span>
+<span class="cmt"># Δείξε τις πύλες των μισών DHCP scopes σου στο active VLAN κάθε router.
+# Και οι δύο συσκευές προωθούν σε σταθερή κατάσταση· καθεμία καλύπτει και τα δύο αν πεθάνει ο peer της.</span></pre>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">VRRP — Ο Αδερφος Ανοιχτου Προτυπου</h2>
+  <p class="section-thesis"><em>Το VRRP κάνει την ίδια δουλειά με το HSRP με τυποποιημένο syntax, οπότε συνεργάζεται με μη-Cisco εξοπλισμό. Αν το περιβάλλον σου είναι μεικτού κατασκευαστή, στρέψου στο VRRP· αν είναι όλο Cisco, το HSRP είναι εξίσου καλό.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — το ισοδυναμο VRRP του config της ενοτητας-01</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">interface vlan 10</span>
+<span class="pc">R1(config-if)#</span> <span class="out">vrrp 10 ip 192.168.10.1</span>          <span class="cmt"># virtual ip</span>
+<span class="pc">R1(config-if)#</span> <span class="out">vrrp 10 priority 110</span>
+<span class="pc">R1(config-if)#</span> <span class="out">vrrp 10 description VLAN10-GW</span>
+<span class="cmt"># ΣΗΜΕΙΩΣΗ: στο VRRP, το preempt είναι ΑΝΟΙΧΤΟ by default (το HSRP το απαιτεί ρητά).</span>
+
+<span class="pc">R1#</span> <span class="out">show vrrp brief</span>
+<span class="out">Interface   Grp Pri Time  Own Pre State   Master addr    Group addr
+Vl10        10  110 3218      Y   Master  192.168.10.2   192.168.10.1</span></pre>
+  </div>
+
+  <table class="cheat">
+    <thead><tr><th>&nbsp;</th><th>HSRP</th><th>VRRP</th></tr></thead>
+    <tbody>
+      <tr><td>Προέλευση</td><td>Ιδιόκτητο της Cisco</td><td>Ανοιχτό πρότυπο IETF</td></tr>
+      <tr><td>Όροι</td><td>Active / Standby</td><td>Master / Backup</td></tr>
+      <tr><td>Preempt default</td><td>Κλειστό (πρέπει να ενεργοποιηθεί)</td><td>Ανοιχτό</td></tr>
+      <tr><td>Virtual MAC</td><td>0000.0c9f.fXXX (v2)</td><td>0000.5e00.01XX</td></tr>
+      <tr><td>Χρησιμοποίησέ το όταν</td><td>Κατάστημα όλο-Cisco</td><td>Μεικτός κατασκευαστής</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Ελεγχος &amp; Troubleshooting <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Τα περισσότερα tickets FHRP είναι ένα από τρία πράγματα: και οι δύο router νομίζουν ότι είναι active, το failover δεν ενεργοποιείται, ή κάνει flap. Αυτές οι εντολές απομονώνουν και τα τρία.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Απανταει</th></tr></thead>
+    <tbody>
+      <tr><td>show standby brief</td><td>State, priority, preempt, active/standby peers, virtual IP — η μία γραμμή.</td></tr>
+      <tr><td>show standby vlan 10</td><td>Timers, virtual MAC, tracking, και ιστορικό αλλαγών state.</td></tr>
+      <tr><td>show track</td><td>Παρακολουθούμενα αντικείμενα και το state up/down τους.</td></tr>
+      <tr><td>show vrrp brief</td><td>Το ισοδύναμο VRRP του standby brief.</td></tr>
+      <tr><td>debug standby terse</td><td>Ζωντανές μεταβάσεις state όταν κυνηγάς ένα flap (κλείσ' το μετά).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Και οι Δυο Router Δειχνουν "Active"</span>
+    <p>Αν το <code>show standby</code> αναφέρει και τους δύο router active, δεν ακούνε τα hellos ο ένας του άλλου. Συνηθισμένες αιτίες: <strong>ασυμφωνία αριθμού group ή έκδοσης</strong> (R1 group 10 v2, R2 group 10 v1 — διαφορετικά πρωτόκολλα στο καλώδιο)· το VLAN/SVI είναι <strong>down στη μία πλευρά</strong>· ή το <strong>trunk ανάμεσά τους δεν κουβαλάει αυτό το VLAN</strong> (πίσω στη λίστα allowed-VLAN από το post του trunking). Δύο "active" router απαντάνε και οι δύο για το virtual MAC → διαλείπουσα, τρελαντική συνδεσιμότητα. Επιβεβαίωσε το ίδιο group + έκδοση και ότι τα δύο SVI όντως φτάνουν το ένα το άλλο πριν αγγίξεις οτιδήποτε άλλο.</p>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Εφεδρικες Πυλες</h2>
+  <p class="section-thesis"><em>Το RouterOS μιλάει VRRP φυσικά, οπότε η αντιστοίχιση είναι καθαρή — οι έννοιες αντιστοιχίζονται μία-προς-μία.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>/interface vrrp add vrid=10</td><td><code>vrrp 10 …</code> (ή <code>standby 10</code> για HSRP)</td></tr>
+      <tr><td>priority=110</td><td><code>standby 10 priority 110</code></td></tr>
+      <tr><td>Το interface VRRP κρατάει το virtual IP</td><td>Virtual IP μέσω <code>standby/vrrp … ip</code></td></tr>
+      <tr><td>Netwatch/script χαμηλώνει το priority σε αστοχία</td><td>αντικείμενο <code>track</code> + <code>decrement</code></td></tr>
+      <tr><td>preemption-mode=yes</td><td><code>standby 10 preempt</code> (HSRP) / default στο VRRP</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Ολη η Εικονα της Εφεδρειας</span>
+    <p>Το FHRP είναι το τελευταίο κομμάτι μιας ιστορίας τριών επιπέδων που έχει χτίσει αυτή η σειρά: το <a href="cisco-stp-etherchannel.html">EtherChannel</a> κρατάει τα links ανοιχτά, το <a href="cisco-stp-etherchannel.html">STP</a> κρατάει την τοπολογία L2 χωρίς βρόχους, το <a href="cisco-routing-ospf.html">OSPF</a> ξαναδρομολογεί γύρω από νεκρές διαδρομές — και το HSRP/VRRP κρατάει ζωντανή την <em>πύλη</em> ώστε οι hosts να μη νοιάζονται ποτέ ότι συνέβη οτιδήποτε από αυτά. Ένα δίκτυο είναι εφεδρικό όσο το λιγότερο εφεδρικό του hop, και για τα περισσότερα sites το ξεχασμένο hop είναι η default πύλη.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Κάθε host έχει μία πύλη, οπότε αυτή η πύλη δεν πρέπει να είναι μία συσκευή.</strong> Το FHRP επινοεί ένα virtual IP + virtual MAC που επιπλέουν ανάμεσα σε δύο router· οι hosts δείχνουν στο VIP για πάντα.</li>
+      <li><strong>Το virtual IP είναι τρίτη διεύθυνση</strong> — όχι του R1, όχι του R2. Ίδιος αριθμός group και ίδια έκδοση και στους δύο router, αλλιώς χωρίζονται σε δύο "active" ομάδες.</li>
+      <li><strong>Κερδίζει το υψηλότερο priority· το preempt το διεκδικεί ξανά.</strong> Το HSRP χρειάζεται <code>preempt</code> ρητά ορισμένο (το VRRP το έχει ανοιχτό by default) αλλιώς ένας ανακτημένος primary μένει standby.</li>
+      <li><strong>Παρακολούθησε το uplink, όχι μόνο το σασί.</strong> Η συνηθισμένη αστοχία είναι ένας ζωντανός router με νεκρή διαδρομή· το tracking με decrement που περνάει το priority του peer κάνει το failover να ακολουθεί το πραγματικό πρόβλημα.</li>
+      <li><strong>Δύο ομάδες με αντεστραμμένα priorities = load sharing.</strong> Και οι δύο router προωθούν σε σταθερή κατάσταση αντί ο ένας να κάθεται αδρανής ως ακριβό εφεδρικό.</li>
+      <li><strong>HSRP για όλο-Cisco, VRRP για μεικτό κατασκευαστή.</strong> Ίδια δουλειά, τυποποιημένο syntax· πρόσεξε τη διαφορά στο default του preempt.</li>
+      <li><strong>«Και οι δύο active» = δεν ακούγονται μεταξύ τους.</strong> Ασυμφωνία group/έκδοσης, ένα down SVI, ή ένα trunk που δεν κουβαλάει το VLAN — έλεγξε την προσβασιμότητα ανάμεσά τους πριν από οτιδήποτε άλλο.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Χτιζεις δικτυο που επιβιωνει εναν νεκρο router στην Κρητη;</h3>
+    <p>Σχεδιάζω εφεδρικές πύλες με HSRP ή VRRP, σωστό interface tracking, και load sharing και στους δύο router &mdash; για επιχειρήσεις που γνήσια δεν αντέχουν ένα subnet να σκοτεινιάσει. Μετά το δοκιμάζω με τον μόνο ειλικρινή τρόπο: βγάζοντας το ρεύμα από τον primary.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

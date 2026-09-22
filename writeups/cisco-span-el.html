@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: SPAN &amp; RSPAN Port Mirroring — S. Markakis</title>
+<meta name="description" content="Αντίγραψε κίνηση σε έναν αναλυτή χωρίς tap — τοπικό SPAN, απομακρυσμένο RSPAN ανάμεσα σε switch, και ERSPAN πάνω από IP σε Cisco: πηγές, προορισμοί, η παγίδα υπερσυνδρομής, και χρήση σε IDS/incident-response.">
+<meta property="og:title" content="Cisco IOS: SPAN &amp; RSPAN Port Mirroring — S. Markakis">
+<meta property="og:description" content="Αντίγραψε κίνηση σε έναν αναλυτή χωρίς tap — τοπικό SPAN, απομακρυσμένο RSPAN ανάμεσα σε switch, και ERSPAN πάνω από IP σε Cisco: πηγές, προορισμοί, η παγίδα υπερσυνδρομής, και χρήση σε IDS/incident-response.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-span-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-span.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-span.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-span-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-span.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-span-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-span.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: SPAN & RSPAN Port Mirroring",
+  "description": "Αντίγραψε κίνηση σε έναν αναλυτή χωρίς tap — τοπικό SPAN, απομακρυσμένο RSPAN ανάμεσα σε switch, και ERSPAN πάνω από IP σε Cisco: πηγές, προορισμοί, η παγίδα υπερσυνδρομής, και χρήση σε IDS/incident-response.",
+  "datePublished": "2026-08-11",
+  "dateModified": "2026-08-11",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-span-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-span.png",
+  "keywords": [
+    "cisco",
+    "monitoring"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-span"
+  },
+  "timeRequired": "PT8M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-span.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>SPAN &amp; RSPAN</h1>
+  <p class="post-subtitle">Ένα switch κανονικά στέλνει κάθε frame μόνο στον προορισμό του — γι' αυτό δεν μπορείς απλώς να συνδέσεις ένα laptop και να δεις κίνηση. Το SPAN κάνει mirror επιλεγμένες θύρες ή VLAN σε μια θύρα αναλυτή ώστε να μπορείς. Τοπικό SPAN, RSPAN ανάμεσα σε switch, και ERSPAN πάνω από IP — συν την παγίδα υπερσυνδρομής που κάνει τις καταγραφές να λένε ψέματα.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">SPAN</span>
+    <span class="tag">RSPAN</span>
+    <span class="tag">ERSPAN</span>
+    <span class="tag">Port Mirroring</span>
+    <span class="tag">IDS</span>
+    <span class="tag">Forensics</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="sp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="170" fill="#e1ded7"/>
+      <rect x="270" y="60" width="180" height="50" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="82" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#1a1a18;text-anchor:middle;">SWITCH</text>
+      <text x="360" y="98" style="font-family:'Inter',sans-serif;font-size:8px;fill:#888880;text-anchor:middle;">monitor session</text>
+      <!-- source -->
+      <rect x="40" y="66" width="120" height="38" rx="4" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="100" y="84" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a5a78;text-anchor:middle;font-weight:600;">SOURCE Gi0/1</text>
+      <text x="100" y="96" style="font-family:'Inter',sans-serif;font-size:8px;fill:#3a5a78;text-anchor:middle;">πραγματική κίνηση</text>
+      <line x1="160" y1="85" x2="268" y2="85" style="stroke:#3a5a78;stroke-width:1.6;marker-end:url(#sp)"/>
+      <!-- dest -->
+      <rect x="560" y="66" width="120" height="38" rx="4" fill="#eee6d8" stroke="#c08020"/>
+      <text x="620" y="84" style="font-family:'Inter',sans-serif;font-size:9px;fill:#8a5a10;text-anchor:middle;font-weight:600;">DEST Gi0/24</text>
+      <text x="620" y="96" style="font-family:'Inter',sans-serif;font-size:8px;fill:#8a5a10;text-anchor:middle;">→ αναλυτής / IDS</text>
+      <line x1="450" y1="85" x2="558" y2="85" style="stroke:#c63d1f;stroke-width:2;marker-end:url(#sp)"/>
+      <text x="504" y="76" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">αντίγραφο</text>
+      <text x="360" y="145" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Ένα αντίγραφο των frames της θύρας source διπλασιάζεται στη θύρα destination. Το πρωτότυπο συνεχίζει να ρέει κανονικά.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Τα switch μαθαίνουν πού ζει κάθε MAC και προωθούν frames μόνο εκεί — τέλειο για απόδοση, ενοχλητικό όταν χρειάζεσαι να <em>παρακολουθείς</em> κίνηση που δεν προορίζεται για σένα. Το SPAN (Switched Port Analyzer) είναι η ενσωματωμένη απάντηση: πες στο switch να διπλασιάσει τα frames από μία ή περισσότερες θύρες ή VLAN <strong>source</strong> σε μια θύρα <strong>destination</strong>, όπου ένα laptop με Wireshark, ένας sensor IDS (Snort/Suricata/Zeek), ή μια συσκευή DPI μπορεί να δει τα πάντα. Χωρίς hardware tap, χωρίς αλλαγή καλωδίωσης.</p>
+    <p>Τρεις γεύσεις καλύπτουν τις αποστάσεις: <strong>τοπικό SPAN</strong> όταν ο αναλυτής είναι στο ίδιο switch, <strong>RSPAN</strong> όταν είναι σε διαφορετικό switch (το αντίγραφο ταξιδεύει σε αποκλειστικό VLAN πάνω από trunks), και <strong>ERSPAN</strong> όταν είναι σε δρομολογημένο δίκτυο (το αντίγραφο είναι GRE-encapsulated πάνω από IP). Εδώ συναντιούνται τα δύο μας καπέλα — το ίδιο mirror που στήνουμε για το IDS ενός πελάτη είναι αυτό που ζητάμε κατά τη διάρκεια incident response για να δούμε τι κάνει πραγματικά ένας επιτιθέμενος στο καλώδιο. Μία παγίδα, η υπερσυνδρομή, κάνει τη διαφορά ανάμεσα σε μια καταγραφή που εμπιστεύεσαι και μια που λέει ψέματα σιωπηλά· έχει τη δική της ενότητα.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>VLAN και trunking (για RSPAN) — δες <a href="cisco-vlans-trunking.html">VLAN &amp; Trunking</a></li>
+      <li>Έναν αναλυτή: ένα laptop με Wireshark, ή μια κάρτα NIC αισθητήρα/IDS</li>
+      <li>Μια ελεύθερη θύρα switch να αφιερώσεις ως destination</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Τοπικο SPAN — Ιδιο Switch</h2>
+  <p class="section-thesis"><em>Η απλούστερη περίπτωση: source και αναλυτής σε ένα switch. Δύο γραμμές — ένα source και ένα destination — και κάνεις καταγραφή.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — κανε mirror μια θυρα (και ολοκληρο VLAN) στο Gi0/24</span>
+    <pre class="term"><span class="cmt"># Κάνε mirror ΚΑΙ ΤΙΣ ΔΥΟ κατευθύνσεις του Gi0/1 στον αναλυτή στο Gi0/24</span>
+<span class="pc">SW1(config)#</span> <span class="out">monitor session 1 source interface GigabitEthernet0/1 both</span>
+<span class="pc">SW1(config)#</span> <span class="out">monitor session 1 destination interface GigabitEthernet0/24</span>
+<span class="pc">SW1(config)#</span> <span class="out">end</span>
+
+<span class="cmt"># Ή κάνε mirror την κίνηση ολόκληρου VLAN (ιδανικό για IDS που παρακολουθεί ένα τμήμα)</span>
+<span class="pc">SW1(config)#</span> <span class="out">monitor session 2 source vlan 10 rx</span>       <span class="cmt"># rx = μόνο λαμβανόμενη</span>
+<span class="pc">SW1(config)#</span> <span class="out">monitor session 2 destination interface GigabitEthernet0/23</span>
+
+<span class="cmt"># Επιβεβαίωσε το session</span>
+<span class="pc">SW1#</span> <span class="out">show monitor session 1</span>
+<span class="out">Session 1
+Type              : Local Session
+Source Ports  Both : Gi0/1
+Destination Ports : Gi0/24</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Η Θυρα Destination Παυει να Ειναι Κανονικη Θυρα</span>
+    <p>Μόλις ένα interface γίνει SPAN destination, κάνει ένα πράγμα: βγάζει mirrored frames. <strong>Ρίχνει την εισερχόμενη κίνηση και δεν συμμετέχει πια στο δίκτυο</strong> — οπότε μην κάνεις SPAN σε θύρα από την οποία εξαρτάται μια πραγματική συσκευή (ή η δική σου διαδρομή διαχείρισης), και μην εκπλαγείς όταν το laptop αναλυτή δεν φτάνει το internet μέσα από αυτήν. Σχεδίασε μια αποκλειστική θύρα. Πρόσεξε επίσης ότι το <code>both</code> κάνει mirror tx+rx, που μπορεί να διπλασιάσει τον όγκο — δες την υπερσυνδρομή (ενότητα 04). Χρησιμοποίησε <code>rx</code> ή <code>tx</code> όταν χρειάζεσαι μόνο μία κατεύθυνση.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">RSPAN — Αναμεσα σε Switch</h2>
+  <p class="section-thesis"><em>Όταν ο αναλυτής κάθεται σε διαφορετικό switch, το RSPAN κουβαλάει το mirrored αντίγραφο πάνω από αποκλειστικό VLAN που ταξιδεύει στα υπάρχοντα trunks σου. Ένα session source σε ένα switch, ένα session destination στο άλλο, ενωμένα από ένα ειδικό VLAN RSPAN.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — VLAN RSPAN + switch source + switch dest</span>
+    <pre class="term"><span class="cmt"># Σε ΚΑΘΕ switch στη διαδρομή, όρισε το ειδικό VLAN RSPAN</span>
+<span class="pc">SW1(config)#</span> <span class="out">vlan 199</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">remote-span</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">exit</span>
+<span class="cmt"># (και επίτρεψε το VLAN 199 στα trunks ανάμεσα στα switch)</span>
+
+<span class="cmt"># Switch SOURCE — κάνε mirror τη θύρα ΜΕΣΑ στο VLAN RSPAN</span>
+<span class="pc">SW1(config)#</span> <span class="out">monitor session 1 source interface GigabitEthernet0/1 both</span>
+<span class="pc">SW1(config)#</span> <span class="out">monitor session 1 destination remote vlan 199</span>
+
+<span class="cmt"># Switch DEST (SW2) — τράβηξε το VLAN RSPAN ΕΞΩ στη θύρα αναλυτή</span>
+<span class="pc">SW2(config)#</span> <span class="out">monitor session 1 source remote vlan 199</span>
+<span class="pc">SW2(config)#</span> <span class="out">monitor session 1 destination interface GigabitEthernet0/24</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το VLAN RSPAN Πρεπει να Υπαρχει και να Εχει Trunk σε Ολη τη Διαδρομη</span>
+    <p>Το RSPAN αποτυγχάνει σιωπηλά αν κάποιο switch στη διαδρομή ανάμεσα σε source και destination δεν έχει το VLAN <code>remote-span</code> ή δεν το επιτρέπει στα trunks διασύνδεσης. Η κίνηση mirror απλώς δεν φτάνει και δεν υπάρχει προφανές σφάλμα — κάθεσαι στον αναλυτή χωρίς να βλέπεις τίποτα. Όρισε το VLAN RSPAN σε <em>κάθε</em> switch στη διαδρομή και πρόσθεσέ το στη λίστα allowed κάθε trunk (η πειθαρχία <a href="cisco-vlans-trunking.html">allowed-VLAN</a> ξανά). Η κίνηση RSPAN καταναλώνει επίσης πραγματική bandwidth σε εκείνα τα trunks — το mirror μιας απασχολημένης θύρας source ανταγωνίζεται την κίνηση production στα uplinks.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">ERSPAN — Πανω απο Δρομολογημενο Δικτυο</h2>
+  <p class="section-thesis"><em>Όταν ο αναλυτής είναι L3 hops μακριά — ένα κεντρικό SOC, ένα cloud IDS — το ERSPAN τυλίγει τα mirrored frames σε GRE και τα δρομολογεί πάνω από IP. Χαρακτηριστικό router/L3-switch· το σχήμα είναι παρόμοιο με διευθύνσεις IP source και destination.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ERSPAN source (frames σε GRE προς απομακρυσμενο collector)</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">monitor session 1 type erspan-source</span>
+<span class="pc">R1(config-mon-erspan-src)#</span> <span class="out">source interface GigabitEthernet0/1 both</span>
+<span class="pc">R1(config-mon-erspan-src)#</span> <span class="out">destination</span>
+<span class="pc">R1(config-mon-erspan-src-dst)#</span> <span class="out">erspan-id 101</span>
+<span class="pc">R1(config-mon-erspan-src-dst)#</span> <span class="out">ip address 10.50.0.10</span>      <span class="cmt"># ο collector</span>
+<span class="pc">R1(config-mon-erspan-src-dst)#</span> <span class="out">origin ip address 10.1.0.1</span>  <span class="cmt"># αυτός ο router</span>
+<span class="pc">R1(config-mon-erspan-src-dst)#</span> <span class="out">no shutdown</span>
+<span class="pc">R1(config-mon-erspan-src-dst)#</span> <span class="out">end</span>
+<span class="cmt"># Ο collector (ή ένα αντίστοιχο session ERSPAN-destination) κάνει decapsulate
+# το GRE και δίνει τα πρωτότυπα frames στον αναλυτή. Τώρα μπορείς να κάνεις mirror
+# την κίνηση ενός κλάδου σε ένα IDS στο HQ — μέσα από το WAN.</span></pre>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Η Παγιδα της Υπερσυνδρομης</h2>
+  <p class="section-thesis"><em>Η παγίδα που κάνει τις καταγραφές να λένε ψέματα. Μια θύρα destination 1 Gbps δεν μπορεί να κουβαλήσει περισσότερο από 1 Gbps mirrored κίνησης — και το mirror πολλών απασχολημένων θυρών (ή και των δύο κατευθύνσεων μίας) το ξεπερνάει εύκολα. Το switch ρίχνει σιωπηλά το πλεόνασμα, και στην καταγραφή σου λείπουν πακέτα που δεν θα μάθεις ποτέ.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Τα μαθηματικα που δαγκωνουν — και πως να τα ελεγξεις</span>
+    <pre class="term"><span class="cmt"># Παράδειγμα: mirror 4 θυρών, και τις δύο κατευθύνσεις, καθεμία ~600 Mbps στην αιχμή.
+#   4 θύρες x 600 Mbps x 2 κατευθύνσεις = 4.8 Gbps κίνηση mirror
+#   ...μέσα σε μία μοναδική θύρα destination 1 Gbps. ~80% ΡΙΧΝΕΤΑΙ.
+# Το IDS σου βλέπει ένα κλάσμα της πραγματικότητας και αναφέρει «όλα καθαρά» — ψευδώς.
+
+<span class="cmt"># Έλεγξε αν το destination είναι υπερφορτωμένο (drops που ανεβαίνουν = πρόβλημα):</span>
+<span class="pc">SW1#</span> <span class="out">show interfaces GigabitEthernet0/24 counters | include Discard|drop</span>
+<span class="pc">SW1#</span> <span class="out">show monitor session 1</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Ζησε μεσα στη Χωρητικοτητα του Destination</span>
+    <p>Τρεις τρόποι να κρατήσεις μια καταγραφή ειλικρινή. <strong>Στένεψε το source</strong> — κάνε mirror μία θύρα ή μία κατεύθυνση (<code>rx</code>/<code>tx</code>), όχι τα πάντα <code>both</code>. <strong>Χρησιμοποίησε πιο γρήγορο destination</strong> — μια θύρα αναλυτή 10G για συγκεντρωμένα sources. Ή <strong>φίλτραρε</strong> — κάποιες πλατφόρμες υποστηρίζουν <code>monitor session … filter vlan</code> ή ACL-based SPAN για να αντιγράφεις μόνο την κίνηση που σε νοιάζει. Για σοβαρή καταγραφή πλήρους πιστότητας (line-rate forensics, IDS υψηλής ρυθμαπόδοσης), ένα αποκλειστικό hardware <strong>network tap</strong> νικά το SPAN — δεν μπορεί να υπερσυνδρομηθεί και δεν ανταγωνίζεται πόρους του switch. Το SPAN είναι τέλειο για troubleshooting και μέτριες ροές IDS· γνώρισε την οροφή του πριν εμπιστευτείς ένα «τίποτα δεν βρέθηκε».</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Επαληθευση &amp; Καθαρισμος <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Επιβεβαίωσε το session, πρόσεξε τα drops, και — σημαντικό — αφαίρεσε το session όταν τελειώσεις. Ένα ξεχασμένο SPAN καίει σιωπηλά μια θύρα και πόρους του switch για μήνες.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Κανει</th></tr></thead>
+    <tbody>
+      <tr><td>show monitor session all</td><td>Κάθε session SPAN/RSPAN/ERSPAN — μαζί με αυτά που ξέχασες.</td></tr>
+      <tr><td>show monitor session 1</td><td>Sources, destination, κατεύθυνση για ένα session.</td></tr>
+      <tr><td>show interfaces Gi0/24 counters</td><td>Drops του destination — ο έλεγχος υπερσυνδρομής.</td></tr>
+      <tr><td>no monitor session 1</td><td>Ρίξ' το κάτω και δώσε πίσω τη θύρα.</td></tr>
+      <tr><td>no monitor session all</td><td>Αφαίρεσε κάθε session ταυτόχρονα (καθαρισμός).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ορια Session, και Μην τ' Αφησεις να Τρεχει</span>
+    <p>Τα switch περιορίζουν τον αριθμό ενεργών sessions SPAN <em>destination/source</em> (συχνά μόνο δύο), οπότε ένα παλιό ξεχασμένο session μπορεί να σε εμποδίσει να φτιάξεις αυτό που χρειάζεσαι τώρα — <code>show monitor session all</code> πρώτα. Και ένα SPAN destination είναι έκθεση ασφάλειας: όποιος έχει πρόσβαση σε εκείνη τη θύρα βλέπει mirrored κίνηση. Αντιμετώπισέ το σαν tap — φυσικά ασφαλισμένο, αφαιρεμένο μετά το engagement, και ποτέ συνδεδεμένο σε αφύλακτη πρίζα. Τα «προσωρινά» mirrors έχουν την τάση να γίνονται μόνιμες εκπλήξεις στο audit κάποιου άλλου.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Mirroring</h2>
+  <p class="section-thesis"><em>Το RouterOS κάνει mirror κι αυτό, μέσω μιας ρύθμισης switch/bridge ή μιας ροής sniffer· το νοητικό μοντέλο ταιριάζει.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>/interface ethernet switch (mirror-source/target)</td><td>Τοπικό SPAN (<code>monitor session</code>)</td></tr>
+      <tr><td>/tool sniffer streaming σε απομακρυσμένο host</td><td>ERSPAN (GRE σε έναν collector)</td></tr>
+      <tr><td>Mirror σε θύρα για Wireshark</td><td>Interface destination SPAN</td></tr>
+      <tr><td>Όρια mirror του chip switch</td><td>Όρια session SPAN + υπερσυνδρομή</td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Τα switch κρύβουν κίνηση εκ σχεδιασμού· το SPAN την ξεκρύβει.</strong> Διπλασίασε επιλεγμένες θύρες ή VLAN σε μια θύρα destination για Wireshark, ένα IDS, ή incident response — χωρίς tap, χωρίς ξανακαλωδίωση.</li>
+      <li><strong>Τρία εύρη:</strong> τοπικό SPAN (ίδιο switch), RSPAN (ανάμεσα σε switch μέσω VLAN <code>remote-span</code> στα trunks), ERSPAN (πάνω από δρομολογημένο δίκτυο μέσω GRE-over-IP).</li>
+      <li><strong>Η θύρα destination φεύγει από το δίκτυο.</strong> Εκπέμπει μόνο mirrored frames — αφιέρωσε μια θύρα και μην περιμένεις ο αναλυτής να δρομολογεί μέσα από αυτήν.</li>
+      <li><strong>Το RSPAN χρειάζεται το ειδικό VLAN παντού στη διαδρομή</strong> και σε κάθε trunk διασύνδεσης, αλλιώς δεν παραδίδει τίποτα σιωπηλά.</li>
+      <li><strong>Πρόσεξε την υπερσυνδρομή — κάνει τις καταγραφές να λένε ψέματα.</strong> Ο όγκος mirror πάνω από το line rate του destination ρίχνεται σιωπηλά· ένα IDS τότε υπο-αναφέρει. Στένεψε το source, χρησιμοποίησε πιο γρήγορη θύρα, φίλτραρε, ή χρησιμοποίησε hardware tap.</li>
+      <li><strong>Τα sessions είναι περιορισμένα και έκθεση ασφάλειας.</strong> Έλεγξε <code>show monitor session all</code>, ασφάλισε το destination σαν tap, και αφαίρεσε sessions όταν τελειώσεις.</li>
+      <li><strong>Εδώ συναντιούνται τα δύο καπέλα.</strong> Το mirror που χτίζεις για το IDS ενός πελάτη είναι αυτό που ζητάς για να παρακολουθήσεις έναν επιτιθέμενο στο καλώδιο κατά τη διάρκεια response.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Χρειαζεσαι ορατοτητα κινησης ή ροη IDS στην Κρητη;</h3>
+    <p>Μια θύρα SPAN που ρίχνει σιωπηλά πακέτα υπό φόρτο είναι χειρότερη από καθόλου ορατότητα, γιατί φαίνεται ότι δουλεύει. Διαστασιολογώ σωστά sessions mirror για ανίχνευση εισβολής και troubleshooting, ώστε αυτό που καταγράφεις να είναι πραγματικά αυτό που συνέβη.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

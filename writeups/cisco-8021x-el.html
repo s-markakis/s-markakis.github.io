@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: 802.1X Port Authentication — S. Markakis</title>
+<meta name="description" content="Επικύρωσε συσκευές πριν πάρουν πρόσβαση δικτύου — 802.1X με RADIUS σε switch Cisco: ρόλοι supplicant/authenticator/server, config dot1x, MAB fallback, δυναμικά VLAN, και ανάπτυξη σε open-mode.">
+<meta property="og:title" content="Cisco IOS: 802.1X Port Authentication — S. Markakis">
+<meta property="og:description" content="Επικύρωσε συσκευές πριν πάρουν πρόσβαση δικτύου — 802.1X με RADIUS σε switch Cisco: ρόλοι supplicant/authenticator/server, config dot1x, MAB fallback, δυναμικά VLAN, και ανάπτυξη σε open-mode.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-8021x-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-8021x.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-8021x.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-8021x-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-8021x.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-8021x-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-8021x.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: 802.1X Port Authentication",
+  "description": "Επικύρωσε συσκευές πριν πάρουν πρόσβαση δικτύου — 802.1X με RADIUS σε switch Cisco: ρόλοι supplicant/authenticator/server, config dot1x, MAB fallback, δυναμικά VLAN, και ανάπτυξη σε open-mode.",
+  "datePublished": "2026-08-07",
+  "dateModified": "2026-08-07",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-8021x-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-8021x.png",
+  "keywords": [
+    "cisco",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-8021x"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-8021x.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>802.1X Port Authentication</h1>
+  <p class="post-subtitle">Το port security ρωτάει «είναι αυτό το σωστό MAC;» — που ένα laptop μπορεί να πλαστογραφήσει σε δευτερόλεπτα. Το 802.1X ρωτάει «ποιος είσαι, και μπορείς να το αποδείξεις;» πριν η θύρα προωθήσει έστω ένα frame. Πραγματικός έλεγχος πρόσβασης βασισμένος σε ταυτότητα στην πρίζα, με RADIUS, MAB fallback για εκτυπωτές, και ανάπτυξη που δεν θα κλειδώσει έξω το γραφείο.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">802.1X</span>
+    <span class="tag">RADIUS</span>
+    <span class="tag">NAC</span>
+    <span class="tag">MAB</span>
+    <span class="tag">Security</span>
+    <span class="tag">CCNP</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: three roles -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 160" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="xp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#3a5a78"/></marker>
+      </defs>
+      <rect width="720" height="160" fill="#e1ded7"/>
+      <rect x="30" y="58" width="150" height="48" rx="6" fill="#eee6d8" stroke="#c08020"/>
+      <text x="105" y="78" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#8a5a10;text-anchor:middle;">SUPPLICANT</text>
+      <text x="105" y="94" style="font-family:'Inter',sans-serif;font-size:8px;fill:#8a5a10;text-anchor:middle;">το PC / τηλέφωνο</text>
+      <rect x="285" y="58" width="150" height="48" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="78" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">AUTHENTICATOR</text>
+      <text x="360" y="94" style="font-family:'Inter',sans-serif;font-size:8px;fill:#888880;text-anchor:middle;">το switch Cisco</text>
+      <rect x="540" y="58" width="150" height="48" rx="6" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="615" y="78" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">AUTH SERVER</text>
+      <text x="615" y="94" style="font-family:'Inter',sans-serif;font-size:8px;fill:#3a5a78;text-anchor:middle;">RADIUS (ISE/FreeRADIUS)</text>
+      <line x1="180" y1="82" x2="283" y2="82" style="stroke:#3a5a78;stroke-width:1.4;marker-end:url(#xp)"/>
+      <text x="231" y="74" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">EAPOL</text>
+      <line x1="435" y1="82" x2="538" y2="82" style="stroke:#3a5a78;stroke-width:1.4;marker-end:url(#xp)"/>
+      <text x="486" y="74" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">RADIUS</text>
+      <text x="360" y="136" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Το switch είναι αναμεταδότης: κουβαλάει EAP ανάμεσα στη συσκευή και το RADIUS, και ανοίγει τη θύρα μόνο σε «Access-Accept».</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το <a href="cisco-switch-security.html">post Ασφάλεια Switch</a> θωράκισε το access layer με port security — αλλά οι διευθύνσεις MAC πλαστογραφούνται τετριμμένα, οπότε αυτό είναι εμπόδιο ταχύτητας, όχι κλειδαριά. Το <strong>802.1X</strong> είναι η κλειδαριά: πριν μια θύρα προωθήσει οτιδήποτε εκτός από κίνηση authentication, η συνδεδεμένη συσκευή πρέπει να <em>αποδείξει ταυτότητα</em> — ένα πιστοποιητικό ή username/password ελεγμένο έναντι κεντρικού server. Αποτυγχάνει, και η θύρα μένει κλειστή (ή σε ρίχνει σε VLAN καραντίνας). Είναι η διαφορά ανάμεσα στο «το δίκτυο εμπιστεύεται όποιον συνδεθεί» και «το δίκτυο εμπιστεύεται όποιον μπορεί να επικυρώσει».</p>
+    <p>Τρεις ρόλοι το κάνουν να δουλεύει: ο <strong>supplicant</strong> (ο client 802.1X της συσκευής), ο <strong>authenticator</strong> (το switch, που αναμεταδίδει αλλά ποτέ δεν αποφασίζει), και ο <strong>authentication server</strong> (RADIUS — Cisco ISE σε επιχειρήσεις, FreeRADIUS για τα budget SMB με τα οποία συνήθως δουλεύουμε). Θα καλωδιώσουμε και τα τρία, θα προσθέσουμε <strong>MAB</strong> ώστε εκτυπωτές και κάμερες που δεν μπορούν να κάνουν 802.1X να μπαίνουν ακόμα, θα χρησιμοποιήσουμε <strong>δυναμική ανάθεση VLAN</strong> ώστε η ταυτότητα να αποφασίζει σε ποιο VLAN προσγειώνεσαι, και — το πιο σημαντικό — θα το αναπτύξουμε πρώτα σε <strong>monitor mode</strong> ώστε να μην κλειδώσεις έξω όλο το γραφείο την πρώτη μέρα.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Βασικά ασφάλειας access-layer — δες <a href="cisco-switch-security.html">Ασφάλεια Switch</a></li>
+      <li>Έναν προσβάσιμο server RADIUS (FreeRADIUS ή ISE) με κοινό μυστικό</li>
+      <li>Ρυθμισμένα VLAN, μαζί με ένα VLAN καραντίνας/guest για αποτυχίες — δες <a href="cisco-vlans-trunking.html">VLAN &amp; Trunking</a></li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Δειξε στο Switch το RADIUS</h2>
+  <p class="section-thesis"><em>Πρώτα, global AAA: πες στο switch να χρησιμοποιεί RADIUS για 802.1X, όρισε τον server, και ενεργοποίησε το dot1x σε όλο το σύστημα. Τίποτα δεν κάνει authenticate μέχρι να υπάρχει αυτή η σκαλωσιά.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — AAA + RADIUS + global dot1x</span>
+    <pre class="term"><span class="pc">SW1(config)#</span> <span class="out">aaa new-model</span>
+
+<span class="cmt"># Ο server RADIUS (σύγχρονο block "radius server")</span>
+<span class="pc">SW1(config)#</span> <span class="out">radius server RAD-1</span>
+<span class="pc">SW1(config-radius-server)#</span> <span class="out">address ipv4 192.168.1.60 auth-port 1812 acct-port 1813</span>
+<span class="pc">SW1(config-radius-server)#</span> <span class="out">key R@dius-Shared-Secret</span>
+<span class="pc">SW1(config-radius-server)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Χρησιμοποίησε RADIUS για auth και accounting του 802.1X</span>
+<span class="pc">SW1(config)#</span> <span class="out">aaa authentication dot1x default group radius</span>
+<span class="pc">SW1(config)#</span> <span class="out">aaa authorization network default group radius</span>   <span class="cmt"># για δυναμικό VLAN</span>
+<span class="pc">SW1(config)#</span> <span class="out">aaa accounting dot1x default start-stop group radius</span>
+
+<span class="cmt"># Άναψε το 802.1X global, και άφησε το RADIUS να στέλνει attributes VLAN/ACL</span>
+<span class="pc">SW1(config)#</span> <span class="out">dot1x system-auth-control</span>
+<span class="pc">SW1(config)#</span> <span class="out">end</span>
+
+<span class="pc">SW1#</span> <span class="out">show radius server-group all</span>   <span class="cmt"># επιβεβαίωσε ότι ο server είναι προσβάσιμος</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το aaa new-model Μπορει να Αλλαξει Πως Συνδεεσαι</span>
+    <p>Τη στιγμή που γράφεις <code>aaa new-model</code>, το IOS αλλάζει στη μέθοδο AAA για <em>όλα</em> τα logins — μαζί με το δικό σου console και VTY. Αν δεν έχεις ορίσει fallback, μπορείς να κλειδωθείς έξω. Πριν το ενεργοποιήσεις, βεβαιώσου ότι επιβιώνει μια τοπική διαδρομή login: <code>aaa authentication login default group radius local</code> (RADIUS, μετά <em>local</em> χρήστης ως fallback) συν ένα <code>username admin privilege 15 secret …</code> που υπάρχει στη συσκευή. Δοκίμασε το login SSH/console σε δεύτερο session πριν αποσυνδέσεις το πρώτο. Αυτή είναι η ίδια πειθαρχία «μην κολλήσεις τον εαυτό σου» με τα posts ZBF και ανάκτησης κωδικού.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Αναπτυξε Πρωτα σε Monitor Mode</h2>
+  <p class="section-thesis"><em>Ο βασικός κανόνας ανάπτυξης NAC: ποτέ μην πηγαίνεις κατευθείαν σε επιβολή. Το open (monitor) mode κάνει authenticate και καταγράφει, αλλά αφήνει όλους να μπουν ούτως ή άλλως — ώστε να βρεις τις συσκευές που αποτυγχάνουν πριν παράγουν tickets στο help-desk.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ενα access port σε OPEN (monitor) mode</span>
+    <pre class="term"><span class="pc">SW1(config)#</span> <span class="out">interface range GigabitEthernet0/2 - 24</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport mode access</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">authentication port-control auto</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">authentication open</span>              <span class="cmt"># MONITOR: auth, αλλά επίτρεψε όλα</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">dot1x pae authenticator</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">end</span>
+
+<span class="cmt"># Παρακολούθησε ποιος κάνει authenticate και ποιος αποτυγχάνει — ΧΩΡΙΣ να μπλοκάρεις κανέναν ακόμα</span>
+<span class="pc">SW1#</span> <span class="out">show authentication sessions interface Gi0/4 details</span>
+<span class="out"> Interface:  GigabitEthernet0/4
+ MAC Address: 001a.2b3c.4d5e
+ Status:      Authorized      ← επιτυχία 802.1X
+ Method:      dot1x</span>
+
+<span class="cmt"># Όταν τα logs δείχνουν όλους να κάνουν authenticate καθαρά, αφαίρεσε το
+# "authentication open" για να περάσεις σε ΕΠΙΒΟΛΗ (closed mode).</span></pre>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">MAB — Για Πραγματα που Δεν Κανουν Login</h2>
+  <p class="section-thesis"><em>Εκτυπωτές, κάμερες, αναγνώστες κάρτας, και παλιός εξοπλισμός δεν έχουν supplicant 802.1X. Το MAC Authentication Bypass αφήνει το switch να πέσει πίσω στο να ελέγξει το MAC τους έναντι RADIUS αφού λήξει το 802.1X — μια διαχειριζόμενη λίστα-επιτρεπτών, όχι ανοιχτή πρόσβαση.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — πρωτα 802.1X, MAB fallback, με σειρα</span>
+    <pre class="term"><span class="pc">SW1(config)#</span> <span class="out">interface GigabitEthernet0/10</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport mode access</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">authentication port-control auto</span>
+<span class="cmt"># Δοκίμασε πρώτα 802.1X· αν η συσκευή είναι σιωπηλή, πέσε πίσω σε MAB</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">authentication order dot1x mab</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">authentication priority dot1x mab</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">mab</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">dot1x pae authenticator</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">dot1x timeout tx-period 7</span>   <span class="cmt"># πόσο να περιμένεις έναν supplicant</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">end</span>
+<span class="cmt"># Το MAC του εκτυπωτή πρέπει να υπάρχει ως χρήστης στο RADIUS. Είναι μια λίστα-επιτρεπτών που
+# διαχειρίζεσαι κεντρικά — πολύ καλύτερο από στατικά MAC port-security σε 200 θύρες.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Το MAB Ειναι πιο Αδυνατο — Περιορισε το Στενα</span>
+    <p>Το MAB κάνει authenticate με διεύθυνση MAC, που είναι πλαστογραφήσιμη — οπότε είναι ευκολία για χαζές συσκευές, όχι πραγματική ασφάλεια. Περιόρισε τον κίνδυνο: βάλε τις συσκευές MAB σε ένα <strong>περιορισμένο VLAN</strong> με ένα ACL που επιτρέπει μόνο ό,τι χρειάζονται (ένας εκτυπωτής φτάνει τον print server και τίποτα άλλο), και χρησιμοποίησε <strong>profiling συσκευών</strong> του RADIUS όπου είναι διαθέσιμο ώστε ένα MAC «εκτυπωτή» που ξαφνικά φέρεται σαν laptop να σημαίνεται. Ο στόχος είναι ότι ακόμα κι αν κάποιος κλωνοποιήσει το MAC ενός εκτυπωτή, το δίκτυο που κληρονομεί να είναι αδιέξοδο. Αυτό είναι defense-in-depth πάνω στη δουλειά DHCP-snooping/DAI από το post Ασφάλεια Switch.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Δυναμικο VLAN &amp; οι Διαδρομες Αποτυχιας</h2>
+  <p class="section-thesis"><em>Η ταυτότητα μπορεί να αποφασίσει τοποθέτηση: το RADIUS επιστρέφει ένα VLAN στο Access-Accept του, οπότε το προσωπικό προσγειώνεται σε VLAN προσωπικού και οι εργολάβοι σε περιορισμένο — από την ίδια θύρα. Και κάθε τρόπος αποτυχίας χρειάζεται ορισμένο προορισμό, ποτέ «ολάνοιχτο».</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — VLAN για auth-fail, no-response, και server-dead</span>
+    <pre class="term"><span class="cmt"># Το RADIUS στέλνει αυτόματα το VLAN επιτυχίας μέσω των attributes Tunnel-*
+# (aaa authorization network, ορισμένο στην ενότητα 01). Για τις διαδρομές αποτυχίας: </span>
+<span class="pc">SW1(config)#</span> <span class="out">interface GigabitEthernet0/4</span>
+
+<span class="cmt"># Επικυρωμένο αλλά ΑΠΟΡΡΙΦΘΗΚΕ → VLAN περιορισμού/καραντίνας 900</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">authentication event fail action authorize vlan 900</span>
+
+<span class="cmt"># Κανένας supplicant ΚΑΙ απέτυχε το MAB → VLAN guest 800</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">dot1x auth-fail vlan 900</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">authentication event no-response action authorize vlan 800</span>
+
+<span class="cmt"># Ο server RADIUS απρόσιτος → critical VLAN (fail-OPEN για να συνεχίσει να δουλεύει)</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">authentication event server dead action authorize vlan 10</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">authentication event server alive action reinitialize</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Αποφασισε Fail-Open vs Fail-Closed Σκοπιμα</span>
+    <p>Τι συμβαίνει όταν πεθαίνει ο server RADIUS; Χωρίς <strong>critical VLAN</strong> (ενέργεια <code>server dead</code>), κάθε θύρα σε κάθε switch που δεν φτάνει το RADIUS γίνεται <em>closed</em> — μια διακοπή RADIUS γίνεται ολική διακοπή δικτύου, που είναι καταστροφικό μοναδικό σημείο αστοχίας. Η συνηθισμένη επιλογή είναι <strong>fail-open</strong>: αν ο server auth είναι απρόσιτος, ρίξε τους clients σε λειτουργικό VLAN ώστε η επιχείρηση να συνεχίσει να τρέχει, και ξανα-επικύρωσε όταν επιστρέψει το RADIUS (<code>server alive … reinitialize</code>). Οι security purists προτιμούν fail-closed· για ένα SMB, ένα χασομέρι του server auth που ρίχνει όλο το γραφείο σχεδόν ποτέ δεν είναι η σωστή ανταλλαγή. Κάνε την επιλογή συνειδητά και τεκμηρίωσέ την — οι auditors ρωτάνε.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Επαληθευσε &amp; Κανε Troubleshooting <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Μία εντολή δείχνει το auth state κάθε θύρας, τη μέθοδο, και το ανατεθειμένο VLAN. Όταν μια συσκευή δεν κάνει authenticate, η αστοχία είναι στον supplicant, στην αναμετάδοση του switch, ή στο RADIUS — αυτά απομονώνουν ποια.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Δειχνει</th></tr></thead>
+    <tbody>
+      <tr><td>show authentication sessions</td><td>Κάθε θύρα που κάνει authenticate: MAC, μέθοδος (dot1x/mab), status, VLAN.</td></tr>
+      <tr><td>show authentication sessions interface Gi0/4 details</td><td>Η πλήρης ιστορία για μία θύρα — γιατί είναι ή όχι authorized.</td></tr>
+      <tr><td>show dot1x interface Gi0/4 details</td><td>Λεπτομέρεια state machine 802.1X και ανταλλαγής EAP.</td></tr>
+      <tr><td>show radius statistics</td><td>Φτάνουν τα requests στο RADIUS και παίρνουν απάντηση;</td></tr>
+      <tr><td>test aaa group radius user pass new-code</td><td>Απόδειξε ότι δουλεύει η διαδρομή switch↔RADIUS και το κοινό μυστικό.</td></tr>
+      <tr><td>debug dot1x all / debug radius</td><td>Ζωντανό trace EAP/RADIUS για μια πεισματάρα θύρα (κλείσ' το μετά).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το "Authentication Failed" Ειναι Τρια Διαφορετικα Προβληματα</span>
+    <p>Εντόπισε πριν σκάψεις: αν το <code>show radius statistics</code> δείχνει requests αλλά καμία απάντηση, είναι το <strong>κοινό μυστικό ή το config του server</strong> (το switch και το RADIUS διαφωνούν στο key, ή το IP του switch δεν είναι ορισμένο client στην πλευρά RADIUS). Αν τα requests παίρνουν Access-Reject, είναι <strong>διαπιστευτήρια/πολιτική</strong> στο RADIUS. Αν τίποτα δεν φτάνει καν στο RADIUS, είναι <strong>προσβασιμότητα</strong> (routing/ACL προς τον server). Και αν ο supplicant δεν ξεκινάει ποτέ, είναι ο <strong>client</strong> — 802.1X κλειστό στη NIC, ή λάθος μέθοδος EAP. Το <code>test aaa</code> είναι ο πιο γρήγορος τρόπος να κόψεις το πρόβλημα στη μέση: αποδεικνύει το σκέλος switch↔RADIUS ανεξάρτητα από οποιαδήποτε πραγματική συσκευή.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Που Ταιριαζει — και Ρεαλισμος για SMB</h2>
+  <p class="section-thesis"><em>Το 802.1X είναι ισχυρό και λειτουργικά βαρύ. Γνώρισε πότε αξίζει και πότε αρκούν οι πιο ελαφριοί έλεγχοι access-layer.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Ελεγχος</th><th>Δυναμη / κοστος</th></tr></thead>
+    <tbody>
+      <tr><td>Port security (sticky MAC)</td><td>Φθηνό, πλαστογραφήσιμο MAC. Καλή βάση παντού.</td></tr>
+      <tr><td>MAB</td><td>Κεντρική λίστα-επιτρεπτών MAC, ακόμα πλαστογραφήσιμο. Για χαζές συσκευές.</td></tr>
+      <tr><td>802.1X (πιστοποιητικό χρήστη/μηχανής)</td><td>Πραγματική ταυτότητα, ισχυρό. Χρειάζεται RADIUS + supplicants + λειτουργική φροντίδα.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Η Ειλικρινης Αποψη μας για Κρητικα SMB</span>
+    <p>Το πλήρες 802.1X λάμπει όπου μια λάθος συσκευή στο LAN είναι πραγματικός κίνδυνος — κλινικές, οικονομικά, οπουδήποτε με compliance — και όπου υπάρχει κάποιος να τρέχει την πλευρά RADIUS. Για ένα μικρό ξενοδοχείο ή μαγαζί, ο συνδυασμός <strong>VLAN segmentation + DHCP snooping + DAI + port security + ένα κλειδωμένο δίκτυο guest</strong> (το post Ασφάλεια Switch) δίνει το περισσότερο όφελος σε κλάσμα του λειτουργικού βάρους. Αναπτύσσουμε 802.1X όταν το μοντέλο απειλών και το προσωπικό το δικαιολογούν και τα δύο, και είμαστε ειλικρινείς όταν δεν το δικαιολογούν — ένα NAC που κανείς δεν συντηρεί αποτυγχάνει ανοιχτά και δίνει ψεύτικη σιγουριά, που είναι χειρότερο από το να μην το έχεις καθόλου.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Το 802.1X κάνει authenticate ταυτότητα, όχι ένα πλαστογραφήσιμο MAC.</strong> Η θύρα δεν προωθεί τίποτα εκτός από EAP μέχρι η συσκευή να αποδείξει ποια είναι έναντι RADIUS — η πραγματική κλειδαριά που το port security μόνο προσεγγίζει.</li>
+      <li><strong>Τρεις ρόλοι:</strong> supplicant (συσκευή), authenticator (switch, αναμεταδότης που ποτέ δεν αποφασίζει), authentication server (RADIUS). Το switch ανοίγει τη θύρα μόνο σε Access-Accept.</li>
+      <li><strong>Ανάπτυξε πρώτα σε monitor/open mode.</strong> Κάνε authenticate και καταγραφή ενώ αφήνεις όλους να μπουν, βρες τις συσκευές που αποτυγχάνουν, μετά αφαίρεσε το <code>authentication open</code> για επιβολή. Ποτέ μη γυρίζεις κατευθείαν σε closed.</li>
+      <li><strong>MAB για τις χαζές συσκευές, στενά περιορισμένο.</strong> Εκτυπωτές και κάμερες πέφτουν πίσω σε κεντρική λίστα-επιτρεπτών MAC — αλλά είναι πλαστογραφήσιμη, οπότε κλείσ' τες σε περιορισμένο VLAN.</li>
+      <li><strong>Όρισε κάθε διαδρομή αποτυχίας.</strong> VLAN auth-fail, VLAN guest no-response, και — κρίσιμο — ένα <em>critical VLAN</em> για όταν είναι κάτω το ίδιο το RADIUS, αλλιώς μια διακοπή server γίνεται διακοπή δικτύου.</li>
+      <li><strong>Φύλαξε τη δική σου πρόσβαση.</strong> Το <code>aaa new-model</code> αλλάζει το login για όλους — κράτα ένα <code>local</code> fallback και πραγματικό username, και δοκίμασέ το σε δεύτερο session.</li>
+      <li><strong>Ταίριαξε το εργαλείο με την απειλή και την ομάδα.</strong> 802.1X όπου μια ανεπίσημη συσκευή είναι πραγματικός κίνδυνος και κάποιος τρέχει RADIUS· segmentation + snooping + DAI όπου δεν είναι. Ένα NAC χωρίς συντήρηση είναι ψεύτικη σιγουριά.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Χρειαζεσαι πραγματικο ελεγχο προσβασης για κλινικη, γραφειο, ή ξενοδοχειο στην Κρητη;</h3>
+    <p>Το 802.1X κερδίζει την πολυπλοκότητά του σε κάποια δίκτυα και είναι υπερβολή σε άλλα. Όπου το μοντέλο απειλών το δικαιολογεί, το στήνω πρώτα σε monitor mode, προσθέτω MAB για τις παλιές συσκευές που δεν μπορούν να κάνουν 802.1X, και χτίζω διαδρομές αποτυχίας που δεν κλειδώνουν έξω έναν ολόκληρο όροφο. Όπου δεν το δικαιολογεί, θα το πω και θα προτείνω αντ' αυτού πιο ελαφρύ segmentation.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

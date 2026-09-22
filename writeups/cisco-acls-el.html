@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Access Control Lists — S. Markakis</title>
+<meta name="description" content="Φιλτράρισμα κίνησης σε router Cisco — standard vs extended ACL, wildcard masks, named ACL με αριθμούς ακολουθίας, πού να τα εφαρμόσεις, και προστασία των γραμμών VTY.">
+<meta property="og:title" content="Cisco IOS: Access Control Lists — S. Markakis">
+<meta property="og:description" content="Φιλτράρισμα κίνησης σε router Cisco — standard vs extended ACL, wildcard masks, named ACL με αριθμούς ακολουθίας, πού να τα εφαρμόσεις, και προστασία των γραμμών VTY.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-acls-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-acls.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-acls.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-acls-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-acls.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-acls-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-acls.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  /* keyboard shortcut pills */
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  /* cheatsheet table */
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  /* safe badge */
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Access Control Lists",
+  "description": "Φιλτράρισμα κίνησης σε router Cisco — standard vs extended ACL, wildcard masks, named ACL με αριθμούς ακολουθίας, πού να τα εφαρμόσεις, και προστασία των γραμμών VTY.",
+  "datePublished": "2026-07-14",
+  "dateModified": "2026-07-14",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-acls-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-acls.png",
+  "keywords": [
+    "cisco",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-acls"
+  },
+  "timeRequired": "PT12M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-acls.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Λιστες Ελεγχου Προσβασης</h1>
+  <p class="post-subtitle">Το φίλτρο κίνησης του router. Standard vs extended ACL, τα wildcard masks που την πατάνε όλοι, named ACL που μπορείς όντως να επεξεργαστείς, πού στο δίκτυο ανήκει κάθε τύπος — και το ένα ACL που χρειάζεται κάθε συσκευή: η κλειδαριά στις δικές της γραμμές VTY.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">ACL</span>
+    <span class="tag">Access-List</span>
+    <span class="tag">Filtering</span>
+    <span class="tag">Security</span>
+    <span class="tag">Wildcard Mask</span>
+    <span class="tag">CCNA</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: ACL evaluation -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="aap" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+        <marker id="agp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#558840"/></marker>
+      </defs>
+      <rect width="720" height="210" fill="#e1ded7"/>
+      <!-- packet -->
+      <rect x="24" y="82" width="90" height="30" rx="4" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="69" y="101" style="font-family:'Inter',sans-serif;font-size:10px;fill:#3a5a78;text-anchor:middle;font-weight:600;">packet</text>
+      <line x1="114" y1="97" x2="158" y2="97" style="stroke:#3a5a78;stroke-width:1.6;marker-end:url(#aap)"/>
+      <!-- ACL box -->
+      <rect x="162" y="26" width="300" height="150" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="312" y="46" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">ACL — ελεγχεται ΑΠΟ ΠΑΝΩ ΠΡΟΣ ΤΑ ΚΑΤΩ, κερδιζει το πρωτο ταιριασμα</text>
+      <rect x="182" y="58" width="260" height="24" rx="3" fill="#d7e7cf" stroke="#558840"/>
+      <text x="192" y="74" style="font-family:ui-monospace,monospace;font-size:9.5px;fill:#3a6a28;">10  permit 192.168.10.0 0.0.0.255</text>
+      <rect x="182" y="88" width="260" height="24" rx="3" fill="#eedbc9" stroke="#c08020"/>
+      <text x="192" y="104" style="font-family:ui-monospace,monospace;font-size:9.5px;fill:#8a5a10;">20  deny   192.168.20.0 0.0.0.255</text>
+      <rect x="182" y="118" width="260" height="24" rx="3" fill="#d7e7cf" stroke="#558840"/>
+      <text x="192" y="134" style="font-family:ui-monospace,monospace;font-size:9.5px;fill:#3a6a28;">30  permit any</text>
+      <rect x="182" y="148" width="260" height="20" rx="3" fill="#e8c8c0" stroke="#c63d1f" stroke-dasharray="3,2"/>
+      <text x="192" y="162" style="font-family:ui-monospace,monospace;font-size:9px;fill:#c63d1f;">(implicit) deny any — πάντα εκεί, αόρατο</text>
+      <!-- outcomes -->
+      <line x1="462" y1="70" x2="540" y2="70" style="stroke:#558840;stroke-width:1.6;marker-end:url(#agp)"/>
+      <text x="560" y="74" style="font-family:'Inter',sans-serif;font-size:10px;fill:#3a6a28;font-weight:700;">προωθηθηκε</text>
+      <line x1="462" y1="100" x2="540" y2="100" style="stroke:#c63d1f;stroke-width:1.6;marker-end:url(#aap)"/>
+      <text x="560" y="104" style="font-family:'Inter',sans-serif;font-size:10px;fill:#c63d1f;font-weight:700;">απορριφθηκε</text>
+      <text x="360" y="198" style="font-family:'Inter',sans-serif;font-size:10px;fill:#888880;text-anchor:middle;">Ένα πακέτο διασχίζει τη λίστα από πάνω· η πρώτη γραμμή που ταιριάζει αποφασίζει. Αν δεν ταιριάξει τίποτα, το κρυφό deny το ρίχνει.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Ένα access control list είναι μια <strong>ταξινομημένη λίστα κανόνων permit/deny</strong>. Ένα πακέτο συγκρίνεται με τις γραμμές από πάνω· η <strong>πρώτη</strong> γραμμή που ταιριάζει αποφασίζει τη μοίρα του και η αξιολόγηση σταματάει. Αν δεν ταιριάξει τίποτα, ένα αόρατο <code>deny any</code> στο τέλος το ρίχνει. Αυτή είναι όλη η μηχανή — όλα τα υπόλοιπα είναι syntax.</p>
+    <p>Τα ACL είναι ό,τι πιο κοντινό σε firewall έχει ένας router IOS, αλλά είναι και το γενικής χρήσης εργαλείο «ταίριασε αυτή την κίνηση»: το NAT χρησιμοποίησε ένα στο <a href="cisco-dhcp-nat.html">post DHCP &amp; NAT</a> για να ορίσει ποιος μεταφράζεται, και το QoS, τα route-map, και τα VPN δανείζονται όλα το ίδιο syntax. Μάθε τα μία φορά για φιλτράρισμα και έμαθες τη γλώσσα ταιριάσματος όλου του IOS. Θα χτίσουμε standard και extended ACL, θα απομυθοποιήσουμε τα wildcard masks, θα επεξεργαστούμε named ACL χειρουργικά με αριθμούς ακολουθίας, και θα κλειδώσουμε το management plane — το ACL που προστατεύει τον ίδιο τον router.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Άνεση με το IOS CLI και το config interface — δες <a href="cisco-first-contact.html">Cisco IOS: First Contact</a></li>
+      <li>Βασικά subnetting — διαβάζεις το 192.168.10.0/24 χωρίς να το σκεφτείς</li>
+      <li>Ένας router ή L3 switch (πραγματικός ή Packet Tracer / GNS3 / CML)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Standard vs Extended — Διαλεξε το Σωστο Εργαλειο</h2>
+  <p class="section-thesis"><em>Τα standard ACL ταιριάζουν μόνο τη διεύθυνση SOURCE — ένα αμβλύ εργαλείο. Τα extended ACL ταιριάζουν source, destination, πρωτόκολλο, και port — ένα νυστέρι. Το εύρος αριθμών λέει στο IOS ποιο εννοείς.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Τυπος</th><th>Ταιριαζει</th></tr></thead>
+    <tbody>
+      <tr><td>Standard (1–99, 1300–1999)</td><td>Μόνο source IP. «Κίνηση από αυτούς τους hosts.»</td></tr>
+      <tr><td>Extended (100–199, 2000–2699)</td><td>Source + destination + πρωτόκολλο (ip/tcp/udp/icmp) + ports. «SSH από mgmt προς servers.»</td></tr>
+      <tr><td>Named (standard ή extended)</td><td>Ίδιες μηχανές, αλλά με όνομα και επεξεργάσιμους αριθμούς γραμμών. Χρησιμοποίησέ τα για οτιδήποτε θα κρατήσεις.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Επειδή ένα standard ACL βλέπει μόνο το source, <strong>η θέση του έχει σημασία</strong>: βάλ' το κοντά στον <em>προορισμό</em>, αλλιώς εμποδίζει αυτό το source από το να φτάσει τα πάντα. Ένα extended ACL είναι ακριβές, οπότε βάλ' το κοντά στην <em>πηγή</em> και σκότωσε την ανεπιθύμητη κίνηση πριν διασχίσει το δίκτυο. Αυτός είναι ο κλασικός κανόνας τοποθέτησης, και προκύπτει κατευθείαν από το τι μπορεί να δει κάθε τύπος.</p>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Wildcard Masks — Η Αντεστραμμενη Μασκα</h2>
+  <p class="section-thesis"><em>Τα ACL δεν χρησιμοποιούν subnet masks. Χρησιμοποιούν wildcard masks — το bitwise αντίστροφο. 0 σημαίνει «πρέπει να ταιριάξει», 1 σημαίνει «αδιάφορο». Μόλις το δεις ως αντίστροφο-της-subnet-mask, γίνεται μηχανικό.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Λογικη wildcard mask — 0 = ταιριασε ακριβως, 1 = οτιδηποτε</span>
+    <pre class="term"><span class="cmt"># Subnet mask 255.255.255.0  →  wildcard 0.0.0.255   (ένα /24)</span>
+<span class="out">192.168.10.0  0.0.0.255</span>   <span class="cmt">→ ταιριάζει 192.168.10.0 – 192.168.10.255</span>
+
+<span class="cmt"># Ένας μεμονωμένος host — κάθε bit πρέπει να ταιριάξει:</span>
+<span class="out">192.168.10.5  0.0.0.0</span>     <span class="cmt">→ ακριβώς 192.168.10.5 (συντόμευση: host 192.168.10.5)</span>
+
+<span class="cmt"># Τα πάντα — κανένα bit δεν χρειάζεται να ταιριάξει:</span>
+<span class="out">0.0.0.0  255.255.255.255</span>  <span class="cmt">→ οποιαδήποτε διεύθυνση (συντόμευση: any)</span>
+
+<span class="cmt"># Η νοητή συντόμευση για κοινές masks: 255 μείον κάθε octet</span>
+<span class="out">/24 → 0.0.0.255      /16 → 0.0.255.255      /30 → 0.0.0.3
+/25 → 0.0.0.127      /28 → 0.0.0.15         /32 → 0.0.0.0</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Γραφεις Subnet Mask Εκει που Ανηκει Wildcard</span>
+    <p>Το να γράψεις <code>permit 192.168.10.0 255.255.255.0</code> σε ένα ACL δεν βγάζει σφάλμα — το IOS το δέχεται και ταιριάζει σχεδόν τίποτα από όσα ήθελες (διαβάζει αυτά τα 255 ως octet «αδιάφορα»). Αυτό είναι το νούμερο-ένα σιωπηλό bug σε ACL. Αν ένα ACL «δεν ταιριάζει τίποτα» (το <code>show access-lists</code> δείχνει μηδέν matches), έλεγξε πρώτα τη mask: στη χώρα των ACL είναι πάντα το <strong>wildcard</strong>, το αντίστροφο της subnet mask. (Το <code>access-list</code> του NAT, από το προηγούμενο post, χρησιμοποιεί κι αυτό wildcards.)</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Ενα Standard ACL — Χτισε το και Εφαρμοσε το</h2>
+  <p class="section-thesis"><em>Το τελετουργικό δύο βημάτων για κάθε ACL: χτίσε τη λίστα στο global config, μετά εφάρμοσέ την σε ένα interface με μια κατεύθυνση. Ένα ACL που δεν εφαρμόζεται δεν φιλτράρει τίποτα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — standard ACL: οι guest δεν φτανουν το VLAN των servers</span>
+    <pre class="term"><span class="cmt"># 1. Χτίσε τη λίστα (numbered standard, 1-99)</span>
+<span class="pc">R1(config)#</span> <span class="out">access-list 10 deny 192.168.20.0 0.0.0.255</span>
+<span class="pc">R1(config)#</span> <span class="out">access-list 10 permit any</span>
+<span class="cmt"># Χωρίς "permit any", το implicit deny θα έκλεινε ΟΛΟΥΣ.</span>
+
+<span class="cmt"># 2. Εφάρμοσέ το OUTBOUND στο interface που βλέπει τους servers
+#    (standard ACL → κοντά στον προορισμό)</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/2</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip access-group 10 out</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επαλήθευσε: κανόνες + μετρητές hit (ασφαλές)</span>
+<span class="pc">R1#</span> <span class="out">show access-lists 10</span>
+<span class="out">Standard IP access list 10
+    10 deny   192.168.20.0, wildcard bits 0.0.0.255 (43 matches)
+    20 permit any (1287 matches)</span></pre>
+  </div>
+
+  <p><strong>Η κατεύθυνση είναι από τη σκοπιά του router.</strong> <code>in</code> = πακέτα που φτάνουν σε αυτό το interface από το καλώδιο· <code>out</code> = πακέτα που ο router πάει να στείλει έξω από αυτό. Το να το μπερδέψεις είναι το δεύτερο πιο συχνό bug σε ACL μετά τα wildcard masks.</p>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Extended ACL — Ταιριασε με Ακριβεια</h2>
+  <p class="section-thesis"><em>Πρωτόκολλο, source, destination, port. Τα extended ACL εκφράζουν πραγματική πολιτική: «οι guest παίρνουν web και DNS, και τίποτα άλλο προς το LAN.»</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — extended ACL, εφαρμοσμενο κοντα στην πηγη (guest VLAN in)</span>
+    <pre class="term"><span class="cmt"># Named extended ACL — χρησιμοποίησε ονόματα για ό,τι είναι μόνιμο</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list extended GUEST-IN</span>
+
+<span class="cmt"># Επίτρεψε DNS και web προς το internet, κλείσε τα πάντα προς το LAN</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit udp 192.168.20.0 0.0.0.255 any eq 53</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit tcp 192.168.20.0 0.0.0.255 any eq 443</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit tcp 192.168.20.0 0.0.0.255 any eq 80</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">deny   ip  192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">deny   ip  192.168.20.0 0.0.0.255 192.168.99.0 0.0.0.255</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit ip  192.168.20.0 0.0.0.255 any</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Εφάρμοσέ το INBOUND στο interface που βλέπει τους guest (extended → κοντά στην πηγή)</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/1.20</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">ip access-group GUEST-IN in</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Η Σειρα ΕΙΝΑΙ Πολιτικη: Permits Πριν το Deny που θα Χτυπουσαν</span>
+    <p>Κερδίζει το πρώτο ταίριασμα, οπότε η <em>θέση</em> ενός κανόνα είναι μέρος της πολιτικής. Στο <code>GUEST-IN</code>, τα permit web/DNS κάθονται πάνω από τα deny του LAN — αντάλλαξέ τα και οι guest χάνουν DNS αν ο DNS server σου ζει στο εύρος του LAN. Όταν ένα ACL φέρεται παράξενα, διάβασέ το από πάνω προς τα κάτω όπως θα το έκανε το πακέτο: το <code>show access-lists</code> δείχνει μετρητές match ανά γραμμή, και η γραμμή που απορροφά τα hits είναι εκεί που πραγματικά προσγειώνεται η κίνησή σου — συχνά όχι η γραμμή που νόμιζες.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — established, και Logging των Deny</span>
+    <p>Δύο λέξεις-κλειδιά αξίζει να τις ξέρεις από νωρίς. Το <code>permit tcp any any established</code> ταιριάζει μόνο πακέτα TCP που ανήκουν σε ήδη ξεκινημένες συνομιλίες (με ACK/RST)— η κλασική γραμμή «οι απαντήσεις μπορούν να γυρίσουν, αλλά οι εξωτερικοί δεν μπορούν να ξεκινήσουν» σε ένα inbound ACL του WAN. Και το να προσθέσεις <code>log</code> σε ένα deny (<code>deny ip any any log</code> ως τη ρητή τελευταία σου γραμμή) κάνει το αόρατο ορατό: παίρνεις μια εγγραφή syslog για κάθε drop, που μετατρέπει το «η εφαρμογή δεν δουλεύει» σε «το ACL ρίχνει TCP/8443 από .20.14, πρόσθεσε ένα permit.» Ένα ρητό τελικό deny με <code>log</code> δεν κοστίζει τίποτα και αντικαθιστά τις εικασίες με αποδείξεις.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Επεξεργασια ACL — Αριθμοι Ακολουθιας</h2>
+  <p class="section-thesis"><em>Ο παλιός πόνος: τα numbered ACL δεν επεξεργάζονταν — έσβηνες και ξαναέγραφες όλη τη λίστα. Το named ACL config mode το διορθώνει με αριθμούς ακολουθίας. Γι' αυτό χρησιμοποιείς named ACL.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — εισαγωγη, διαγραφη, και επαναριθμηση χειρουργικα</span>
+    <pre class="term"><span class="cmt"># Οι γραμμές είναι αριθμημένες 10, 20, 30... — τα κενά είναι για εισαγωγές</span>
+<span class="pc">R1#</span> <span class="out">show access-lists GUEST-IN</span>
+<span class="out">Extended IP access list GUEST-IN
+    10 permit udp 192.168.20.0 0.0.0.255 any eq domain
+    20 permit tcp 192.168.20.0 0.0.0.255 any eq 443
+    30 permit tcp 192.168.20.0 0.0.0.255 any eq www
+    40 deny ip 192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255</span>
+
+<span class="cmt"># Εισάγαγε έναν νέο κανόνα ΑΝΑΜΕΣΑ στο 10 και το 20 — δώσ' του sequence 15</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list extended GUEST-IN</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">15 permit udp 192.168.20.0 0.0.0.255 any eq 123</span>   <span class="cmt"># NTP</span>
+
+<span class="cmt"># Διάγραψε μία γραμμή με τον αριθμό ακολουθίας της — οι υπόλοιπες μένουν ανέγγιχτες</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">no 30</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Τελείωσαν τα κενά; Επαρίθμησε ξανά: ξεκίνα στο 10, βήμα 10</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list resequence GUEST-IN 10 10</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το "no access-list 110" Διαγραφει ΟΛΟΚΛΗΡΗ την Numbered Λιστα</span>
+    <p>Σε ένα κλασικό numbered ACL, το να γράψεις <code>no access-list 110 deny …</code> με σκοπό να αφαιρέσεις μία γραμμή αφαιρεί <strong>ολόκληρο το ACL 110</strong> — και ένα interface με <code>ip access-group 110 in</code> τώρα δεν φιλτράρει τίποτα (ένα εφαρμοσμένο-αλλά-ανύπαρκτο ACL επιτρέπει τα πάντα). Αν αυτό το ACL ήταν το φίλτρο WAN σου, μόλις άνοιξες τον router. Επεξεργάσου numbered ACL μόνο ξαναγράφοντάς τα offline και κάνοντας paste· καλύτερα, χρησιμοποίησε named ACL και αριθμούς ακολουθίας και μην αντιμετωπίσεις ποτέ το πρόβλημα.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Προστασια του Ιδιου του Router — VTY Access-Class</h2>
+  <p class="section-thesis"><em>Το πιο σημαντικό ACL σε κάθε συσκευή είναι αυτό που αποφασίζει ποιος μπορεί καν να δοκιμάσει SSH. Ένα interface ACL φιλτράρει κίνηση διέλευσης· το access-class στις γραμμές VTY φυλάει το management plane από κάθε κατεύθυνση ταυτόχρονα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — διαχειριση SSH κλειδωμενη στο admin subnet</span>
+    <pre class="term"><span class="cmt"># Ένα standard ACL φτάνει εδώ — μας νοιάζει μόνο το ΠΟΙΟΣ (source)</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list standard MGMT-ONLY</span>
+<span class="pc">R1(config-std-nacl)#</span> <span class="out">permit 192.168.99.0 0.0.0.255</span>
+<span class="pc">R1(config-std-nacl)#</span> <span class="out">deny any log</span>
+<span class="pc">R1(config-std-nacl)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Εφάρμοσε με access-class στις γραμμές VTY — όχι ip access-group</span>
+<span class="pc">R1(config)#</span> <span class="out">line vty 0 4</span>
+<span class="pc">R1(config-line)#</span> <span class="out">access-class MGMT-ONLY in</span>
+<span class="pc">R1(config-line)#</span> <span class="out">end</span>
+
+<span class="cmt"># Τώρα απόπειρες SSH από οπουδήποτε εκτός 192.168.99.0/24 απορρίπτονται
+# στη γραμμή — ανεξάρτητα από ποιο interface έφτασαν.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Γιατι το access-class Νικαει τα Interface ACL για Διαχειριση</span>
+    <p>Θα μπορούσες να προσθέσεις γραμμές «deny SSH στον router» σε κάθε interface ACL — και να ξεχάσεις μία, που είναι ακριβώς αυτό που μετράνε οι επιτιθέμενοι. Το <code>access-class</code> κάθεται στις ίδιες τις γραμμές VTY, οπότε καλύπτει κάθε τρέχον και μελλοντικό interface σε ένα μέρος. Αυτό συνδυάζεται με το setup SSH από το <a href="cisco-first-contact.html">First Contact</a>: το <code>transport input ssh</code> αποφασίζει <em>πώς</em> μπορείς να συνδεθείς, το <code>access-class</code> αποφασίζει <em>από πού</em>. Σε εξοπλισμό που παραδίδουμε, και τα δύο είναι μη-διαπραγματεύσιμα.</p>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">Ελεγχος &amp; Troubleshooting <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Τρεις ερωτήσεις λύνουν τα περισσότερα tickets ACL: τι λένε στην πράξη οι κανόνες, ποια γραμμή χτυπάει η κίνηση, και είναι το ACL εφαρμοσμένο εκεί που νομίζεις.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Απανταει</th></tr></thead>
+    <tbody>
+      <tr><td>show access-lists</td><td>Κάθε ACL με μετρητές match ανά γραμμή — η αλήθεια στο έδαφος.</td></tr>
+      <tr><td>show access-lists GUEST-IN</td><td>Οι γραμμές και οι μετρητές ενός ACL.</td></tr>
+      <tr><td>show ip interface gi0/1</td><td>Ποιο ACL είναι εφαρμοσμένο σε αυτό το interface, και προς ποια κατεύθυνση.</td></tr>
+      <tr><td>show run | section access-list</td><td>Τα ACL όπως έχουν ρυθμιστεί, μαζί με τα remarks.</td></tr>
+      <tr><td>show run | section line vty</td><td>Επιβεβαιώνει το access-class που φυλάει τη διαχείριση.</td></tr>
+      <tr><td>clear access-list counters</td><td>Μηδένισε τους μετρητές match πριν από ένα test, ώστε τα hits να είναι ξεκάθαρα.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — το τελετουργικο debugging με μετρητες</span>
+    <pre class="term"><span class="cmt"># 1. Μηδένισε τους μετρητές</span>
+<span class="pc">R1#</span> <span class="out">clear access-list counters GUEST-IN</span>
+
+<span class="cmt"># 2. Αναπαρήγαγε το πρόβλημα (βάλε τον χρήστη να ξαναδοκιμάσει / στείλε την κίνηση)</span>
+
+<span class="cmt"># 3. Διάβασε ποια γραμμή κουνήθηκε</span>
+<span class="pc">R1#</span> <span class="out">show access-lists GUEST-IN</span>
+<span class="out">    ...
+    40 deny ip 192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255 (17 matches)</span>
+<span class="cmt"># 17 νέα matches στη γραμμή 40 — η κίνηση τρώγεται από το deny του LAN.
+# Η απόφαση είναι τώρα ενημερωμένη: εισάγαγε permit πάνω από το 40, ή επιβεβαίωσε ότι είναι πολιτική.</span></pre>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num">08</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Φιλοσοφια Φιλτρου</h2>
+  <p class="section-thesis"><em>Οι κανόνες firewall του RouterOS και τα ACL του IOS λύνουν το ίδιο πρόβλημα με διαφορετικές μηχανές — το ένα είναι stateful by default, το άλλο μια stateless λίστα που την κάνεις πιο έξυπνη.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>/ip firewall filter rule</td><td>Μια γραμμή ACL (permit/deny)</td></tr>
+      <tr><td>chain=forward</td><td>ACL εφαρμοσμένο σε interface διέλευσης (in/out)</td></tr>
+      <tr><td>chain=input (προς τον router)</td><td><code>access-class</code> στο VTY + πολιτικές control-plane</td></tr>
+      <tr><td>connection-state=established,related</td><td><code>permit tcp any any established</code> (μόνο TCP, πιο ακατέργαστο)</td></tr>
+      <tr><td>src-address=192.168.10.0/24</td><td><code>192.168.10.0 0.0.0.255</code> (wildcard, όχι CIDR)</td></tr>
+      <tr><td>log=yes</td><td>λέξη-κλειδί <code>log</code> στη γραμμή ACL</td></tr>
+      <tr><td>Κανόνες αξιολογούνται top-down, πρώτο ταίριασμα</td><td>Ίδιο — και τα δύο καταλήγουν σε implicit drop/deny</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Η Πραγματικη Διαφορα — State</span>
+    <p>Το filter του RouterOS είναι <em>stateful</em> firewall: το connection tracking είναι ενσωματωμένο, και το <code>established,related</code> χειρίζεται κίνηση επιστροφής για κάθε πρωτόκολλο. Τα κλασικά ACL του IOS είναι <em>stateless</em> — κάθε πακέτο κρίνεται μόνο του, και το <code>established</code> προσεγγίζει το state μόνο για TCP. Αυτό είναι εντάξει για segmentation και έλεγχο management-plane, που είναι γι' αυτό που φτιάχτηκαν τα ACL. Όταν ένα site χρειάζεται πραγματικό stateful edge σε Cisco, αυτό είναι το Zone-Based Firewall (ή μια αποκλειστική συσκευή firewall) — διαφορετικό εργαλείο, και θέμα για αργότερα σε αυτή τη σειρά.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Top-down, πρώτο ταίριασμα, αόρατο deny στο τέλος.</strong> Αυτή η μοναδική πρόταση είναι όλη η μηχανή ACL. Κάθε μπερδεμένη συμπεριφορά ξαναγυρνάει σε μία από τις τρεις προτάσεις της.</li>
+      <li><strong>Τα wildcard masks είναι αντεστραμμένα subnet masks.</strong> 0 = πρέπει να ταιριάξει, 1 = αδιάφορο· <code>/24 → 0.0.0.255</code>. Το να γράψεις subnet mask από συνήθεια δεν βγάζει σφάλμα — απλώς ταιριάζει σιωπηλά λάθος πράγμα.</li>
+      <li><strong>Standard κοντά στον προορισμό, extended κοντά στην πηγή.</strong> Ο κανόνας τοποθέτησης προκύπτει από το τι βλέπει κάθε τύπος. Και θυμήσου η κατεύθυνση είναι η οπτική του router: <code>in</code> φτάνει, <code>out</code> φεύγει.</li>
+      <li><strong>Χρησιμοποίησε named ACL με αριθμούς ακολουθίας.</strong> Εισαγωγή με <code>15 permit …</code>, διαγραφή με <code>no 30</code>, τακτοποίηση με <code>resequence</code>. Τα numbered ACL διαγράφονται ολικά — το <code>no access-list 110</code> αφαιρεί όλη τη λίστα και αποτυγχάνει ανοιχτά.</li>
+      <li><strong>Ένα ACL που δεν εφαρμόζεται δεν φιλτράρει τίποτα.</strong> Χτίσε, μετά <code>ip access-group … in|out</code> — και επαλήθευσε με <code>show ip interface</code>, όχι από μνήμης.</li>
+      <li><strong>Το management plane παίρνει το δικό του ACL.</strong> Το <code>access-class</code> στις γραμμές VTY περιορίζει ποιος μπορεί καν να δοκιμάσει SSH, σε κάθε interface ταυτόχρονα. Είναι οι πέντε γραμμές ασφάλειας με τη μεγαλύτερη αξία στη συσκευή.</li>
+      <li><strong>Κάνε debug με μετρητές, όχι θεωρίες.</strong> <code>clear access-list counters</code>, αναπαρήγαγε, <code>show access-lists</code> — η γραμμή που κουνήθηκε είναι η υπεύθυνη γραμμή. Πρόσθεσε <code>log</code> σε ρητά deny και τα drops σταματούν να είναι μυστήριο.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Χρειαζεσαι πραγματικο segmentation για γραφειο, ξενοδοχειο ή SMB στην Κρητη;</h3>
+    <p>Ένα ACL που δεν καταλαβαίνει κανείς μένει εκεί για πάντα, σωστό ή όχι. Γράφω πολιτικές φιλτραρίσματος σε Cisco και MikroTik με ενσωματωμένη απομόνωση guest και κλείδωμα management-plane, και τεκμηριώνω κάθε γραμμή με τον λόγο που υπάρχει, ώστε η πολιτική να επιβιώνει τον επόμενο που θα την αγγίξει.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

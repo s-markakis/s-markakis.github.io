@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco Wireless: The Lightweight AP Architecture — S. Markakis</title>
+<meta name="description" content="Ασύρματο Cisco βασισμένο σε controller — πώς ένα lightweight AP ανακαλύπτει και συνδέεται σε WLC μέσω CAPWAP (DHCP option 43/DNS/broadcast), το μοντέλο tag του Catalyst 9800 για ρύθμιση όλου του στόλου, FlexConnect για κλάδους, και VLAN-ανά-SSID.">
+<meta property="og:title" content="Cisco Wireless: The Lightweight AP Architecture — S. Markakis">
+<meta property="og:description" content="Ασύρματο Cisco βασισμένο σε controller — πώς ένα lightweight AP ανακαλύπτει και συνδέεται σε WLC μέσω CAPWAP (DHCP option 43/DNS/broadcast), το μοντέλο tag του Catalyst 9800 για ρύθμιση όλου του στόλου, FlexConnect για κλάδους, και VLAN-ανά-SSID.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-wireless-ap-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-wireless-ap.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-wireless-ap.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-wireless-ap-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-wireless-ap.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-wireless-ap-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-wireless-ap.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco Wireless: The Lightweight AP Architecture",
+  "description": "Ασύρματο Cisco βασισμένο σε controller — πώς ένα lightweight AP ανακαλύπτει και συνδέεται σε WLC μέσω CAPWAP (DHCP option 43/DNS/broadcast), το μοντέλο tag του Catalyst 9800 για ρύθμιση όλου του στόλου, FlexConnect για κλάδους, και VLAN-ανά-SSID.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-wireless-ap-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-wireless-ap.png",
+  "keywords": [
+    "cisco",
+    "wireless"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-wireless-ap"
+  },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-wireless-ap.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>Cisco / Wireless</span> &nbsp;·&nbsp; Config AP &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco Wireless<br>Η Αρχιτεκτονικη Lightweight AP</h1>
+  <p class="post-subtitle">Το σύγχρονο ασύρματο Cisco είναι βασισμένο σε controller: τα access points είναι σκόπιμα χαζά, και ένας Wireless LAN Controller είναι ο εγκέφαλος στον οποίο κάνουν όλα tunnel πίσω. Έτσι δουλεύει πραγματικά αυτή η αρχιτεκτονική — πώς ένα lightweight AP βρίσκει και συνδέεται στον controller του μέσω CAPWAP, το μοντέλο tag του Catalyst 9800 που ρυθμίζει όλο τον στόλο ταυτόχρονα, και το FlexConnect για κλάδους.</p>
+  <div class="tags">
+    <span class="tag">Cisco</span>
+    <span class="tag">Wireless</span>
+    <span class="tag">Lightweight AP</span>
+    <span class="tag">CAPWAP</span>
+    <span class="tag">Catalyst 9800</span>
+    <span class="tag">WLC</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="200" fill="#e1ded7"/>
+      <rect x="290" y="24" width="140" height="50" rx="6" fill="#cfe0ee" stroke="#293d54" stroke-width="2"/>
+      <text x="360" y="45" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#293d54;text-anchor:middle;">WLC (9800)</text>
+      <text x="360" y="61" style="font-family:ui-monospace,monospace;font-size:8px;fill:#293d54;text-anchor:middle;">ο εγκέφαλος · όλο το config</text>
+      <g style="font-family:ui-monospace,monospace;font-size:8px;">
+        <rect x="60"  y="140" width="120" height="42" rx="5" fill="#fff" stroke="#3a5a78"/><text x="120" y="158" text-anchor="middle" style="font-weight:700;">Lightweight AP</text><text x="120" y="172" text-anchor="middle">χωρίς τοπικό config</text>
+        <rect x="300" y="140" width="120" height="42" rx="5" fill="#fff" stroke="#3a5a78"/><text x="360" y="158" text-anchor="middle" style="font-weight:700;">Lightweight AP</text><text x="360" y="172" text-anchor="middle">χωρίς τοπικό config</text>
+        <rect x="540" y="140" width="120" height="42" rx="5" fill="#fff" stroke="#3a5a78"/><text x="600" y="158" text-anchor="middle" style="font-weight:700;">Lightweight AP</text><text x="600" y="172" text-anchor="middle">χωρίς τοπικό config</text>
+      </g>
+      <g stroke="#c63d1f" stroke-width="2" stroke-dasharray="5,3" fill="none">
+        <path d="M330 74 Q 200 100 120 140"/>
+        <path d="M360 74 L360 140"/>
+        <path d="M390 74 Q 520 100 600 140"/>
+      </g>
+      <text x="230" y="104" style="font-family:ui-monospace,monospace;font-size:8.5px;fill:#c63d1f;">CAPWAP tunnel</text>
+      <text x="360" y="196" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Κάθε AP χτίζει ένα CAPWAP tunnel προς τον controller και κατεβάζει το config του. Ρύθμισε το WLC, όχι τα AP.</text>
+    </svg>
+  </div>
+
+  <div class="thesis-card">
+    <p>Όλο το νόημα της lightweight αρχιτεκτονικής είναι <strong>ρύθμισε τον στόλο, όχι τη συσκευή</strong>. Ένα lightweight AP δεν κρατάει δικό του SSID, κλειδί, ή αντιστοίχιση VLAN — κάνει boot, βρίσκει έναν <strong>Wireless LAN Controller</strong>, χτίζει ένα tunnel <strong>CAPWAP</strong> προς αυτόν (ένα κανάλι ελέγχου συν, στο default mode, ένα data tunnel), και κατεβάζει τα πάντα. Αντικατέστησε ένα νεκρό AP με ένα καινούργιο του ίδιου μοντέλου και κληρονομεί το config αυτόματα. Ένας controller — ένα hardware Catalyst&nbsp;9800, το εικονικό <strong>9800-CL</strong>, ή ένας ενσωματωμένος controller σε ένα switch — οδηγεί δεκάδες ή εκατοντάδες AP από ένα μέρος.</p>
+    <p>Δύο πράγματα να εσωτερικεύσεις: <strong>πώς το AP ανακαλύπτει το WLC</strong> (δεν είναι μαγεία — DHCP option 43, DNS, ή subnet broadcast), και το <strong>μοντέλο tag</strong> του 9800, που είναι το πώς στέλνεις config σε ομάδες AP ταυτόχρονα. Τα autonomous AP (IOS πάνω στο AP) υπάρχουν ακόμα για μεμονωμένα μικροσκοπικά sites, αλλά είναι πλέον η εξαίρεση — το lightweight μοντέλο είναι το πραγματικό ασύρματο Cisco. Είναι το απευθείας ανάλογο του κεντρικοποιημένου <a href="mikrotik-capsman.html">CAPsMAN</a> του MikroTik, έναντι ενός μοναχικού <a href="mikrotik-ap.html">standalone AP</a>.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li><a href="cisco-vlans-trunking.html">VLAN</a> και <a href="cisco-dhcp-nat.html">DHCP</a> — το AP παίρνει διεύθυνση και κάθε SSID αντιστοιχίζεται σε VLAN</li>
+      <li>Ένα WLC (hardware 9800, εικονικό 9800-CL, ή ενσωματωμένο) και lightweight AP ικανά για CAPWAP</li>
+      <li>Το config είναι ενδεικτικό — το syntax του 9800 είναι ανά έκδοση· επιβεβαίωσε στη δική σου σειρά</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Πως ενα AP Βρισκει τον Controller του — CAPWAP Join</h2>
+  <p class="section-thesis"><em>Πριν δουλέψει οτιδήποτε ασύρματο, το AP πρέπει να <strong>ανακαλύψει</strong> και να <strong>συνδεθεί</strong> στο WLC. Αυτό είναι το βήμα που αποτυγχάνει σιωπηλά σε μια φρέσκια ανάπτυξη, οπότε κατάλαβε τη σειρά ανακάλυψης.</em></p>
+  <p>Ένα εργοστασιακό lightweight AP κάνει boot, παίρνει IP μέσω DHCP, μετά κυνηγάει έναν controller με αυτή τη σειρά: μια τιμή <strong>DHCP option 43</strong> (το IP διαχείρισης του WLC, δοσμένο από τον DHCP server σου), μια αναζήτηση <strong>DNS</strong> του <code>CISCO-CAPWAP-CONTROLLER.&lt;domain&gt;</code>, μετά ένα <strong>τοπικό subnet broadcast</strong>. Όποιο επιλυθεί του δίνει τη διεύθυνση WLC· χτίζει το tunnel CAPWAP, το WLC ελέγχει αν επιτρέπεται να συνδεθεί, στέλνει μια εικόνα αν διαφέρουν οι εκδόσεις, μετά το config. Κάν' το σωστά και το AP «απλώς εμφανίζεται» στον controller.</p>
+  <div class="term-wrap">
+    <span class="term-label">Η πιο αξιοπιστη διαδρομη ανάμεσα σε subnets — DHCP option 43</span>
+    <pre class="term"><span class="cmt"># Στον DHCP server για το VLAN του AP, δώσε το IP mgmt του WLC στο option 43.
+# Σε IOS DHCP, sub-option f1 + hex της διεύθυνσης/ων του controller:</span>
+<span class="pc">R1(config)#</span> <span class="out">ip dhcp pool AP-VLAN</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">option 43 hex f104.0a0a.0002</span>   <span class="cmt"># f1 04 = 1 WLC, 0a0a0002 = 10.10.0.2</span>
+<span class="cmt"># (Οι servers MikroTik/άλλοι DHCP ορίζουν το ίδιο payload option 43.)
+# Μετά στο WLC, επιβεβαίωσε ότι συνδέθηκε το AP:</span>
+<span class="pc">WLC#</span> <span class="out">show ap summary</span>          <span class="cmt"># το AP εμφανίζεται εδώ μόλις ανέβει το CAPWAP</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το «Το AP Δεν Συνδεεται» Ειναι Σχεδον Παντα Discovery ή Χρονος</span>
+    <p>Δύο τρόποι αστοχίας κυριαρχούν στις φρέσκιες συνδέσεις. <strong>Discovery:</strong> το AP είναι σε διαφορετικό subnet από το WLC και δεν υπάρχει εγγραφή option 43 / DNS, οπότε δεν μαθαίνει ποτέ τη διεύθυνση του controller — απλώς κάθεται εκεί. Διόρθωσε τη διαδρομή discovery για το VLAN του AP. <strong>Χρόνος/πιστοποιητικά:</strong> το CAPWAP κάνει authenticate με πιστοποιητικά, και αν το ρολόι του AP ή του WLC είναι τρελά λάθος (ή έχει λήξει το πιστοποιητικό ενός AP σε πολύ παλιό εξοπλισμό), η σύνδεση αποτυγχάνει με σφάλμα TLS. Βεβαιώσου ότι το <a href="cisco-observability.html">NTP</a> είναι σωστό στο WLC. Έλεγξε <code>show ap join stats</code> — σου λέει ακριβώς ποια φάση απέτυχε.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Ρυθμισε τον Στολο — το Μοντελο Tag του 9800</h2>
+  <p class="section-thesis"><em>Στον controller ορίζεις επαναχρησιμοποιήσιμα δομικά στοιχεία και τα δένεις με tags σφραγισμένα πάνω σε AP. Τρία αντικείμενα σε βάζουν στον αέρα: ένα WLAN, ένα policy profile, και ένα policy tag.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">C9800 — WLAN + policy profile + policy tag</span>
+    <pre class="term"><span class="cmt"># 1. WLAN: το SSID + ασφάλεια.</span>
+<span class="pc">WLC(config)#</span> <span class="out">wlan CORP-WLAN 1 CORP</span>
+<span class="pc">WLC(config-wlan)#</span> <span class="out">security wpa psk set-key ascii 0 S3cr3t-WiFi-Key</span>
+<span class="pc">WLC(config-wlan)#</span> <span class="out">security wpa wpa2 ; no shutdown</span>
+
+<span class="cmt"># 2. Policy profile: πού προσγειώνονται οι clients (VLAN) + συμπεριφορά.</span>
+<span class="pc">WLC(config)#</span> <span class="out">wireless profile policy CORP-POLICY</span>
+<span class="pc">WLC(config-wireless-policy)#</span> <span class="out">vlan 10 ; no shutdown</span>
+
+<span class="cmt"># 3. Το policy tag δένει WLAN -> policy· σφράγισέ το σε AP (ή σε ολόκληρη ομάδα).</span>
+<span class="pc">WLC(config)#</span> <span class="out">wireless tag policy CORP-TAG</span>
+<span class="pc">WLC(config-policy-tag)#</span> <span class="out">wlan CORP-WLAN policy CORP-POLICY</span>
+<span class="pc">WLC(config)#</span> <span class="out">ap 00aa.bbcc.ddee policy-tag CORP-TAG</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Τρια Tags, και Γιατι Υπαρχουν</span>
+    <p>Το 9800 χρησιμοποιεί τρεις τύπους tag και μαζί είναι η μαγεία διαχείρισης στόλου: το <strong>policy tag</strong> (ποια WLAN/policies τρέχει ένα AP), το <strong>RF tag</strong> (profile ραδιοσυχνότητας — ισχύς, κανάλια), και το <strong>site tag</strong> (ποιες ρυθμίσεις controller/flex και profile σύνδεσης AP). Όρισέ τα μία φορά, σφράγισέ τα σε ομάδες AP, και ένα νέο AP που συνδέεται κληρονομεί τα πάντα τη στιγμή που εφαρμόζεις τα tags του. Φαίνεται βαρύ για ένα μοναδικό SSID αλλά είναι ακριβώς ο λόγος που ένας μηχανικός μπορεί να τρέχει ένα campus 200 AP — η ίδια ιδέα «ρύθμισε τον στόλο» με τους κανόνες provisioning του <a href="mikrotik-capsman.html">CAPsMAN</a> του MikroTik.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Κλαδοι — FlexConnect &amp; Τοπικο Switching</h2>
+  <p class="section-thesis"><em>By default ένα lightweight AP κάνει tunnel <em>όλα</em> τα δεδομένα client πίσω στο WLC (central switching). Για έναν κλάδο με το WLC του σε μακρινό datacenter, αυτή είναι τρομερή διαδρομή. Το FlexConnect αφήνει το AP να κάνει switch την κίνηση client τοπικά ενώ παραμένει κεντρικά διαχειριζόμενο.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">C9800 — ενα profile κλαδου FlexConnect (τοπικο switching)</span>
+    <pre class="term"><span class="cmt"># Στο central switching, ένας guest στον κλάδο κάνει hairpin στο WLC του HQ και πίσω
+# μόνο για να φτάσει τον εκτυπωτή του κλάδου. Το FlexConnect το κάνει switch τοπικά αντ' αυτού.</span>
+<span class="pc">WLC(config)#</span> <span class="out">wireless profile flex BRANCH-FLEX</span>
+<span class="pc">WLC(config-wireless-flex-profile)#</span> <span class="out">native-vlan-id 1</span>
+<span class="pc">WLC(config)#</span> <span class="out">wireless profile policy CORP-POLICY</span>
+<span class="pc">WLC(config-wireless-policy)#</span> <span class="out">no central switching</span>   <span class="cmt"># κάνε switch τα δεδομένα client στο AP</span>
+<span class="pc">WLC(config-wireless-policy)#</span> <span class="out">no central dhcp</span>
+<span class="cmt"># Δέσε το BRANCH-FLEX μέσω του site tag στα AP του κλάδου. Μπόνους: τα AP
+# FlexConnect μπορούν να συνεχίσουν να εξυπηρετούν γνωστά SSID ακόμα κι αν πέσει το WAN προς το WLC.</span></pre>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">VLAN-ανα-SSID &amp; Επαληθευση <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Αντιστοίχισε κάθε SSID στο δικό του VLAN — guest/staff/IoT διαχωρισμένα, ακριβώς όπως το ενσύρματο — μετά επιβεβαίωσε ότι συνδέθηκαν τα AP, τα WLAN είναι up, και οι clients προσγειώνονται εκεί που πρέπει.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">C9800 — ενα WLAN guest + ο ελεγχος υγειας</span>
+    <pre class="term"><span class="pc">WLC(config)#</span> <span class="out">wlan GUEST-WLAN 2 GUEST</span>
+<span class="pc">WLC(config-wlan)#</span> <span class="out">security wpa psk set-key ascii 0 Guest-Pass ; security wpa wpa2 ; no shutdown</span>
+<span class="pc">WLC(config)#</span> <span class="out">wireless profile policy GUEST-POLICY</span>
+<span class="pc">WLC(config-wireless-policy)#</span> <span class="out">vlan 20 ; no shutdown</span>   <span class="cmt"># απομονωμένο VLAN guest</span>
+
+<span class="cmt"># --- Επαλήθευση ---</span>
+<span class="pc">WLC#</span> <span class="out">show ap summary</span>              <span class="cmt"># AP συνδεδεμένα (CAPWAP up), μοντέλο, uptime</span>
+<span class="pc">WLC#</span> <span class="out">show ap join stats</span>           <span class="cmt"># πρώτη στάση όταν ένα AP δεν συνδέεται</span>
+<span class="pc">WLC#</span> <span class="out">show wireless client summary</span>  <span class="cmt"># clients, το WLAN τους + ανατεθειμένο VLAN</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Lightweight = ρύθμισε τον στόλο, όχι τη συσκευή.</strong> Τα AP δεν κρατάνε τοπικό config· κάνουν tunnel σε ένα WLC μέσω CAPWAP και κατεβάζουν τα πάντα.</li>
+      <li><strong>Το discovery είναι το βήμα που αποτυγχάνει σιωπηλά</strong> — DHCP option 43, DNS, ή subnet broadcast δίνουν στο AP τη διεύθυνση του WLC. Ανάμεσα σε subnets, χρησιμοποίησε option 43.</li>
+      <li><strong>Το «δεν συνδέεται» είναι σχεδόν πάντα discovery ή χρόνος/πιστοποιητικά</strong> — έλεγξε <code>show ap join stats</code> και το NTP του WLC.</li>
+      <li><strong>Το 9800 οδηγείται από tags:</strong> WLAN + policy profile δεμένα με policy tag, με RF και site tags — όρισέ τα μία φορά, σφράγισέ τα σε ομάδες AP.</li>
+      <li><strong>Το FlexConnect κάνει switch την κίνηση client τοπικά</strong> σε AP κλάδων και τα κρατάει να εξυπηρετούν αν πέσει το WAN προς το WLC — μην κάνεις hairpin την κίνηση κλάδου σε απομακρυσμένο controller.</li>
+      <li><strong>Ένα SSID ανά VLAN</strong> για διαχωρισμό guest/staff/IoT, όπως το ενσύρματο.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Ενα campus ή ξενοδοχειο οπου το Wi-Fi ειναι μια στοιβα απο αδιαχειριστα AP;</h3>
+    <p>Σχεδιάζω ασύρματο βασισμένο σε controller πάνω σε Catalyst 9800 και MikroTik &mdash; συνδέσεις CAPWAP που δουλεύουν από την πρώτη φορά, SSID διαχωρισμένα με VLAN, FlexConnect για κλάδους, και roaming που ένα τηλέφωνο δεν καταλαβαίνει καν ότι συμβαίνει.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

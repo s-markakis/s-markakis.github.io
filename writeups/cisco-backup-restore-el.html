@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Backup &amp; Restore — S. Markakis</title>
+<meta name="description" content="Προστάτεψε ένα config Cisco — αποθήκευση σε startup, export σε TFTP/SCP, αυτοματοποίηση με το archive feature και το kron, rollback με configure replace, και ανάκτηση κλειδωμένης συσκευής.">
+<meta property="og:title" content="Cisco IOS: Backup &amp; Restore — S. Markakis">
+<meta property="og:description" content="Προστάτεψε ένα config Cisco — αποθήκευση σε startup, export σε TFTP/SCP, αυτοματοποίηση με το archive feature και το kron, rollback με configure replace, και ανάκτηση κλειδωμένης συσκευής.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-backup-restore-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-backup-restore.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-backup-restore.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-backup-restore-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-backup-restore.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-backup-restore-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-backup-restore.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  /* keyboard shortcut pills */
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  /* cheatsheet table */
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  /* safe badge */
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Backup & Restore",
+  "description": "Προστάτεψε ένα config Cisco — αποθήκευση σε startup, export σε TFTP/SCP, αυτοματοποίηση με το archive feature και το kron, rollback με configure replace, και ανάκτηση κλειδωμένης συσκευής.",
+  "datePublished": "2026-07-10",
+  "dateModified": "2026-07-10",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-backup-restore-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-backup-restore.png",
+  "keywords": [
+    "cisco",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-backup-restore"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-backup-restore.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Backup &amp; Restore</h1>
+  <p class="post-subtitle">Το config ενός router είναι μόνο τόσο ασφαλές όσο το τελευταίο του backup. Αποθήκευσε σε startup, κάνε export εκτός συσκευής σε TFTP ή SCP, αυτοματοποίησέ το με το archive feature και το kron, κάνε rollback σε μια κακή αλλαγή με <code>configure replace</code>, και ανάκτησε μια συσκευή που κανείς δεν έχει τον κωδικό της.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Backup</span>
+    <span class="tag">TFTP</span>
+    <span class="tag">Archive</span>
+    <span class="tag">Config Replace</span>
+    <span class="tag">Recovery</span>
+    <span class="tag">CCNA</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: where config lives -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 180" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="bap" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="180" fill="#e1ded7"/>
+      <rect x="40" y="60" width="170" height="60" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="125" y="86" style="font-family:ui-monospace,monospace;font-size:12px;fill:#c63d1f;font-weight:600;text-anchor:middle;">running-config</text>
+      <text x="125" y="103" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">RAM · ζωντανό τώρα</text>
+      <rect x="275" y="60" width="170" height="60" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="86" style="font-family:ui-monospace,monospace;font-size:12px;fill:#3a5a78;font-weight:600;text-anchor:middle;">startup-config</text>
+      <text x="360" y="103" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">NVRAM · επιβιώνει το reboot</text>
+      <rect x="510" y="60" width="170" height="60" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="595" y="86" style="font-family:ui-monospace,monospace;font-size:12px;fill:#3a6a28;font-weight:600;text-anchor:middle;">TFTP / SCP</text>
+      <text x="595" y="103" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">εκτός συσκευής · επιβιώνει τον θάνατο</text>
+      <line x1="212" y1="90" x2="271" y2="90" style="stroke:#c63d1f;stroke-width:1.6;marker-end:url(#bap)"/>
+      <text x="242" y="80" style="font-family:ui-monospace,monospace;font-size:8px;fill:#c63d1f;text-anchor:middle;">copy run start</text>
+      <line x1="447" y1="90" x2="506" y2="90" style="stroke:#c63d1f;stroke-width:1.6;marker-end:url(#bap)"/>
+      <text x="477" y="80" style="font-family:ui-monospace,monospace;font-size:8px;fill:#c63d1f;text-anchor:middle;">copy … tftp:</text>
+      <text x="360" y="150" style="font-family:'Inter',sans-serif;font-size:10px;fill:#888880;text-anchor:middle;">Η αποθήκευση σε startup επιβιώνει ένα reboot. Μόνο ένα αντίγραφο εκτός συσκευής επιβιώνει ένα νεκρό switch, μια κλοπή, ή ένα λανθασμένο erase.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Υπάρχουν τρία μέρη όπου μπορεί να ζει ένα config Cisco, με αυξανόμενη σειρά ασφάλειας. Το <strong>running-config</strong> (RAM) είναι αυτό που είναι ζωντανό τώρα και πεθαίνει στο reboot. Το <strong>startup-config</strong> (NVRAM) είναι αυτό που κάνει boot και επιβιώνει μια διακοπή ρεύματος. Και ένα <strong>αντίγραφο εκτός συσκευής</strong> — σε έναν server TFTP/SCP ή σε ένα git repo — είναι το μόνο πράγμα που επιβιώνει τον θάνατο της ίδιας της συσκευής, μια κλοπή, ή ένα σβήσιμο από λάθος εντολή.</p>
+    <p>Οι περισσότερες διακοπές που προκαλούνται από «χάσαμε το config» είναι στην πραγματικότητα «αποθηκεύσαμε μόνο σε startup». Αυτό το tutorial καλύπτει και τα τρία επίπεδα, μετά τα κομμάτια που ξεχωρίζουν έναν τεχνικό από έναν επαγγελματία: αυτοματοποίηση backups ώστε να γίνονται χωρίς εσένα, rollback μιας κακής αλλαγής με μία εντολή με <code>configure replace</code>, και ανάκτηση μιας συσκευής όταν ο κωδικός έχει χαθεί εδώ και καιρό.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Άνεση με το IOS CLI και το Privileged EXEC — δες <a href="cisco-first-contact.html">Cisco IOS: First Contact</a></li>
+      <li>Έναν προσβάσιμο server TFTP ή SCP για αντίγραφα εκτός συσκευής (κάθε laptop μπορεί να τρέξει ένα)</li>
+      <li>Για ανάκτηση: φυσική πρόσβαση από console στη συσκευή</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Επιπεδο 1 — Αποθηκευση σε Startup</h2>
+  <p class="section-thesis"><em>Το πρώτο και πιο ξεχασμένο βήμα. Οι αλλαγές σου είναι ζωντανές αλλά ασταθείς μέχρι να αντιγράψεις το running-config στο startup-config. Αυτή είναι η συνήθεια «γράψε wr μετά από κάθε αλλαγή».</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — αποθηκευσε το running config</span>
+    <pre class="term"><span class="cmt"># Η ρητή μορφή</span>
+<span class="pc">R1#</span> <span class="out">copy running-config startup-config</span>
+<span class="out">Destination filename [startup-config]? </span><span class="cmt">← πάτα Enter</span>
+<span class="out">Building configuration...
+[OK]</span>
+
+<span class="cmt"># Η συντόμευση που γράφουν όλοι — ίδιο αποτέλεσμα</span>
+<span class="pc">R1#</span> <span class="out">write memory</span>       <span class="cmt"># ή απλώς:  wr</span>
+
+<span class="cmt"># Άλλαξε κάτι από την τελευταία αποθήκευση; Σύγκρινε τα δύο.</span>
+<span class="pc">R1#</span> <span class="out">show archive config differences nvram:startup-config system:running-config</span>
+<span class="cmt"># Κενό output = το running και το startup ταιριάζουν. Μη κενό = μη αποθηκευμένες αλλαγές.</span></pre>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Επιπεδο 2 — Export Εκτος Συσκευης (TFTP / SCP)</h2>
+  <p class="section-thesis"><em>Η NVRAM πεθαίνει με τη συσκευή. Ένα αντίγραφο εκτός συσκευής είναι το πραγματικό backup. Το TFTP είναι το κλασικό (και ανασφαλές) transport· το SCP είναι η ίδια ιδέα πάνω από SSH και αυτό πρέπει να χρησιμοποιείς σε production.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — αντεγραψε το config σε server TFTP</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">copy running-config tftp:</span>
+<span class="out">Address or name of remote host []? </span><span class="out">192.168.1.50</span>
+<span class="out">Destination filename [r1-confg]? </span><span class="out">R1-2026-07-10.cfg</span>
+<span class="out">!!
+1846 bytes copied in 0.4 secs</span>
+
+<span class="cmt"># Φέρ' το πίσω με τον ίδιο τρόπο (προσοχή — δες την παγίδα merge στην ενότητα 03)</span>
+<span class="pc">R1#</span> <span class="out">copy tftp: running-config</span></pre>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — η ασφαλης εκδοση μεσω SCP (SSH)</span>
+    <pre class="term"><span class="cmt"># Μία γραμμή: πηγή, μετά το πλήρες URL προορισμού scp://</span>
+<span class="pc">R1#</span> <span class="out">copy running-config scp://backup@192.168.1.50/R1-2026-07-10.cfg</span>
+<span class="out">Address or name of remote host [192.168.1.50]? </span>
+<span class="out">Password: </span>
+<span class="out">1846 bytes copied in 0.5 secs</span>
+
+<span class="cmt"># Για να αφήσεις τη συσκευή να ΔΕΧΕΤΑΙ pushes scp, ενεργοποίησε την πλευρά server:</span>
+<span class="pc">R1(config)#</span> <span class="out">ip scp server enable</span>
+<span class="cmt"># (απαιτεί SSH + έναν τοπικό χρήστη AAA — δες την ενότητα SSH του "First Contact")</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Το TFTP Ειναι σε Καθαρο Κειμενο· Μην το Χρησιμοποιεις σε Μη Εμπιστα Links</span>
+    <p>Το TFTP δεν έχει καμία authentication και καμία κρυπτογράφηση — ολόκληρο το config σου, μαζί με τα (αδύναμα) κρυπτογραφημένα hashes κωδικών, διασχίζει το καλώδιο σε καθαρό κείμενο. Είναι εντάξει σε ένα απομονωμένο segment διαχείρισης για μια γρήγορη αντιγραφή, αλλά για οτιδήποτε διασχίζει πραγματικό δίκτυο χρησιμοποίησε <strong>SCP</strong>. Ίδια muscle memory, τυλιγμένη σε SSH. Αν ένα config αξίζει να το κάνεις backup, αξίζει να μην το κάνεις broadcast.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Επαναφορα — Η Παγιδα του Merge</h2>
+  <p class="section-thesis"><em>Η πιο επικίνδυνη παρανόηση στα backup της Cisco. Η αντιγραφή ενός config ΜΕΣΑ στο running-config δεν το αντικαθιστά — το κάνει merge. Αυτό ξαφνιάζει όλους μία φορά, συνήθως οδυνηρά.</em></p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το copy … running-config Κανει MERGE, Δεν Αντικαθιστα</span>
+    <p>Όταν κάνεις <code>copy tftp: running-config</code>, το IOS εφαρμόζει το backup <em>πάνω σε</em> ό,τι ήδη τρέχει. Εντολές που υπάρχουν αντικαθίστανται· εντολές στο ζωντανό config που <em>δεν</em> είναι στο backup μένουν εκεί. Οπότε η επαναφορά ενός παλιού backup δεν επιστρέφει τη συσκευή σε εκείνη την παλιά κατάσταση — παίρνεις ένα τέρας merge και των δύο. Για να αντικαταστήσεις πραγματικά το running config, είτε αντίγραψε στο <strong>startup</strong> και κάνε reload, είτε χρησιμοποίησε <code>configure replace</code> (ενότητα 04).</p>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — οι δυο ειλικρινεις τροποι επαναφορας</span>
+    <pre class="term"><span class="cmt"># Επιλογή Α — επαναφορά στο STARTUP, μετά reboot σε καθαρή κατάσταση</span>
+<span class="pc">R1#</span> <span class="out">copy tftp: startup-config</span>
+<span class="pc">R1#</span> <span class="out">reload</span>
+<span class="cmt"># Η συσκευή κάνει boot εξ ολοκλήρου από το επαναφερμένο αρχείο. Καθαρό, αλλά ένα reboot.</span>
+
+<span class="cmt"># Επιλογή Β — αντικατάστησε το RUNNING config ζωντανά, χωρίς reboot (ενότητα 04)</span>
+<span class="pc">R1#</span> <span class="out">configure replace tftp://192.168.1.50/R1-good.cfg</span></pre>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Το Archive Feature &amp; Rollback με Μια Εντολη</h2>
+  <p class="section-thesis"><em>Το IOS μπορεί να κρατάει αυτόματα versioned snapshots του config και να κάνει rollback σε οποιοδήποτε ζωντανά — χωρίς reboot, χωρίς merge. Αυτό είναι το επαγγελματικό δίχτυ ασφαλείας για ριψοκίνδυνες αλλαγές.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ενεργοποιηση archiving config</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">archive</span>
+<span class="pc">R1(config-archive)#</span> <span class="out">path flash:/archive/R1-config</span>
+<span class="pc">R1(config-archive)#</span> <span class="out">maximum 14</span>          <span class="cmt"># κράτα 14 εκδόσεις</span>
+<span class="pc">R1(config-archive)#</span> <span class="out">time-period 1440</span>     <span class="cmt"># auto-snapshot κάθε 1440 λεπτά (καθημερινά)</span>
+<span class="pc">R1(config-archive)#</span> <span class="out">write-memory</span>         <span class="cmt"># κάνε snapshot και σε κάθε "wr"</span>
+<span class="pc">R1(config-archive)#</span> <span class="out">end</span>
+
+<span class="cmt"># Πάρε ένα snapshot κατά παραγγελία, και δες τι είναι αποθηκευμένο (ασφαλές)</span>
+<span class="pc">R1#</span> <span class="out">archive config</span>
+<span class="pc">R1#</span> <span class="out">show archive</span>
+<span class="out"> The maximum archive configurations allowed is 14.
+ Archive #  Name
+   1        flash:/archive/R1-config-1
+   2        flash:/archive/R1-config-2  &lt;- Πιο Προσφατο</span></pre>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — κανε rollback σε μια κακη αλλαγη με μια εντολη</span>
+    <pre class="term"><span class="cmt"># Έκανες μια αλλαγή, κάτι έσπασε. Γύρνα το RUNNING config πίσω σε
+# ένα γνωστά-καλό snapshot — ζωντανά, χωρίς reboot, πραγματική αντικατάσταση (όχι merge).</span>
+<span class="pc">R1#</span> <span class="out">configure replace flash:/archive/R1-config-1</span>
+<span class="out">This will apply all necessary additions and deletions
+to replace the current running configuration with the
+contents of the specified configuration file, which is
+assumed to be a complete configuration, not a partial
+configuration. Enter Y if you are sure you want to proceed. ? [no]: </span><span class="out">y</span>
+<span class="out">Total number of passes: 1
+Rollback Done</span>
+
+<span class="cmt"># Ακόμα πιο ασφαλές για απομακρυσμένες αλλαγές: auto-rollback αν χάσεις το session</span>
+<span class="pc">R1#</span> <span class="out">configure terminal revert timer 5</span>
+<span class="cmt"># Κάνε τις αλλαγές σου· αν δεν κάνεις "configure confirm" μέσα σε 5 λεπτά,
+# το IOS επαναφέρει αυτόματα. Το αλεξίπτωτό σου για απομακρυσμένη δουλειά config.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Το <code>reload in 5</code> Ειναι το Φτωχικο Auto-Rollback</span>
+    <p>Κανένα archive ρυθμισμένο και πας να κάνεις μια τρομακτική αλλαγή σε απομακρυσμένη συσκευή; Γράψε <code>reload in 5</code> πριν ξεκινήσεις. Αν η αλλαγή σου σε κλειδώσει έξω, η συσκευή κάνει reboot σε 5 λεπτά πίσω στο τελευταίο αποθηκευμένο <code>startup-config</code>. Αν όλα είναι εντάξει, ακύρωσέ το με <code>reload cancel</code>. Είναι πρωτόγονο — κοστίζει ένα reboot και επαναφέρει μόνο στο startup — αλλά έχει σώσει αμέτρητους admin κολλημένους 300 χλμ. μακριά από το rack.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Αυτοματοποιηση Backup με kron</h2>
+  <p class="section-thesis"><em>Ένα backup που πρέπει να θυμάσαι να τρέξεις είναι ένα backup που δεν θα έχεις. Το IOS έχει ενσωματωμένο scheduler — το kron — που μπορεί να στέλνει το config εκτός συσκευής σε χρονοπρογραμματισμό, χωρίς εξωτερικά εργαλεία.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — προγραμματισμενο νυχτερινο export config</span>
+    <pre class="term"><span class="cmt"># 1. Όρισε ΤΙ να τρέξει — μια πολιτική που αντιγράφει το running-config σε SCP</span>
+<span class="pc">R1(config)#</span> <span class="out">kron policy-list NIGHTLY-BACKUP</span>
+<span class="pc">R1(config-kron-policy)#</span> <span class="out">cli copy running-config scp://backup@192.168.1.50/R1-nightly.cfg</span>
+<span class="pc">R1(config-kron-policy)#</span> <span class="out">exit</span>
+
+<span class="cmt"># 2. Όρισε ΠΟΤΕ — κάθε μέρα στις 02:00, επαναλαμβανόμενο</span>
+<span class="pc">R1(config)#</span> <span class="out">kron occurrence NIGHTLY at 2:00 recurring</span>
+<span class="pc">R1(config-kron-occurrence)#</span> <span class="out">policy-list NIGHTLY-BACKUP</span>
+<span class="pc">R1(config-kron-occurrence)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επαλήθευσε το χρονοδιάγραμμα (ασφαλές)</span>
+<span class="pc">R1#</span> <span class="out">show kron schedule</span>
+<span class="out">Kron Occurrence Schedule
+  NIGHTLY inactive, will run again in 0 days 13:41:22</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το kron Τρεχει Εντολες απο Privileged EXEC, Μη Διαδραστικα</span>
+    <p>Το Kron εκτελεί κάθε γραμμή <code>cli</code> σαν να πληκτρολογήθηκε στο prompt <code>#</code> — αλλά δεν υπάρχει άνθρωπος να απαντήσει σε prompts. Εντολές που κάνουν ερώτηση (όπως ένα διαδραστικό <code>copy</code> που ζητάει filename) μπορούν να κολλήσουν. Χρησιμοποίησε πλήρως-ορισμένες μορφές μιας γραμμής με τον προορισμό ενσωματωμένο στο URL, όπως παραπάνω, ώστε τίποτα να μη χρειάζεται απάντηση. Δοκίμασε την ακριβή εντολή στο χέρι μία φορά πριν εμπιστευτείς το χρονοδιάγραμμα.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Backup της Εικονας IOS</h2>
+  <p class="section-thesis"><em>Το config δεν είναι το μόνο πράγμα που αξίζει να σωθεί. Μια κατεστραμμένη ή διαγραμμένη εικόνα IOS μετατρέπει ένα switch σε πρες-παπιέ. Κράτα κι ένα αντίγραφο του .bin εκτός συσκευής.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — τι εχει η flash, και αντιγραφη της εικονας</span>
+    <pre class="term"><span class="cmt"># Δες τα αρχεία εικόνας και τον ελεύθερο χώρο (ασφαλές)</span>
+<span class="pc">R1#</span> <span class="out">show flash:</span>
+<span class="out">-#- --length-- -----date/time------ path
+  1   45088768 Jul 10 2026 09:14:02 c2900-universalk9-mz.SPA.157-3.M9.bin
+  2       1846 Jul 10 2026 10:02:11 R1-2026-07-10.cfg</span>
+
+<span class="cmt"># Αντίγραψε την εικόνα στον server σου (σημείωσε το ακριβές filename από πάνω)</span>
+<span class="pc">R1#</span> <span class="out">copy flash:c2900-universalk9-mz.SPA.157-3.M9.bin tftp:</span>
+<span class="out">Address or name of remote host []? </span><span class="out">192.168.1.50</span>
+<span class="out">!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+45088768 bytes copied in 78.2 secs</span>
+
+<span class="cmt"># Επιβεβαίωσε την ακεραιότητα έναντι του δημοσιευμένου hash της Cisco</span>
+<span class="pc">R1#</span> <span class="out">verify /md5 flash:c2900-universalk9-mz.SPA.157-3.M9.bin</span></pre>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">Ανακτηση Κωδικου <span class="danger-badge">Απαιτειται Console</span></h2>
+  <p class="section-thesis"><em>Κληρονόμησες μια συσκευή που κανείς δεν έχει τον κωδικό της; Δεν τη σβήνεις. Κάνεις boot γύρω από το startup-config χρησιμοποιώντας το configuration register, ανακτάς το config, και επαναφέρεις τους κωδικούς. Η φυσική πρόσβαση από console είναι υποχρεωτική — γι' αυτό ακριβώς έχει σημασία η ασφάλεια του console.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ανακτηση κωδικου router (μεσω ROMMON)</span>
+    <pre class="term"><span class="cmt"># 1. Μπες από console, κάνε power-cycle, και στείλε ένα BREAK κατά το boot για να φτάσεις στο ROMMON</span>
+<span class="out">rommon 1 &gt;</span> <span class="out">confreg 0x2142</span>   <span class="cmt"># πες του να ΑΓΝΟΗΣΕΙ το startup-config στο επόμενο boot</span>
+<span class="out">rommon 2 &gt;</span> <span class="out">reset</span>
+
+<span class="cmt"># 2. Κάνει boot με κενό running-config (setup wizard) — απάντησε όχι. Μετά
+#    φόρτωσε το ΠΡΑΓΜΑΤΙΚΟ config από τη NVRAM στο running ΧΩΡΙΣ να ενεργοποιηθούν οι κωδικοί του:</span>
+<span class="pc">Router&gt;</span> <span class="out">enable</span>
+<span class="pc">Router#</span> <span class="out">copy startup-config running-config</span>   <span class="cmt"># το config σου γύρισε, και είσαι ήδη privileged</span>
+
+<span class="cmt"># 3. Όρισε νέο κωδικό και βεβαιώσου ότι τα interfaces που χρειάζεσαι δεν είναι shut</span>
+<span class="pc">Router#</span> <span class="out">configure terminal</span>
+<span class="pc">Router(config)#</span> <span class="out">enable secret NewStr0ng!Pass</span>
+
+<span class="cmt"># 4. ΚΡΙΣΙΜΟ: επανάφερε το config register ώστε να κάνει boot κανονικά την επόμενη φορά</span>
+<span class="pc">Router(config)#</span> <span class="out">config-register 0x2102</span>
+<span class="pc">Router(config)#</span> <span class="out">end</span>
+
+<span class="cmt"># 5. Αποθήκευσε και κάνε reboot</span>
+<span class="pc">Router#</span> <span class="out">write memory</span>
+<span class="pc">Router#</span> <span class="out">reload</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Μην Ξεχασεις το Βημα 4</span>
+    <p>Αν παραλείψεις το <code>config-register 0x2102</code>, η συσκευή συνεχίζει να αγνοεί το startup-config της σε <em>κάθε</em> μελλοντικό boot — θα ανεβαίνει κενή κάθε φορά και θα νομίζεις ότι η ανάκτηση απέτυχε. Επιβεβαίωσε με <code>show version</code> (η τελευταία γραμμή δείχνει το configuration register). Τα switch χρησιμοποιούν ελαφρώς διαφορετική διαδικασία (κράτα πατημένο το κουμπί MODE κατά το boot, μετά <code>flash_init</code> / <code>rename flash:config.text</code>) αλλά η ιδέα είναι η ίδια: κάνε boot γύρω από το config, ανάκτησέ το, επανάφερε τον κωδικό, επανέφερε κανονικό boot.</p>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num">08</p>
+  <h2 class="section-title">Αναφορα Εντολων</h2>
+  <p class="section-thesis"><em>Οι εντολές backup και ανάκτησης που αξίζει να αποστηθίσεις.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Τι κανει</th></tr></thead>
+    <tbody>
+      <tr><td>copy run start · wr</td><td>Αποθήκευσε το running-config στη NVRAM (επιβιώνει το reboot).</td></tr>
+      <tr><td>copy run tftp: / scp:</td><td>Κάνε export το config εκτός συσκευής. SCP για οτιδήποτε μη έμπιστο.</td></tr>
+      <tr><td>copy tftp: startup-config</td><td>Επαναφορά στο startup — μετά <code>reload</code> για καθαρή αντικατάσταση.</td></tr>
+      <tr><td>configure replace &lt;file&gt;</td><td>Αντικατέστησε το running config ζωντανά — πραγματική αντικατάσταση, χωρίς reboot.</td></tr>
+      <tr><td>archive config</td><td>Πάρε τώρα ένα versioned snapshot config.</td></tr>
+      <tr><td>show archive</td><td>Λίστα αποθηκευμένων εκδόσεων config.</td></tr>
+      <tr><td>show kron schedule</td><td>Δες προγραμματισμένες αυτοματοποιημένες δουλειές.</td></tr>
+      <tr><td>show flash: / dir flash:</td><td>Λίστα αρχείων και ελεύθερου χώρου (config + εικόνα IOS).</td></tr>
+      <tr><td>reload in 5 / reload cancel</td><td>Όπλισε / αφόπλισε ένα reboot ασφαλείας πριν από μια ριψοκίνδυνη αλλαγή.</td></tr>
+      <tr><td>config-register 0x2102</td><td>Κανονικό boot (0x2142 = αγνόησε το startup, για ανάκτηση).</td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Τρία επίπεδα, αυξανόμενη ασφάλεια:</strong> running (RAM) → startup (NVRAM, <code>wr</code>) → εκτός συσκευής (TFTP/SCP/git). Μόνο το τρίτο επιβιώνει τον θάνατο της ίδιας της συσκευής. Οι περισσότερες διακοπές «χάσαμε το config» είναι στην πραγματικότητα «αποθηκεύσαμε μόνο σε startup».</li>
+      <li><strong>Η επαναφορά μέσα στο running-config κάνει MERGE, δεν αντικαθιστά.</strong> Για να επιστρέψεις πραγματικά σε μια παλιά κατάσταση, επανάφερε στο startup και κάνε reload, ή χρησιμοποίησε <code>configure replace</code>. Αυτή η παγίδα δαγκώνει τον καθένα ακριβώς μία φορά.</li>
+      <li><strong>Το archive feature είναι το ζωντανό rollback σου.</strong> Versioned snapshots συν <code>configure replace</code> αναιρούν μια κακή αλλαγή χωρίς reboot και χωρίς merge. Άναψέ το πριν το χρειαστείς.</li>
+      <li><strong>Αυτοματοποίησέ το αλλιώς δεν θα συμβεί.</strong> Το <code>kron</code> στέλνει το config εκτός συσκευής σε πρόγραμμα χωρίς εξωτερικά εργαλεία — χρησιμοποίησε πλήρως-ορισμένες εντολές μιας γραμμής ώστε τίποτα να μην κάνει prompt.</li>
+      <li><strong>Κάνε backup και την εικόνα IOS.</strong> Ένα .bin που λείπει ή είναι κατεστραμμένο μετατρέπει τη συσκευή σε άχρηστη πλάκα. Κράτα ένα αντίγραφο εκτός συσκευής και κάνε <code>verify /md5</code>.</li>
+      <li><strong>Όπλισε ένα αλεξίπτωτο για απομακρυσμένες αλλαγές.</strong> Το <code>configure terminal revert timer</code> ή ένα απλό <code>reload in 5</code> σε ανακτά αυτόματα αν μια αλλαγή κόψει το ίδιο σου το session.</li>
+      <li><strong>Η ανάκτηση χρειάζεται το console.</strong> Μπορείς να επαναφέρεις κάθε κωδικό με φυσική πρόσβαση και το config register — γι' αυτό ακριβώς η θύρα console και η φυσική ασφάλεια είναι μέρος του μοντέλου απειλών σου, όχι ύστερη σκέψη.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Διαχειριζεσαι εξοπλισμο Cisco για γραφειο, ξενοδοχειο ή SMB στην Κρητη;</h3>
+    <p>Ένα νεκρό switch πρέπει να σου κοστίσει είκοσι λεπτά, όχι ένα χαμένο Σαββατοκύριακο ξαναχτίζοντας ένα config από μνήμης. Στήνω αυτοματοποιημένα, εκτός-έδρας backups και διαδικασίες ανάκτησης για κάθε συσκευή που διαχειρίζομαι, και πραγματικά δοκιμάζω την επαναφορά &mdash; όχι μόνο τη δουλειά backup.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

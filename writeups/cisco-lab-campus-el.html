@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco Lab: Το Collapsed-Core Campus — S. Markakis</title>
+<meta name="description" content="Ένα πλήρες campus build σε Packet Tracer — δύο access switches, δύο L3 cores με HSRP και ευθυγραμμισμένα Rapid-PVST roots, ένα LACP core interlink, και ένα NAT edge. Πλήρης τοπολογία, addressing plan, και ασκήσεις αστοχίας.">
+<meta property="og:title" content="Cisco Lab: Το Collapsed-Core Campus — S. Markakis">
+<meta property="og:description" content="Ένα πλήρες campus build σε Packet Tracer — δύο access switches, δύο L3 cores με HSRP και ευθυγραμμισμένα Rapid-PVST roots, ένα LACP core interlink, και ένα NAT edge. Πλήρης τοπολογία, addressing plan, και ασκήσεις αστοχίας.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-lab-campus-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-lab-campus.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-lab-campus.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-lab-campus-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-lab-campus.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-lab-campus-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-lab-campus.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco Lab: Το Collapsed-Core Campus",
+  "description": "Ένα πλήρες campus build σε Packet Tracer — δύο access switches, δύο L3 cores με HSRP και ευθυγραμμισμένα Rapid-PVST roots, ένα LACP core interlink, και ένα NAT edge. Πλήρης τοπολογία, addressing plan, και ασκήσεις αστοχίας.",
+  "datePublished": "2026-08-21",
+  "dateModified": "2026-08-21",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-lab-campus-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-lab-campus.png",
+  "keywords": [
+    "cisco",
+    "labs"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-lab-campus"
+  },
+  "timeRequired": "PT13M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-lab-campus.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / Lab</span> &nbsp;·&nbsp; Σεναριο Lab &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco Lab<br>Το Collapsed-Core Campus</h1>
+  <p class="post-subtitle">Ό,τι έχει διδάξει η σειρά μέχρι τώρα, συναρμολογημένο σε ένα δίκτυο που μπορείς πραγματικά να χτίσεις — σε Packet Tracer, GNS3, ή μια στοίβα μεταχειρισμένων switches. Δύο access switches, δύο Layer-3 cores που μοιράζονται gateway με HSRP, ένα LACP interlink, Rapid-PVST roots ευθυγραμμισμένα με το active gateway, και ένα NAT edge. Μετά το σπάμε επίτηδες και βλέπουμε να επιβιώνει.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Packet Tracer</span>
+    <span class="tag">Lab</span>
+    <span class="tag">HSRP</span>
+    <span class="tag">Rapid-PVST</span>
+    <span class="tag">EtherChannel</span>
+    <span class="tag">Σχεδιασμος Campus</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: full campus topology -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="340" fill="#e1ded7"/>
+      <!-- internet -->
+      <ellipse cx="360" cy="34" rx="70" ry="24" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="360" y="39" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">Internet</text>
+      <!-- edge -->
+      <line x1="360" y1="58" x2="360" y2="86" style="stroke:#888880;stroke-width:1.6;"/>
+      <rect x="300" y="86" width="120" height="40" rx="6" fill="#d4d2cc" stroke="#c63d1f" stroke-width="1.4"/>
+      <text x="360" y="103" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">EDGE (2911)</text>
+      <text x="360" y="117" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">DHCP · NAT overload</text>
+      <!-- routed links to cores -->
+      <line x1="330" y1="126" x2="185" y2="180" style="stroke:#3a5a78;stroke-width:1.8;"/>
+      <line x1="390" y1="126" x2="535" y2="180" style="stroke:#3a5a78;stroke-width:1.8;"/>
+      <text x="235" y="146" style="font-family:ui-monospace,monospace;font-size:8px;fill:#3a5a78;">10.255.0.0/30</text>
+      <text x="415" y="146" style="font-family:ui-monospace,monospace;font-size:8px;fill:#3a5a78;">10.255.0.4/30</text>
+      <!-- cores -->
+      <rect x="90" y="180" width="150" height="48" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="165" y="199" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">CORE-1 (3650)</text>
+      <text x="165" y="213" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">HSRP active + STP root: V10, V99</text>
+      <rect x="480" y="180" width="150" height="48" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="555" y="199" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">CORE-2 (3650)</text>
+      <text x="555" y="213" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">HSRP active + STP root: V20, V30</text>
+      <!-- port-channel interlink -->
+      <line x1="240" y1="198" x2="480" y2="198" style="stroke:#558840;stroke-width:3;"/>
+      <line x1="240" y1="208" x2="480" y2="208" style="stroke:#558840;stroke-width:3;"/>
+      <text x="360" y="192" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a6a28;text-anchor:middle;font-weight:700;">Po1 — 2× LACP trunk</text>
+      <!-- access -->
+      <line x1="150" y1="228" x2="205" y2="286" style="stroke:#888880;stroke-width:1.5;"/>
+      <line x1="510" y1="228" x2="240" y2="290" style="stroke:#888880;stroke-width:1.5;stroke-dasharray:5,4;"/>
+      <line x1="570" y1="228" x2="515" y2="286" style="stroke:#888880;stroke-width:1.5;"/>
+      <line x1="210" y1="228" x2="480" y2="290" style="stroke:#888880;stroke-width:1.5;stroke-dasharray:5,4;"/>
+      <rect x="150" y="286" width="120" height="38" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="210" y="302" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">ACC-1 (2960)</text>
+      <text x="210" y="315" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">staff + voice + guest ports</text>
+      <rect x="450" y="286" width="120" height="38" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="510" y="302" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;fill:#1a1a18;text-anchor:middle;">ACC-2 (2960)</text>
+      <text x="510" y="315" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">staff + voice + guest ports</text>
+      <text x="360" y="264" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#888880;text-anchor:middle;">συνεχές = primary uplink · διακεκομμένο = redundant uplink (μπλοκαρισμένο από Rapid-PVST μέχρι να χρειαστεί)</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Κάθε post μέχρι τώρα έκανε config <em>μία</em> τεχνολογία απομονωμένα. Τα πραγματικά δίκτυα είναι εκεί που συναντιούνται — και εκεί που δαγκώνουν οι αλληλεπιδράσεις. Αυτό είναι το πρώτο από τέσσερα σενάρια lab που κλείνουν τη σειρά: ένα <strong>collapsed-core campus</strong>, ο σχεδιασμός που ταιριάζει στο 90% των ξενοδοχείων, κλινικών, και γραφείων. Δύο Layer-3 switches είναι core και distribution ταυτόχρονα· access switches κάνουν dual-home και στα δύο· ένα router κάνει internet, DHCP, και NAT. Κάθε box έχει redundant path, και η αστοχία οποιασδήποτε μεμονωμένης συσκευής ή καλωδίου είναι επιβιώσιμη.</p>
+    <p>Μπορείς να χτίσεις ολόκληρη αυτή την τοπολογία σε <strong>Cisco Packet Tracer</strong> (δωρεάν με λογαριασμό NetAcad) με δύο 3650, δύο 2960, και ένα 2911 — κάθε εντολή σε αυτό το post δουλεύει εκεί. Χτίζεται επίσης αναλλοίωτο σε GNS3/CML ή σε <a href="cisco-buying-used.html">μεταχειρισμένο εξοπλισμό</a>. Ακολούθησε τη σειρά χτισίματος, τρέξε κάθε επαλήθευση, μετά κάνε τις ασκήσεις αστοχίας στο τέλος — το να τραβάς καλώδια είναι όλο το νόημα ενός lab.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li><a href="cisco-vlans-trunking.html">VLAN &amp; Trunking</a> και <a href="cisco-stp-etherchannel.html">STP &amp; EtherChannel</a> — αυτό το lab τα υποθέτει και τα δύο γνωστά απ' έξω</li>
+      <li><a href="cisco-hsrp.html">HSRP</a> και <a href="cisco-dhcp-nat.html">DHCP &amp; NAT</a> για τα layers gateway και edge</li>
+      <li>Packet Tracer 8.x (ή GNS3/CML/πραγματικό εξοπλισμό) και περίπου 90 λεπτά</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Το Πλανο Πριν το Πληκτρολογιο</h2>
+  <p class="section-thesis"><em>Δέκα λεπτά addressing plan γλιτώνουν δύο ώρες «γιατί το VLAN 20 δεν φτάνει τίποτα». Γράψ' το όλο πρώτα — σε δουλειά με πελάτη αυτός ο πίνακας ΕΙΝΑΙ το design document.</em></p>
+
+  <h3 class="sub">Πλανο VLAN &amp; subnet</h3>
+  <table class="cheat">
+    <thead><tr><th>VLAN</th><th>Σκοπος / subnet / gateway (HSRP VIP)</th></tr></thead>
+    <tbody>
+      <tr><td>10 — STAFF</td><td>10.10.10.0/24 · VIP 10.10.10.1 · CORE-1 active</td></tr>
+      <tr><td>20 — GUEST</td><td>10.10.20.0/24 · VIP 10.10.20.1 · CORE-2 active</td></tr>
+      <tr><td>30 — VOICE</td><td>10.10.30.0/24 · VIP 10.10.30.1 · CORE-2 active</td></tr>
+      <tr><td>99 — MGMT</td><td>10.10.99.0/24 · VIP 10.10.99.1 · CORE-1 active</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">Addressing συσκευων</h3>
+  <table class="cheat">
+    <thead><tr><th>Link / interface</th><th>Addressing</th></tr></thead>
+    <tbody>
+      <tr><td>EDGE G0/0 → Internet</td><td>203.0.113.2/30 (gateway ISP .1)</td></tr>
+      <tr><td>EDGE G0/1 ↔ CORE-1 G1/0/24</td><td>10.255.0.0/30 — EDGE .1, CORE-1 .2 (routed port)</td></tr>
+      <tr><td>EDGE G0/2 ↔ CORE-2 G1/0/24</td><td>10.255.0.4/30 — EDGE .5, CORE-2 .6 (routed port)</td></tr>
+      <tr><td>CORE-1 ↔ CORE-2</td><td>Po1 = G1/0/23 + G1/0/22, LACP 802.1Q trunk, όλα τα VLAN</td></tr>
+      <tr><td>Cores → access</td><td>CORE-x G1/0/1 → ACC-1 G0/1 · G1/0/2 → ACC-2 G0/1/2 — trunks</td></tr>
+      <tr><td>SVIs</td><td>CORE-1 = .2 σε κάθε VLAN, CORE-2 = .3, VIP = .1</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Η Σειρα Χτισιματος Εχει Σημασια</span>
+    <p>Στήσε το δίκτυο με σειρά εξάρτησης και επαλήθευσε κάθε layer πριν ξεκινήσεις το επόμενο: <strong>(1)</strong> καλωδίωσε τα πάντα και ονόμασε τις συσκευές, <strong>(2)</strong> access layer — VLAN, trunks, access ports, <strong>(3)</strong> core L2 — το port-channel και τα STP roots, <strong>(4)</strong> core L3 — SVI και HSRP, <strong>(5)</strong> edge — routed links, routes, DHCP, NAT. Όταν κάτι χαλάσει στο βήμα 5, ήδη ξέρεις ότι τα layers 1–4 είναι εντάξει — αυτή η πειθαρχία είναι το μεγαλύτερο μέρος του πραγματικού troubleshooting.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Access Layer — ACC-1 και ACC-2</h2>
+  <p class="section-thesis"><em>Κατευθείαν από τα parts 2 και 6: όρισε τα VLAN, κάνε trunk τα uplinks και στους δύο cores, και δώσε σε κάθε user port PortFast, BPDU Guard, και ένα VLAN φωνής.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">ACC-1 — πανομοιοτυπο στο ACC-2</span>
+    <pre class="term"><span class="pc">ACC-1(config)#</span> <span class="out">vlan 10</span>
+<span class="pc">ACC-1(config-vlan)#</span> <span class="out">name STAFF</span>
+<span class="pc">ACC-1(config-vlan)#</span> <span class="out">vlan 20</span>
+<span class="pc">ACC-1(config-vlan)#</span> <span class="out">name GUEST</span>
+<span class="pc">ACC-1(config-vlan)#</span> <span class="out">vlan 30</span>
+<span class="pc">ACC-1(config-vlan)#</span> <span class="out">name VOICE</span>
+<span class="pc">ACC-1(config-vlan)#</span> <span class="out">vlan 99</span>
+<span class="pc">ACC-1(config-vlan)#</span> <span class="out">name MGMT</span>
+<span class="pc">ACC-1(config-vlan)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Uplinks και προς τους ΔΥΟ cores — trunks, native VLAN μετακινημένο από το 1</span>
+<span class="pc">ACC-1(config)#</span> <span class="out">interface range GigabitEthernet0/1 - 2</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">switchport mode trunk</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">switchport trunk native vlan 99</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">switchport trunk allowed vlan 10,20,30,99</span>
+
+<span class="cmt"># Ports staff: data VLAN 10 + τηλέφωνα στο VLAN 30</span>
+<span class="pc">ACC-1(config)#</span> <span class="out">interface range FastEthernet0/1 - 12</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">switchport mode access</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">switchport access vlan 10</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">switchport voice vlan 30</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">spanning-tree portfast</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">spanning-tree bpduguard enable</span>
+
+<span class="cmt"># Ports επισκεπτών</span>
+<span class="pc">ACC-1(config)#</span> <span class="out">interface range FastEthernet0/13 - 24</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">switchport mode access</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">switchport access vlan 20</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">spanning-tree portfast</span>
+<span class="pc">ACC-1(config-if-range)#</span> <span class="out">spanning-tree bpduguard enable</span>
+
+<span class="cmt"># Management SVI ώστε να μπορείς να κάνεις SSH στο ίδιο το access switch</span>
+<span class="pc">ACC-1(config)#</span> <span class="out">interface vlan 99</span>
+<span class="pc">ACC-1(config-if)#</span> <span class="out">ip address 10.10.99.11 255.255.255.0</span>
+<span class="pc">ACC-1(config)#</span> <span class="out">ip default-gateway 10.10.99.1</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Management IP του ACC-2 Πρεπει να Διαφερει</span>
+    <p>Το copy-paste του config του ACC-1 πάνω στο ACC-2 είναι η κλασική συντόμευση σε lab — και διπλασιάζει σιωπηλά το <code>10.10.99.11</code>. Δώσε στο ACC-2 <code>10.10.99.12</code>. Σε Packet Tracer ένα διπλό IP απλώς κάνει το SSH να καταλήγει στο λάθος box· σε πραγματικό site βγάζει και τα δύο switches εκτός management network κατά διαστήματα, κάτι που είναι μαρτύριο να το κάνεις debug απομακρυσμένα.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Core L2 — το Interlink και το Root</h2>
+  <p class="section-thesis"><em>Δέσε δύο links ανάμεσα στα cores με LACP, γύρνα τα πάντα σε Rapid-PVST, και καρφώσε το root bridge κάθε VLAN στο core που θα είναι και το HSRP active gateway του.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">CORE-1 — port-channel + STP roots (καθρεφτισε τις priorities στο CORE-2)</span>
+    <pre class="term"><span class="cmt"># Πρώτα ίδιοι ορισμοί VLAN με το access layer (vlan 10,20,30,99)</span>
+
+<span class="cmt"># Δύο φυσικά links → ένα λογικό trunk</span>
+<span class="pc">CORE-1(config)#</span> <span class="out">interface range GigabitEthernet1/0/22 - 23</span>
+<span class="pc">CORE-1(config-if-range)#</span> <span class="out">channel-group 1 mode active</span>
+<span class="pc">CORE-1(config-if-range)#</span> <span class="out">exit</span>
+<span class="pc">CORE-1(config)#</span> <span class="out">interface Port-channel1</span>
+<span class="pc">CORE-1(config-if)#</span> <span class="out">switchport mode trunk</span>
+<span class="pc">CORE-1(config-if)#</span> <span class="out">switchport trunk native vlan 99</span>
+<span class="pc">CORE-1(config-if)#</span> <span class="out">switchport trunk allowed vlan 10,20,30,99</span>
+
+<span class="cmt"># Downlinks προς τα access switches — ίδιες ρυθμίσεις trunk</span>
+<span class="pc">CORE-1(config)#</span> <span class="out">interface range GigabitEthernet1/0/1 - 2</span>
+<span class="pc">CORE-1(config-if-range)#</span> <span class="out">switchport mode trunk</span>
+<span class="pc">CORE-1(config-if-range)#</span> <span class="out">switchport trunk native vlan 99</span>
+<span class="pc">CORE-1(config-if-range)#</span> <span class="out">switchport trunk allowed vlan 10,20,30,99</span>
+
+<span class="cmt"># Rapid-PVST παντού (τρέξ' το και στα τέσσερα switches)</span>
+<span class="pc">CORE-1(config)#</span> <span class="out">spanning-tree mode rapid-pvst</span>
+
+<span class="cmt"># Το CORE-1 είναι root για τα VLAN στα οποία θα είναι HSRP-active…</span>
+<span class="pc">CORE-1(config)#</span> <span class="out">spanning-tree vlan 10,99 root primary</span>
+<span class="pc">CORE-1(config)#</span> <span class="out">spanning-tree vlan 20,30 root secondary</span>
+
+<span class="cmt"># …και το CORE-2 το καθρεφτίζει:</span>
+<span class="pc">CORE-2(config)#</span> <span class="out">spanning-tree vlan 20,30 root primary</span>
+<span class="pc">CORE-2(config)#</span> <span class="out">spanning-tree vlan 10,99 root secondary</span>
+
+<span class="pc">CORE-1#</span> <span class="out">show etherchannel summary | include Po1</span>
+<span class="out">1      Po1(SU)         LACP      Gi1/0/22(P) Gi1/0/23(P)</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Γιατι το Root και το HSRP Active Πρεπει να Ειναι το Ιδιο Box</span>
+    <p>Αν το CORE-2 είναι το STP root για το VLAN 10 αλλά το CORE-1 είναι το HSRP active gateway του, κάθε πακέτο από τα staff ports του ACC-1 ταξιδεύει ACC-1 → CORE-2 → μέσω Po1 → CORE-1 — ένα επιπλέον hop για <em>όλη</em> την κίνηση, για πάντα, αόρατα. Το να ευθυγραμμίζεις root και active ανά VLAN (10/99 στο CORE-1, 20/30 στο CORE-2) σημαίνει ότι το συντομότερο Layer-2 path κάθε frame καταλήγει ακριβώς εκεί που ζει το Layer-3 gateway του. Αυτή η ευθυγράμμιση είναι το βήμα που παραλείπεται πιο συχνά σε πραγματικά campus deployments που κάνουμε audit.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Core L3 — SVIs και HSRP</h2>
+  <p class="section-thesis"><em>Γύρνα τα cores σε routers: ένα SVI ανά VLAN, μια HSRP group ανά VLAN με το VIP που θα χρησιμοποιούν οι clients, preemption ενεργό, και priorities που ταιριάζουν με το πλάνο STP.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">CORE-1 — SVIs + HSRP (το CORE-2 καθρεφτιζει με .3 και αντεστραμμενες priorities)</span>
+    <pre class="term"><span class="pc">CORE-1(config)#</span> <span class="out">ip routing</span>   <span class="cmt">← η γραμμή που όλοι ξεχνάνε σε ένα switch</span>
+
+<span class="pc">CORE-1(config)#</span> <span class="out">interface vlan 10</span>
+<span class="pc">CORE-1(config-if)#</span> <span class="out">ip address 10.10.10.2 255.255.255.0</span>
+<span class="pc">CORE-1(config-if)#</span> <span class="out">standby 10 ip 10.10.10.1</span>
+<span class="pc">CORE-1(config-if)#</span> <span class="out">standby 10 priority 110</span>
+<span class="pc">CORE-1(config-if)#</span> <span class="out">standby 10 preempt</span>
+
+<span class="cmt"># VLAN 99 πανομοιότυπο (priority 110 κι εδώ).
+# VLAN 20 και 30: ίδια συνταγή αλλά priority 90 — το CORE-2 παίρνει 110 γι' αυτά.</span>
+
+<span class="cmt"># DHCP relay σε κάθε SVI — τα pools ζουν στο EDGE (section 05)</span>
+<span class="pc">CORE-1(config)#</span> <span class="out">interface vlan 10</span>
+<span class="pc">CORE-1(config-if)#</span> <span class="out">ip helper-address 10.255.0.1</span>
+<span class="cmt"># …επανέλαβε στα VLAN 20/30/99 και στα ΔΥΟ cores
+#    (το CORE-2 κάνει relay στον δικό του uplink peer, 10.255.0.5)</span>
+
+<span class="pc">CORE-1#</span> <span class="out">show standby brief</span>
+<span class="out">Interface   Grp  Pri P State   Active          Standby         Virtual IP
+Vl10        10   110 P Active  local           10.10.10.3      10.10.10.1
+Vl20        20   90  P Standby 10.10.20.3      local           10.10.20.1
+Vl30        30   90  P Standby 10.10.30.3      local           10.10.30.1
+Vl99        99   110 P Active  local           10.10.99.3      10.10.99.1</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Καν' το Track το Uplink, Οπως Διδαξε το Part 10</span>
+    <p>Πρόσθεσε <code>standby 10 track GigabitEthernet1/0/24 30</code> στις groups VLAN 10 και 99 του CORE-1 (και το καθρέφτισμα στο CORE-2). Αν ένα core χάσει το routed uplink του προς το EDGE, η priority του πέφτει κατά 30 και το άλλο core — του οποίου το uplink ακόμα δουλεύει — αναλαμβάνει το gateway. Χωρίς tracking, ένα core με νεκρό uplink ευχαρίστως μένει HSRP-active και ρίχνει τη μισή σου κίνηση σε blackhole μέσω Po1. Αυτό είναι το <a href="cisco-hsrp.html">part 9</a> και το <a href="cisco-ipsla-failover.html">part 10</a> να συναντιούνται σε μία γραμμή config.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Το Edge — Routing, DHCP, NAT</h2>
+  <p class="section-thesis"><em>Το EDGE κατέχει το internet: routed /30 προς κάθε core, static routes προς τα VLAN μέσω και των δύο cores, DHCP pools για κάθε subnet, και PAT overload στο outside interface.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">EDGE (2911)</span>
+    <pre class="term"><span class="pc">EDGE(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">EDGE(config-if)#</span> <span class="out">ip address 203.0.113.2 255.255.255.252</span>
+<span class="pc">EDGE(config-if)#</span> <span class="out">ip nat outside</span>
+<span class="pc">EDGE(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">EDGE(config-if)#</span> <span class="out">ip address 10.255.0.1 255.255.255.252</span>
+<span class="pc">EDGE(config-if)#</span> <span class="out">ip nat inside</span>
+<span class="pc">EDGE(config)#</span> <span class="out">interface GigabitEthernet0/2</span>
+<span class="pc">EDGE(config-if)#</span> <span class="out">ip address 10.255.0.5 255.255.255.252</span>
+<span class="pc">EDGE(config-if)#</span> <span class="out">ip nat inside</span>
+
+<span class="cmt"># Default out· τα subnets VLAN προσβάσιμα μέσω ΟΠΟΙΟΥΔΗΠΟΤΕ core (ζεύγη ECMP)</span>
+<span class="pc">EDGE(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 203.0.113.1</span>
+<span class="pc">EDGE(config)#</span> <span class="out">ip route 10.10.0.0 255.255.0.0 10.255.0.2</span>
+<span class="pc">EDGE(config)#</span> <span class="out">ip route 10.10.0.0 255.255.0.0 10.255.0.6</span>
+
+<span class="cmt"># Τα cores χρειάζονται τον δρόμο επιστροφής (σε κάθε core):</span>
+<span class="pc">CORE-1(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 10.255.0.1</span>
+<span class="pc">CORE-2(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 10.255.0.5</span>
+
+<span class="cmt"># Ένα DHCP pool ανά VLAN — το gateway είναι το HSRP VIP, ποτέ ένα πραγματικό SVI</span>
+<span class="pc">EDGE(config)#</span> <span class="out">ip dhcp excluded-address 10.10.10.1 10.10.10.10</span>
+<span class="pc">EDGE(config)#</span> <span class="out">ip dhcp pool STAFF</span>
+<span class="pc">EDGE(dhcp-config)#</span> <span class="out">network 10.10.10.0 255.255.255.0</span>
+<span class="pc">EDGE(dhcp-config)#</span> <span class="out">default-router 10.10.10.1</span>
+<span class="pc">EDGE(dhcp-config)#</span> <span class="out">dns-server 1.1.1.1</span>
+<span class="cmt"># …επανέλαβε για GUEST (10.10.20.0), VOICE (10.10.30.0), MGMT εξαιρείται εντελώς</span>
+
+<span class="cmt"># PAT για ό,τι είναι private</span>
+<span class="pc">EDGE(config)#</span> <span class="out">access-list 1 permit 10.10.0.0 0.0.255.255</span>
+<span class="pc">EDGE(config)#</span> <span class="out">ip nat inside source list 1 interface GigabitEthernet0/0 overload</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το DHCP Offer Γυρναει Απο Αλλο Δρομο</span>
+    <p>Ένα PC staff κάνει broadcast ένα DISCOVER· το core που είναι HSRP-active το κάνει relay στο EDGE από τη διεύθυνση SVI του. Αλλά το OFFER επιστρέφει μέσω του <em>routing table</em> του EDGE, που έχει δύο ίσα routes — μπορεί να δώσει την απάντηση στο <strong>άλλο</strong> core. Αυτό είναι εντάξει (το άλλο core έχει SVI στο ίδιο subnet και το παραδίδει), αλλά μόνο επειδή <em>και τα δύο</em> cores κουβαλούν <code>ip helper-address</code> και SVI για κάθε VLAN. Κάνε config το relay μόνο σε ένα core και το lab δουλεύει μέχρι το πρώτο failover, μετά το DHCP πεθαίνει σιωπηλά — το είδος λανθάνοντος σφάλματος που υπάρχουν τα labs για να διδάξουν.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Επαληθευσε, Μετα Σπασ' το <span class="safe-badge">Το Διασκεδαστικο Κομματι</span></h2>
+  <p class="section-thesis"><em>Ένα lab που δεν έσπασες δεν σου δίδαξε τίποτα. Επαλήθευσε το steady state, μετά τρέξε τις τρεις ασκήσεις αστοχίας και δες κάθε προστασία που έκανες config να δικαιολογεί πραγματικά την ύπαρξή της.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Τι πρεπει να δειχνει το steady-state</th></tr></thead>
+    <tbody>
+      <tr><td>show etherchannel summary</td><td>Po1(SU), και τα δύο members (P) — bundled και σε χρήση.</td></tr>
+      <tr><td>show spanning-tree vlan 10</td><td>Το CORE-1 λέει «This bridge is the root»· το port του ACC-1 προς το CORE-2 είναι ALTN/BLK.</td></tr>
+      <tr><td>show standby brief</td><td>Active/standby μοιρασμένα ακριβώς σύμφωνα με τον πίνακα πλάνου.</td></tr>
+      <tr><td>show ip route</td><td>Στο EDGE: δύο routes 10.10.0.0/16 (ECMP)· στα cores: από ένα default το καθένα.</td></tr>
+      <tr><td>show ip dhcp binding</td><td>Στο EDGE: leases από όλα τα VLAN clients.</td></tr>
+      <tr><td>show ip nat translations</td><td>Inside locals από 10.10.x.x πίσω από 203.0.113.2.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">Drill 1 — σκοτωσε το CORE-1</h3>
+  <p>Κλείσε το CORE-1 (σε Packet Tracer, γύρνα τον φυσικό διακόπτη). Από ένα staff PC, τρέξε συνεχές ping στο 8.8.8.8. Θα πρέπει να χάσεις <strong>3–10 δευτερόλεπτα</strong>: το CORE-2 κάνει preempt το HSRP για τα VLAN 10/99, το Rapid-PVST ξεμπλοκάρει τα access uplinks προς το CORE-2, και το δεύτερο static του EDGE κουβαλά τη διαδρομή επιστροφής. Άναψε ξανά το CORE-1 — το preemption επιστρέφει τα VIP σε αυτό, ρίχνοντας ξανά για λίγο ένα-δύο pings.</p>
+
+  <h3 class="sub">Drill 2 — κοψε ενα member του Po1</h3>
+  <p>Διάγραψε ένα από τα δύο καλώδια interlink. Το <code>show etherchannel summary</code> τώρα δείχνει ένα member (P), ένα (D) — και τα pings δεν το καταλαβαίνουν καν. Αυτό είναι όλο το επιχείρημα για το bundle: μια φυσική αστοχία έγινε ένα capacity event, όχι outage.</p>
+
+  <h3 class="sub">Drill 3 — κοψε το uplink του CORE-1 προς το EDGE</h3>
+  <p>Αυτό είναι το πονηρό. Χωρίς HSRP tracking, οι clients του VLAN 10 στέλνουν ακόμα κίνηση στο CORE-1 (είναι ακόμα HSRP active), το οποίο πρέπει να κάνει detour μέσω Po1 προς το CORE-2 για να φτάσει το EDGE — δουλεύει, αλλά κοίτα το <code>traceroute</code> να μεγαλώνει κατά ένα hop. Με το tracking από το section 04, το CORE-1 υποβιβάζει τον εαυτό του και το detour δεν συμβαίνει ποτέ. Δοκίμασέ το και με τους δύο τρόπους και σύγκρινε traceroutes: αυτή είναι η διαφορά που κάνει το tracking, ορατή.</p>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — το Ιδιο Campus</h2>
+  <p class="section-thesis"><em>Ο σχεδιασμός είναι vendor-neutral· να όλο το build χαρτογραφημένο σε RouterOS σε έναν πίνακα.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Αυτο το lab (Cisco)</th><th>MikroTik / RouterOS</th></tr></thead>
+    <tbody>
+      <tr><td>VLAN + trunks 802.1Q</td><td>/interface bridge vlan (vlan-filtering=yes), tagged/untagged ports</td></tr>
+      <tr><td>Rapid-PVST + root primary</td><td>RSTP στο bridge, priority= ανά bridge (όχι per-VLAN trees)</td></tr>
+      <tr><td>LACP EtherChannel (Po1)</td><td>/interface bonding mode=802.3ad</td></tr>
+      <tr><td>HSRP VIP ανά VLAN</td><td>VRRP interface ανά VLAN με την ίδια ιδέα VIP</td></tr>
+      <tr><td>SVIs + ip routing</td><td>VLAN interfaces στο bridge με διευθύνσεις — το routing είναι πάντα on</td></tr>
+      <tr><td>ip helper-address</td><td>/ip dhcp-relay</td></tr>
+      <tr><td>PAT overload στο EDGE</td><td>/ip firewall nat action=masquerade</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Σημειωσεις Packet Tracer</span>
+    <p>Χρησιμοποίησε το <strong>3650-24PS</strong> για τα cores (κάνει <code>ip routing</code>, HSRP, και LACP), το <strong>2960</strong> για access, και το <strong>2911</strong> για EDGE. Το 3650 του PT ονομάζει τα ports <code>GigabitEthernet1/0/x</code> — τα configs παραπάνω ήδη χρησιμοποιούν αυτό το σχήμα. Δύο ιδιοτροπίες του PT: το HSRP tracking δέχεται interface tracking αλλά όχι το syntax <code>track</code>-object από το part 10, και το <code>spanning-tree vlan X root primary</code> υποστηρίζεται ενώ κάποιες γραμμές λεπτομέρειας του <code>show spanning-tree</code> εμφανίζονται ελαφρώς διαφορετικά από πραγματικό IOS. Τίποτα από τα δύο δεν αλλάζει τον σχεδιασμό.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Το collapsed core είναι το sweet spot για SMB:</strong> δύο L3 switches κουβαλάνε distribution + core, το access κάνει dual-home και στα δύο, και κανένα μεμονωμένο box ή καλώδιο δεν είναι μοιραίο.</li>
+      <li><strong>Γράψε το addressing plan πριν αγγίξεις πληκτρολόγιο.</strong> Ο πίνακας VLAN/subnet/VIP είναι ο σχεδιασμός· το config είναι απλώς να τον πληκτρολογείς.</li>
+      <li><strong>Χτίσε με σειρά εξάρτησης και επαλήθευσε κάθε layer</strong> — καλωδίωση, access L2, core L2, core L3, edge. Ένα σφάλμα που βρέθηκε αργά είναι τότε ήδη εντοπισμένο στο τελευταίο layer που άγγιξες.</li>
+      <li><strong>Ευθυγράμμισε το root STP με το HSRP active ανά VLAN</strong> αλλιώς κάθε frame κάνει μόνιμο, αόρατο detour μέσω του interlink.</li>
+      <li><strong>Και τα δύο cores χρειάζονται το DHCP relay και SVI για κάθε VLAN</strong> — ασύμμετρα return paths είναι φυσιολογικά εδώ, και μισοφτιαγμένο redundancy αποτυγχάνει μόνο κατά το failover για το οποίο υπήρχε.</li>
+      <li><strong>Κάν' το track τα uplinks στο HSRP</strong> ώστε ένα core χωρίς route προς το edge να σταματήσει να προσφέρεται εθελοντικά ως gateway.</li>
+      <li><strong>Σπάσ' το επίτηδες.</strong> Οι τρεις ασκήσεις — νεκρό core, νεκρό μέλος bundle, νεκρό uplink — είναι το πραγματικό πρόγραμμα σπουδών του lab, και τα ίδια τεστ που τρέχουμε πριν την παράδοση ενός site.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Θελεις αυτο το campus, αλλα στο δικο σου κτιριο;</h3>
+    <p>Σχεδιάζω και χτίζω redundant campus networks με τεκμηριωμένα addressing plans και STP/HSRP που πραγματικά συμφωνούν μεταξύ τους &mdash; και τρέχω τις ασκήσεις αστοχίας πριν την παράδοση, όχι μετά το πρώτο πραγματικό outage.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

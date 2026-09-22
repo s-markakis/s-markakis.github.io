@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Ασφαλεια Switch — Θωρακιση της L2 Ακρης — S. Markakis</title>
+<meta name="description" content="Θωράκιση access switch Cisco — port security και sticky MACs, err-disabled recovery, DHCP snooping, dynamic ARP inspection, BPDU guard, και υγιεινή αχρησιμοποίητων θυρών.">
+<meta property="og:title" content="Cisco IOS: Ασφαλεια Switch — S. Markakis">
+<meta property="og:description" content="Θωράκιση access switch Cisco — port security και sticky MACs, err-disabled recovery, DHCP snooping, dynamic ARP inspection, BPDU guard, και υγιεινή αχρησιμοποίητων θυρών.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-switch-security-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-switch-security.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-switch-security.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-switch-security-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-switch-security.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-switch-security-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-switch-security.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:'Inter',-apple-system,sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  /* keyboard shortcut pills */
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  /* cheatsheet table */
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  /* safe badge */
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Ασφαλεια Switch",
+  "description": "Θωράκιση access switch Cisco — port security και sticky MACs, err-disabled recovery, DHCP snooping, dynamic ARP inspection, BPDU guard, και υγιεινή αχρησιμοποίητων θυρών.",
+  "datePublished": "2026-07-16",
+  "dateModified": "2026-07-16",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-switch-security-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-switch-security.png",
+  "keywords": [
+    "cisco",
+    "switching"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-switch-security"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-switch-security.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Ασφαλεια Switch</h1>
+  <p class="post-subtitle">Τα firewall φυλάνε την περίμετρο — αλλά οι περισσότερες πραγματικές επιθέσεις ξεκινούν από μια πρίζα στο λόμπι. Το port security, το DHCP snooping, το dynamic ARP inspection, και το BPDU guard μετατρέπουν χαζά access ports σε μια θωρακισμένη ακμή. Αυτή είναι η θωράκιση layer-2 που παραλείπουν τα περισσότερα δίκτυα.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Port Security</span>
+    <span class="tag">DHCP Snooping</span>
+    <span class="tag">ARP Inspection</span>
+    <span class="tag">BPDU Guard</span>
+    <span class="tag">Hardening</span>
+    <span class="tag">CCNA</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: trust boundary -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="200" fill="#e1ded7"/>
+      <!-- switch -->
+      <rect x="260" y="60" width="200" height="56" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="84" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#1a1a18;text-anchor:middle;">ACCESS SWITCH</text>
+      <text x="360" y="102" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#c63d1f;text-anchor:middle;">snooping · DAI · port-security · BPDU guard</text>
+      <!-- trusted uplink -->
+      <line x1="460" y1="88" x2="580" y2="88" stroke="#3a5a78" stroke-width="3"/>
+      <rect x="584" y="72" width="112" height="32" rx="4" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="640" y="92" style="font-family:'Inter',sans-serif;font-size:10px;fill:#3a5a78;text-anchor:middle;font-weight:600;">uplink / DHCP</text>
+      <text x="520" y="78" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a5a78;text-anchor:middle;font-weight:700;">TRUSTED</text>
+      <!-- untrusted access ports -->
+      <line x1="300" y1="116" x2="200" y2="164" stroke="#c08020" stroke-width="1.6"/>
+      <line x1="340" y1="116" x2="330" y2="164" stroke="#c08020" stroke-width="1.6"/>
+      <line x1="390" y1="116" x2="440" y2="164" stroke="#c08020" stroke-width="1.6"/>
+      <rect x="150" y="164" width="100" height="24" rx="3" fill="#eee6d8" stroke="#c08020"/>
+      <text x="200" y="180" style="font-family:'Inter',sans-serif;font-size:9px;fill:#8a5a10;text-anchor:middle;">PC γραφείου</text>
+      <rect x="284" y="164" width="92" height="24" rx="3" fill="#eee6d8" stroke="#c08020"/>
+      <text x="330" y="180" style="font-family:'Inter',sans-serif;font-size:9px;fill:#8a5a10;text-anchor:middle;">πρίζα λόμπι</text>
+      <rect x="398" y="164" width="92" height="24" rx="3" fill="#eee6d8" stroke="#c08020"/>
+      <text x="444" y="180" style="font-family:'Inter',sans-serif;font-size:9px;fill:#8a5a10;text-anchor:middle;">αίθουσα συσκέψεων</text>
+      <text x="230" y="132" style="font-family:'Inter',sans-serif;font-size:9px;fill:#c08020;font-weight:700;">UNTRUSTED</text>
+      <text x="360" y="34" style="font-family:'Inter',sans-serif;font-size:10px;fill:#888880;text-anchor:middle;">Το όριο εμπιστοσύνης είναι το access port. Ό,τι είναι από κάτω μπορεί να λέει ψέματα για την ταυτότητά του — εκτός αν το switch το ελέγξει.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το Layer 2 εμπιστεύεται εκ σχεδιασμού. Ένα switch μαθαίνει διευθύνσεις MAC από όποιον τις στέλνει, δίνει DHCP σε όποιον ρωτήσει, και πιστεύει κάθε απάντηση ARP που ακούει. Κάθε μία από αυτές τις ευγένειες είναι μια επίθεση: <strong>MAC flooding</strong> για να ξεχειλίσει τον πίνακα CAM και να αναγκάσει το switch να κάνει broadcast ιδιωτική κίνηση, ένας <strong>ανεπίσημος DHCP server</strong> για να γίνει το default gateway όλων, <strong>ARP spoofing</strong> για man-in-the-middle σε ένα subnet, και ένα <strong>ανεπίσημο switch</strong> για να απαγάγει την τοπολογία spanning-tree. Καμία από αυτές δεν χρειάζεται διαπιστευτήρια — μόνο μια πρίζα ethernet.</p>
+    <p>Η άμυνα είναι ένα σετ τεσσάρων χαρακτηριστικών που έρχονται σε κάθε Catalyst και είναι κλειστά by default: port security, DHCP snooping, dynamic ARP inspection, και BPDU guard. Το καθένα ρυθμίζεται σε λίγα λεπτά. Μαζί σημαίνουν ότι μια εχθρική συσκευή στην πρίζα του λόμπι σου παίρνει μια νεκρή θύρα αντί για το VLAN της λογιστικής. Εδώ συναντιούνται τα ευρήματα των pentest μας με τη δικτυακή μηχανική μας — αυτά τα τέσσερα είναι οι διορθώσεις που καταλήγουμε να προτείνουμε πιο συχνά.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>VLAN και access/trunk ports — δες <a href="cisco-vlans-trunking.html">Cisco IOS: VLAN &amp; Trunking</a></li>
+      <li>Ένα switch Catalyst (ή lab) με hosts και έναν DHCP server από πίσω</li>
+      <li>Επίγνωση ποιες θύρες βλέπουν τελικούς χρήστες και ποιες είναι uplinks — όλο το post είναι γι' αυτή τη διάκριση</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Port Security — Ποιος Επιτρεπεται σε αυτη τη Θυρα</h2>
+  <p class="section-thesis"><em>Περιόρισε κάθε access port σε γνωστό αριθμό διευθύνσεων MAC — συνήθως μία ή δύο — και αποφάσισε τι συμβαίνει όταν εμφανιστεί μία παραπάνω. Αυτό σκοτώνει το MAC flooding και τις πρόχειρες αλλαγές συσκευών με ένα χτύπημα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — port security με sticky learning</span>
+    <pre class="term"><span class="pc">SW1(config)#</span> <span class="out">interface range GigabitEthernet0/2 - 24</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport mode access</span>       <span class="cmt"># απαιτείται — όχι σε trunk/dynamic</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport port-security</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport port-security maximum 2</span>   <span class="cmt"># PC + τηλέφωνο IP</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport port-security mac-address sticky</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport port-security violation restrict</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">end</span>
+
+<span class="cmt"># το "sticky" μαθαίνει τα πρώτα MAC που βλέπει και τα γράφει στο running-config —
+# αποθήκευσε με "wr" και παραμένουν. Καμία χειροκίνητη πληκτρολόγηση MAC.</span>
+
+<span class="pc">SW1#</span> <span class="out">show port-security interface gi0/2</span>
+<span class="out">Port Security              : Enabled
+Violation Mode             : Restrict
+Maximum MAC Addresses      : 2
+Sticky MAC Addresses       : 1
+Security Violation Count   : 0</span></pre>
+  </div>
+
+  <h3 class="sub">Τα Τρια Modes Παραβιασης</h3>
+  <table class="cheat">
+    <thead><tr><th>Mode</th><th>Σε παραβιαση</th></tr></thead>
+    <tbody>
+      <tr><td>protect</td><td>Ρίχνει σιωπηλά τα frames από άγνωστα MAC. Κανένα log, κανένας μετρητής — δεν θα μάθεις ποτέ ότι συνέβη. Απόφευγέ το.</td></tr>
+      <tr><td>restrict</td><td>Ρίχνει, αυξάνει τον μετρητή παραβιάσεων, στέλνει syslog/SNMP trap. Ορατότητα χωρίς διακοπή.</td></tr>
+      <tr><td>shutdown (default)</td><td>Βάζει ολόκληρη τη θύρα σε <strong>err-disabled</strong> — τελείως down μέχρι να ανακάμψει. Μέγιστη ασφάλεια, μέγιστα τηλεφωνήματα στο help-desk.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Οι Θυρες err-disabled Δεν Γιατρευονται Μονες τους</span>
+    <p>Με το default mode <code>shutdown</code>, μία παραβίαση σκοτώνει τη θύρα μέχρι κάποιος να τρέξει <code>shutdown</code> / <code>no shutdown</code> πάνω της. Ένα καθαρότερο pattern για πραγματικά γραφεία: χρησιμοποίησε <code>restrict</code> σε θύρες χρηστών, ή ενεργοποίησε αυτόματη ανάκαμψη ώστε μια παραβίαση να κοστίζει λεπτά αντί για επίσκεψη στο χώρο: <code>errdisable recovery cause psecure-violation</code> και <code>errdisable recovery interval 300</code>. Έλεγξε τι είναι νεκρό και γιατί με <code>show interfaces status err-disabled</code>.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">DHCP Snooping — Χωρις Ανεπισημες Πυλες</h2>
+  <p class="section-thesis"><em>Ένα laptop που τρέχει DHCP server — κακόβουλα, ή απλώς ένας βοηθητικός οικιακός router που έβαλε κάποιος — μπορεί να δίνει τον εαυτό του ως gateway σε όλους. Το DHCP snooping δηλώνει ποιες θύρες επιτρέπεται να απαντούν σε DHCP: το uplink. Οτιδήποτε άλλο μπορεί μόνο να ρωτάει.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — DHCP snooping: εμπιστοσυνη μονο στο uplink</span>
+    <pre class="term"><span class="cmt"># 1. Άναψε το snooping global ΚΑΙ ανά VLAN</span>
+<span class="pc">SW1(config)#</span> <span class="out">ip dhcp snooping</span>
+<span class="pc">SW1(config)#</span> <span class="out">ip dhcp snooping vlan 10,20</span>
+
+<span class="cmt"># 2. Σήμανε το uplink (προς τον πραγματικό DHCP server) ως trusted</span>
+<span class="pc">SW1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">ip dhcp snooping trust</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">exit</span>
+
+<span class="cmt"># 3. Βάλε rate-limit στα αιτήματα DHCP σε θύρες χρηστών (προστασία DoS)</span>
+<span class="pc">SW1(config)#</span> <span class="out">interface range GigabitEthernet0/2 - 24</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">ip dhcp snooping limit rate 10</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">end</span>
+
+<span class="cmt"># Τα OFFER του server που φτάνουν σε untrusted θύρες τώρα πέφτουν κρύα κρύα.
+# Μπόνους: το switch χτίζει έναν binding table — ποιος έχει ποιο IP σε ποια θύρα:</span>
+<span class="pc">SW1#</span> <span class="out">show ip dhcp snooping binding</span>
+<span class="out">MacAddress          IpAddress        Lease(sec)  Type           VLAN  Interface
+00:1A:2B:3C:4D:5E   192.168.10.21    43021       dhcp-snooping  10    Gi0/4</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Snooping Χωρις Trusted Θυρα Σπαει το DHCP για Ολους</span>
+    <p>Ενεργοποίησε το snooping και ξέχασε το <code>ip dhcp snooping trust</code> στο uplink, και το switch ρίχνει και τα OFFER του <em>νόμιμου</em> server — ολόκληρο το VLAN σταματά να παίρνει διευθύνσεις και μοιάζει με διακοπή DHCP. Η σειρά έχει σημασία: εμπιστεύσου πρώτα το uplink, μετά ενεργοποίησε το snooping στα VLAN. Επίσης: αν το DHCP relay σου βρίσκεται πέρα από άλλο switch, κάθε inter-switch link στη διαδρομή προς τον server πρέπει να είναι trusted.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Dynamic ARP Inspection — Χωρις Man-in-the-Middle</h2>
+  <p class="section-thesis"><em>Το ARP spoofing — απαντώντας «ποιος έχει το IP της πύλης;» με το δικό σου MAC — είναι ακόμα το πιο εύκολο man-in-the-middle σε LAN. Το DAI ελέγχει κάθε πακέτο ARP σε untrusted θύρες έναντι του binding table του DHCP snooping και ρίχνει τα ψέματα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — DAI πανω στον πινακα snooping</span>
+    <pre class="term"><span class="cmt"># Απαιτεί DHCP snooping (ενότητα 02) — το DAI επικυρώνει έναντι των bindings του</span>
+<span class="pc">SW1(config)#</span> <span class="out">ip arp inspection vlan 10,20</span>
+
+<span class="cmt"># Εμπιστεύσου τις ίδιες θύρες inter-switch/uplink όπως το snooping</span>
+<span class="pc">SW1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">ip arp inspection trust</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">end</span>
+
+<span class="cmt"># Δες το να δουλεύει: ένα πλαστό ARP σε untrusted θύρα πέφτει και καταγράφεται</span>
+<span class="pc">SW1#</span> <span class="out">show ip arp inspection statistics vlan 10</span>
+<span class="out"> Vlan      Forwarded        Dropped     DHCP Drops      ACL Drops
+ ----      ---------        -------     ----------      ---------
+   10           1420             12             12              0</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Πεφτουν και οι Hosts με Static IP</span>
+    <p>Το DAI εμπιστεύεται τον πίνακα DHCP snooping — οπότε ένας host με <em>static</em> IP δεν έχει εγγραφή binding, και κάθε ARP που στέλνει μοιάζει με spoof και πέφτει. Βγαίνει από το δίκτυο τη στιγμή που το DAI ανάβει. Για εκτυπωτές, servers, και κάμερες με στατικές διευθύνσεις, είτε πρόσθεσε static bindings (<code>ip source binding &lt;mac&gt; vlan &lt;id&gt; &lt;ip&gt; interface &lt;port&gt;</code>) είτε μετέφερέ τα σε DHCP reservations — τα reservations είναι πιο καθαρά και αυτο-τεκμηριωμένα.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">BPDU Guard — Χωρις Ανεπισημα Switch</h2>
+  <p class="section-thesis"><em>Τα access ports μιλάνε σε hosts, και οι hosts δεν μιλάνε spanning tree. Αν φτάσει ένα BPDU σε access port, κάποιος έβαλε ένα switch — τυχαίος βρόχος ή σκόπιμη απαγωγή τοπολογίας. Το BPDU guard σκοτώνει τη θύρα ακαριαία.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — PortFast + BPDU guard σε ολα τα access ports</span>
+    <pre class="term"><span class="cmt"># Ανά interface:</span>
+<span class="pc">SW1(config)#</span> <span class="out">interface range GigabitEthernet0/2 - 24</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">spanning-tree portfast</span>       <span class="cmt"># παράλειψε listening/learning για hosts</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">spanning-tree bpduguard enable</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Ή η global συντόμευση — κάθε θύρα PortFast παίρνει BPDU guard αυτόματα:</span>
+<span class="pc">SW1(config)#</span> <span class="out">spanning-tree portfast bpduguard default</span>
+<span class="pc">SW1(config)#</span> <span class="out">end</span>
+
+<span class="cmt"># Ένα BPDU που φτάνει στο Gi0/7 τώρα την κάνει err-disabled επιτόπου:</span>
+<span class="out">%SPANTREE-2-BLOCK_BPDUGUARD: Received BPDU on port Gi0/7 with BPDU Guard enabled. Disabling port.</span></pre>
+  </div>
+
+  <p>Το PortFast και το BPDU guard είναι ένα φυσικό ζευγάρι: το PortFast κάνει τις θύρες hosts να σηκώνονται ακαριαία (όχι αναμονή 30 δευτερολέπτων spanning-tree για PC που πεινάνε για DHCP), και το BPDU guard είναι η ασφάλεια ότι κανείς δεν εκμεταλλεύεται μια θύρα PortFast για να εισάγει αλλαγές τοπολογίας. Το ίδιο το spanning tree — root bridges, και γιατί μια θύρα μπορεί να είναι blocking — είναι το επόμενο post σε αυτή τη σειρά.</p>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Υγιεινη Αχρησιμοποιητων Θυρων</h2>
+  <p class="section-thesis"><em>Η φθηνότερη θωράκιση που υπάρχει: μια θύρα που δεν χρησιμοποιεί κανείς πρέπει να κλείνει και να παρκάρει σε ένα νεκρό VLAN. Ένας επιτιθέμενος δεν μπορεί να διαπραγματευτεί με ένα interface που είναι administratively down.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — παρκαρε καθε αχρησιμοποιητη θυρα</span>
+    <pre class="term"><span class="cmt"># Ένα VLAN που δεν δρομολογεί πουθενά και δεν επιτρέπεται σε κανένα trunk</span>
+<span class="pc">SW1(config)#</span> <span class="out">vlan 999</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">name PARKING</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Βρες τι είναι αχρησιμοποίητο (notconnect), μετά παρκάρισέ το</span>
+<span class="pc">SW1#</span> <span class="out">show interfaces status | include notconnect</span>
+<span class="pc">SW1(config)#</span> <span class="out">interface range GigabitEthernet0/13 - 24</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport mode access</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport access vlan 999</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">shutdown</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">end</span>
+<span class="cmt"># Το να βάλεις μια θύρα σε λειτουργία αργότερα είναι σκόπιμη πράξη: όρισε το σωστό VLAN,
+# κάνε no shutdown, τεκμηρίωσέ το. Ακριβώς όπως πρέπει.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Απο την Πλευρα του Pentest — Γιατι Αυτη η Σειρα</span>
+    <p>Σε εσωτερικά engagement, το πρώτο πράγμα που δοκιμάζεται στην πρίζα είναι, με τη σειρά: παίρνουμε DHCP lease (χωρίς snooping;), μπορούμε να κάνουμε ARP-spoof την πύλη (χωρίς DAI;), δέχεται η θύρα δεύτερο MAC (χωρίς port security;), και δέχεται τα BPDU μας (χωρίς BPDU guard;). Τα τέσσερα χαρακτηριστικά αυτού του post κλείνουν ακριβώς αυτή τη λίστα, και το VLAN παρκαρίσματος αφαιρεί το δωράκι «βρήκα ζωντανή πρίζα σε άδειο γραφείο». Αυτή είναι η λιγότερο εντυπωσιακή δουλειά ασφάλειας που υπάρχει, και μία από τις πιο αποτελεσματικές.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Ελεγχος — Το Audit Ασφαλειας L2 <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Έξι read-only εντολές ελέγχουν όλη τη στάση. Τρέξ' τες σε κάθε switch που κληρονομείς — τα κενά σου λένε τι λείπει.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Δειχνει</th></tr></thead>
+    <tbody>
+      <tr><td>show port-security</td><td>Κατάσταση ασφάλειας ανά θύρα, μετρητές MAC, μετρητές παραβιάσεων.</td></tr>
+      <tr><td>show port-security address</td><td>Ο πίνακας μαθημένων/sticky MAC.</td></tr>
+      <tr><td>show ip dhcp snooping</td><td>Κατάσταση snooping ανά VLAN, trusted θύρες, rate limits.</td></tr>
+      <tr><td>show ip dhcp snooping binding</td><td>Ο πίνακας αλήθειας IP↔MAC↔θύρα — ιδανικός και για παρακολούθηση συσκευών.</td></tr>
+      <tr><td>show ip arp inspection</td><td>Κατάσταση DAI και στατιστικά drop ανά VLAN.</td></tr>
+      <tr><td>show interfaces status err-disabled</td><td>Θύρες που σκότωσε ένα guard, και ποιο χαρακτηριστικό τις σκότωσε.</td></tr>
+      <tr><td>show spanning-tree summary</td><td>Επιβεβαιώνει ότι τα default PortFast/BPDU-guard είναι όντως ανοιχτά.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Οι Ιδιες Αμυνες</h2>
+  <p class="section-thesis"><em>Τα bridge του RouterOS ανέπτυξαν τις ίδιες προστασίες· τα ονόματα είναι απλώς λιγότερο τυποποιημένα. Αν τρέχεις μεικτά access layers, αυτή είναι η μετάφραση.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>bridge port learn=no + static hosts</td><td>Port security με static/sticky MAC</td></tr>
+      <tr><td>/interface bridge settings dhcp-snooping</td><td><code>ip dhcp snooping</code> (+ trusted=yes ↔ <code>trust</code>)</td></tr>
+      <tr><td>bridge port trusted=yes</td><td><code>ip dhcp snooping trust</code></td></tr>
+      <tr><td>ARP mode reply-only + DHCP add-arp</td><td>Dynamic ARP inspection (επικυρωμένο έναντι των leases)</td></tr>
+      <tr><td>bridge port bpdu-guard=yes</td><td><code>spanning-tree bpduguard enable</code></td></tr>
+      <tr><td>Disabled port + isolated VLAN</td><td><code>shutdown</code> + VLAN παρκαρίσματος 999</td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Το όριο εμπιστοσύνης είναι η πρίζα, όχι το firewall.</strong> Το MAC flooding, το ανεπίσημο DHCP, το ARP spoofing, και η απαγωγή STP ξεκινούν όλα από ένα κοινό access port και δεν χρειάζονται καθόλου διαπιστευτήρια. Υπερασπίσου τη θύρα.</li>
+      <li><strong>Port security με sticky MAC, violation restrict.</strong> Ένα ή δύο MAC ανά θύρα χρήστη, μαθημένα αυτόματα, παραβιάσεις καταγεγραμμένες χωρίς σκληρή διακοπή. Αποθήκευσε το config αλλιώς τα sticky MAC χάνονται στο reboot.</li>
+      <li><strong>DHCP snooping: εμπιστεύσου πρώτα το uplink, μετά ενεργοποίησε.</strong> Η λάθος σειρά ρίχνει νόμιμα OFFER και ρίχνει το VLAN. Ο binding table που χτίζει είναι δωρεάν απογραφή περιουσιακών στοιχείων.</li>
+      <li><strong>Το DAI στηρίζεται στο snooping — σχεδίασε για static hosts.</strong> Οτιδήποτε χωρίς DHCP lease χρειάζεται static binding ή reservation, αλλιώς βγαίνει από το δίκτυο τη μέρα που ανάβει το DAI.</li>
+      <li><strong>Το PortFast και το BPDU guard ταξιδεύουν μαζί.</strong> Γρήγορες θύρες hosts, και ακαριαίος θάνατος για κάθε θύρα που αρχίζει να μιλάει switch. Το <code>spanning-tree portfast bpduguard default</code> καλύπτει και μελλοντικές θύρες.</li>
+      <li><strong>Κλείσε και παρκάρισε ό,τι είναι αχρησιμοποίητο.</strong> VLAN 999, <code>shutdown</code>, τέλος. Η επανενεργοποίηση γίνεται σκόπιμη, τεκμηριωμένη πράξη.</li>
+      <li><strong>Το err-disabled είναι χαρακτηριστικό, όχι σφάλμα.</strong> Μια νεκρή θύρα είναι ένα guard που πυροδοτήθηκε. Το <code>show interfaces status err-disabled</code> σου λέει ποιο· ρύθμισε <code>errdisable recovery</code> όπου μια αυτο-θεραπεία 5 λεπτών νικάει μια επίσκεψη στο χώρο.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Ειναι το access layer σου πραγματικα θωρακισμενο;</h3>
+    <p>Οι έλεγχοι Layer-2 που τρέχω ως επιτιθέμενος σε ένα pentest είναι οι ίδιοι που εφαρμόζω ως άμυνες σε ένα audit θωράκισης &mdash; DHCP snooping, port security, BPDU guard, όλα &mdash; απλώς στραμμένα προς την άλλη κατεύθυνση.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

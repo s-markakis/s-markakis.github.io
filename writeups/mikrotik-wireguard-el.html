@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>WireGuard σε MikroTik — S. Markakis</title>
+<meta name="description" content="WireGuard σε RouterOS 7 από το μηδέν — πρόσβαση road-warrior για τηλέφωνο και laptop, ένα tunnel site-to-site ανάμεσα σε γραφεία, η λογική allowed-address που όλοι κάνουν λάθος, και το κόλπο keepalive για peers πίσω από NAT.">
+<meta property="og:title" content="MikroTik: WireGuard VPN — S. Markakis">
+<meta property="og:description" content="WireGuard σε RouterOS 7 από το μηδέν — πρόσβαση road-warrior για τηλέφωνο και laptop, ένα tunnel site-to-site ανάμεσα σε γραφεία, η λογική allowed-address που όλοι κάνουν λάθος, και το κόλπο keepalive για peers πίσω από NAT.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-wireguard-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-wireguard.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-wireguard.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-wireguard-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-wireguard.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-wireguard-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-wireguard.html">
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: WireGuard VPN",
+  "description": "WireGuard σε RouterOS 7 από το μηδέν — πρόσβαση road-warrior για τηλέφωνο και laptop, ένα tunnel site-to-site ανάμεσα σε γραφεία, η λογική allowed-address που όλοι κάνουν λάθος, και το κόλπο keepalive για peers πίσω από NAT.",
+  "datePublished": "2026-08-31",
+  "dateModified": "2026-08-31",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-wireguard-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-wireguard.png",
+  "keywords": [
+    "mikrotik",
+    "vpn"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-wireguard"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-wireguard.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">WireGuard<br>σε MikroTik</h1>
+  <p class="post-subtitle">Το RouterOS 7 έρχεται με WireGuard μέσα στον πυρήνα, και κάνει κάθε παλιότερο VPN στην πλατφόρμα να μοιάζει με σχολική εργασία. Χωρίς πιστοποιητικά, χωρίς φάσεις, χωρίς proposals — ένα interface, ένα ζευγάρι κλειδιών, και μια λίστα peers. Αυτό το post χτίζει τα δύο setups που καλύπτουν σχεδόν κάθε πραγματική ανάγκη: το τηλέφωνο και το laptop σου να καλούν το σπίτι από οπουδήποτε, και δύο γραφεία ενωμένα με ένα tunnel που επιβιώνει reboots και αλλαγές ISP.</p>
+  <div class="tags">
+    <span class="tag">RouterOS 7</span>
+    <span class="tag">WireGuard</span>
+    <span class="tag">VPN</span>
+    <span class="tag">Road Warrior</span>
+    <span class="tag">Site-to-Site</span>
+    <span class="tag">Remote Access</span>
+  </div>
+  <hr class="title-rule">
+
+
+  <!-- Hero diagram: both topologies -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="240" fill="#e1ded7"/>
+      <!-- internet -->
+      <ellipse cx="360" cy="110" rx="86" ry="34" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="360" y="106" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">Internet</text>
+      <text x="360" y="121" style="font-family:'Inter',sans-serif;font-size:8px;fill:#3a5a78;text-anchor:middle;">UDP 13231</text>
+      <!-- office router -->
+      <rect x="560" y="80" width="130" height="60" rx="6" fill="#d4d2cc" stroke="#c63d1f" stroke-width="1.4"/>
+      <text x="625" y="100" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">ΓΡΑΦΕΙΟ (RB5009)</text>
+      <text x="625" y="114" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">wg0 10.99.0.1/24</text>
+      <text x="625" y="127" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">LAN 192.168.88.0/24</text>
+      <!-- phone -->
+      <rect x="40" y="26" width="110" height="40" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="95" y="43" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">Τηλεφωνο (4G)</text>
+      <text x="95" y="57" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">10.99.0.10/32</text>
+      <!-- laptop -->
+      <rect x="40" y="96" width="110" height="40" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="95" y="113" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">Laptop (καφε)</text>
+      <text x="95" y="127" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">10.99.0.11/32</text>
+      <!-- branch -->
+      <rect x="40" y="166" width="110" height="48" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="95" y="184" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">ΥΠΟΚΑΤΑΣΤΗΜΑ (hEX)</text>
+      <text x="95" y="197" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">wg0 10.99.0.2</text>
+      <text x="95" y="208" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">LAN 192.168.20.0/24</text>
+      <!-- tunnels -->
+      <path d="M 150 46 C 260 60, 300 80, 560 96" fill="none" style="stroke:#c63d1f;stroke-width:2;stroke-dasharray:7,5;"/>
+      <path d="M 150 116 C 250 116, 300 110, 560 110" fill="none" style="stroke:#c63d1f;stroke-width:2;stroke-dasharray:7,5;"/>
+      <path d="M 150 188 C 280 180, 340 140, 560 124" fill="none" style="stroke:#c63d1f;stroke-width:2;stroke-dasharray:7,5;"/>
+      <text x="360" y="232" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">ένα interface wg0 στο ΓΡΑΦΕΙΟ, τρεις peers — οι road-warriors παίρνουν από ένα /32, το υποκατάστημα φέρνει όλο το LAN του</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Όλο το μοντέλο config του WireGuard είναι: <strong>ένα interface με ιδιωτικό κλειδί, και peers που ταυτοποιούνται με δημόσια κλειδιά</strong>. Καμία διαπραγμάτευση να κάνεις debug — αν τα κλειδιά ταιριάζουν και φτάσει UDP, δουλεύει· αν κάποιο είναι λάθος, δεν δουλεύει σιωπηλά. Αυτή η σιωπή είναι το μόνο δύσκολο κομμάτι του WireGuard, και αυτό το post σου δίνει το μονοπάτι διάγνωσης γι' αυτό.</p>
+    <p>Η έννοια που πραγματικά χρειάζεται να μάθεις είναι το <code>allowed-address</code>. Είναι <strong>δύο πράγματα ταυτόχρονα</strong>: ένα inbound filter («τα πακέτα από αυτόν τον peer μπορούν να διεκδικούν αυτές τις source IP») και ένας outbound πίνακας routing («τα πακέτα προς αυτές τις IP πάνε σε αυτόν τον peer»). Κάθε μπερδεμένο deployment WireGuard που έχουμε ξεμπλέξει — handshake εντάξει, καμία κίνηση — ήταν παρεξήγηση αυτού του διπλού ρόλου. Κάν' το σωστά και τα δύο setups παρακάτω είναι είκοσι λεπτά το καθένα. Αυτή είναι επίσης η μοντέρνα απάντηση στο πρόβλημα που λύνει η σειρά Cisco με <a href="cisco-lab-gre-ipsec.html">GRE over IPsec</a> — ίδια ιδέα overlay, μια δεκαετία λιγότερη τελετουργία.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>RouterOS <strong>7.x</strong> (το WireGuard δεν υπάρχει σε 6.x) — δες <a href="mikrotik-backup.html">Backup</a> πριν αναβαθμίσεις</li>
+      <li>Το <a href="mikrotik-firewall.html">post του firewall</a> — θα προσθέσουμε κανόνες και στις δύο chains και πρέπει να ξέρεις γιατί</li>
+      <li>Ένα δημόσιο IP (ή forwarded UDP port) σε τουλάχιστον μία άκρη</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Η Πλευρα Server — Ενα Interface, Για Παντα</h2>
+  <p class="section-thesis"><em>Ο router του γραφείου παίρνει ένα interface wg0, μια διεύθυνση, ένα listening port, και έναν κανόνα firewall. Αυτό το κομμάτι δεν αλλάζει ξανά, όσους peers κι αν προσθέσεις.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">router ΓΡΑΦΕΙΟΥ — interface + firewall, μια φορα</span>
+    <pre class="term"><span class="pc">[admin@Office] ></span> <span class="out">/interface/wireguard add name=wg0 listen-port=13231</span>
+<span class="cmt"># Το ιδιωτικό κλειδί παράγεται μόνο του. Πάρε το ΔΗΜΟΣΙΟ κλειδί — οι peers το χρειάζονται:</span>
+<span class="pc">[admin@Office] ></span> <span class="out">/interface/wireguard print</span>
+<span class="out"> 0  name="wg0" listen-port=13231
+    public-key="offApub4T8yQ0eVX2mKcR9sJ1uYw3zB5nH7dL6gF0iM="</span>
+
+<span class="cmt"># Δώσε διεύθυνση στο tunnel — το γραφείο είναι .1 του subnet VPN</span>
+<span class="pc">[admin@Office] ></span> <span class="out">/ip/address add address=10.99.0.1/24 interface=wg0</span>
+
+<span class="cmt"># Firewall (input chain, πάνω από το τελικό drop):
+#   1. άφησε handshakes να μπουν από το internet, 2. αντιμετώπισε την κίνηση tunnel ως σχεδόν-έμπιστη</span>
+<span class="pc">[admin@Office] ></span> <span class="out">/ip/firewall/filter add chain=input action=accept protocol=udp dst-port=13231 comment="wireguard handshake" place-before=[find comment="drop all else"]</span>
+<span class="pc">[admin@Office] ></span> <span class="out">/interface/list/member add list=LAN interface=wg0</span>
+<span class="cmt"># Το να προσθέσεις το wg0 στη λίστα LAN ξαναχρησιμοποιεί κάθε υπάρχουσα άδεια LAN —
+# οι χρήστες VPN μπορούν τώρα ό,τι μπορούν οι χρήστες LAN. Περιόρισέ το αν δεν πρέπει.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Το Port Ειναι Αορατο Ετσι Κι Αλλιως</span>
+    <p>Το WireGuard δεν απαντά σε unauthenticated πακέτα — ένας scanner που δοκιμάζει το UDP 13231 παίρνει την ίδια σιωπή με ένα κλειστό port. Δεν υπάρχει banner, κανένα handshake για fingerprint, τίποτα για να καταλογογραφήσει το Shodan. Γι' αυτό ο κανόνας accept παραπάνω είναι ασφαλές να μείνει ανοιχτός σε όλο το internet, και γι' αυτό το WireGuard δεν έχει αντίστοιχο του προβλήματος SSH brute-force από το οποίο υπερασπίζεται το <a href="mikrotik-firewall.html">post του firewall</a>: χωρίς έγκυρο κλειδί, η υπηρεσία ουσιαστικά δεν υπάρχει.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Road Warriors — Τηλεφωνο και Laptop</h2>
+  <p class="section-thesis"><em>Κάθε συσκευή είναι ένας peer: το δημόσιο κλειδί της, το δικό της /32 στο subnet VPN. Το config του client το καθρεφτίζει πίσω. Τα κλειδιά δεν ταξιδεύουν ποτέ — μόνο τα δημόσια μισά ανταλλάσσονται.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">ΓΡΑΦΕΙΟ — ενας peer ανα συσκευη</span>
+    <pre class="term"><span class="cmt"># Το τηλέφωνο παράγει τα δικά του κλειδιά στην εφαρμογή WireGuard· αντιγράφεις το ΔΗΜΟΣΙΟ κλειδί του</span>
+<span class="pc">[admin@Office] ></span> <span class="out">/interface/wireguard/peers add interface=wg0 name=phone-sp1r4 public-key="PhOnEpUb..." allowed-address=10.99.0.10/32</span>
+<span class="pc">[admin@Office] ></span> <span class="out">/interface/wireguard/peers add interface=wg0 name=laptop-sp1r4 public-key="LaPtOpPuB..." allowed-address=10.99.0.11/32</span>
+
+<span class="cmt"># allowed-address=/32 σημαίνει: αυτός ο peer μπορεί να ΕΙΝΑΙ το 10.99.0.10, και μόνο αυτό.
+# Ένα κλεμμένο κλειδί laptop δεν μπορεί να μιμηθεί το υποκατάστημα ή άλλον χρήστη.</span></pre>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">Τηλεφωνο / laptop — η πλευρα client της ιδιας συνομιλιας</span>
+    <pre class="term"><span class="out">[Interface]
+PrivateKey = &lt;παράγεται στη συσκευή, δεν φεύγει ποτέ από αυτήν&gt;
+Address    = 10.99.0.10/32
+DNS        = 192.168.88.1
+
+[Peer]
+PublicKey  = offApub4T8yQ0eVX2mKcR9sJ1uYw3zB5nH7dL6gF0iM=   <span class="cmt">← pubkey γραφείου</span>
+Endpoint   = office.example.gr:13231
+AllowedIPs = 192.168.88.0/24, 10.99.0.0/24   <span class="cmt">← split tunnel: μόνο κίνηση δουλειάς</span>
+<span class="cmt"># AllowedIPs = 0.0.0.0/0                     ← full tunnel: ΤΑ ΠΑΝΤΑ μέσω γραφείου</span></span></pre>
+  </div>
+
+  <p>Πρόσεξε τη συμμετρία: στον client, το <code>AllowedIPs</code> είναι το ίδιο πεδίο διπλού ρόλου — είναι αυτό που το τηλέφωνο θα <em>κάνει route μέσα στο tunnel</em>. Απαρίθμησε τα subnets του γραφείου και παίρνεις split tunnel (κίνηση δουλειάς μέσω VPN, YouTube απευθείας)· απαρίθμησε <code>0.0.0.0/0</code> και η συσκευή στέλνει τα πάντα στο σπίτι — η κίνησή σου βγαίνει από το IP του γραφείου, που είναι επίσης το κλασικό setup «έμπιστο internet από εχθρικό Wi-Fi». Για να δουλέψει πραγματικά το full-tunnel, ο router του γραφείου πρέπει επίσης να κάνει masquerade το <code>10.99.0.0/24</code> προς το WAN του, ακριβώς όπως κάθε subnet LAN.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Handshake OK, Κινηση Νεκρη: Ειναι Παντα το allowed-address</span>
+    <p>Η κλασική αστοχία: το <code>last-handshake</code> χτυπά ευτυχισμένα, το ping πεθαίνει. Τα handshakes αποδεικνύουν μόνο κλειδιά και προσβασιμότητα· η <em>κίνηση</em> πρέπει να περάσει και τις <strong>δύο κατευθύνσεις του ελέγχου allowed-address</strong>. Διάγνωση σε μία γραμμή η καθεμία: το ping στο LAN από το τηλέφωνο αποτυγχάνει → στο <code>AllowedIPs</code> του τηλεφώνου λείπει το subnet LAN (ποτέ δεν κάνει route το πακέτο μέσα στο tunnel). Το LAN δεν φτάνει το τηλέφωνο → στην εγγραφή peer του router λείπει το /32 του τηλεφώνου (οι απαντήσεις φτάνουν αλλά ρίχνονται ως «not allowed from this peer»). Κάθε ticket «το WireGuard είναι up αλλά τίποτα δεν δουλεύει» είναι μία από αυτές τις δύο γραμμές.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Site-to-Site — το Υποκαταστημα</h2>
+  <p class="section-thesis"><em>Ίδια μηχανή, μεγαλύτερο allowed-address: ο peer του υποκαταστήματος φέρνει όλο το LAN του. Πρόσθεσε ένα static route σε κάθε πλευρά και τα δύο γραφεία γίνονται ένα δίκτυο.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">Και οι δυο routers — peers ο ενας του αλλου</span>
+    <pre class="term"><span class="cmt"># Το ΥΠΟΚΑΤΑΣΤΗΜΑ παίρνει το δικό του wg0 (10.99.0.2/24) όπως στο section 01, μετά:</span>
+<span class="pc">[admin@Branch] ></span> <span class="out">/interface/wireguard/peers add interface=wg0 name=office public-key="offApub..." endpoint-address=office.example.gr endpoint-port=13231 allowed-address=10.99.0.0/24,192.168.88.0/24 persistent-keepalive=25s</span>
+
+<span class="cmt"># Το ΓΡΑΦΕΙΟ προσθέτει το υποκατάστημα — πρόσεξε ότι φέρνει ολόκληρο /24, δεν χρειάζεται endpoint:</span>
+<span class="pc">[admin@Office] ></span> <span class="out">/interface/wireguard/peers add interface=wg0 name=branch public-key="BrAnChPuB..." allowed-address=10.99.0.2/32,192.168.20.0/24</span>
+
+<span class="cmt"># Routes: πες σε κάθε router ότι το άλλο LAN ζει μέσω του tunnel</span>
+<span class="pc">[admin@Office] ></span> <span class="out">/ip/route add dst-address=192.168.20.0/24 gateway=wg0</span>
+<span class="pc">[admin@Branch] ></span> <span class="out">/ip/route add dst-address=192.168.88.0/24 gateway=wg0</span>
+
+<span class="cmt"># Από ένα PC υποκαταστήματος:</span>
+<span class="pc">C:\&gt;</span> <span class="out">ping 192.168.88.10</span>
+<span class="out">Reply from 192.168.88.10: bytes=32 time=9ms TTL=126</span>   <span class="cmt">← δύο γραφεία, ένα δίκτυο</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το persistent-keepalive Ειναι Υποχρεωτικο Πισω απο NAT</span>
+    <p>Μόνο το υποκατάστημα καλεί προς τα έξω (ξέρει το endpoint του γραφείου· το γραφείο δεν έχει κανένα ρυθμισμένο για το υποκατάστημα — το μαθαίνει από εισερχόμενα πακέτα). Αν το υποκατάστημα κάθεται πίσω από CGNAT ή οποιονδήποτε οικιακό router, η αντιστοίχιση NAT <strong>λήγει μετά από ~30–180 δευτερόλεπτα σιωπής</strong> — και τότε το γραφείο δεν μπορεί να ξεκινήσει τίποτα: τα πακέτα προς το υποκατάστημα πεθαίνουν σε ένα NAT που έχει ξεχάσει την αντιστοίχιση. Το <code>persistent-keepalive=25s</code> κρατά την τρύπα ανοιχτή από μέσα. Κανόνας: η πλευρά με NAT/dynamic βάζει το endpoint <em>και</em> το keepalive· η static πλευρά δεν βάζει κανένα από τα δύο. Ξέχασέ το και παίρνεις το τρελαντικό «δουλεύει για ένα λεπτό αφού μας κάνει ping το υποκατάστημα, μετά κουφαίνεται».</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Επαληθευσε και Διαγνωσε <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Το WireGuard αποτυγχάνει σιωπηλά εξ ορισμού — οπότε διαβάζεις μετρητές, όχι μηνύματα σφάλματος. Τρεις αριθμοί λένε όλη την ιστορία: last-handshake, rx, tx.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — οι τρεις αριθμοι</span>
+    <pre class="term"><span class="pc">[admin@Office] ></span> <span class="out">/interface/wireguard/peers print detail</span>
+<span class="out"> 0  name="phone-sp1r4" interface=wg0 public-key="PhOnEpUb..."
+    allowed-address=10.99.0.10/32
+    current-endpoint-address=94.66.58.121 current-endpoint-port=41922
+    last-handshake=<span class="key">14s</span> rx=48.1MiB tx=512.3MiB</span></pre>
+  </div>
+
+  <table class="cheat">
+    <thead><tr><th>Ενδειξη</th><th>Σημασια</th></tr></thead>
+    <tbody>
+      <tr><td>ποτέ κανένα last-handshake</td><td>Τα κλειδιά δεν ταιριάζουν (pubkeys ανταλλάχτηκαν ή ξαναπαράχθηκαν), ή το UDP δεν φτάνει ποτέ — έλεγξε το DNS/port του endpoint και τον κανόνα input.</td></tr>
+      <tr><td>handshake φρέσκο, το rx ανεβαίνει, το tx ~0</td><td>Η κίνησή τους σε φτάνει· η δική σου δεν μπαίνει ποτέ στο tunnel — λείπει το allowed-address/route <em>σου</em> για τα subnets τους.</td></tr>
+      <tr><td>handshake φρέσκο, το tx ανεβαίνει, το rx ~0</td><td>Καθρεφτισμένη εικόνα — η απέναντι πλευρά δεν κάνει route πίσω, ή ρίχνει το source σου ως not-allowed.</td></tr>
+      <tr><td>το handshake μπαγιατεύει μετά από λεπτά</td><td>Η αντιστοίχιση NAT έληξε — βάλε persistent-keepalive στην πλευρά με NAT (section 03).</td></tr>
+      <tr><td>δουλεύει, αλλά μεγάλες μεταφορές κολλάνε</td><td>MTU. Το wg0 κάνει default σε 1420· σε underlays PPPoE ή LTE δοκίμασε 1380, και το μάθημα overlay-MTU από <a href="cisco-lab-gre-ipsec.html">το lab GRE</a> ισχύει αυτολεξεί.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Που Καθεται Αυτο Αναμεσα στα VPN της Πλατφορμας</span>
+    <p>Για οτιδήποτε νέο σε RouterOS 7, το WireGuard πρέπει να είναι το default: γρήγορο σε επίπεδο πυρήνα (συνήθως ξεπερνά το IPsec στο ίδιο hardware), τέσσερις εντολές ανά peer, και σιωπηλό σε scanners. Στρέψου σε IPsec/L2TP μόνο όταν η απέναντι άκρη δεν μπορεί να μιλήσει WireGuard — ένα router Cisco (δες το <a href="cisco-site-to-site-vpn.html">post IKEv2</a>), ένας εταιρικός VPN concentrator, ή built-in clients OS στα οποία δεν μπορείς να εγκαταστήσεις εφαρμογές. Και αφού τα κλειδιά είναι όλη η ταυτότητα: το ιδιωτικό κλειδί του router είναι σε κάθε <a href="mikrotik-backup.html">binary backup</a> — αντιμετώπισε ανάλογα εκείνα τα αρχεία.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το WireGuard είναι ένα interface συν peers</strong> — καμία φάση, κανένα πιστοποιητικό. Αν τα κλειδιά ταιριάζουν και φτάσει UDP, δουλεύει· η επιφάνεια debugging είναι πραγματικά τόσο μικρή.</li>
+      <li><strong>Το allowed-address είναι φίλτρο ΚΑΙ πίνακας routing.</strong> Inbound: ποιες source IP μπορεί να χρησιμοποιήσει ένας peer. Outbound: ποιοι προορισμοί πάνε σε εκείνον τον peer. Σχεδόν κάθε «handshake εντάξει, καμία κίνηση» είναι αυτό το πεδίο.</li>
+      <li><strong>Οι road warriors παίρνουν από ένα /32· ένα site φέρνει το LAN του.</strong> Όσο πιο στενό το allowed-address, τόσο λιγότερο αξίζει ένα κλεμμένο κλειδί.</li>
+      <li><strong>Split vs full tunnel είναι μία γραμμή στον client</strong> — subnets γραφείου για split, 0.0.0.0/0 (συν masquerade του subnet VPN στον router) για τα-πάντα-μέσω-σπιτιού.</li>
+      <li><strong>Η πλευρά με NAT βάζει endpoint + persistent-keepalive=25s·</strong> η static πλευρά δεν βάζει κανένα από τα δύο. Το να ξεχάσεις το keepalive σου δίνει ένα tunnel που κουφαίνεται ανάμεσα σε συνομιλίες.</li>
+      <li><strong>Κάν' το diagnose με τρεις μετρητές</strong> — last-handshake, rx, tx — και τον πίνακα παραπάνω· το WireGuard δεν καταγράφει ποτέ σφάλμα για σένα.</li>
+      <li><strong>Σιωπηλό εξ ορισμού:</strong> καμία απάντηση χωρίς έγκυρο κλειδί σημαίνει καμία fingerprinting και καμία επιφάνεια brute-force — ασφαλές να το εκθέσεις, σε αντίθεση με όλα τα υπόλοιπα στην αλυσίδα input.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Θελεις τα sites και τους ανθρωπους σου σε ενα ασφαλες δικτυο;</h3>
+    <p>Αναπτύσσω WireGuard για remote access και links site-to-site &mdash; τηλέφωνα, laptops, υποκαταστήματα, ακόμα και το NVR σε μια απομακρυσμένη βίλα &mdash; το καθένα με πρόσβαση ελάχιστου προνομίου αντί για ένα flat tunnel προς τα πάντα.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

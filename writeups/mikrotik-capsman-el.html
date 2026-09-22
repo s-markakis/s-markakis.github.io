@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Κεντρικο Wi-Fi με CAPsMAN — S. Markakis</title>
+<meta name="description" content="Διαχειρίσου κάθε access point σε ένα ξενοδοχείο από ένα σημείο — RouterOS 7 CAPsMAN (WifiWave2): ο manager, provisioning CAPs, ένα config για όλα τα radios, SSIDs με VLAN tags, απρόσκοπτο roaming, και οι παγίδες discovery.">
+<meta property="og:title" content="MikroTik: Κεντρικο Wi-Fi με CAPsMAN — S. Markakis">
+<meta property="og:description" content="Διαχειρίσου κάθε access point σε ένα ξενοδοχείο από ένα σημείο — RouterOS 7 CAPsMAN (WifiWave2): ο manager, provisioning CAPs, ένα config για όλα τα radios, SSIDs με VLAN tags, απρόσκοπτο roaming, και οι παγίδες discovery.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-capsman-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-capsman.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-capsman.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-capsman-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-capsman.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-capsman-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-capsman.html">
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Centralised Wi-Fi with CAPsMAN",
+  "description": "Manage every access point in a hotel from one place — RouterOS 7 CAPsMAN (WifiWave2): the manager, provisioning CAPs, one config for all radios, VLAN-tagged SSIDs, seamless roaming, and the discovery gotchas.",
+  "datePublished": "2026-09-08",
+  "dateModified": "2026-09-08",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-capsman-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-capsman.png",
+  "keywords": [
+    "mikrotik",
+    "wireless"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-capsman"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-capsman.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Σεπτεμβριος 2026</p>
+  <h1 class="post-title">Κεντρικο Wi-Fi<br>με CAPsMAN</h1>
+  <p class="post-subtitle">Δέκα access points σε έναν διάδρομο ξενοδοχείου, ένα config. Το CAPsMAN γυρνά μια στοίβα APs MikroTik σε ένα ενιαίο διαχειριζόμενο σύστημα — άλλαξε το password επισκεπτών μία φορά και κάθε radio ενημερώνεται, πρόσθεσε ένα AP και κληρονομεί τα πάντα, και οι επισκέπτες κάνουν roam από δωμάτιο σε δωμάτιο χωρίς να κόβονται. Αυτός είναι ο τρόπος του RouterOS 7 (WifiWave2), και η φυσική συνέχεια του lab ξενοδοχείου.</p>
+  <div class="tags">
+    <span class="tag">RouterOS 7</span>
+    <span class="tag">CAPsMAN</span>
+    <span class="tag">WifiWave2</span>
+    <span class="tag">Wireless</span>
+    <span class="tag">Roaming</span>
+    <span class="tag">Φιλοξενια</span>
+    <span class="tag">cAP</span>
+  </div>
+  <hr class="title-rule">
+  <!-- Hero diagram: manager + CAPs -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="210" fill="#e1ded7"/>
+      <!-- manager -->
+      <rect x="290" y="20" width="140" height="44" rx="6" fill="#d4d2cc" stroke="#c63d1f" stroke-width="1.4"/>
+      <text x="360" y="38" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">CAPsMAN manager</text>
+      <text x="360" y="53" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">ενα config · ενα σημειο</text>
+      <!-- trunk down -->
+      <line x1="360" y1="64" x2="360" y2="92" style="stroke:#558840;stroke-width:2.4;"/>
+      <text x="430" y="82" style="font-family:'Inter',sans-serif;font-size:8px;fill:#3a6a28;">CAPWAP + VLAN trunk (PoE)</text>
+      <!-- switch bar -->
+      <rect x="120" y="92" width="480" height="16" rx="4" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="104" style="font-family:'Inter',sans-serif;font-size:8px;fill:#555550;text-anchor:middle;">PoE switch</text>
+      <!-- CAPs -->
+      <g style="font-family:'Inter',sans-serif;">
+        <rect x="120" y="150" width="90" height="40" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+        <text x="165" y="166" style="font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">CAP · λομπι</text>
+        <text x="165" y="180" style="font-size:8px;fill:#555550;text-anchor:middle;">ch 1</text>
+        <rect x="255" y="150" width="90" height="40" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+        <text x="300" y="166" style="font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">CAP · πτερυγα A</text>
+        <text x="300" y="180" style="font-size:8px;fill:#555550;text-anchor:middle;">ch 6</text>
+        <rect x="390" y="150" width="90" height="40" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+        <text x="435" y="166" style="font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">CAP · πτερυγα B</text>
+        <text x="435" y="180" style="font-size:8px;fill:#555550;text-anchor:middle;">ch 11</text>
+        <rect x="510" y="150" width="90" height="40" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+        <text x="555" y="166" style="font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">CAP · πισινα</text>
+        <text x="555" y="180" style="font-size:8px;fill:#555550;text-anchor:middle;">ch 1</text>
+      </g>
+      <line x1="165" y1="108" x2="165" y2="150" style="stroke:#888880;stroke-width:1.4;"/>
+      <line x1="300" y1="108" x2="300" y2="150" style="stroke:#888880;stroke-width:1.4;"/>
+      <line x1="435" y1="108" x2="435" y2="150" style="stroke:#888880;stroke-width:1.4;"/>
+      <line x1="555" y1="108" x2="555" y2="150" style="stroke:#888880;stroke-width:1.4;"/>
+      <text x="360" y="204" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Ίδια SSIDs σε κάθε CAP, μη επικαλυπτόμενα κανάλια, VLAN κουβαλημένα πίσω στο gateway. Οι επισκέπτες κάνουν roam· εσύ διαχειρίζεσαι ένα config.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το <a href="mikrotik-lab-hotel.html">lab ξενοδοχείου</a> έκανε config δύο APs με το χέρι, το καθένα με τα δικά του SSIDs. Αυτό είναι εντάξει για δύο. Για δέκα — έναν διάδρομο δωματίων, ένα λόμπι, ένα pool bar — το να κάνεις config το καθένα με το χέρι είναι το πώς καταλήγεις με ένα AP σε λάθος VLAN, ένα άλλο να διαφημίζει ακόμα το password της περασμένης σεζόν, και επισκέπτες των οποίων η σύνδεση κόβεται κάθε φορά που περνάνε δίπλα από τα ασανσέρ. Το <strong>CAPsMAN</strong> (Controlled Access Point system MANager) το διορθώνει: ένας router γίνεται ο <em>manager</em>, τα APs γίνονται <em>CAPs</em> (Controlled APs) που κατεβάζουν όλο το config τους από αυτόν. Άλλαξε κάτι μία φορά· κάθε AP ακολουθεί.</p>
+    <p>Το RouterOS 7 ξανάχτισε το wireless γύρω από τον driver <strong>WifiWave2</strong>, και το CAPsMAN μαζί του — το config ζει κάτω από το <code>/interface/wifi</code>, όχι το παλιό <code>/caps-man</code>. Αυτό το post χρησιμοποιεί το μοντέρνο stack: έναν manager, μια κοινή διαμόρφωση που μοιράζονται όλα τα radios, SSIDs με VLAN tags που ρίχνουν τους επισκέπτες κατευθείαν στο απομονωμένο δίκτυο επισκεπτών, μη επικαλυπτόμενα κανάλια, και το roaming που κάνει το «περπάτα οπουδήποτε» να δουλεύει. Είναι το επιστέγασμα που κάνει το lab ξενοδοχείου να κλιμακώνει.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-lab-hotel.html">Το lab Δικτύου Ξενοδοχείου</a> — αυτό κλιμακώνει τα δύο χειροχτισμένα APs του σε διαχειριζόμενο fleet</li>
+      <li><a href="mikrotik-vlans.html">VLAN Segmentation</a> — το CAPsMAN ρίχνει κάθε SSID σε ένα VLAN μέσω του trunk</li>
+      <li>RouterOS <strong>7.13+</strong> στον manager και στα APs· APs MikroTik με driver <code>wifi-qcom</code>/<code>wifi-qcom-ac</code> (cAP ax, hAP ax, κλπ.)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Ενεργοποιησε τον Manager</h2>
+  <p class="section-thesis"><em>Οποιαδήποτε συσκευή RouterOS 7 μπορεί να είναι ο manager — συνήθως το gateway. Μία γραμμή τον ανάβει· τα CAPs θα τον βρουν μέσω του τοπικού δικτύου.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — στο gateway (ο manager)</span>
+    <pre class="term"><span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/capsman set enabled=yes \
+    interfaces=vlan99-mgmt package-path="" upgrade-policy=suggest-same-version</span>
+
+<span class="cmt"># Δες τα CAPs να προσπαθούν να μπουν (μόλις δείξουν εδώ — section 02):</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/capsman remote-cap print</span>
+<span class="out"> #  ADDRESS           IDENTITY     STATE    COMMON-NAME
+ 0  10.10.99.21       cap-lobby    Run      D4:01:...:21
+ 1  10.10.99.22       cap-wingA    Run      D4:01:...:22</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Κανε Διαχειριση στο VLAN Management</span>
+    <p>Δείξε το <code>interfaces=</code> του CAPsMAN στο <strong>VLAN management</strong>, όχι στο guest. Το κανάλι ελέγχου CAPWAP ανάμεσα σε manager και CAPs (discovery, config push, keys) πρέπει να πατάει στο ίδιο απομονωμένο segment management με ό,τι άλλο διαχειρίζεσαι — ποτέ στο δίκτυο όπου είναι οι επισκέπτες. Αυτή είναι η ασύρματη μισή της πειθαρχίας segmentation από το lab ξενοδοχείου: control plane στο VLAN 99, κίνηση επισκεπτών tunnelled/tagged ξεχωριστά.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Γυρνα ενα AP σε CAP</h2>
+  <p class="section-thesis"><em>Σε κάθε access point, μία εντολή δίνει τα radios του στον manager και σταματά να είναι standalone συσκευή. Μετά από αυτό, δεν ξανακάνεις ποτέ login στο AP — το διαχειρίζεσαι από τον manager.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — σε καθε access point</span>
+    <pre class="term"><span class="cmt"># Κάνε reset σε καθαρό CAP: δώσε και τα δύο radios στο CAPsMAN, βρες τον manager
+# στο τοπικό segment, και υιοθέτησε το config του.</span>
+<span class="pc">[admin@cap-lobby] &gt;</span> <span class="out">/interface/wifi/cap set enabled=yes \
+    discovery-interfaces=vlan99-mgmt slaves-datapath=bridge1 \
+    caps-man-addresses=10.10.99.1</span>
+
+<span class="cmt"># Το ίδιο το bridge του AP χρειάζεται απλώς το VLAN management για έλεγχο + τα
+# VLAN guest/staff tagged στο uplink του ώστε το CAPsMAN να τοποθετήσει SSIDs πάνω τους.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — «Το CAP δεν Μπαινει» Ειναι Σχεδον Παντα Discovery η Version</span>
+    <p>Δύο τρόποι αστοχίας καλύπτουν το 90% των κολλημένων CAPs. Πρώτο, το <strong>discovery</strong>: ο manager και το CAP πρέπει να μοιράζονται ένα segment Layer-2 (το VLAN management) για auto-discovery, ή πρέπει να βάλεις <code>caps-man-addresses=</code> ρητά (όπως παραπάνω) ώστε το CAP να κάνει unicast σε έναν manager πέρα από ένα σύνορο L3. Δεύτερο, <strong>driver/version</strong>: το CAPsMAN του WifiWave2 απαιτεί ο manager και κάθε CAP να είναι σε συμβατές εκδόσεις RouterOS 7 με τον driver <code>wifi-qcom</code> — ένα AP ακόμα σε παλιό package ή μια συσκευή v6 απλά δεν θα εμφανιστεί. Έλεγξε <code>/interface/wifi/capsman remote-cap print</code> — αν ένα CAP δεν εμφανίζεται καν, είναι discovery· αν εμφανίζεται αλλά κολλάει, είναι version/driver.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Ενα Config, Καθε Radio</h2>
+  <p class="section-thesis"><em>Όλο το νόημα: όρισε τα SSIDs, security, και VLAN mapping μία φορά ως ονομασμένα configurations, μετά κάνε τους provisioning σε κάθε CAP αυτόματα. Άλλαξε το config, κάθε AP το ξανακληρονομεί.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — configurations + provisioning στον manager</span>
+    <pre class="term"><span class="cmt"># Προφίλ security (τα passwords), ορισμένα μία φορά</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/security add name=sec-guest authentication-types=wpa2-psk,wpa3-psk passphrase="summer-in-crete"</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/security add name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase="********"</span>
+
+<span class="cmt"># Datapath: σε ποιο VLAN πέφτει κάθε SSID, bridged πίσω στο gateway</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/datapath add name=dp-guest bridge=bridge1 vlan-id=20</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/datapath add name=dp-staff bridge=bridge1 vlan-id=10</span>
+
+<span class="cmt"># Ονομασμένα configurations = SSID + security + datapath + πλάνο καναλιού</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/configuration add name=cfg-guest ssid="Hotel-Guest" security=sec-guest datapath=dp-guest</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/configuration add name=cfg-staff ssid="Hotel-Staff" security=sec-staff datapath=dp-staff</span>
+
+<span class="cmt"># Κανόνας provision: κάθε CAP που μπαίνει παίρνει και τα ΔΥΟ SSIDs, auto κανάλι</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/provisioning add action=create-dynamic-enabled \
+    supported-bands=2ghz-ax,5ghz-ax master-configuration=cfg-guest slave-configurations=cfg-staff</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Αλλαξε Μια Φορα, Παντου — Ολος ο Λογος να το Κανεις</span>
+    <p>Αλλάζει η σεζόν και ο ιδιοκτήτης θέλει νέο password επισκεπτών; <code>/interface/wifi/security set sec-guest passphrase="autumn-in-crete"</code> — μία γραμμή, και κάθε CAP στο κτίριο ενημερώνεται στο επόμενο config push. Νέο AP για την επεκταμένη βεράντα; Βάλ' το στην πρίζα, τρέξε τη μία γραμμή <code>cap set</code> από το section 02, και κληρονομεί και τα δύο SSIDs, το VLAN mapping, και το πλάνο καναλιού χωρίς κανένα επιπλέον config. Αυτό το «μία αλλαγή, παντού» είναι όλη η απόδοση του CAPsMAN, και είναι αυτό που κάνει ένα ακίνητο με δέκα APs συντηρήσιμο από έναν άνθρωπο.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Καναλια &amp; Roaming</h2>
+  <p class="section-thesis"><em>Δύο πράγματα ξεχωρίζουν το «αρκετά APs» από «ένα δίκτυο Wi-Fi που ο επισκέπτης δεν σκέφτεται ποτέ»: μη επικαλυπτόμενα κανάλια ώστε τα APs να μη μαλώνουν, και γρήγορο roaming ώστε το περπάτημα ανάμεσά τους να μην κόβει την κλήση.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — πλανο καναλιου + roaming</span>
+    <pre class="term"><span class="cmt"># Άφησε το CAPsMAN να διαλέξει μη επικαλυπτόμενα κανάλια, ή κάρφωσέ τα ανά-CAP.
+# Το 2.4GHz έχει μόνο τρία που δεν επικαλύπτονται: 1, 6, 11 — εναλλάσσοντάς τα.</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/channel add name=ch-2g-auto band=2ghz-ax skip-dfs-channels=all</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/channel add name=ch-5g-auto band=5ghz-ax</span>
+
+<span class="cmt"># Ενεργοποίησε 802.11k/v/r στο configuration ώστε οι clients να κάνουν roam καθαρά —
+# αναφορές γειτόνων (k), BSS transition (v), γρήγορο transition (r).</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/configuration set cfg-guest \
+    .steering.rrm=yes .steering.wnm.bss-transition=yes</span>
+
+<span class="cmt"># Επαλήθευσε τι επέλεξε πραγματικά κάθε CAP και ποιος είναι συνδεδεμένος πού:</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/radio print</span>
+<span class="pc">[admin@GW] &gt;</span> <span class="out">/interface/wifi/registration-table print</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Ιδιο SSID Κανει το Roaming να Δουλευει· το Ιδιο Καναλι το Χαλαει</span>
+    <p>Για να κάνει ένας επισκέπτης roam απρόσκοπτα, κάθε CAP πρέπει να διαφημίζει το <strong>πανομοιότυπο SSID και password</strong> — που το εγγυάται το CAPsMAN, αφού μοιράζονται ένα configuration. Αλλά η ανάποδη πλευρά πιάνει τον κόσμο: APs σε <strong>επικαλυπτόμενα κανάλια</strong> (δύο γείτονες και οι δύο στο κανάλι 1 του 2.4GHz, ή χειρότερα κανάλια 1 και 3) παρεμβάλλονται μεταξύ τους και ρίχνουν το throughput για όλους στην εμβέλεια. Η διόρθωση είναι ένα πλάνο καναλιού — 1/6/11 στο 2.4GHz, απλωμένα τα πλατιά κανάλια 5GHz — είτε auto-επιλεγμένα είτε καρφωμένα ανά CAP με βάση τη φυσική τοποθεσία. Ίδιο όνομα, διαφορετικό κανάλι: αυτή είναι η συνταγή.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Λειτουργια &amp; Παρακολουθηση <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Μόλις τρέχει, ο manager είναι το single pane of glass σου — κάθε AP, κάθε client, κάθε κανάλι, από ένα CLI. Αυτές είναι οι εντολές στις οποίες θα ζεις στην πράξη.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Τι δειχνει</th></tr></thead>
+    <tbody>
+      <tr><td>/interface/wifi/capsman remote-cap print</td><td>Κάθε CAP, το state του (Run = υγιές), διεύθυνση, και identity.</td></tr>
+      <tr><td>/interface/wifi/registration-table print</td><td>Κάθε συνδεδεμένος client — ποιο AP, σήμα, ρυθμός. Το εργαλείο «γιατί είναι αργό το δωμάτιο 12».</td></tr>
+      <tr><td>/interface/wifi/radio print</td><td>Το επιλεγμένο κανάλι και band κάθε radio — εντόπισε δύο γείτονες να συγκρούονται.</td></tr>
+      <tr><td>/interface/wifi print</td><td>Τα provisioned virtual APs σε κάθε CAP (guest + staff ανά radio).</td></tr>
+      <tr><td>/log print where topics~"caps"</td><td>Events join/leave — ένα CAP που συνεχώς ξαναμπαίνει είναι πρόβλημα PoE ή uplink.</td></tr>
+      <tr><td>/interface/wifi/capsman remote-cap upgrade</td><td>Στείλε ταιριαστή έκδοση RouterOS σε κάθε CAP ταυτόχρονα.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Ενα CAP που Φλαπαρει Σχεδον Ποτε Δεν Ειναι Wi-Fi</span>
+    <p>Όταν ένα CAP επανειλημμένα πέφτει και ξαναμπαίνει στο log, αντιστάσου στο να κάνεις debug το wireless — είναι σχεδόν πάντα φυσικό: ένας οριακός PoE injector, μια μακριά ή κατεστραμμένη διαδρομή προς εκείνο το AP, ή ένα switch port που ξαναδιαπραγματεύεται. Ο πίνακας registration και τα στατιστικά radio θα φαίνονται μια χαρά μέχρι να εξαφανιστεί το CAP. Έλεγξε πρώτα το <a href="mikrotik-qos.html">switch port</a> και το budget PoE για εκείνη τη διαδρομή· έχουμε ξοδέψει ώρες «ρυθμίζοντας το roaming» σε κάτι που αποδείχτηκε ένα σπασμένο καλώδιο πίσω από ένα κεφαλάρι.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Κεντρικο Wireless</h2>
+  <p class="section-thesis"><em>Το CAPsMAN είναι η απάντηση του MikroTik στο wireless LAN controller — ίδια ιδέα, ένα κλάσμα της τιμής και του licensing.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS 7</th><th>Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>CAPsMAN manager</td><td>Wireless LAN Controller (WLC) / Catalyst 9800</td></tr>
+      <tr><td>CAP (Controlled AP)</td><td>Lightweight AP joined στο WLC (CAPWAP)</td></tr>
+      <tr><td>/interface/wifi/configuration</td><td>WLAN profile + policy/RF tag</td></tr>
+      <tr><td>datapath vlan-id ανα SSID</td><td>WLAN → VLAN mapping / policy profile</td></tr>
+      <tr><td>κανόνας provisioning</td><td>AP join profile + tags</td></tr>
+      <tr><td>steering (k/v/r)</td><td>802.11k/v/r κάτω από το RF/policy profile</td></tr>
+      <tr><td>Δωρεάν — καμία licence ανά-AP</td><td>DNA/Smart licensing ανά AP</td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το CAPsMAN κάνει πολλά APs να συμπεριφέρονται σαν ένα σύστημα</strong> — ο manager κρατά το config, τα CAPs το κατεβάζουν. Άλλαξε μία φορά, κάθε AP ακολουθεί· πρόσθεσε ένα AP, κληρονομεί τα πάντα.</li>
+      <li><strong>Χρησιμοποίησε το stack WifiWave2 του RouterOS 7</strong> (<code>/interface/wifi/...</code>) σε 7.13+ με τον driver <code>wifi-qcom</code> — όχι το legacy <code>/caps-man</code>.</li>
+      <li><strong>Τρέξε το control plane στο VLAN management</strong>, και βάλε tag τα SSIDs guest/staff στα δικά τους VLAN μέσω του datapath — η ασύρματη μισή του segmentation.</li>
+      <li><strong>Όρισε SSID + security + datapath μία φορά ως configurations</strong>, μετά ένας κανόνας provisioning τα στέλνει σε κάθε CAP αυτόματα.</li>
+      <li><strong>Το ίδιο SSID παντού ενεργοποιεί roaming· ένα πλάνο καναλιού αποτρέπει αυτο-παρεμβολή.</strong> 1/6/11 στο 2.4GHz, και ενεργοποίησε steering 802.11k/v/r.</li>
+      <li><strong>Ο manager είναι ένα pane of glass</strong> — το remote-cap και το registration-table απαντούν «είναι όλα τα APs up» και «γιατί είναι αργό εκείνο το δωμάτιο» από ένα CLI.</li>
+      <li><strong>Ένα CAP που φλαπάρει είναι φυσικό</strong> — PoE, καλωδίωση, το switch port — πολύ πριν να είναι ρύθμιση wireless.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Ενα ακινητο οπου το Wi-Fi κοβεται καθως περπατανε οι επισκεπτες;</h3>
+    <p>Μόλις ένα ακίνητο έχει περισσότερα από δύο-τρία access points, η διαχείρισή τους ένα-ένα σταματά να κλιμακώνει. Σχεδιάζω wireless διαχειριζόμενο με CAPsMAN με ένα config, απρόσκοπτο roaming, κίνηση επισκεπτών σωστά απομονωμένη, και ένα πλάνο καναλιού που δεν μαλώνει με τον εαυτό του.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

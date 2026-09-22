@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: Remote-Access VPN (IKEv2 & SSTP) — S. Markakis</title>
+<meta name="description" content="Φέρε laptops και τηλέφωνα με ασφάλεια πίσω στο γραφείο σε RouterOS — SSTP πάνω από TLS/443 για εχθρικά firewalls, IKEv2 με mode-config για native clients, παγίδες generate-policy και server-cert, συν τους κανόνες firewall/NAT που ξεχνά ο κόσμος.">
+<meta property="og:title" content="MikroTik: Remote-Access VPN (IKEv2 &amp; SSTP) — S. Markakis">
+<meta property="og:description" content="Φέρε laptops και τηλέφωνα με ασφάλεια πίσω στο γραφείο σε RouterOS — SSTP πάνω από TLS/443 για εχθρικά firewalls, IKEv2 με mode-config για native clients, παγίδες generate-policy και server-cert, συν τους κανόνες firewall/NAT που ξεχνά ο κόσμος.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-remote-access-vpn-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-remote-access-vpn.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-remote-access-vpn.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-remote-access-vpn-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-remote-access-vpn.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-remote-access-vpn-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-remote-access-vpn.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Remote-Access VPN (IKEv2 & SSTP)",
+  "description": "Get laptops and phones securely back to the office on RouterOS — SSTP over TLS/443 for hostile firewalls, IKEv2 with mode-config for native clients, generate-policy and server-cert gotchas, plus the firewall/NAT rules people forget.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-remote-access-vpn-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-remote-access-vpn.png",
+  "keywords": [
+    "mikrotik",
+    "vpn"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-remote-access-vpn"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-remote-access-vpn.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; VPN &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">MikroTik<br>Remote-Access VPN (IKEv2 &amp; SSTP)</h1>
+  <p class="post-subtitle">Το να φέρεις ένα laptop ή τηλέφωνο με ασφάλεια πίσω στο γραφείο σε RouterOS καταλήγει στο να διαλέξεις το σωστό πρωτόκολλο ανάλογα με το πού βρίσκεται ο χρήστης. IKEv2 για native mobile clients, SSTP για να τρυπώσεις μέσα από εχθρικά firewalls στο port 443. Αυτό χτίζει και τα δύο, συν τις παγίδες road-warrior που κάνουν το remote access του MikroTik να «δουλεύει στο lab, αποτυγχάνει στο αεροδρόμιο». Το δίδυμο του post IKEv2 της Cisco.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Remote Access</span>
+    <span class="tag">IKEv2</span>
+    <span class="tag">SSTP</span>
+    <span class="tag">VPN</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Σε αντίθεση με το <a href="mikrotik-wireguard.html">WireGuard</a> (φοβερό, αλλά χρειάζεται εφαρμογή) ή το <a href="cisco-mikrotik-ipsec.html">site-to-site</a> (σταθεροί peers), το remote access αφορά αυθαίρετους clients από αυθαίρετα δίκτυα. Το RouterOS σου δίνει αρκετές επιλογές road-warrior, και η σωστή επιλογή είναι ερώτημα firewall: το <strong>IKEv2</strong> είναι ενσωματωμένο σε iOS/macOS/Windows εγγενώς και είναι το μοντέρνο default — μέχρι ένα δίκτυο επισκεπτών ή ξενοδοχείου να μπλοκάρει UDP 500/4500. Το <strong>SSTP</strong> κάνει tunnel πάνω από <strong>TLS στο 443</strong>, οπότε μοιάζει με HTTPS και περνά σχεδόν παντού — το αξιόπιστο fallback. Το <strong>L2TP/IPsec</strong> είναι η legacy επιλογή που υποστηρίζει κάθε συσκευή αλλά κανείς δεν αγαπά.</p>
+    <p>Θα χτίσουμε IKEv2 (native clients, mode-config για να αναθέτει διευθύνσεις) και SSTP (443, ανθεκτικό σε firewall), και τα δύο δίνοντας στον client μια διεύθυνση από ένα pool και κάνοντάς τον route προς το LAN. Καθρεφτίζει το <a href="cisco-remote-access-vpn.html">remote access IKEv2 της Cisco</a>· το μοντέλο είναι πανομοιότυπο, τα μενού είναι RouterOS.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Ένα πιστοποιητικό στον router (και το IKEv2 και το SSTP παρουσιάζουν server cert)</li>
+      <li>Ένα pool διευθύνσεων client που δεν επικαλύπτεται με το LAN σου, και ένα θωρακισμένο <a href="mikrotik-hardening.html">input firewall</a></li>
+      <li>Τα βασικά του <a href="mikrotik-dhcp-nat.html">NAT/pool</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">SSTP — Αυτο που Δουλευει Παντα</h2>
+  <p class="section-thesis"><em>Ξεκίνα εδώ, γιατί είναι το πιο ανθεκτικό και το πιο απλό. Το SSTP πατάει πάνω σε TLS/443, οπότε διασχίζει NAT και περιοριστικά firewalls διάφανα. Ένα server cert, ένα PPP profile, και ένας χρήστης.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — server SSTP πανω απο 443</span>
+    <pre class="term"><span class="cmt"># Address pool + ένα PPP profile που αναθέτει το gateway και το εύρος client.</span>
+<span class="pc">/ip pool</span> <span class="out">add name=ra-pool ranges=10.99.0.10-10.99.0.200</span>
+<span class="pc">/ppp profile</span> <span class="out">add name=ra local-address=10.99.0.1 remote-address=ra-pool \
+    dns-server=10.10.0.53</span>
+
+<span class="cmt"># Ενεργοποίησε τον server SSTP με το cert σου (443 = μοιάζει με HTTPS).</span>
+<span class="pc">/interface sstp-server server</span>
+<span class="out">set enabled=yes certificate=ra-cert default-profile=ra \
+    authentication=mschap2 port=443 tls-version=only-1.2</span>
+
+<span class="cmt"># Ένας χρήστης (ή δείξε το authentication σε RADIUS για κλίμακα).</span>
+<span class="pc">/ppp secret</span> <span class="out">add name=road.warrior password="strong-pass" service=sstp profile=ra</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">◆ Γιατι το SSTP ειναι το Πρακτικο Default στο MikroTik</span>
+    <p>Τα VPN road-warrior αποτυγχάνουν πιο συχνά όχι στο crypto αλλά στην <em>προσβασιμότητα</em> — ο client είναι σε δίκτυο café με captive portal που μπλοκάρει τα πάντα εκτός από web ports. Το SSTP στο 443 περνάει γιατί είναι μη διακριτό από HTTPS για ένα stateful firewall. Το κόστος είναι ότι είναι native στα Windows αλλά χρειάζεται εφαρμογή client σε άλλες πλατφόρμες, και το TLS προσθέτει λίγο overhead. Για το «πρέπει να δουλεύει από όπου κι αν είναι ο χρήστης», το SSTP είναι η απάντηση· συνδύασέ το με IKEv2 για την εμπειρία native-mobile.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">IKEv2 — Ενσωματωμενοι Clients σε Κινητα</h2>
+  <p class="section-thesis"><em>Το IKEv2 είναι ενσωματωμένο σε τηλέφωνα και laptops χωρίς εφαρμογή, οπότε είναι η πιο ωραία εμπειρία — όταν το επιτρέπει το δίκτυο. Στο RouterOS είναι IPsec με <strong>mode-config</strong> για να δίνει στον client μια διεύθυνση και μια policy παραγμένη ανά σύνδεση.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — IKEv2 road-warrior με mode-config</span>
+    <pre class="term"><span class="cmt"># Το mode-config αναθέτει στον client μια διεύθυνση από το pool + DNS.</span>
+<span class="pc">/ip ipsec mode-config</span>
+<span class="out">add name=ra-mc address-pool=ra-pool address-prefix-length=32 \
+    split-include=10.10.0.0/24</span>          <span class="cmt"># split tunnel: μόνο το subnet του γραφείου</span>
+
+<span class="cmt"># Phase 1/2 + ένας passive peer που περιμένει clients (exchange-mode ike2).</span>
+<span class="pc">/ip ipsec profile</span> <span class="out">add name=ra-p1 enc-algorithm=aes-256 hash-algorithm=sha256 dh-group=modp2048</span>
+<span class="pc">/ip ipsec proposal</span> <span class="out">add name=ra-p2 enc-algorithms=aes-256-cbc auth-algorithms=sha256 pfs-group=modp2048</span>
+<span class="pc">/ip ipsec peer</span> <span class="out">add name=ra passive=yes exchange-mode=ike2 profile=ra-p1 \
+    send-initial-contact=no</span>
+
+<span class="cmt"># Identity: authenticate clients με EAP (username/password) + server cert,
+# και auto-generate policies ανά client, με scope το mode-config.</span>
+<span class="pc">/ip ipsec identity</span>
+<span class="out">add peer=ra auth-method=eap-radius certificate=ra-cert \
+    generate-policy=port-strict mode-config=ra-mc</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — generate-policy &amp; η Εμπιστοσυνη του Client στο Cert σου</span>
+    <p>Δύο κλασικά road-warrior. Πρώτο, το <code>generate-policy=port-strict</code> είναι αυτό που αφήνει έναν peer με <em>άγνωστη</em> source διεύθυνση (έναν client από οπουδήποτε) να εγκαταστήσει policy δυναμικά — χωρίς αυτό, το IKEv2 remote access απλά δεν θα χτίσει tunnel για έναν client του οποίου το IP δεν προ-ρύθμισες. Δεύτερο, ακριβώς όπως στη <a href="cisco-remote-access-vpn.html">Cisco</a>: ο client επικυρώνει το <strong>server certificate</strong> του router, οπότε πρέπει να είναι CA-signed με όνομα που ταιριάζει με αυτό που καλεί ο client, αλλιώς οι native clients αρνούνται με ασαφές σφάλμα. Το crypto σπάνια είναι το πρόβλημα· το policy-generation και η εμπιστοσύνη cert είναι.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Μην Ξεχασεις το Firewall &amp; NAT</h2>
+  <p class="section-thesis"><em>Οι clients φτάνουν στην input chain του WAN και η κίνησή τους πρέπει να φτάσει — και να γίνει NATed προς — το LAN. Δύο κανόνες που ξεχνά ο κόσμος, και το tunnel ανεβαίνει αλλά τίποτα δεν περνάει.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — επιτρεψε το VPN + εξαιρεσε την κινηση VPN απο masquerade</span>
+    <pre class="term"><span class="cmt"># Επίτρεψε τα transports VPN προς τα ΜΕΣΑ (443 για SSTP· 500/4500 + ESP για IKEv2).</span>
+<span class="pc">/ip firewall filter</span>
+<span class="out">add chain=input protocol=tcp dst-port=443 action=accept comment="SSTP"
+add chain=input protocol=udp port=500,4500 action=accept comment="IKEv2"
+add chain=input protocol=ipsec-esp action=accept</span>
+
+<span class="cmt"># Άφησε τους clients να φτάσουν το LAN, και ΜΗΝ κάνεις masquerade κίνηση VPN->LAN.</span>
+<span class="pc">/ip firewall nat</span>
+<span class="out">add chain=srcnat src-address=10.99.0.0/24 dst-address=10.10.0.0/24 action=accept place-before=0</span></pre>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Επαληθευσε και τα Δυο Paths <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Επιβεβαίωσε ότι οι listeners είναι up και δες έναν client να συνδέεται σε κάθε πρωτόκολλο.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — το περπατημα υγειας</span>
+    <pre class="term"><span class="pc">/interface sstp-server print</span>          <span class="cmt"># server τρέχει στο 443</span>
+<span class="pc">/ppp active print</span>                     <span class="cmt"># συνδεδεμένοι χρήστες SSTP + ανατεθειμένα IP</span>
+<span class="pc">/ip ipsec active-peers print</span>          <span class="cmt"># clients IKEv2, state=established</span>
+<span class="pc">/ip ipsec policy print where dynamic=yes</span>  <span class="cmt"># auto-generated policies ανά client</span>
+<span class="pc">/log print where topics~"ipsec"</span>       <span class="cmt"># πρώτη στάση όταν ένας client δεν συνδέεται</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Διάλεξε το πρωτόκολλο ανάλογα με το πού είναι ο χρήστης:</strong> IKEv2 για native mobile, SSTP (TLS/443) για να τρυπώσεις μέσα από εχθρικά firewalls, L2TP/IPsec ως η παγκόσμια legacy.</li>
+      <li><strong>Το SSTP είναι το πρακτικό default</strong> — μοιάζει με HTTPS και δουλεύει από δίκτυα café και ξενοδοχείων που μπλοκάρουν τα πάντα άλλα.</li>
+      <li><strong>Το IKEv2 χρειαζεται mode-config</strong> για να αναθέτει στον client διεύθυνση, DNS, και routes split-tunnel — το αντίστοιχο της authorization policy της Cisco.</li>
+      <li><strong>Το <code>generate-policy=port-strict</code></strong> είναι αυτό που αφήνει clients από άγνωστες διευθύνσεις να χτίσουν tunnel — χωρίς αυτό, το IKEv2 remote access δεν δουλεύει.</li>
+      <li><strong>Ο client εμπιστεύεται το server certificate σου</strong> — CA-signed, με ταιριαστό όνομα, αλλιώς οι native clients αρνούνται με ασαφές σφάλμα.</li>
+      <li><strong>Άνοιξε τα transports στην input chain και εξαίρεσε το VPN→LAN από masquerade</strong>, αλλιώς το tunnel είναι up αλλά τίποτα δεν περνάει.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Προσωπικο απο μακρια που χρειαζεται προσβαση απο αεροδρομια, café, και sites πελατων;</h3>
+    <p>Χτίζω VPN road-warrior σε MikroTik και Cisco &mdash; IKEv2 για native υποστήριξη συσκευών, SSTP ως fallback για δίκτυα που μπλοκάρουν τα πάντα άλλα &mdash; με πραγματικά πιστοποιητικά αντί για κοινό κλειδί, και έλεγχο πρόσβασης ανά χρήστη.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

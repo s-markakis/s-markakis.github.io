@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: QoS for VoIP — S. Markakis</title>
+<meta name="description" content="Κάνε τις κλήσεις φωνής να επιβιώνουν σε απασχολημένο link — DSCP marking, όρια εμπιστοσύνης, LLQ priority queuing για RTP, και η class-based πολιτική που κρατάει τα τηλέφωνα καθαρά όταν το WAN είναι κορεσμένο.">
+<meta property="og:title" content="Cisco IOS: QoS for VoIP — S. Markakis">
+<meta property="og:description" content="Κάνε τις κλήσεις φωνής να επιβιώνουν σε απασχολημένο link — DSCP marking, όρια εμπιστοσύνης, LLQ priority queuing για RTP, και η class-based πολιτική που κρατάει τα τηλέφωνα καθαρά όταν το WAN είναι κορεσμένο.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-qos-voip-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-qos-voip.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-qos-voip.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-qos-voip-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-qos-voip.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-qos-voip-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-qos-voip.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: QoS for VoIP",
+  "description": "Κάνε τις κλήσεις φωνής να επιβιώνουν σε απασχολημένο link — DSCP marking, όρια εμπιστοσύνης, LLQ priority queuing για RTP, και η class-based πολιτική που κρατάει τα τηλέφωνα καθαρά όταν το WAN είναι κορεσμένο.",
+  "datePublished": "2026-07-28",
+  "dateModified": "2026-07-28",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-qos-voip-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-qos-voip.png",
+  "keywords": [
+    "cisco",
+    "routing"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-qos-voip"
+  },
+  "timeRequired": "PT8M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-qos-voip.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>QoS για VoIP</h1>
+  <p class="post-subtitle">Η φωνή είναι μικροσκοπική αλλά ανελέητη: 100 kbps RTP που γίνονται σκουπίδια τη στιγμή που περιμένουν πίσω από το upload αρχείου κάποιου. Το QoS δίνει σε αυτά τα πακέτα γρήγορη λωρίδα — σήμανέ τα στο τηλέφωνο, εμπιστεύσου τη σήμανση, και βάλε τη φωνή σε μια strict-priority ουρά ώστε οι κλήσεις να μένουν κρυστάλλινα καθαρές ακόμα και όταν το link είναι γεμάτο.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">QoS</span>
+    <span class="tag">VoIP</span>
+    <span class="tag">DSCP</span>
+    <span class="tag">LLQ</span>
+    <span class="tag">MQC</span>
+    <span class="tag">CCNP</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: priority queue -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="qp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="200" fill="#e1ded7"/>
+      <text x="360" y="26" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">CLASSIFY → QUEUE → SCHEDULE (εξω απο το WAN)</text>
+      <!-- incoming mixed -->
+      <rect x="30" y="50" width="120" height="20" rx="3" fill="#e8c8c0" stroke="#c63d1f"/><text x="90" y="64" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#c63d1f;text-anchor:middle;">voice RTP · EF</text>
+      <rect x="30" y="88" width="120" height="20" rx="3" fill="#cfe0ee" stroke="#3a5a78"/><text x="90" y="102" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#3a5a78;text-anchor:middle;">signaling · CS3</text>
+      <rect x="30" y="126" width="120" height="20" rx="3" fill="#d4d2cc" stroke="#888880"/><text x="90" y="140" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#555550;text-anchor:middle;">web / bulk · default</text>
+      <!-- queues -->
+      <rect x="280" y="46" width="150" height="28" rx="4" fill="#e8c8c0" stroke="#c63d1f"/><text x="355" y="64" style="font-family:'Inter',sans-serif;font-weight:700;font-size:9px;fill:#c63d1f;text-anchor:middle;">PRIORITY (LLQ) — εξυπηρετειται πρωτο</text>
+      <rect x="280" y="84" width="150" height="24" rx="4" fill="#cfe0ee" stroke="#3a5a78"/><text x="355" y="100" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a5a78;text-anchor:middle;">signaling — bandwidth 5%</text>
+      <rect x="280" y="118" width="150" height="24" rx="4" fill="#d4d2cc" stroke="#888880"/><text x="355" y="134" style="font-family:'Inter',sans-serif;font-size:9px;fill:#555550;text-anchor:middle;">default — τα υπολοιπα</text>
+      <line x1="150" y1="60" x2="278" y2="60" style="stroke:#c63d1f;stroke-width:1.4;marker-end:url(#qp)"/>
+      <line x1="150" y1="98" x2="278" y2="96" style="stroke:#3a5a78;stroke-width:1.4;marker-end:url(#qp)"/>
+      <line x1="150" y1="136" x2="278" y2="130" style="stroke:#888880;stroke-width:1.4;marker-end:url(#qp)"/>
+      <!-- link -->
+      <rect x="560" y="80" width="120" height="40" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="620" y="98" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#1a1a18;text-anchor:middle;">link WAN</text>
+      <text x="620" y="112" style="font-family:'Inter',sans-serif;font-size:8px;fill:#888880;text-anchor:middle;">(κορεσμένο)</text>
+      <line x1="430" y1="60" x2="558" y2="94" style="stroke:#c63d1f;stroke-width:2.2;marker-end:url(#qp)"/>
+      <line x1="430" y1="96" x2="558" y2="100" style="stroke:#3a5a78;stroke-width:1.2;marker-end:url(#qp)"/>
+      <line x1="430" y1="130" x2="558" y2="106" style="stroke:#888880;stroke-width:1.2;marker-end:url(#qp)"/>
+      <text x="360" y="176" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Το QoS έχει σημασία μόνο όταν το link είναι ΓΕΜΑΤΟ — τότε ο scheduler αποφασίζει ποιος περιμένει. Η φωνή ποτέ.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Μια κλήση VoIP είναι περίπου 80–100 kbps από μικρά πακέτα UDP/RTP, και δεν έχει καμία ανοχή σε καθυστέρηση ή απώλεια: 150 ms latency ή 1% απώλεια και οι καλούντες αρχίζουν να μιλάνε ο ένας πάνω στον άλλο. Ο δολοφόνος δεν είναι η bandwidth — μια κλήση είναι μικροσκοπική — είναι η <strong>καθυστέρηση ουράς</strong>. Όταν το link γεμίζει (κάποιος κάνει upload στο cloud, ξεκινάει ένα backup), τα πακέτα φωνής κάθονται στην ίδια ουρά FIFO πίσω από μεγάλα πακέτα δεδομένων, και η κλήση κομπιάζει. Το QoS είναι η διόρθωση: αναγνώρισε τη φωνή, και άφησέ την να προσπεράσει την ουρά.</p>
+    <p>Τρεις κινήσεις το κάνουν αυτό. <strong>Ταξινόμηση &amp; σήμανση</strong> — σημάδεψε τα πακέτα φωνής με DSCP <code>EF</code> (Expedited Forwarding) ώστε κάθε συσκευή να τα αναγνωρίζει. <strong>Εμπιστεύσου το όριο</strong> — άφησε το τηλέφωνο IP να σημαδεύει, και το switch να εμπιστεύεται αυτή τη σήμανση αντί να την ξανα-ελέγχει. <strong>Βάλε ουρά με priority</strong> — μια Low-Latency Queue (LLQ) που εξυπηρετεί τη φωνή αυστηρά πρώτη, με έναν policer ώστε να μην μπορεί να λιμοκτονήσει τα υπόλοιπα. Όλο αυτό χτίζεται με το ίδιο Modular QoS CLI (MQC) — class-maps και policy-maps — που γνώρισες στο <a href="cisco-zbf.html">post του firewall</a>. Αυτό καθρεφτίζει το <a href="mikrotik-qos.html">writeup μας για QoS σε MikroTik</a>· οι έννοιες είναι ίδιες.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Το pattern MQC (class-map / policy-map / service-policy) — το είδες στο <a href="cisco-zbf.html">Zone-Based Firewall</a></li>
+      <li>VLAN, ιδανικά ένα αποκλειστικό VLAN φωνής — δες <a href="cisco-vlans-trunking.html">VLAN &amp; Trunking</a></li>
+      <li>Ένα link WAN που όντως συμφορίζεται (το QoS δεν κάνει τίποτα σε αδρανές link)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Σημανση — Μιλα DSCP</h2>
+  <p class="section-thesis"><em>Η κεφαλίδα IP κάθε πακέτου έχει ένα πεδίο DSCP. Η κίνηση bearer φωνής παίρνει EF, το signaling κλήσης παίρνει CS3. Σήμανε μία φορά, κοντά στην άκρη, και κάθε συσκευή downstream μπορεί να ενεργήσει πάνω σε αυτό χωρίς να ξανα-ελέγξει.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Κινηση</th><th>DSCP</th><th>Γιατι</th></tr></thead>
+    <tbody>
+      <tr><td>Bearer φωνής (RTP)</td><td>EF (46)</td><td>Ο ίδιος ο ήχος — strict priority, χαμηλότερο latency.</td></tr>
+      <tr><td>Signaling κλήσης (SIP/SCCP)</td><td>CS3 (24)</td><td>Στήνει/κλείνει κλήσεις — σημαντικό αλλά όχι κρίσιμο σε latency.</td></tr>
+      <tr><td>Όλα τα υπόλοιπα</td><td>Default (0)</td><td>Best effort — web, email, μεταφορές αρχείων.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Σημανε στην Ακρη, Ενεργησε στον Πυρηνα</span>
+    <p>Ο χρυσός κανόνας του QoS: <strong>ταξινόμησε και σήμανε όσο πιο κοντά στην πηγή γίνεται</strong>, μετά εμπιστεύσου εκείνη τη σήμανση παντού αλλού. Το ξανα-ταξινόμημα σε στυλ deep-packet σε κάθε hop είναι ακριβό και εύθραυστο· ένα συνεπές σετ DSCP που μπαίνει μία φορά στην άκρη πρόσβασης αφήνει κάθε switch και router downstream να πάρει μια φτηνή, ακαριαία απόφαση. Αυτό δουλεύει μόνο αν ελέγχεις επίσης <em>ποιος</em> επιτρέπεται να βάζει σημάνσεις — που είναι το όριο εμπιστοσύνης, αμέσως μετά.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Το Οριο Εμπιστοσυνης</h2>
+  <p class="section-thesis"><em>Ένα τηλέφωνο IP Cisco σημαδεύει το δικό του RTP ως EF — αλλά ένα συνδεδεμένο PC θα μπορούσε να σημαδέψει το παιχνίδι ή το torrent του EF επίσης και να κλέψει τη λωρίδα προτεραιότητας. Το switch αποφασίζει ποιες σημάνσεις να πιστέψει. Εμπιστεύσου το τηλέφωνο· ξανασήμανε το PC στο μηδέν.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS (access switch) — εμπιστεψου το τηλεφωνο, μην εμπιστευεσαι το PC απο πισω</span>
+    <pre class="term"><span class="cmt"># Ενεργοποίησε το QoS global (κλειστό by default σε πολλά Catalyst)</span>
+<span class="pc">SW1(config)#</span> <span class="out">mls qos</span>
+
+<span class="pc">SW1(config)#</span> <span class="out">interface GigabitEthernet0/5</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport access vlan 10</span>       <span class="cmt"># VLAN δεδομένων (το PC)</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport voice vlan 110</span>       <span class="cmt"># VLAN φωνής (το τηλέφωνο)</span>
+
+<span class="cmt"># Εμπιστεύσου το DSCP που βάζει το τηλέφωνο — αλλά μόνο μέσω του τηλεφώνου (επιβεβαιωμένο με CDP):</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">mls qos trust device cisco-phone</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">mls qos trust dscp</span>
+<span class="cmt"># Το PC κρέμεται από τη θύρα switch του τηλεφώνου· το τηλέφωνο ΞΑΝΑΣΗΜΑΔΕΥΕΙ την κίνηση
+# του PC σε DSCP 0, οπότε ένα PC δεν μπορεί να πλαστογραφήσει EF και να προσπεράσει την ουρά φωνής.</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Μια Μη Εμπιστη Θυρα Σβηνει τις Σημανσεις σου</span>
+    <p>Με το <code>mls qos</code> ενεργό global, οι θύρες by default είναι <strong>untrusted</strong> — ξαναγράφουν το εισερχόμενο DSCP σε 0. Οπότε η ενεργοποίηση του QoS χωρίς να ρυθμίσεις trust μπορεί να κάνει τη φωνή <em>χειρότερη</em>: το τηλέφωνο σημαδεύει EF, το switch το σβήνει σε 0, και το LLQ downstream δεν ταιριάζει ποτέ. Είτε επέκτεινε το όριο εμπιστοσύνης σωστά (εμπιστεύσου το τηλέφωνο στην άκρη) είτε ξανασήμανε τη φωνή ρητά μόνος σου με μια πολιτική. Επαλήθευσε με <code>show mls qos interface gi0/5</code> — σου λέει την κατάσταση εμπιστοσύνης και αν επιβιώνουν οι σημάνσεις.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Ταξινομηση — Ταιριασε τη Φωνη</h2>
+  <p class="section-thesis"><em>Στον router που θα κάνει ουρά, όρισε classes που ταιριάζουν τις τιμές DSCP που έχει ήδη βάλει η άκρη. Το ταίριασμα μιας έμπιστης σήμανσης είναι φθηνό· το ταίριασμα με ACL/port είναι το fallback όταν δεν μπορείς να εμπιστευτείς την πηγή.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS (WAN router) — classes για φωνη και signaling</span>
+    <pre class="term"><span class="cmt"># Προτιμώμενο: ταίριασε το DSCP που έχει ήδη σημαδέψει η άκρη</span>
+<span class="pc">R1(config)#</span> <span class="out">class-map match-all VOICE</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">match dscp ef</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">class-map match-any SIGNALING</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">match dscp cs3</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">match dscp af31</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Fallback αν πρέπει να ταξινομήσεις με port αντί να εμπιστευτείς μια σήμανση:</span>
+<span class="cmt">#   match ip rtp 16384 16383   ← το τυπικό εύρος θυρών UDP για RTP</span></pre>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">LLQ — Η Ουρα Αυστηρης Προτεραιοτητας</h2>
+  <p class="section-thesis"><em>Αυτή είναι η καρδιά του QoS φωνής. Μια Low-Latency Queue εξυπηρετεί τη φωνή πριν από όλα τα υπόλοιπα, κάθε φορά — αλλά με ένα όριο bandwidth (ενσωματωμένος policer) ώστε μια πλημμύρα φωνής να μην μπορεί να λιμοκτονήσει το link. Όλα τα υπόλοιπα μοιράζονται ό,τι μένει με βάρος.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — το policy-map: priority για φωνη, bandwidth για τα υπολοιπα</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">policy-map WAN-QOS</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class VOICE</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">priority percent 20</span>     <span class="cmt"># LLQ: strict priority, με όριο 20%</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">exit</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class SIGNALING</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">bandwidth percent 5</span>      <span class="cmt"># εγγυημένο 5%, όχι strict-priority</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">exit</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class class-default</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">fair-queue</span>            <span class="cmt"># όλοι οι υπόλοιποι μοιράζονται δίκαια</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">random-detect dscp-based</span> <span class="cmt"># WRED: πέτα νωρίς, απόφυγε το TCP sync</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">end</span>
+
+<span class="cmt"># Πρόσδεσέ το OUTBOUND στο interface WAN — το QoS ενεργεί σε συμφόρηση egress</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">service-policy output WAN-QOS</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Μη Δωσεις στη Φωνη Περισσοτερο απο ~33% του Link</span>
+    <p>Η ουρά <code>priority</code> είναι αυστηρή — θα λιμοκτονήσει ευχαρίστως τα υπόλοιπα αν την αφήσεις. Ο εμπειρικός κανόνας είναι να βάλεις όριο στη φωνή <strong>όχι περισσότερο από το ένα τρίτο του link</strong> (20–33%), μετρημένο στον πραγματικό αριθμό κλήσεών σου: περίπου 100 kbps ανά κλήση G.711 συν overhead. Η υπερπρομήθεια της class priority σημαίνει ότι μια έκρηξη φωνής (ή οτιδήποτε λάθος-σημαδεμένο ως EF) μπορεί να πνίξει δεδομένα και ακόμα και keepalives δρομολόγησης. Ο policer ενσωματωμένος στο <code>priority</code> προστατεύει το υπόλοιπο του link — αλλά μόνο αν το ρυθμίσεις λογικά.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Σε Αργα Links, Καν' το Shape Πρωτα</span>
+    <p>Το QoS ενεργοποιείται μόνο όταν γεμίσει η ουρά του interface. Σε ένα WAN κάτω από το line-rate (μια υπηρεσία 50/10 Mbps πάνω σε handoff GigE), το φυσικό interface του router δεν φαίνεται ποτέ «γεμάτο», οπότε η ουρά δεν σχηματίζεται ποτέ και η πολιτική σου δεν ενεργοποιείται ποτέ — ο ISP ρίχνει τα πακέτα σου αντ' αυτού, χωρίς QoS. Η διόρθωση είναι ένας γονικός <strong>shaper</strong>: <code>shape average</code> στον πραγματικό συμβατικό ρυθμό σου σε μια εξωτερική πολιτική, με το <code>WAN-QOS</code> φωλιασμένο μέσα της. Αυτή η ιεραρχική πολιτική (parent-shape, child-queue) είναι το πώς γίνεται το QoS σχεδόν σε κάθε πραγματικό κύκλωμα internet — αξίζει δική της εμβάθυνση.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Επαληθευσε υπο Φορτιο <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Το QoS είναι αόρατο μέχρι να είναι απασχολημένο το link. Η μία εντολή που μετράει δείχνει μετρητές πακέτων ανά class, drops, και — κρίσιμο — αν η ουρά priority ρίχνει οτιδήποτε (δεν πρέπει ποτέ).</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — διαβασε τους μετρητες πολιτικης κατα τη συμφορηση</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show policy-map interface GigabitEthernet0/0</span>
+<span class="out"> Class-map: VOICE (match-all)
+   2841000 packets
+   Priority: 20% (2000 kbps), burst 50000, b/w exceed drops: 0
+                                              ↑ ΠΡΕΠΕΙ να είναι 0 — η φωνή ποτέ δεν ρίχνεται
+
+ Class-map: SIGNALING (match-any)
+   14200 packets   bandwidth 5% (500 kbps)
+
+ Class-map: class-default
+   8100000 packets
+   queue limit 64 packets
+   (drops) 24710                        ← τα δεδομένα ρίχνονται υπό φόρτο: ΑΝΑΜΕΝΟΜΕΝΟ &amp; εντάξει</span>
+
+<span class="cmt"># Όλο το νόημα σε μία οθόνη: η φωνή "exceed drops: 0" ενώ τα δεδομένα ρίχνονται
+# κατά τη συμφόρηση. Αυτό είναι το QoS να δουλεύει — περιμένει η σωστή κίνηση.</span></pre>
+  </div>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Απανταει</th></tr></thead>
+    <tbody>
+      <tr><td>show policy-map interface g0/0</td><td>Μετρητές και drops ανά class — η εντολή που μετράει. Τα drops φωνής πρέπει να είναι 0.</td></tr>
+      <tr><td>show mls qos interface g0/5</td><td>Κατάσταση εμπιστοσύνης στο switch — επιβιώνουν οι σημάνσεις του τηλεφώνου;</td></tr>
+      <tr><td>show policy-map WAN-QOS</td><td>Η ρυθμισμένη πολιτική, όπως ερμηνεύτηκε.</td></tr>
+      <tr><td>show class-map</td><td>Τι ταιριάζει κάθε class.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Ιδιες Προτεραιοτητες</h2>
+  <p class="section-thesis"><em>Το post μας για QoS σε MikroTik λύνει το πανομοιότυπο πρόβλημα με queue trees και mangle marks. Οι τιμές DSCP είναι universal· μόνο η μηχανή queuing διαφέρει.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>mangle mark-packet by port/DSCP</td><td>class-map <code>match dscp</code> / <code>match ip rtp</code></td></tr>
+      <tr><td>Set DSCP σε mangle (change-dscp)</td><td><code>set dscp ef</code> σε policy-map</td></tr>
+      <tr><td>Queue tree, priority=1 για φωνή</td><td>LLQ <code>priority percent 20</code></td></tr>
+      <tr><td>max-limit στην ουρά φωνής</td><td>Ο policer ενσωματωμένος στο <code>priority</code></td></tr>
+      <tr><td>Γονική ουρά = ταχύτητα link</td><td>Γονικό <code>shape average</code> (HQoS)</td></tr>
+      <tr><td>bridge port trust για σημάνσεις τηλεφώνου</td><td><code>mls qos trust device cisco-phone</code></td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Η φωνή αποτυγχάνει από καθυστέρηση, όχι από bandwidth.</strong> Μια κλήση είναι μικροσκοπική· ο εχθρός είναι η καθυστέρηση ουράς όταν γεμίζει το link. Το QoS έχει σημασία μόνο κατά τη συμφόρηση — αποφασίζει ποιος περιμένει, και η φωνή ποτέ δεν πρέπει.</li>
+      <li><strong>Σήμανε μία φορά στην άκρη, ενέργησε παντού.</strong> Bearer φωνής = DSCP EF, signaling = CS3. Συνεπείς σημάνσεις αφήνουν κάθε συσκευή downstream να πάρει μια φτηνή, ακαριαία απόφαση.</li>
+      <li><strong>Το όριο εμπιστοσύνης είναι η ασφάλεια του QoS.</strong> Εμπιστεύσου τις σημάνσεις του τηλεφώνου, ξανασήμανε το PC σε 0 — αλλιώς ένα torrent σημαδεμένο EF κλέβει τη λωρίδα φωνής. Μια μη έμπιστη θύρα σβήνει σιωπηλά τις σημάνσεις σε 0.</li>
+      <li><strong>Το LLQ είναι η καρδιά του.</strong> Το <code>priority</code> εξυπηρετεί τη φωνή αυστηρά πρώτη, με ενσωματωμένο policer ώστε να μην μπορεί να λιμοκτονήσει το link. Βάλε όριο ~20–33%, μετρημένο στον πραγματικό αριθμό κλήσεων.</li>
+      <li><strong>Πρόσδεσε την πολιτική outbound, στο συμφορημένο interface (WAN).</strong> Το QoS ενεργεί στο egress· το inbound shaping είναι διαφορετικό, πιο δύσκολο πρόβλημα.</li>
+      <li><strong>Σε κυκλώματα κάτω από το line-rate, κάν' το shape πρώτα.</strong> Αν το φυσικό interface δεν φαίνεται ποτέ γεμάτο, φώλιασε την πολιτική queuing μέσα σε ένα γονικό <code>shape average</code> στον πραγματικό συμβατικό σου ρυθμό.</li>
+      <li><strong>Επαλήθευσε υπό φόρτο με μία εντολή.</strong> Το <code>show policy-map interface</code> — η φωνή "exceed drops: 0" ενώ τα δεδομένα ρίχνονται κατά τη συμφόρηση είναι το QoS να δουλεύει ακριβώς όπως σχεδιάστηκε.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Το VoIP κοβεται οταν πιανεται δουλεια στο γραφειο στην Κρητη;</h3>
+    <p>Η φωνή και ένας guest που κατεβάζει μια ταινία δεν μοιράζονται καλά ένα link χωρίς βοήθεια. Σχεδιάζω QoS με σωστή σήμανση, όρια εμπιστοσύνης στην άκρη, και priority queuing συντονισμένο στον πραγματικό όγκο κλήσεών σου &mdash; όχι ένα γενικό template.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

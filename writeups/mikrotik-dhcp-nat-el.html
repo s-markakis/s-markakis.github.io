@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: DHCP Server & NAT — S. Markakis</title>
+<meta name="description" content="Μοίρασε διευθύνσεις και μοιράσου ένα δημόσιο IP — ένα IP pool, ένας DHCP server με reservations, masquerade vs src-nat, και το μοντέλο connection-tracking που κάνει το NAT του RouterOS να συμπεριφέρεται όπως συμπεριφέρεται.">
+<meta property="og:title" content="MikroTik: DHCP Server &amp; NAT — S. Markakis">
+<meta property="og:description" content="Μοίρασε διευθύνσεις και μοιράσου ένα δημόσιο IP — ένα IP pool, ένας DHCP server με reservations, masquerade vs src-nat, και το μοντέλο connection-tracking που κάνει το NAT του RouterOS να συμπεριφέρεται όπως συμπεριφέρεται.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-dhcp-nat-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-dhcp-nat.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-dhcp-nat.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-dhcp-nat-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-dhcp-nat.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-dhcp-nat-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-dhcp-nat.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: DHCP Server & NAT",
+  "description": "Μοίρασε διευθύνσεις και μοιράσου ένα δημόσιο IP — ένα IP pool, ένας DHCP server με reservations, masquerade vs src-nat, και το μοντέλο connection-tracking που κάνει το NAT του RouterOS να συμπεριφέρεται όπως συμπεριφέρεται.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-dhcp-nat-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-dhcp-nat.png",
+  "keywords": [
+    "mikrotik",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-dhcp-nat"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-dhcp-nat.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">MikroTik<br>DHCP Server &amp; NAT</h1>
+  <p class="post-subtitle">Οι δύο υπηρεσίες που τρέχει κάθε edge router: μοίρασε διευθύνσεις στο LAN, και μοιράσου ένα δημόσιο IP προς τον έξω κόσμο. Το RouterOS τα κάνει και τα δύο γρήγορα — το default config τα κάνει ήδη — αλλά το «γρήγορα» κρύβει ένα μοντέλο connection-tracking που αξίζει να καταλάβεις, και μια επιλογή masquerade-vs-src-nat που έχει σημασία τη μέρα που θα πάρεις δεύτερο WAN. Αυτό είναι το post του Cisco DHCP &amp; NAT/PAT σε RouterOS.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">DHCP</span>
+    <span class="tag">NAT</span>
+    <span class="tag">Masquerade</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το <strong>DHCP</strong> δίνει στα hosts μια διεύθυνση, gateway, και DNS αυτόματα· το <strong>NAT</strong> ξαναγράφει την ιδιωτική source διεύθυνση εξερχόμενης κίνησης στο δημόσιο IP του router ώστε πολλά hosts να μοιράζονται ένα IP (αυτό που η Cisco λέει PAT / overload). Το RouterOS χτίζει το DHCP από τρία αντικείμενα — ένα <em>pool</em> διευθύνσεων, έναν <em>server</em> δεμένο σε ένα interface, και ένα <em>network</em> που δηλώνει gateway/DNS — και κάνει NAT με έναν μόνο κανόνα <code>srcnat</code> στο firewall.</p>
+    <p>Το πράγμα ειδικό για RouterOS που αξίζει να εσωτερικεύσεις είναι ότι το NAT οδηγείται από <strong>connection tracking</strong>: το πρώτο πακέτο μιας ροής χτυπά τον κανόνα NAT, και κάθε επόμενο πακέτο χειρίζεται από την εγγραφή conntrack, όχι ξανα-αξιολογείται. Γι' αυτό το NAT είναι γρήγορο, γι' αυτό έχει σημασία το να καθαρίζεις συνδέσεις μετά από αλλαγή κανόνα, και γι' αυτό η διάκριση masquerade-vs-src-nat έχει πραγματικές συνέπειες. Αυτό είναι το αντίστοιχο του <a href="cisco-dhcp-nat.html">Cisco IOS: DHCP &amp; NAT/PAT</a>· το inbound port-forwarding (dst-nat) έχει δικό του post στο <a href="mikrotik-port-forwarding.html">Port Forwarding</a>.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Ένα LAN interface (bridge) με διεύθυνση, και ένα WAN με internet — δες <a href="mikrotik-first-contact.html">Πρωτη Επαφη</a></li>
+      <li>Άνεση με τις <a href="mikrotik-firewall.html">αλυσίδες firewall</a> (το NAT ζει στο <code>/ip firewall nat</code>)</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Ο DHCP Server — Pool, Server, Network</h2>
+  <p class="section-thesis"><em>Τρία αντικείμενα. Ο οδηγός <code>setup</code> τα χτίζει σε μία κίνηση, αλλά το να το κάνεις με το χέρι σου δείχνει τι κάνει το καθένα και πού να το αλλάξεις αργότερα.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — DHCP για το LAN 10.10.0.0/24 στο bridge</span>
+    <pre class="term"><span class="cmt"># 1. Το εύρος διευθύνσεων προς μοίρασμα (άφησε .1-.9 για υποδομή):</span>
+<span class="pc">&gt;</span> <span class="out">/ip pool add name=LAN-POOL ranges=10.10.0.20-10.10.0.254</span>
+
+<span class="cmt"># 2. Ο server, δεμένος στο interface LAN, χρησιμοποιώντας εκείνο το pool:</span>
+<span class="pc">&gt;</span> <span class="out">/ip dhcp-server add name=LAN-DHCP interface=bridge address-pool=LAN-POOL lease-time=8h</span>
+
+<span class="cmt"># 3. Οι επιλογές που δίνονται στους clients: gateway, netmask, DNS:</span>
+<span class="pc">&gt;</span> <span class="out">/ip dhcp-server network add address=10.10.0.0/24 gateway=10.10.0.1 dns-server=10.10.0.1</span>
+
+<span class="pc">&gt;</span> <span class="out">/ip dhcp-server lease print</span>   <span class="cmt"># δες τα leases να εμφανίζονται καθώς ρωτάνε οι clients</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ενας DHCP Server ανα Broadcast Domain</span>
+    <p>Δέσε τον server στο <strong>bridge</strong>, όχι σε ένα μεμονωμένο φυσικό port — το bridge είναι το broadcast domain όπου ζουν οι clients. Δέσ' τον μόνο στο <code>ether2</code> και μόνο εκείνο το port θα παίρνει διευθύνσεις. Και ποτέ μην τρέχεις δύο ενεργούς DHCP servers στο ίδιο segment: οι clients παίρνουν όποιον απαντήσει πρώτος, και θα κυνηγάς ένα φάντασμα «κάποιες φορές λάθος gateway». Για VLAN, ένας server ανά VLAN interface — δες <a href="mikrotik-vlans.html">VLANs</a>.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Static Leases — Σωστα Reservations</h2>
+  <p class="section-thesis"><em>Εκτυπωτές, το NVR, access points — οτιδήποτε θα κάνεις firewall ή forward χρειάζεται σταθερή διεύθυνση. Κάνε reserve με MAC ώστε η συσκευή να χρησιμοποιεί ακόμα DHCP αλλά να παίρνει πάντα το ίδιο IP.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — καρφωσε ενα lease, απο υπαρχον dynamic</span>
+    <pre class="term"><span class="cmt"># Πιο γρήγορο: βρες το dynamic lease και κάν' το «static», μετά βάλε τη διεύθυνση.</span>
+<span class="pc">&gt;</span> <span class="out">/ip dhcp-server lease make-static [find address=10.10.0.51]</span>
+<span class="pc">&gt;</span> <span class="out">/ip dhcp-server lease set [find mac-address=DC:...] address=10.10.0.10</span>
+<span class="cmt"># Ή πρόσθεσέ το από την αρχή:</span>
+<span class="pc">&gt;</span> <span class="out">/ip dhcp-server lease add mac-address=DC:2C:6E:00:11:22 address=10.10.0.10 \
+    server=LAN-DHCP comment="NVR"</span></pre>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">NAT — Masquerade εναντι src-nat</h2>
+  <p class="section-thesis"><em>Το default config χρησιμοποιεί <code>masquerade</code>, που είναι μια χαρά μέχρι που δεν είναι. Το να ξέρεις τη διαφορά είναι αυτό που ξεχωρίζει το «δουλεύει σε ένα WAN» από το «επιβιώνει το failover».</em></p>
+  <div class="term-wrap">
+    <span class="term-label">/ip firewall nat — οι δυο τροποι να κανεις source-NAT</span>
+    <pre class="term"><span class="cmt"># MASQUERADE: χρησιμοποίησε όποια διεύθυνση έχει αυτή τη στιγμή το out-interface.
+# Μηδενικό config, τέλειο για WAN DHCP/PPPoE των οποίων το IP αλλάζει.</span>
+<span class="pc">&gt;</span> <span class="out">/ip firewall nat add chain=srcnat out-interface-list=WAN action=masquerade</span>
+
+<span class="cmt"># SRC-NAT: κάρφωσέ το σε συγκεκριμένη διεύθυνση. Πιο γρήγορο (χωρίς lookup ανά πακέτο) και
+# απαιτείται όταν έχεις πολλαπλά δημόσια IP και θέλεις ντετερμινιστική αντιστοίχιση.</span>
+<span class="pc">&gt;</span> <span class="out">/ip firewall nat add chain=srcnat out-interface=ether1 \
+    src-address=10.10.0.0/24 action=src-nat to-addresses=203.0.113.10</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Το Κρυφο Κοστος του Masquerade στο Failover</span>
+    <p>Το <code>masquerade</code> ξαναυπολογίζει τη source διεύθυνση ανά σύνδεση και, το πιο σημαντικό, <strong>ρίχνει tracked συνδέσεις όταν αλλάζει η διεύθυνση του interface</strong> — που είναι στην πραγματικότητα χρήσιμο σε ένα flap WAN. Αλλά σε έναν router με πολλές συνδέσεις είναι μετρήσιμα πιο βαρύ από το <code>src-nat</code>. Κανόνας: <em>masquerade για WAN με dynamic IP, src-nat όταν το δημόσιο IP είναι static.</em> Όταν χτίσεις <a href="starlink-mikrotik-failover.html">dual-WAN failover</a>, θα θέλεις έναν κανόνα masquerade ανά WAN κλειδωμένο στο out-interface ώστε οι μεταφράσεις να ακολουθούν το ζωντανό path.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Το Μοντελο Connection-Tracking <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Και το NAT και το firewall πατάνε πάνω στο conntrack. Το να το καταλάβεις εξηγεί όλη τη συμπεριφορά packet-flow του RouterOS — και γιατί μια αλλαγή NAT μερικές φορές «δεν πιάνει» μέχρι να καθαρίσεις το state.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — επιθεωρησε και επαναφερε το connection state</span>
+    <pre class="term"><span class="pc">&gt;</span> <span class="out">/ip firewall connection print</span>          <span class="cmt"># ζωντανές ροές + το NAT state τους</span>
+<span class="pc">&gt;</span> <span class="out">/ip firewall connection print count-only</span>
+<span class="cmt"># Άλλαξες έναν κανόνα NAT και οι παλιές ροές ακόμα χρησιμοποιούν την παλιά μετάφραση;
+# Αφαίρεσε τις μπαγιάτικες συνδέσεις ώστε να ξανα-αξιολογηθούν με τον νέο κανόνα:</span>
+<span class="pc">&gt;</span> <span class="out">/ip firewall connection remove [find src-address~"10.10.0"]</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το DHCP είναι τρία αντικείμενα:</strong> pool (διευθύνσεις), server (δεμένος στο bridge/VLAN), network (gateway + DNS). Δέσε στο broadcast domain, όχι σε ένα μεμονωμένο port.</li>
+      <li><strong>Κάν' τες reserve τις διευθύνσεις για οτιδήποτε θα κάνεις firewall ή forward</strong> — με MAC, ώστε η συσκευή να χρησιμοποιεί ακόμα DHCP αλλά να μην αλλάζει ποτέ.</li>
+      <li><strong>Masquerade για WAN dynamic-IP, src-nat για static.</strong> Το masquerade είναι μηδενικό config και φιλικό σε flap· το src-nat είναι πιο γρήγορο και ντετερμινιστικό.</li>
+      <li><strong>Το NAT πατά πάνω στο connection tracking</strong> — το πρώτο πακέτο χτυπά τον κανόνα, τα υπόλοιπα ακολουθούν το conntrack. Γι' αυτό είναι γρήγορο και γι' αυτό οι αλλαγές κανόνων μπορεί να χρειάζονται καθάρισμα συνδέσεων.</li>
+      <li><strong>Ένας κανόνας masquerade ανά WAN σε setups failover</strong>, κλειδωμένος στο out-interface, ώστε οι μεταφράσεις να ακολουθούν όποιο link είναι ζωντανό.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Flat δικτυο, ενα ξεθεωμενο consumer router, και σχεδον καλοκαιρι;</h3>
+    <p>Σχεδιάζω addressing, DHCP, και NAT σε MikroTik και Cisco με segmentation και reservations χτισμένα από την αρχή, τεσταρισμένα να επιβιώνουν σε ένα πλήρως γεμάτο ακίνητο, όχι μόνο σε μια ήσυχη Τρίτη.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

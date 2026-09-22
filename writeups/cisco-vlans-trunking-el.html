@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: VLAN & Trunking — S. Markakis</title>
+<meta name="description" content="Τμηματοποίηση ενός δικτύου με switch Cisco — access ports, 802.1Q trunks, το native VLAN, και inter-VLAN routing με router-on-a-stick και έναν L3 switch (SVI).">
+<meta property="og:title" content="Cisco IOS: VLAN &amp; Trunking — S. Markakis">
+<meta property="og:description" content="Τμηματοποίηση ενός δικτύου με switch Cisco — access ports, 802.1Q trunks, το native VLAN, και inter-VLAN routing με router-on-a-stick και έναν L3 switch (SVI).">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-vlans-trunking-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-vlans-trunking.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-vlans-trunking.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-vlans-trunking-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-vlans-trunking.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-vlans-trunking-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-vlans-trunking.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  /* keyboard shortcut pills */
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  /* cheatsheet table */
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  /* safe badge */
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: VLAN & Trunking",
+  "description": "Τμηματοποίηση ενός δικτύου με switch Cisco — access ports, 802.1Q trunks, το native VLAN, και inter-VLAN routing με router-on-a-stick και έναν L3 switch (SVI).",
+  "datePublished": "2026-07-08",
+  "dateModified": "2026-07-08",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-vlans-trunking-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-vlans-trunking.png",
+  "keywords": [
+    "cisco",
+    "switching"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-vlans-trunking"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-vlans-trunking.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>VLAN &amp; Trunking</h1>
+  <p class="post-subtitle">Ένα φυσικό switch, πολλά απομονωμένα δίκτυα. Φτιάξε VLAN, ανάθεσε access ports, κουβάλησε πολλά VLAN πάνω από ένα μοναδικό 802.1Q trunk, και δρομολόγησε ανάμεσά τους — πρώτα με router-on-a-stick, μετά με έναν L3 switch. Μαζί με τις παγίδες του native VLAN που την πατάνε όλοι.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">VLAN</span>
+    <span class="tag">802.1Q</span>
+    <span class="tag">Trunking</span>
+    <span class="tag">Inter-VLAN Routing</span>
+    <span class="tag">Catalyst</span>
+    <span class="tag">CCNA</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: access vs trunk -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg">
+      <defs><style>
+        .vbg{fill:#e1ded7}
+        .vl{font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle}
+        .vs{font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle}
+        .vm{font-family:ui-monospace,monospace;font-size:10px;fill:#555550;text-anchor:middle}
+      </style></defs>
+      <rect width="720" height="220" class="vbg"/>
+      <!-- switch A -->
+      <rect x="70" y="86" width="150" height="48" rx="5" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="145" y="106" class="vl">SW1</text>
+      <text x="145" y="122" class="vs">access + trunk</text>
+      <!-- switch B -->
+      <rect x="500" y="86" width="150" height="48" rx="5" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="575" y="106" class="vl">SW2</text>
+      <text x="575" y="122" class="vs">access + trunk</text>
+      <!-- trunk link -->
+      <line x1="220" y1="110" x2="500" y2="110" stroke="#c63d1f" stroke-width="3"/>
+      <text x="360" y="100" class="vl" style="fill:#c63d1f">802.1Q TRUNK</text>
+      <text x="360" y="128" class="vs">κουβαλάει VLAN 10 + 20 + 99 (tagged)</text>
+      <!-- access hosts SW1 -->
+      <line x1="100" y1="134" x2="100" y2="180" stroke="#3a5a78" stroke-width="1.6"/>
+      <rect x="72" y="180" width="56" height="24" rx="3" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="100" y="196" class="vm" style="fill:#3a5a78">VLAN 10</text>
+      <line x1="190" y1="134" x2="190" y2="180" stroke="#558840" stroke-width="1.6"/>
+      <rect x="162" y="180" width="56" height="24" rx="3" fill="#d7e7cf" stroke="#558840"/>
+      <text x="190" y="196" class="vm" style="fill:#3a6a28">VLAN 20</text>
+      <!-- access hosts SW2 -->
+      <line x1="530" y1="134" x2="530" y2="180" stroke="#3a5a78" stroke-width="1.6"/>
+      <rect x="502" y="180" width="56" height="24" rx="3" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="530" y="196" class="vm" style="fill:#3a5a78">VLAN 10</text>
+      <line x1="620" y1="134" x2="620" y2="180" stroke="#558840" stroke-width="1.6"/>
+      <rect x="592" y="180" width="56" height="24" rx="3" fill="#d7e7cf" stroke="#558840"/>
+      <text x="620" y="196" class="vm" style="fill:#3a6a28">VLAN 20</text>
+      <text x="360" y="205" class="vs">Τα access ports βλέπουν προς τους hosts (ένα untagged VLAN). Το trunk τα κουβαλάει όλα ανάμεσα στα switch.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Ένα VLAN μετατρέπει ένα φυσικό switch σε πολλά λογικά switch. Οι θύρες στο VLAN 10 δεν μπορούν να μιλήσουν με τις θύρες στο VLAN 20 — διαφορετικά broadcast domains, τόσο απομονωμένα σαν να ήταν ξεχωριστές συσκευές. Έτσι βάζεις προσωπικό, guests, VoIP και κάμερες στο ίδιο hardware χωρίς να ακουμπάει το ένα το άλλο.</p>
+    <p>Δύο ρόλοι θυρών κάνουν τη δουλειά. Ένα <strong>access port</strong> ανήκει σε ακριβώς ένα VLAN και βλέπει μια τελική συσκευή — έναν υπολογιστή, έναν εκτυπωτή, ένα AP — που δεν ξέρει τίποτα για VLAN. Ένα <strong>trunk port</strong> κουβαλάει πολλά VLAN ανάμεσα σε switch (ή προς έναν router), βάζοντας σε κάθε frame το VLAN ID του με 802.1Q. Αυτό το tutorial στήνει και τα δύο, και μετά δρομολογεί ανάμεσα στα VLAN με δύο διαφορετικούς τρόπους. Αν έχεις κάνει VLAN σε MikroTik, οι έννοιες είναι ίδιες — αλλάζει μόνο το syntax, και η ενότητα 07 τις αντιστοιχίζει μία προς μία.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Άνεση με το IOS CLI και τα τρία modes — δες <a href="cisco-first-contact.html">Cisco IOS: First Contact</a></li>
+      <li>Δύο switch (ή ένα lab) και, για routing, έναν router ή ένα L3 switch</li>
+      <li>Ένα σχέδιο VLAN: ποια IDs, ποια subnets. Χρησιμοποιούμε VLAN 10 (προσωπικό, 192.168.10.0/24), VLAN 20 (guest, 192.168.20.0/24), VLAN 99 (native/management)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Δημιουργια VLAN</h2>
+  <p class="section-thesis"><em>Ένα VLAN πρέπει να υπάρχει στο VLAN database του switch πριν μπορέσεις να βάλεις θύρα μέσα του. Φτιάξ' το, ονόμασέ το, τέλος. Η ονομασία είναι προαιρετική, αλλά θα μετανιώσεις αν την παραλείψεις.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — δημιουργια και ονομασια VLAN</span>
+    <pre class="term"><span class="pc">SW1#</span> <span class="out">configure terminal</span>
+<span class="pc">SW1(config)#</span> <span class="out">vlan 10</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">name STAFF</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">exit</span>
+<span class="pc">SW1(config)#</span> <span class="out">vlan 20</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">name GUEST</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">exit</span>
+<span class="pc">SW1(config)#</span> <span class="out">vlan 99</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">name NATIVE-MGMT</span>
+<span class="pc">SW1(config-vlan)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επιβεβαίωσε ότι υπάρχουν (όλα ασφαλή, read-only)</span>
+<span class="pc">SW1#</span> <span class="out">show vlan brief</span>
+<span class="out">VLAN Name              Status    Ports
+1    default           active    Gi0/3, Gi0/4, Gi0/5 ...
+10   STAFF             active
+20   GUEST             active
+99   NATIVE-MGMT       active</span>
+<span class="cmt"># Τα νέα VLAN δεν έχουν ακόμα θύρες — κάθε θύρα ζει ακόμα στο VLAN 1 (default).</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το VLAN 1 Ειναι Ξεχωριστο, και Ευθυνη</span>
+    <p>Κάθε θύρα ξεκινάει στο VLAN 1, και by default το VLAN 1 είναι επίσης το native και το management VLAN. Βολικό και ανασφαλές — σημαίνει ότι ένας επιτιθέμενος σε μια default θύρα μοιράζεται broadcast domain με την κίνηση διαχείρισής σου. Καλή πρακτική: μη <em>χρησιμοποιείς</em> το VLAN 1 για τίποτα ουσιαστικό. Βάλε ένα αποκλειστικό management VLAN (εμείς το 99) και μετακίνησε το native VLAN εκτός του 1 (ενότητα 03).</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Access Ports</h2>
+  <p class="section-thesis"><em>Ένα access port κουβαλάει ακριβώς ένα VLAN, untagged, προς μια τελική συσκευή. Εδώ βάζεις υπολογιστές, εκτυπωτές και access points. Η λέξη-κλειδί <code>interface range</code> ρυθμίζει πολλές θύρες με τη μία.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — αναθεση access ports (μια, μετα ενα range)</span>
+    <pre class="term"><span class="cmt"># Μία μεμονωμένη θύρα στο VLAN 10</span>
+<span class="pc">SW1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport mode access</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport access vlan 10</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Δώδεκα θύρες στο VLAN 20 με μία κίνηση, με το "interface range"</span>
+<span class="pc">SW1(config)#</span> <span class="out">interface range GigabitEthernet0/13 - 24</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport mode access</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">switchport access vlan 20</span>
+<span class="pc">SW1(config-if-range)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επαλήθευση: κάθε θύρα δείχνει τώρα το VLAN της</span>
+<span class="pc">SW1#</span> <span class="out">show interfaces status</span>
+<span class="out">Port    Name   Status       Vlan   Duplex  Speed Type
+Gi0/1          connected    10     a-full  a-1000 ...
+Gi0/13         notconnect   20     auto    auto   ...</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Βαλε Ρητα το "mode access"</span>
+    <p>Οι θύρες Cisco είναι by default σε <em>dynamic auto</em> (DTP), δηλαδή μια θύρα μπορεί να διαπραγματευτεί μόνη της και να γίνει trunk αν το ζητήσει ο γείτονας — γνωστό attack vector (VLAN hopping). Κλείδωνε πάντα τις θύρες των τελικών χρηστών με <code>switchport mode access</code>, και για επιπλέον ασφάλεια πρόσθεσε <code>switchport nonegotiate</code> ώστε η θύρα να μη στέλνει καθόλου DTP frames. Ένα access port δεν πρέπει ποτέ να γίνεται trunk κατά λάθος.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Trunk Ports &amp; 802.1Q</h2>
+  <p class="section-thesis"><em>Ένα trunk κουβαλάει πολλά VLAN πάνω από ένα link, βάζοντας σε κάθε frame το VLAN ID του. Αυτό είναι το link ανάμεσα σε δύο switch, ή ανάμεσα σε ένα switch και έναν router. Ένα untagged VLAN — το native VLAN — ταξιδεύει χωρίς tag.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ρυθμιση ενος trunk (πρεπει να ταιριαζουν και τα δυο ακρα)</span>
+    <pre class="term"><span class="pc">SW1(config)#</span> <span class="out">interface GigabitEthernet0/24</span>
+
+<span class="cmt"># Σε switch που υποστηρίζουν ISL, όρισε πρώτα το encapsulation.
+# Σε 2960/2960-X (μόνο dot1q) η εντολή αυτή δεν υπάρχει — απλώς παράλειψέ την.</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport trunk encapsulation dot1q</span>
+
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport mode trunk</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport trunk native vlan 99</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport trunk allowed vlan 10,20,99</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport nonegotiate</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επαλήθευσε το trunk: allowed VLAN και native VLAN</span>
+<span class="pc">SW1#</span> <span class="out">show interfaces trunk</span>
+<span class="out">Port    Mode  Encapsulation  Status    Native vlan
+Gi0/24  on    802.1q         trunking  99
+
+Port    Vlans allowed on trunk
+Gi0/24  10,20,99</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ασυμφωνια Native VLAN</span>
+    <p>Και τα δύο ακρα ενός trunk πρέπει να συμφωνούν στο native VLAN. Αν το SW1 έχει native 99 και το SW2 native 1, τα untagged frames καταλήγουν σε λάθος VLAN και το CDP πετάει <code>%CDP-4-NATIVE_VLAN_MISMATCH</code> κάθε 60 δευτερόλεπτα. Είναι πραγματικό πρόβλημα ασφάλειας και συνδεσιμότητας, όχι απλός θόρυβος. Βάλε <code>switchport trunk native vlan 99</code> ολόιδιο και στις δύο πλευρές. Το ίδιο: αν ένα VLAN δεν είναι στη λίστα <code>allowed</code>, η κίνησή του πέφτει σιωπηλά πάνω στο trunk — η κλασική αιτία του «το VLAN 20 δεν φτάνει στο άλλο switch».</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Inter-VLAN Routing — Router-on-a-Stick</h2>
+  <p class="section-thesis"><em>Τα VLAN είναι απομονωμένα εκ σχεδιασμού — το VLAN 10 δεν φτάνει το VLAN 20 χωρίς router. Ο φθηνότερος τρόπος να δρομολογήσεις ανάμεσά τους είναι ένα interface router, σε trunk, που κουβαλάει ένα subinterface ανά VLAN. Κάθε subinterface είναι το default gateway αυτού του VLAN.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS (router) — ενα φυσικο link, ενα subinterface ανα VLAN</span>
+    <pre class="term"><span class="cmt"># Η θύρα του switch που βλέπει τον router πρέπει να είναι trunk (δες ενότητα 03).
+# Στον ROUTER, κόψε το φυσικό interface σε tagged subinterfaces:</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">no shutdown</span>          <span class="cmt"># ο φυσικός γονέας δεν θέλει IP, μόνο "up"</span>
+<span class="pc">R1(config-if)#</span> <span class="out">exit</span>
+
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0.10</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">encapsulation dot1q 10</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">ip address 192.168.10.1 255.255.255.0</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">exit</span>
+
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0.20</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">encapsulation dot1q 20</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">ip address 192.168.20.1 255.255.255.0</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Το native VLAN χρησιμοποιεί τη λέξη "native" ώστε τα frames του να μένουν untagged</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0.99</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">encapsulation dot1q 99 native</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">ip address 192.168.99.1 255.255.255.0</span>
+<span class="pc">R1(config-subif)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <p>Τώρα βάλε σε κάθε host default gateway το IP του subinterface του (π.χ. οι hosts του VLAN 10 → 192.168.10.1) και το VLAN 10 φτάνει το VLAN 20 μέσω του router. Τέλειο για μικρά sites· σε κλίμακα, το μοναδικό link γίνεται το bottleneck.</p>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Inter-VLAN Routing — L3 Switch (SVI)</h2>
+  <p class="section-thesis"><em>Ένα layer-3 switch δρομολογεί ανάμεσα στα VLAN σε hardware, σε wire speed, χωρίς bottleneck από trunk. Αντί για subinterfaces σε router, φτιάχνεις ένα Switched Virtual Interface (SVI) ανά VLAN. Έτσι το κάνουν τα πραγματικά sites.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS (L3 switch) — ενεργοποιηση routing, ενα SVI ανα VLAN</span>
+    <pre class="term"><span class="cmt"># 1. Άναψε το IP routing — by default κλειστό σε ένα switch</span>
+<span class="pc">L3-SW(config)#</span> <span class="out">ip routing</span>
+
+<span class="cmt"># 2. Ένα virtual interface ανά VLAN — αυτό το IP είναι το gateway του VLAN</span>
+<span class="pc">L3-SW(config)#</span> <span class="out">interface vlan 10</span>
+<span class="pc">L3-SW(config-if)#</span> <span class="out">ip address 192.168.10.1 255.255.255.0</span>
+<span class="pc">L3-SW(config-if)#</span> <span class="out">no shutdown</span>
+<span class="pc">L3-SW(config-if)#</span> <span class="out">exit</span>
+
+<span class="pc">L3-SW(config)#</span> <span class="out">interface vlan 20</span>
+<span class="pc">L3-SW(config-if)#</span> <span class="out">ip address 192.168.20.1 255.255.255.0</span>
+<span class="pc">L3-SW(config-if)#</span> <span class="out">no shutdown</span>
+<span class="pc">L3-SW(config-if)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επαλήθευσε ότι το routing ανάμεσα στα VLAN είναι πλέον local και ενεργό</span>
+<span class="pc">L3-SW#</span> <span class="out">show ip route</span>
+<span class="out">C    192.168.10.0/24 is directly connected, Vlan10
+C    192.168.20.0/24 is directly connected, Vlan20</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Ενα SVI Σηκωνεται Μονο με Ζωντανο Access Port</span>
+    <p>Το SVI ενός VLAN μένει <code>down/down</code> μέχρι τουλάχιστον ένα access port σε αυτό το VLAN να είναι <em>connected</em> και up (ή το VLAN να επιτρέπεται πάνω σε ένα ενεργό trunk). Ρύθμισε τα πάντα τέλεια και το SVI μπορεί ακόμα να δείχνει down, απλώς επειδή δεν έχει μπει τίποτα στο VLAN 10 ακόμα. Το <code>show ip interface brief | include Vlan</code> σου λέει την αλήθεια. Και μην ξεχάσεις το <code>ip routing</code> — χωρίς αυτό, το L3 switch έχει SVIs αλλά δεν δρομολογεί ανάμεσά τους.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Ελεγχος &amp; Troubleshooting <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Τέσσερις read-only εντολές απαντούν σχεδόν σε κάθε πρόβλημα VLAN: σε ποιο VLAN είναι μια θύρα, τι κουβαλάει το trunk, είναι συνεπές το native VLAN, και έχει IP το SVI.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Απανταει</th></tr></thead>
+    <tbody>
+      <tr><td>show vlan brief</td><td>Ποια VLAN υπάρχουν και ποια access ports είναι στο καθένα.</td></tr>
+      <tr><td>show interfaces trunk</td><td>Ποιες θύρες είναι trunk, το native VLAN τους, και η λίστα allowed-VLAN.</td></tr>
+      <tr><td>show interfaces status</td><td>Ανά θύρα: connected/notconnect, access VLAN, speed/duplex.</td></tr>
+      <tr><td>show interfaces gi0/1 switchport</td><td>Πλήρες switchport detail για μία θύρα — mode, access VLAN, ρυθμίσεις trunk.</td></tr>
+      <tr><td>show ip interface brief</td><td>IPs των SVI και κατάσταση up/down (L3 switch / router).</td></tr>
+      <tr><td>show ip route</td><td>Επιβεβαιώνει ότι τα inter-VLAN routes είναι directly connected και ενεργά.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — η λιστα «γιατι δεν μιλανε αυτα τα δυο VLAN»</span>
+    <pre class="term"><span class="cmt"># 1. Είναι όντως και οι δύο hosts στο VLAN που νομίζεις;</span>
+<span class="pc">SW1#</span> <span class="out">show interfaces status | include connected</span>
+
+<span class="cmt"># 2. Κουβαλάει το trunk ανάμεσα στα switch ΚΑΙ ΤΑ ΔΥΟ VLAN;</span>
+<span class="pc">SW1#</span> <span class="out">show interfaces trunk</span>
+<span class="cmt">#    Αν λείπει το VLAN 20 από το "allowed", πρόσθεσέ το:</span>
+<span class="pc">SW1(config-if)#</span> <span class="out">switchport trunk allowed vlan add 20</span>
+
+<span class="cmt"># 3. Υπάρχει router/SVI με gateway IP σε κάθε subnet;</span>
+<span class="pc">L3-SW#</span> <span class="out">show ip interface brief | include Vlan</span>
+
+<span class="cmt"># 4. Χρησιμοποιεί κάθε host αυτό το gateway; (ping στο gateway, μετά απέναντι)</span>
+<span class="pc">SW1#</span> <span class="out">ping 192.168.20.1</span></pre>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Ιδια Ιδεα, Αλλες Λεξεις</h2>
+  <p class="section-thesis"><em>Αν έρχεσαι από RouterOS, το μοντέλο είναι ίδιο — ένα bridge με VLAN filtering είναι switch, το tagged/untagged είναι trunk/access. Αλλάζει μόνο το λεξιλόγιο.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>Bridge με vlan-filtering=yes</td><td>Το ίδιο το switch (VLAN-aware by default)</td></tr>
+      <tr><td>Bridge port pvid=10, untagged</td><td><code>switchport mode access ; switchport access vlan 10</code></td></tr>
+      <tr><td>Bridge VLAN tagged=ether1,ether2</td><td><code>switchport mode trunk ; switchport trunk allowed vlan …</code></td></tr>
+      <tr><td>Frame tagging = 802.1Q</td><td>802.1Q — ίδιο wire format</td></tr>
+      <tr><td>/interface vlan (VLAN interface + IP)</td><td><code>interface vlan 10</code> (SVI) ή subinterface router</td></tr>
+      <tr><td>PVID στη θύρα εισόδου</td><td>Access VLAN / native VLAN στο trunk</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Η Πραγματικη Διαφορα</span>
+    <p>Το MikroTik σε βάζει να χτίσεις το bridge και να ενεργοποιήσεις ρητά το VLAN filtering — η συμπεριφορά switch είναι opt-in. Στη Cisco, ένα Catalyst είναι VLAN-aware switch από το κουτί· ρυθμίζεις ρόλους σε θύρες που ήδη κάνουν switching. Κανένα δεν είναι δυσκολότερο — αλλά η Cisco κρύβει λιγότερα, γι' αυτό το native VLAN και το DTP την πατάνε οι πρωτάρηδες. Όταν μεταφέρουμε ένα site από MikroTik σε Cisco (ή τρέχουμε και τα δύο), αυτόν τον πίνακα δίνουμε cheat sheet στην ομάδα του πελάτη.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Ένα VLAN πρέπει να υπάρχει πριν μπει θύρα μέσα του.</strong> Φτιάξ' το και ονόμασέ το στο VLAN database (<code>vlan 10 ; name STAFF</code>), μετά ανάθεσε θύρες. Ονόμαζε τα πάντα — το <code>show vlan brief</code> γίνεται αυτο-τεκμηριωμένο.</li>
+      <li><strong>Access = ένα VLAN προς έναν host· trunk = πολλά VLAN ανάμεσα σε switch.</strong> Κλείδωνε τις θύρες των τελικών χρηστών με <code>switchport mode access</code> και <code>nonegotiate</code> ώστε να μη γίνονται ποτέ trunk με διαπραγμάτευση.</li>
+      <li><strong>Και τα δύο ακρα ενός trunk πρέπει να συμφωνούν σε native VLAN και allowed VLAN.</strong> Μια ασυμφωνία native βγάζει CDP errors και παραδίδει λάθος τα untagged frames· ένα allowed VLAN που λείπει ρίχνει σιωπηλά αυτό το VLAN πάνω στο link.</li>
+      <li><strong>Τα VLAN δεν δρομολογούνται μόνα τους.</strong> Χρησιμοποίησε router-on-a-stick (subinterfaces με <code>encapsulation dot1q</code>) για μικρά sites, ή ένα L3 switch με SVIs και <code>ip routing</code> για ο,τιδήποτε σοβαρό.</li>
+      <li><strong>Ένα SVI χρειάζεται μια ζωντανή θύρα στο VLAN του για να σηκωθεί.</strong> Ένα τέλεια ρυθμισμένο <code>interface vlan 10</code> δείχνει <code>down/down</code> μέχρι να συνδεθεί κάτι στο VLAN 10.</li>
+      <li><strong>Η έννοια είναι καθολική.</strong> Το access/trunk και το 802.1Q είναι ίδια σε MikroTik, Cisco και σε ο,τιδήποτε άλλο — αλλάζουν μόνο οι λέξεις του CLI. Μάθε το μία φορά εδώ και μεταφέρεται παντού.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Τμηματοποιεις δικτυο για γραφειο, ξενοδοχειο ή SMB στην Κρητη;</h3>
+    <p>Σχεδιάζω διατάξεις VLAN που κρατούν προσωπικό, guests, VoIP και κάμερες πραγματικά απομονωμένα μεταξύ τους &mdash; σε Cisco, MikroTik, ή συνδυασμό των δύο &mdash; και τεκμηριώνω κάθε θύρα και trunk ώστε η ομάδα σου να τα βγάζει πέρα χωρίς να με παίρνει πρώτα τηλέφωνο.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

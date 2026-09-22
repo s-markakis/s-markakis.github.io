@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Observability — NTP, Syslog, SNMP &amp; NetFlow — S. Markakis</title>
+<meta name="description" content="Δεν κάνεις troubleshoot ό,τι δεν κατέγραψες — συγχρονισμένος χρόνος με NTP, κεντρικά logs με syslog, monitoring με SNMPv3, και ορατότητα κίνησης με Flexible NetFlow σε Cisco IOS.">
+<meta property="og:title" content="Cisco IOS: Observability (NTP, Syslog, SNMP &amp; NetFlow) — S. Markakis">
+<meta property="og:description" content="Δεν κάνεις troubleshoot ό,τι δεν κατέγραψες — συγχρονισμένος χρόνος με NTP, κεντρικά logs με syslog, monitoring με SNMPv3, και ορατότητα κίνησης με Flexible NetFlow σε Cisco IOS.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-observability-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-observability.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-observability.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-observability-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-observability.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-observability-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-observability.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Observability (NTP, Syslog, SNMP & NetFlow)",
+  "description": "Δεν κάνεις troubleshoot ό,τι δεν κατέγραψες — συγχρονισμένος χρόνος με NTP, κεντρικά logs με syslog, monitoring με SNMPv3, και ορατότητα κίνησης με Flexible NetFlow σε Cisco IOS.",
+  "datePublished": "2026-08-01",
+  "dateModified": "2026-08-01",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-observability-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-observability.png",
+  "keywords": [
+    "cisco",
+    "monitoring"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-observability"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-observability.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Observability</h1>
+  <p class="post-subtitle">Το λιγότερο εντυπωσιακό config στη συσκευή, και αυτό για το οποίο θα είσαι πιο ευγνώμων στις 3 το πρωί. Συγχρονισμένος χρόνος ώστε τα logs να ταιριάζουν, κεντρικό syslog ώστε τα στοιχεία να επιβιώνουν ένα reboot, SNMPv3 ώστε να παρακολουθείσαι, και NetFlow ώστε να απαντάς στο «τι έτρωγε όλη τη bandwidth;» — αφού έχει ήδη συμβεί.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">NTP</span>
+    <span class="tag">Syslog</span>
+    <span class="tag">SNMP</span>
+    <span class="tag">NetFlow</span>
+    <span class="tag">Monitoring</span>
+    <span class="tag">Ops</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 180" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="op" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#3a5a78"/></marker>
+      </defs>
+      <rect width="720" height="180" fill="#e1ded7"/>
+      <rect x="290" y="66" width="140" height="48" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="86" style="font-family:'Inter',sans-serif;font-weight:700;font-size:12px;fill:#1a1a18;text-anchor:middle;">Cisco device</text>
+      <text x="360" y="102" style="font-family:'Inter',sans-serif;font-size:8px;fill:#888880;text-anchor:middle;">4 ροές τηλεμετρίας</text>
+      <!-- four outputs -->
+      <line x1="290" y1="76" x2="150" y2="34" style="stroke:#3a5a78;stroke-width:1.4;marker-end:url(#op)"/>
+      <text x="120" y="30" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a5a78;text-anchor:end;font-weight:600;">NTP ← χρόνος</text>
+      <line x1="290" y1="90" x2="150" y2="86" style="stroke:#3a5a78;stroke-width:1.4;marker-end:url(#op)"/>
+      <text x="120" y="88" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a5a78;text-anchor:end;font-weight:600;">Syslog → γεγονότα</text>
+      <line x1="430" y1="76" x2="570" y2="34" style="stroke:#3a5a78;stroke-width:1.4;marker-end:url(#op)"/>
+      <text x="600" y="30" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a5a78;font-weight:600;">SNMP ⇄ υγεία</text>
+      <line x1="430" y1="90" x2="570" y2="86" style="stroke:#3a5a78;stroke-width:1.4;marker-end:url(#op)"/>
+      <text x="600" y="88" style="font-family:'Inter',sans-serif;font-size:9px;fill:#3a5a78;font-weight:600;">NetFlow → ποιος το χρησιμοποίησε</text>
+      <text x="360" y="150" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Ο χρόνος κάνει αξιόπιστα τα άλλα τρία. Ρύθμισε το NTP πρώτο, πάντα.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Όταν κάτι σπάει σε ένα site πελάτη, η διαφορά ανάμεσα σε μια διάγνωση πέντε λεπτών και μια εικασία πέντε ωρών είναι αν το δίκτυο <em>κατέγραφε</em>. Τέσσερις υπηρεσίες κάνουν αυτή την καταγραφή, και είναι το πρώτο πράγμα που ρυθμίζουμε σε κάθε συσκευή που αναλαμβάνουμε — πριν τα VLAN, πριν τη δρομολόγηση. Το <strong>NTP</strong> δίνει σε κάθε συσκευή το ίδιο ρολόι, ώστε μια γραμμή log εδώ και μια γραμμή log εκεί να μπορούν να συσχετιστούν. Το <strong>Syslog</strong> στέλνει γεγονότα εκτός συσκευής σε έναν server που επιβιώνει το reboot της συσκευής (ή το σβήσιμό της). Το <strong>SNMP</strong> αφήνει ένα σύστημα monitoring να ρωτάει για υγεία και να λαμβάνει alerts. Το <strong>NetFlow</strong> καταγράφει ποιος μίλησε με ποιον, ώστε το «το internet ήταν αργό στις 2μμ» να γίνεται απαντήσιμη ερώτηση.</p>
+    <p>Τίποτα από αυτά δεν είναι δύσκολο, και όλα είναι αόρατα μέχρι τη μέρα που τα χρειαστείς — οπότε η απουσία τους είναι καταστροφική. Αυτό το post είναι η λίστα ελέγχου «κάνε τη συσκευή να σου λέει τι κάνει», και συνδυάζεται κατευθείαν με την πειθαρχία ανάκτησης από το <a href="cisco-backup-restore.html">post Backup &amp; Restore</a>: τα backups σε αφήνουν να ξαναχτίσεις, η τηλεμετρία σου λέει γιατί χρειάστηκε.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Βασικά IOS και προσβάσιμο δίκτυο διαχείρισης — δες <a href="cisco-first-contact.html">First Contact</a></li>
+      <li>Έναν συλλέκτη syslog ή/και monitor SNMP στο LAN (rsyslog, Graylog, LibreNMS, Zabbix — οτιδήποτε)</li>
+      <li>Έναν συλλέκτη NetFlow για την ενότητα 04 (nfdump, ntopng, Elastiflow) — προαιρετικό αλλά συνιστάται</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">NTP — Βαλε Πρωτα το Ρολοι Σωστα</h2>
+  <p class="section-thesis"><em>Κάθε timestamp log, κάθε έλεγχος πιστοποιητικού, κάθε συσχέτιση εξαρτάται από ακριβή χρόνο. Μια συσκευή με λάθος ρολόι παράγει logs που δεν εμπιστεύεσαι. Ρύθμισε το NTP πριν από οτιδήποτε άλλο καταγράφει.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — sync στο NTP, timestamp σε ολα</span>
+    <pre class="term"><span class="cmt"># Όρισε τη ζώνη ώστε ο τοπικός χρόνος να διαβάζεται σωστά (Ελλάδα = EET, +2, DST +1)</span>
+<span class="pc">R1(config)#</span> <span class="out">clock timezone EET 2 0</span>
+<span class="pc">R1(config)#</span> <span class="out">clock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00</span>
+
+<span class="cmt"># Δείξε σε upstream NTP servers (pool servers, ή δικούς σου)</span>
+<span class="pc">R1(config)#</span> <span class="out">ntp server 0.gr.pool.ntp.org</span>
+<span class="pc">R1(config)#</span> <span class="out">ntp server 1.gr.pool.ntp.org</span>
+
+<span class="cmt"># ΚΡΙΣΙΜΟ: βάλε στα logs και τα debugs την πραγματική ημερομηνία+ώρα, όχι το "uptime"</span>
+<span class="pc">R1(config)#</span> <span class="out">service timestamps log datetime msec localtime show-timezone</span>
+<span class="pc">R1(config)#</span> <span class="out">service timestamps debug datetime msec localtime show-timezone</span>
+<span class="pc">R1(config)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επιβεβαίωσε ότι κλείδωσε (μπορεί να πάρει λίγα λεπτά να κάνει sync)</span>
+<span class="pc">R1#</span> <span class="out">show ntp status</span>
+<span class="out">Clock is synchronized, stratum 3, reference is 203.0.113.9
+</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Τα Logs Λενε "*Mar 1 00:04:12" — Δεν Εβαλες Ποτε Timestamps</span>
+    <p>Από το κουτί, το IOS βάζει στα μηνύματα log χρόνο <em>από την εκκίνηση</em> και μια ψεύτικη ημερομηνία "March 1" (το epoch του), και το μπροστινό <code>*</code> σημαίνει ότι το ρολόι δεν έχει συγχρονιστεί. Το να συσχετίσεις αυτά ανάμεσα σε συσκευές είναι αδύνατο. Η εντολή <code>service timestamps log datetime</code> είναι η πιο πολύτιμη γραμμή σε όλο αυτό το post — χωρίς αυτήν, το NTP διορθώνει το ρολόι αλλά τα logs σου ακόμα δεν το δείχνουν. Βάλε timestamps και για <code>log</code> και για <code>debug</code>, και επιβεβαίωσε ότι το <code>*</code> εξαφανίζεται από το <code>show logging</code> μόλις κάνει sync το NTP.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Syslog — Στειλε τα Γεγονοτα Εκτος Συσκευης</h2>
+  <p class="section-thesis"><em>Το τοπικό buffer log της συσκευής καθαρίζει στο reboot και κρατάει μόνο μερικές εκατοντάδες γραμμές. Στείλε τα πάντα σε κεντρικό syslog server ώστε τα γεγονότα να επιβιώνουν, να συγκεντρώνονται από πολλές συσκευές, και να γίνονται αναζητήσιμα και να ενεργοποιούν alerts.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — τοπικο buffer + απομακρυσμενο syslog</span>
+    <pre class="term"><span class="cmt"># Κράτα κι ένα αξιοπρεπές τοπικό buffer (επιβιώνει μέχρι το reboot)</span>
+<span class="pc">R1(config)#</span> <span class="out">logging buffered 64000 informational</span>
+<span class="pc">R1(config)#</span> <span class="out">service sequence-numbers</span>       <span class="cmt"># αρίθμησε τις γραμμές ώστε τα κενά να φαίνονται</span>
+
+<span class="cmt"># Στείλε στον κεντρικό συλλέκτη, σε severity "informational" (6) και πάνω</span>
+<span class="pc">R1(config)#</span> <span class="out">logging host 192.168.1.50</span>
+<span class="pc">R1(config)#</span> <span class="out">logging trap informational</span>
+<span class="pc">R1(config)#</span> <span class="out">logging source-interface Loopback0</span>  <span class="cmt"># σταθερό source IP</span>
+<span class="pc">R1(config)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επαλήθευσε ότι ο συλλέκτης λαμβάνει και δες το buffer</span>
+<span class="pc">R1#</span> <span class="out">show logging</span>
+<span class="out">    Trap logging: level informational, 842 message lines logged
+        Logging to 192.168.1.50 (udp port 514, audit disabled)</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Επιπεδα Severity και μια Πηγη Loopback</span>
+    <p>Τα severity του syslog πάνε από 0 (emergencies) ως 7 (debugging)· το <code>logging trap informational</code> (6) είναι το γλυκό σημείο — παίρνεις link flaps, αλλαγές config, και γεγονότα ασφάλειας χωρίς να πνίγεσαι σε θόρυβο debug. Δύο βελτιώσεις το κάνουν production-grade: κάνε log από ένα <strong>Loopback interface</strong> ώστε κάθε μήνυμα να κουβαλάει το ίδιο source IP ανεξάρτητα από ποιο φυσικό interface έφυγε (ο συλλέκτης σου ομαδοποιεί καθαρά ανά συσκευή), και θυμήσου ότι το <code>logging trap debugging</code> (7) μπορεί να πλημμυρίσει ένα αργό link — ανέβασέ το μόνο όσο κάνεις ενεργά troubleshooting. Ένα log αλλαγών config (<code>archive</code> / <code>log config</code>) συν το syslog σου δίνει audit trail του ποιος άλλαξε τι, πότε.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">SNMPv3 — Monitoring Χωρις Καθαρο Κειμενο</h2>
+  <p class="section-thesis"><em>Το SNMP αφήνει την πλατφόρμα monitoring σου να ρωτάει μετρητές interface, CPU, και μνήμη, και να λαμβάνει traps. Χρησιμοποίησε v3 — με authentication και κρυπτογράφηση — ποτέ v1/v2c, του οποίου το "community string" είναι κωδικός σε καθαρό κείμενο πάνω στο καλώδιο.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — read-only SNMPv3 με auth + κρυπτογραφηση</span>
+    <pre class="term"><span class="cmt"># Ένα view που περιορίζει τι μπορεί να διαβαστεί, μια group που το χρησιμοποιεί, και ένας κρυπτογραφημένος χρήστης</span>
+<span class="pc">R1(config)#</span> <span class="out">snmp-server view MON iso included</span>
+<span class="pc">R1(config)#</span> <span class="out">snmp-server group MONITORING v3 priv read MON</span>
+<span class="pc">R1(config)#</span> <span class="out">snmp-server user nms MONITORING v3 auth sha AuthPass123 priv aes 128 PrivPass123</span>
+
+<span class="cmt"># Στείλε traps στον host monitoring (link up/down, αλλαγές config, κλπ.)</span>
+<span class="pc">R1(config)#</span> <span class="out">snmp-server enable traps</span>
+<span class="pc">R1(config)#</span> <span class="out">snmp-server host 192.168.1.50 version 3 priv nms</span>
+<span class="pc">R1(config)#</span> <span class="out">snmp-server location Heraklion-Rack-1</span>
+<span class="pc">R1(config)#</span> <span class="out">snmp-server contact noc@example.com</span>
+<span class="pc">R1(config)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το <code>snmp-server community public RO</code> Ειναι Κλασικο σε Αναφορες Ευρηματων</span>
+    <p>Τα SNMPv1/v2c κάνουν authenticate με ένα "community string" σε καθαρό κείμενο που διασχίζει το δίκτυο ακάλυπτο — και οι default κοινότητες <code>public</code>/<code>private</code> είναι το πρώτο πράγμα που δοκιμάζει κάθε scanner (και κάθε pentester). Μια αναγνώσιμη κοινότητα v2c διαρρέει όλη την τοπολογία config σου· μια εγγράψιμη (<code>private RW</code>) μπορεί να επαναρυθμίσει τη συσκευή. Σε engagement αυτό είναι ρουτίνα finding. Χρησιμοποίησε <strong>v3 με priv</strong> (auth + κρυπτογράφηση), περιόρισε ποιοι hosts μπορούν να ρωτούν με ένα ACL (<code>snmp-server community</code> … `&lt;acl&gt;` αν είσαι πραγματικά κολλημένος στο v2c), και ποτέ μην αφήνεις μια default κοινότητα στη θέση της. Αυτό είναι το μισό SNMP της θωράκισης management-plane που θα ενοποιήσουμε αργότερα στη σειρά.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Flexible NetFlow — Ποιος Χρησιμοποιησε τη Bandwidth;</h2>
+  <p class="section-thesis"><em>Οι μετρητές interface σου λένε ότι ένα link ήταν γεμάτο· το NetFlow σου λέει ποιες συνομιλίες το γέμισαν. Τρία αντικείμενα — ένα record (τι να συλλέξεις), ένας exporter (πού να το στείλεις), και ένας monitor (που τα δένει μαζί) — εφαρμοσμένα σε ένα interface.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — Flexible NetFlow, exported σε συλλεκτη</span>
+    <pre class="term"><span class="cmt"># 1. RECORD — τα πεδία που ορίζουν μια ροή και τα στατιστικά που κρατάς</span>
+<span class="pc">R1(config)#</span> <span class="out">flow record RECORD-1</span>
+<span class="pc">R1(config-flow-record)#</span> <span class="out">match ipv4 source address</span>
+<span class="pc">R1(config-flow-record)#</span> <span class="out">match ipv4 destination address</span>
+<span class="pc">R1(config-flow-record)#</span> <span class="out">match transport source-port</span>
+<span class="pc">R1(config-flow-record)#</span> <span class="out">match transport destination-port</span>
+<span class="pc">R1(config-flow-record)#</span> <span class="out">match ipv4 protocol</span>
+<span class="pc">R1(config-flow-record)#</span> <span class="out">collect counter bytes</span>
+<span class="pc">R1(config-flow-record)#</span> <span class="out">collect counter packets</span>
+<span class="pc">R1(config-flow-record)#</span> <span class="out">exit</span>
+
+<span class="cmt"># 2. EXPORTER — πού να στείλεις τα δεδομένα ροής</span>
+<span class="pc">R1(config)#</span> <span class="out">flow exporter EXPORT-1</span>
+<span class="pc">R1(config-flow-exporter)#</span> <span class="out">destination 192.168.1.50</span>
+<span class="pc">R1(config-flow-exporter)#</span> <span class="out">transport udp 2055</span>
+<span class="pc">R1(config-flow-exporter)#</span> <span class="out">exit</span>
+
+<span class="cmt"># 3. MONITOR — δέσε record + exporter, μετά εφάρμοσε στο interface</span>
+<span class="pc">R1(config)#</span> <span class="out">flow monitor MONITOR-1</span>
+<span class="pc">R1(config-flow-monitor)#</span> <span class="out">record RECORD-1</span>
+<span class="pc">R1(config-flow-monitor)#</span> <span class="out">exporter EXPORT-1</span>
+<span class="pc">R1(config-flow-monitor)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip flow monitor MONITOR-1 input</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip flow monitor MONITOR-1 output</span>
+<span class="pc">R1(config-if)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — διαβασε ροες κατευθειαν στη συσκευη (χωρις συλλεκτη)</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show flow monitor MONITOR-1 cache sort highest counter bytes top 5</span>
+<span class="out">SRC ADDR        DST ADDR        PROT  SRC  DST    BYTES
+192.168.1.30    93.184.216.34   6     5512 443    248 M   ← ο φαγάς της bandwidth
+192.168.1.44    140.82.121.4    6     6001 443     31 M
+...</span>
+<span class="cmt"># «Τι έφαγε το internet στις 2μμ» — απαντήθηκε από την ίδια τη συσκευή.</span></pre>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Η Λιστα Επαληθευσης <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Επιβεβαίωσε ότι το καθένα από τα τέσσερα δουλεύει πραγματικά — μια σιωπηλά σπασμένη γραμμή τηλεμετρίας είναι χειρότερη από καμία, γιατί θα εμπιστευτείς δεδομένα που δεν φτάνουν.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Επιβεβαιωνει</th></tr></thead>
+    <tbody>
+      <tr><td>show ntp status / associations</td><td>Ρολόι συγχρονισμένο, ποιος server, stratum.</td></tr>
+      <tr><td>show logging</td><td>Host syslog, επίπεδο trap, και το τοπικό buffer.</td></tr>
+      <tr><td>show snmp / show snmp user</td><td>Μηχανή SNMP up, χρήστες v3 και το auth/priv τους.</td></tr>
+      <tr><td>show flow monitor MONITOR-1 cache</td><td>Οι ροές καταγράφονται.</td></tr>
+      <tr><td>show flow exporter statistics</td><td>Πακέτα ροής πραγματικά στέλνονται στον συλλέκτη.</td></tr>
+      <tr><td>show clock detail</td><td>Πηγή χρόνου — "NTP" (καλό) vs "user configuration" (παρασύρεται).</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Ιδια Τηλεμετρια</h2>
+  <p class="section-thesis"><em>Το RouterOS προσφέρει το καθένα από αυτά· η αντιστοίχιση είναι απευθείας.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS</th></tr></thead>
+    <tbody>
+      <tr><td>/system ntp client</td><td><code>ntp server</code></td></tr>
+      <tr><td>/system logging action remote + rule</td><td><code>logging host</code> + <code>logging trap</code></td></tr>
+      <tr><td>/snmp community (v3 user)</td><td><code>snmp-server user … v3 auth … priv …</code></td></tr>
+      <tr><td>/ip traffic-flow (+ target)</td><td>Flexible NetFlow record/exporter/monitor</td></tr>
+      <tr><td>/tool sniffer, /tool torch</td><td><code>show flow monitor cache</code></td></tr>
+    </tbody>
+  </table>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Ρύθμισε πρώτα το NTP.</strong> Κάθε άλλη καταγραφή είναι αξιόπιστη όσο το ρολόι. Και το <code>service timestamps log datetime</code> είναι η γραμμή που πραγματικά βάζει πραγματικό χρόνο στα logs σου — χωρίς αυτήν, το NTP μόνο του δεν βοηθάει.</li>
+      <li><strong>Στείλε τα logs εκτός συσκευής.</strong> Το τοπικό buffer πεθαίνει στο reboot· ένας κεντρικός syslog server κρατάει τα στοιχεία και τα συγκεντρώνει από πολλές συσκευές. Το <code>logging trap informational</code> είναι το γλυκό σημείο θορύβου/σήματος.</li>
+      <li><strong>SNMPv3 ή τίποτα.</strong> Τα community strings v1/v2c είναι κωδικοί σε καθαρό κείμενο και μόνιμο finding. Χρησιμοποίησε v3 με auth+priv και περιόρισε ποιος μπορεί να ρωτάει.</li>
+      <li><strong>Το NetFlow απαντάει «ποιος χρησιμοποίησε τη bandwidth».</strong> Record + exporter + monitor σε ένα interface μετατρέπει το «το link ήταν γεμάτο» σε μια επώνυμη συνομιλία — αναγνώσιμη στη συσκευή ή σε έναν συλλέκτη.</li>
+      <li><strong>Κάνε log από ένα loopback.</strong> Ένα σταθερό source IP κάνει τον συλλέκτη σου να ομαδοποιεί μηνύματα ανά συσκευή αντί ανά interface από το οποίο έφυγαν.</li>
+      <li><strong>Επαλήθευσε τη γραμμή, μην την υποθέτεις.</strong> Μια ροή τηλεμετρίας που σταμάτησε σιωπηλά είναι χειρότερη από καμία — έλεγξε ότι οι μετρητές του exporter/syslog αυξάνονται πραγματικά.</li>
+      <li><strong>Αυτό συνδυάζεται με τα backups.</strong> Τα backups σε αφήνουν να ξαναχτίσεις τη συσκευή· η τηλεμετρία σου λέει γιατί χρειάστηκε. Και τα δύο μπαίνουν πριν το δίκτυο κουβαλήσει οτιδήποτε σημαντικό.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Πετας στα τυφλα στο δικτυο σου στην Κρητη;</h3>
+    <p>Όταν κάτι σπάει στις 2π.μ., θέλω logs και δεδομένα ροής να με περιμένουν, όχι ένα κενό βλέμμα και ένα reboot. Οργανώνω κάθε δίκτυο που διαχειρίζομαι με συγχρονισμένο χρόνο, κεντρικό logging, SNMP, και NetFlow, ώστε μια διακοπή να έρχεται με στοιχεία επισυναπτόμενα.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: DMVPN — S. Markakis</title>
+<meta name="description" content="Κλιμάκωσε ένα WAN κλάδων χωρίς πλήρες mesh — mGRE + NHRP + IPsec, ένας hub που ρυθμίζεις μία φορά, δυναμική εγγραφή spoke, και Phase-3 απευθείας tunnels spoke-προς-spoke, με τις παγίδες NBMA-vs-tunnel και δρομολόγησης.">
+<meta property="og:title" content="Cisco IOS: DMVPN — S. Markakis">
+<meta property="og:description" content="Κλιμάκωσε ένα WAN κλάδων χωρίς πλήρες mesh — mGRE + NHRP + IPsec, ένας hub που ρυθμίζεις μία φορά, δυναμική εγγραφή spoke, και Phase-3 απευθείας tunnels spoke-προς-spoke, με τις παγίδες NBMA-vs-tunnel και δρομολόγησης.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-dmvpn-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-dmvpn.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-dmvpn.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-dmvpn-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-dmvpn.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-dmvpn-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-dmvpn.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: DMVPN",
+  "description": "Κλιμάκωσε ένα WAN κλάδων χωρίς πλήρες mesh — mGRE + NHRP + IPsec, ένας hub που ρυθμίζεις μία φορά, δυναμική εγγραφή spoke, και Phase-3 απευθείας tunnels spoke-προς-spoke, με τις παγίδες NBMA-vs-tunnel και δρομολόγησης.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-dmvpn-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-dmvpn.png",
+  "keywords": [
+    "cisco",
+    "vpn"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-dmvpn"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-dmvpn.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; VPN &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>DMVPN</h1>
+  <p class="post-subtitle">Το site-to-site VPN δουλεύει μια χαρά για δύο γραφεία. Δοκίμασέ το για τριάντα κλάδους και έχεις χτίσει στο χέρι ένα πλήρες mesh από tunnels που κανείς δεν μπορεί να συντηρήσει. Το DMVPN είναι η απάντηση: ρύθμισε τον hub μία φορά, πρόσθεσε spokes χωρίς να τον αγγίξεις ποτέ, και άφησε τα spokes να χτίζουν απευθείας tunnels μεταξύ τους κατά παραγγελία. Αυτό είναι το κλιμακούμενο WAN, εξηγημένο χωρίς τη μυστικοπάθεια.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">DMVPN</span>
+    <span class="tag">mGRE</span>
+    <span class="tag">NHRP</span>
+    <span class="tag">IPsec</span>
+    <span class="tag">VPN</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το πρόβλημα που λύνει το DMVPN είναι συνδυαστικό. Τα κλασικά <a href="cisco-site-to-site-vpn.html">site-to-site tunnels</a> είναι ένα-ανά-ζευγάρι· ένα πλήρες mesh N sites χρειάζεται N(N-1)/2 tunnels, και κάθε νέος κλάδος σημαίνει επεξεργασία κάθε υπάρχοντος router. Το DMVPN το συμπτύσσει σε <strong>ένα multipoint tunnel interface</strong> ανά router. Στέκεται σε τρία πόδια: <strong>mGRE</strong> (ένα μοναδικό interface GRE που φτάνει πολλά endpoints), <strong>NHRP</strong> (ένα μητρώο «επίλυσης next-hop» όπου τα spokes εγγράφονται στον hub και ψάχνουν το ένα το άλλο), και <strong>IPsec</strong> (ένα profile προστασίας tunnel που τα κρυπτογραφεί όλα).</p>
+    <p>Πρόσθεσε ένα spoke και εγγράφεται στον hub — ο hub χρειάζεται <em>μηδέν</em> αλλαγές. Και με το Phase&nbsp;3, όταν μιλάνε δύο spokes, το NHRP επιλύει ένα <strong>απευθείας spoke-προς-spoke</strong> tunnel ώστε η κίνησή τους να μη κάνει hairpin μέσα από τον hub. Είναι το φυσικό επόμενο βήμα μετά το VPN δύο sites, και το αντίστοιχό του σε RouterOS — το RouterOS δεν έχει DMVPN — καλύπτεται στο <a href="mikrotik-dmvpn.html">MikroTik hub-and-spoke</a>.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Πρώτα το build δύο sites — <a href="cisco-site-to-site-vpn.html">Site-to-Site IPsec VPN</a> (IKEv2 + προστασία tunnel)</li>
+      <li>Ένα πρωτόκολλο δρομολόγησης να τρέξει πάνω από το tunnel — <a href="cisco-routing-ospf.html">OSPF</a> ή EIGRP</li>
+      <li>Ένας hub με στατικό δημόσιο IP· τα spokes μπορεί να είναι πίσω από δυναμικό IP / NAT</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Ο Hub — Ρυθμισε Μια Φορα, Για Παντα</h2>
+  <p class="section-thesis"><em>Ένα multipoint GRE tunnel, ένα δίκτυο NHRP για να εγγράφονται τα spokes, και προστασία tunnel. Ο hub δέχεται δυναμικές εγγραφές, οπότε δεν τον επεξεργάζεσαι ποτέ ξανά καθώς έρχονται και φεύγουν κλάδοι.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS (HUB) — mGRE + NHRP + Tunnel0 προστατευμενο με IPsec</span>
+    <pre class="term"><span class="pc">HUB(config)#</span> <span class="out">interface Tunnel0</span>
+<span class="pc">HUB(config-if)#</span> <span class="out">ip address 172.16.0.1 255.255.255.0</span>   <span class="cmt"># το subnet DMVPN</span>
+<span class="pc">HUB(config-if)#</span> <span class="out">tunnel source GigabitEthernet0/0</span>       <span class="cmt"># το δημόσιο interface του</span>
+<span class="pc">HUB(config-if)#</span> <span class="out">tunnel mode gre multipoint</span>            <span class="cmt"># mGRE — πολλά endpoints</span>
+<span class="pc">HUB(config-if)#</span> <span class="out">ip nhrp network-id 1</span>
+<span class="pc">HUB(config-if)#</span> <span class="out">ip nhrp map multicast dynamic</span>         <span class="cmt"># άσε τα spokes να εγγραφούν</span>
+<span class="pc">HUB(config-if)#</span> <span class="out">ip nhrp redirect</span>                     <span class="cmt"># Phase 3: ενεργοποίησε spoke-to-spoke</span>
+<span class="pc">HUB(config-if)#</span> <span class="out">tunnel protection ipsec profile DMVPN-PROF</span>
+<span class="cmt"># Δρομολόγηση πάνω από το tunnel (OSPF εδώ). Σε hub, ο τύπος δικτύου έχει σημασία:</span>
+<span class="pc">HUB(config-if)#</span> <span class="out">ip ospf network broadcast</span></pre>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Ενα Spoke — Δειξε στον Hub, Τελος</h2>
+  <p class="section-thesis"><em>Κάθε spoke παίρνει σχεδόν πανομοιότυπο block, συν ένα static NHRP map προς τον hub (τον «next-hop server» του). Αντίγραψέ το σε κάθε κλάδο, αλλάζοντας μόνο το IP του tunnel.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS (SPOKE) — εγγραψου στον hub ως NHS</span>
+    <pre class="term"><span class="pc">SPOKE(config)#</span> <span class="out">interface Tunnel0</span>
+<span class="pc">SPOKE(config-if)#</span> <span class="out">ip address 172.16.0.11 255.255.255.0</span>
+<span class="pc">SPOKE(config-if)#</span> <span class="out">tunnel source GigabitEthernet0/0</span>
+<span class="pc">SPOKE(config-if)#</span> <span class="out">tunnel mode gre multipoint</span>
+<span class="pc">SPOKE(config-if)#</span> <span class="out">ip nhrp network-id 1</span>
+<span class="cmt"># Το IP tunnel του hub + πραγματικό δημόσιο IP, και εγγράψου σε αυτό:</span>
+<span class="pc">SPOKE(config-if)#</span> <span class="out">ip nhrp nhs 172.16.0.1 nbma 203.0.113.1 multicast</span>
+<span class="pc">SPOKE(config-if)#</span> <span class="out">ip nhrp shortcut</span>                    <span class="cmt"># Phase 3: δέξου redirects</span>
+<span class="pc">SPOKE(config-if)#</span> <span class="out">tunnel protection ipsec profile DMVPN-PROF</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — NBMA vs Διευθυνση Tunnel, και η Παγιδα Δρομολογησης</span>
+    <p>Το DMVPN έχει δύο επίπεδα διευθύνσεων και το να τα μπερδέψεις είναι το κλασικό λάθος. Η διεύθυνση <strong>NBMA</strong> είναι το πραγματικό δημόσιο IP στο οποίο στέλνεται το πακέτο· η διεύθυνση <strong>tunnel</strong> (172.16.x) είναι το overlay πάνω στο οποίο τρέχει το πρωτόκολλο δρομολόγησης. Όλη η δουλειά του NHRP είναι να αντιστοιχίζει tunnel→NBMA. Η παγίδα δρομολόγησης: στον hub, μην αφήσεις το OSPF να κάνει summarise τα routes των spoke ή να αλλάξει next-hops — τα spokes χρειάζονται το IP tunnel <em>του άλλου spoke</em> ως next-hop για να δουλέψουν τα shortcuts του Phase-3. Σε σχέδια point-to-multipoint, πρόσεξε τους τύπους δικτύου OSPF (broadcast στον hub, και ταιριαστό στα spokes) αλλιώς κάνουν flap οι adjacencies.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Phase 3 — τα Spokes Μιλανε Απευθειας</h2>
+  <p class="section-thesis"><em>By default η κίνηση spoke-προς-spoke ανεβαίνει στον hub και κατεβαίνει ξανά — ένα hairpin. Το Phase 3 (redirect στον hub, shortcut στα spokes) κάνει το NHRP να επιλύει ένα προσωρινό απευθείας tunnel ώστε ο κλάδος A να φτάνει τον κλάδο B χωρίς τον hub στη διαδρομή.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — παρακολουθησε ενα spoke-to-spoke tunnel να σχηματιζεται κατα παραγγελια</span>
+    <pre class="term"><span class="cmt"># Πριν από κάθε κίνηση: υπάρχει μόνο το tunnel του hub.</span>
+<span class="pc">SPOKE-A#</span> <span class="out">show dmvpn</span>
+<span class="out"> 1 172.16.0.1  203.0.113.1  UP  static</span>          <span class="cmt"># μόνο hub</span>
+
+<span class="cmt"># Κάνε ping το LAN του spoke B μία φορά -> ο hub κάνει redirect -> το NHRP επιλύει το B απευθείας:</span>
+<span class="pc">SPOKE-A#</span> <span class="out">ping 10.20.0.1 source 10.10.0.1</span>
+<span class="pc">SPOKE-A#</span> <span class="out">show dmvpn</span>
+<span class="out"> 1 172.16.0.1   203.0.113.1   UP  static
+ 1 172.16.0.12  198.51.100.2  UP  dynamic</span>       <span class="cmt"># απευθείας στο spoke B!</span></pre>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Επαληθευσε το Overlay <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Τρία επίπεδα να επιβεβαιώσεις, με τη σειρά: εγγραφές NHRP, τα SA IPsec που τις προστατεύουν, και τις adjacencies δρομολόγησης πάνω από το tunnel.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — ο ελεγχος υγειας του DMVPN</span>
+    <pre class="term"><span class="pc">HUB#</span> <span class="out">show ip nhrp</span>                 <span class="cmt"># έχουν εγγραφεί όλα τα spokes; maps tunnel->NBMA</span>
+<span class="pc">HUB#</span> <span class="out">show dmvpn detail</span>            <span class="cmt"># καταστάσεις peer, crypto, uptime</span>
+<span class="pc">HUB#</span> <span class="out">show crypto ipsec sa | inc peer|pkts</span>  <span class="cmt"># SA up, encaps ανεβαίνουν</span>
+<span class="pc">HUB#</span> <span class="out">show ip ospf neighbor</span>        <span class="cmt"># όλα τα spokes FULL στο tunnel</span></pre>
+  </div>
+  <table class="cheat">
+    <thead><tr><th>Συμπτωμα</th><th>Πού να κοιτάξεις</th></tr></thead>
+    <tbody>
+      <tr><td>Το spoke δεν εγγράφεται ποτέ</td><td>Λάθος NHS/NBMA, ή ασυμφωνία network-id. <code>debug nhrp</code>.</td></tr>
+      <tr><td>Εγγράφηκε αλλά καμία κρυπτογράφηση</td><td>Ασυμφωνία profile/proposal IPsec — ίδιο με το build δύο sites.</td></tr>
+      <tr><td>Ο hub δουλεύει, καθόλου spoke-to-spoke</td><td>Λείπει <code>redirect</code> (hub) / <code>shortcut</code> (spoke), ή next-hop ξαναγραμμένο από τη δρομολόγηση.</td></tr>
+      <tr><td>Η adjacency OSPF κάνει flap</td><td>Ασύμφωνοι τύποι δικτύου πάνω από το tunnel mGRE.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Το DMVPN σκοτώνει το πρόβλημα του πλήρους mesh</strong> — ένα multipoint tunnel ανά router αντί για N² tunnels site-to-site.</li>
+      <li><strong>Τρία πόδια:</strong> mGRE (πολλά endpoints, ένα interface), NHRP (εγγραφή + επίλυση), IPsec (προστασία tunnel).</li>
+      <li><strong>Ο hub ρυθμίζεται μία φορά</strong> — τα spokes εγγράφονται δυναμικά, οπότε το να προσθέσεις κλάδο δεν αγγίζει ποτέ τον hub.</li>
+      <li><strong>Κράτα ξεκάθαρες τις διευθύνσεις NBMA (πραγματικό δημόσιο IP) και tunnel (overlay)</strong> — το NHRP τις αντιστοιχίζει· το να τις μπερδέψεις είναι το κορυφαίο λάθος.</li>
+      <li><strong>Το Phase 3 (redirect + shortcut) δίνει απευθείας tunnels spoke-to-spoke</strong> κατά παραγγελία, ώστε η κίνηση κλάδου να μην κάνει hairpin μέσα από τον hub.</li>
+      <li><strong>Μην αφήνεις τη δρομολόγηση να ξαναγράφει τα next-hops των spoke</strong> ή να τα κάνει summarise, αλλιώς σπάνε τα shortcuts του Phase-3.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Ενα δικτυο κλαδων που μεγαλωνει, ραμμενο με μεμονωμενα VPN tunnels;</h3>
+    <p>Το να προσθέσεις ένα νέο site σε ένα WAN δεν πρέπει να σημαίνει να αγγίξεις το config του hub. Σχεδιάζω DMVPN και hub-and-spoke overlays σε Cisco και MikroTik όπου ένα νέο spoke είναι σχεδόν copy-paste, τα spokes μπορούν να μιλάνε απευθείας μεταξύ τους, και η δρομολόγηση προσαρμόζεται μόνη της.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

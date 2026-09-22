@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: Upgrading RouterOS Safely — S. Markakis</title>
+<meta name="description" content="Κάνε update το RouterOS χωρίς να κάνεις brick ένα απομακρυσμένο site — release channels, το upgrade δύο μερών package-συν-firmware-RouterBOARD που όλοι ξεχνάνε, backups πριν το αγγίξεις, και ένα καθαρό μονοπάτι rollback.">
+<meta property="og:title" content="MikroTik: Upgrading RouterOS Safely — S. Markakis">
+<meta property="og:description" content="Κάνε update το RouterOS χωρίς να κάνεις brick ένα απομακρυσμένο site — release channels, το upgrade δύο μερών package-συν-firmware-RouterBOARD που όλοι ξεχνάνε, backups πριν το αγγίξεις, και ένα καθαρό μονοπάτι rollback.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-upgrades-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-upgrades.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-upgrades.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-upgrades-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/mikrotik-upgrades.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/mikrotik-upgrades-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/mikrotik-upgrades.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Upgrading RouterOS Safely",
+  "description": "Κάνε update το RouterOS χωρίς να κάνεις brick ένα απομακρυσμένο site — release channels, το upgrade δύο μερών package-συν-firmware-RouterBOARD που όλοι ξεχνάνε, backups πριν το αγγίξεις, και ένα καθαρό μονοπάτι rollback.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-upgrades-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-upgrades.png",
+  "keywords": [
+    "mikrotik",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-upgrades"
+  },
+  "timeRequired": "PT4M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="mikrotik-upgrades.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Οδηγος &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">MikroTik<br>Upgrade RouterOS με Ασφαλεια</h1>
+  <p class="post-subtitle">Τα upgrades κλείνουν ακριβώς τις τρύπες που εκμεταλλεύονται τα επιθετικά posts — αλλά ένα σκατωμένο upgrade σε έναν router 40km μακριά, πάνω σε βουνό, πίσω από μια κλειδωμένη ταβέρνα, είναι δική του καταστροφή. Αυτή είναι η ασφαλής διαδικασία: διάλεξε το σωστό channel, κάνε πρώτα backup, κάνε το upgrade δύο μερών που όλοι ξεχνάνε, και κράτα ένα μονοπάτι rollback. Το post "Upgrading Safely" της Cisco, σε RouterOS.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Upgrade</span>
+    <span class="tag">Firmware</span>
+    <span class="tag">Maintenance</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το να μένεις ενημερωμένος είναι ένα security control — τα bugs Winbox και SMB που έχτισαν botnets είχαν όλα γίνει patch πριν εκμεταλλευτούν μαζικά· τα θύματα απλά δεν είχαν κάνει upgrade. Αλλά τα upgrades του RouterOS έχουν μια παγίδα που πιάνει σχεδόν τον καθένα: υπάρχουν <strong>δύο</strong> πράγματα να κάνεις update, όχι ένα. Τα <em>πακέτα RouterOS</em> (το OS) και το <em>firmware RouterBOARD</em> (το layer bootloader/hardware) είναι ξεχωριστά, και το <code>check-for-updates</code> χειρίζεται μόνο το πρώτο. Παράλειψε το δεύτερο και αφήνεις διορθώσεις σε επίπεδο firmware στο τραπέζι για χρόνια.</p>
+    <p>Αυτό το post είναι η πειθαρχία που εμποδίζει ένα απομακρυσμένο upgrade να γίνει επίσκεψη site: το σωστό <strong>release channel</strong> για τον ρόλο του box, ένα <strong>backup</strong> που μπορεί πραγματικά να το επαναφέρει, το upgrade <strong>δύο μερών</strong> με τη σωστή σειρά, και ένα γνωστό <strong>rollback</strong>. Καθρεφτίζει το <a href="cisco-ios-upgrade.html">Cisco IOS: Upgrading Safely</a> και στηρίζεται στο <a href="mikrotik-backup.html">Backup and Recovery</a>.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Πρόσβαση management που δεν θα χάσεις αν το box κάνει reboot (ιδανικά out-of-band ή μέσω δεύτερου path)</li>
+      <li>Ένα παράθυρο συντήρησης — τα upgrades κάνουν reboot τον router</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Διαλεξε το Channel, Ελεγξε για Updates</h2>
+  <p class="section-thesis"><em>Το RouterOS έχει release channels φθίνοντος συντηρητισμού. Οι production edge routers ανήκουν στο <code>stable</code>· μόνο lab gear θα έπρεπε ποτέ να βλέπει <code>testing</code>. Τα μακροπρόθεσμα deployments μπορούν να κλειδωθούν στο <code>long-term</code> μόνο για διορθώσεις.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — channel, μετα ελεγχος (χωρις εγκατασταση ακομα)</span>
+    <pre class="term"><span class="pc">&gt;</span> <span class="out">/system package update set channel=stable</span>
+<span class="pc">&gt;</span> <span class="out">/system package update check-for-updates</span>
+<span class="out">   installed-version: 7.15.2
+      latest-version: 7.15.3
+            status: New version is available</span>
+<span class="cmt"># Διάβασε το changelog πριν από κάθε upgrade. 'stable' για production·
+# 'long-term' αν θες μόνο backported διορθώσεις, χωρίς νέα features.</span></pre>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Καν' το Backup Πρωτα — και τα Δυο Ειδη</h2>
+  <p class="section-thesis"><em>Πάρε και ένα binary backup (επαναφέρει το ακριβές box, ίδιο μοντέλο) και ένα text export (φορητό, diff-able, επιβιώνει σε αλλαγή μοντέλου). Τράβηξέ τα από τον router πριν αγγίξεις οτιδήποτε.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — ζωνη και τιραντες πριν ενα upgrade</span>
+    <pre class="term"><span class="pc">&gt;</span> <span class="out">/system backup save name=pre-7.15.3</span>       <span class="cmt"># binary, πληρες state</span>
+<span class="pc">&gt;</span> <span class="out">/export file=pre-7.15.3</span>                    <span class="cmt"># text, φορητο</span>
+<span class="cmt"># Αντέγραψε ΚΑΙ ΤΑ ΔΥΟ από το box (drag-out στα WinBox Files, ή scp) — ένα backup
+# που υπάρχει μόνο στον router που πρόκειται να κάνεις reboot δεν είναι backup.</span></pre>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Το Upgrade Δυο Μερων <span class="danger-badge">Κανει Reboot</span></h2>
+  <p class="section-thesis"><em>Πρώτα τα πακέτα OS, reboot. Μετά — το ξεχασμένο βήμα — το firmware RouterBOARD, ξανά reboot. Κάν' τα με αυτή τη σειρά· το νέο firmware συχνά εξαρτάται από το νέο OS.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — πακετα, μετα firmware RouterBOARD</span>
+    <pre class="term"><span class="cmt"># ΜΕΡΟΣ 1: Πακέτα RouterOS. Αυτό κατεβάζει και κάνει reboot στο νέο OS.</span>
+<span class="pc">&gt;</span> <span class="out">/system package update download</span>
+<span class="pc">&gt;</span> <span class="out">/system reboot</span>
+
+<span class="cmt"># ...το box επιστρέφει στο 7.15.3. Τώρα ΜΕΡΟΣ 2, το βήμα που χάνει ο κόσμος:</span>
+<span class="pc">&gt;</span> <span class="out">/system routerboard print</span>
+<span class="out">    current-firmware: 7.15.2
+    upgrade-firmware: 7.15.3</span>        <span class="cmt"># mismatch = firmware δεν έχει εφαρμοστεί ακόμα</span>
+<span class="pc">&gt;</span> <span class="out">/system routerboard upgrade</span>
+<span class="pc">&gt;</span> <span class="out">/system reboot</span>                     <span class="cmt"># το firmware ισχύει μόνο μετά από αυτό το reboot</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — <code>current-firmware</code> ≠ <code>upgrade-firmware</code> Σημαινει Δεν Τελειωσες</span>
+    <p>Μετά το upgrade του OS, το <code>/system routerboard print</code> δείχνει ότι τα δύο πεδία firmware διαφωνούν — αυτό είναι το RouterOS που σου λέει ότι νεότερο firmware είναι <em>staged αλλά όχι εφαρμοσμένο</em>. Ισχύει μόνο μετά το <code>routerboard upgrade</code> <strong>και</strong> ένα reboot. Fleets που κάνουν upgrade μόνο το OS για χρόνια κουβαλούν firmware από όταν ξεπακετάρτηκαν, χάνοντας διορθώσεις χαμηλού επιπέδου. Κάν' το το δεύτερο μισό του checklist σου, κάθε φορά.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Rollback &amp; Κλαδεμα της Επιφανειας Επιθεσης</h2>
+  <p class="section-thesis"><em>Αν η νέα έκδοση φέρεται κακώς, το RouterOS κρατά τα προηγούμενα πακέτα ώστε ένα downgrade να είναι μία εντολή. Και όσο είσαι εδώ, αφαίρεσε πακέτα που δεν τρέχεις — λιγότερος κώδικας, λιγότερα να κάνεις patch.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Terminal — μονοπατι downgrade + κλαδεμα πακετων</span>
+    <pre class="term"><span class="cmt"># Κάνε rollback στην προηγούμενα-εγκατεστημένη έκδοση (κρατημένη στο box):</span>
+<span class="pc">&gt;</span> <span class="out">/system package downgrade</span>       <span class="cmt"># επιβεβαιώνει, μετά κάνει reboot στην παλιά έκδοση</span>
+
+<span class="cmt"># Απενεργοποίησε πακέτα που αυτό το box δεν χρησιμοποιεί — π.χ. χωρίς wireless σε έναν router:</span>
+<span class="pc">&gt;</span> <span class="out">/system package disable hotspot,ppp</span>
+<span class="pc">&gt;</span> <span class="out">/system reboot</span>
+<span class="cmt"># Αν ένα upgrade αφήσει ποτέ ένα box απρόσιτο, το Netinstall το ξανακάνει flash
+# από ένα PC — το απόλυτο rollback. Κράτα πρόχειρο το .npk για το μοντέλο σου.</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το upgrade είναι security control</strong> — τα διάσημα botnets του MikroTik χτύπησαν boxes που απλά δεν είχαν κάνει patch.</li>
+      <li><strong>Το Production σε <code>stable</code> (ή <code>long-term</code>), ποτέ <code>testing</code>.</strong> Διάβασε το changelog πριν από κάθε upgrade.</li>
+      <li><strong>Κάνε πρώτα backup και με τους δύο τρόπους</strong> — binary για ακριβές restore, text export για φορητότητα — και τράβηξέ τα από το box.</li>
+      <li><strong>Το upgrade είναι δύο μέρη:</strong> πακέτα RouterOS <em>μετά</em> firmware RouterBOARD, το καθένα με το δικό του reboot. Το βήμα firmware είναι αυτό που ξεχνάει ο καθένας.</li>
+      <li><strong><code>current-firmware</code> ≠ <code>upgrade-firmware</code> σημαίνει ότι δεν τελείωσες</strong> — εφάρμοσε και κάνε reboot.</li>
+      <li><strong>Κράτα ένα μονοπάτι rollback</strong> — <code>package downgrade</code> για software, Netinstall για brick — και κλάδεψε πακέτα που δεν τρέχεις.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Απομακρυσμενα sites σε εκδοσεις RouterOS που φοβασαι να αγγιξεις;</h3>
+    <p>Τρέχω σταδιακά, backed-up, ready-for-rollback προγράμματα upgrade για estates MikroTik και Cisco — συμπεριλαμβανομένου του βήματος firmware που όποιος το έστησε την τελευταία φορά συνήθως παρέλειψε.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

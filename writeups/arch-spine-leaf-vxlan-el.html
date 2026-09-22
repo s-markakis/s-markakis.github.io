@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Network Architecture: Spine-Leaf & VXLAN/EVPN — S. Markakis</title>
+<meta name="description" content="The modern DC/large-campus fabric demystified — a routed ECMP spine-leaf underlay, a VXLAN overlay floating Layer-2 tenants on Layer-3, and EVPN as the BGP control plane that makes it scale.">
+<meta property="og:title" content="Network Architecture: Spine-Leaf &amp; VXLAN/EVPN — S. Markakis">
+<meta property="og:description" content="The modern DC/large-campus fabric demystified — a routed ECMP spine-leaf underlay, a VXLAN overlay floating Layer-2 tenants on Layer-3, and EVPN as the BGP control plane that makes it scale.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/arch-spine-leaf-vxlan-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/arch-spine-leaf-vxlan.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/arch-spine-leaf-vxlan.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/arch-spine-leaf-vxlan-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/arch-spine-leaf-vxlan.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/arch-spine-leaf-vxlan-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/arch-spine-leaf-vxlan.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Network Architecture: Spine-Leaf & VXLAN/EVPN",
+  "description": "The modern DC/large-campus fabric demystified — a routed ECMP spine-leaf underlay, a VXLAN overlay floating Layer-2 tenants on Layer-3, and EVPN as the BGP control plane that makes it scale.",
+  "datePublished": "2026-07-31",
+  "dateModified": "2026-07-31",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/arch-spine-leaf-vxlan-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/arch-spine-leaf-vxlan.png",
+  "keywords": [
+    "cisco",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#arch-spine-leaf-vxlan"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="arch-spine-leaf-vxlan.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>Architecture</span> &nbsp;·&nbsp; Σχεδιαση &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Αρχιτεκτονικη Δικτυου<br>Spine-Leaf &amp; VXLAN/EVPN</h1>
+  <p class="post-subtitle">Το σύγχρονο fabric data centre και μεγάλου campus: ένα routed spine-leaf underlay που κουβαλάει ένα VXLAN overlay, με το EVPN ως control plane. Ακούγεται σαν αλφαβητική σούπα, αλλά η ιδέα είναι απλή — χτίσε ένα γρήγορο, χωρίς loops, any-to-any fabric Layer-3, μετά αιώρησε δίκτυα tenant Layer-2 από πάνω του. Αυτή είναι η αρχιτεκτονική, χωρίς μυστήριο.</p>
+  <div class="tags">
+    <span class="tag">Architecture</span>
+    <span class="tag">Spine-Leaf</span>
+    <span class="tag">VXLAN</span>
+    <span class="tag">EVPN</span>
+    <span class="tag">Data Center</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το spine-leaf λύνει ένα πρόβλημα που οι παλιοί σχεδιασμοί campus δεν μπορούν: σε κλίμακα data centre, θέλεις <strong>γειτνίαση Layer-2 οπουδήποτε</strong> (ώστε τα VM να μπορούν να μετακινούνται και τα clusters να απλώνονται σε racks) αλλά το Layer-2 σε κλίμακα σημαίνει τεράστια broadcast domains και <a href="cisco-stp-etherchannel.html">spanning-tree</a> που μπλοκάρει τα μισά σου links. Η λύση είναι να <strong>χωρίσεις το φυσικό fabric από τα δίκτυα tenant</strong>. Το <em>underlay</em> είναι καθαρό routed spine-leaf Layer-3 — κάθε link ενεργό μέσω ECMP, χωρίς STP, ντετερμινιστικό bandwidth. Το <em>overlay</em> είναι το <strong>VXLAN</strong>: Ethernet frames tenant σε tunnel μέσα σε UDP πάνω από αυτό το routed fabric, ώστε ένα VLAN να μπορεί να εμφανιστεί σε οποιοδήποτε leaf ανεξάρτητα από τη φυσική τοπολογία. Το <strong>EVPN</strong> (βασισμένο σε BGP) είναι το control plane που διανέμει ποιο MAC/IP ζει πίσω από ποιο leaf, αντικαθιστώντας το flood-and-learn με κάτι που κλιμακώνει.</p>
+    <p>Το underlay κάνει route τα πακέτα· το overlay κουβαλάει τους tenants· το EVPN λέει στο overlay πού είναι το καθετί. Αυτό είναι όλο το μοντέλο. Είναι γνήσια ισχυρό και γνήσια υπερβολικό για τις περισσότερες επιχειρήσεις — το χρησιμοποιείς σε ένα data centre, ένα μεγάλο virtualised campus, ή ένα multi-tenant περιβάλλον, και το <a href="arch-campus-topologies.html">post τοπολογίας</a> είναι εκεί που αποφασίζεις αν πραγματικά βρίσκεσαι εκεί.</p>
+    <div class="prereqs-label">Διαβασε μαζι με</div>
+    <ul class="prereqs-list">
+      <li>Η απόφαση τοπολογίας — <a href="arch-campus-topologies.html">collapsed-core έναντι three-tier έναντι spine-leaf</a></li>
+      <li>Τα πρωτόκολλα από κάτω — <a href="cisco-bgp-dual-isp.html">BGP</a>, <a href="cisco-routing-ospf.html">OSPF</a>, <a href="cisco-ipv6.html">IPv6</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Το Underlay — Routed, ECMP, Χωρις STP</h2>
+  <p class="section-thesis"><em>Το φυσικό fabric είναι καθαρό Layer-3: κάθε link leaf-προς-spine είναι routed point-to-point, όλα ενεργά, load-balanced με ECMP. Χωρίς spanning tree, χωρίς μπλοκαρισμένα links, προβλέψιμη latency.</em></p>
+  <p>Κάθε link leaf-spine είναι ένα μικρό routed subnet (ή unnumbered)· ένα routing protocol — συνήθως <strong>eBGP</strong> ανά switch, μερικές φορές OSPF — δίνει σε κάθε switch προσβασιμότητα στο loopback κάθε άλλου switch. Επειδή είναι routed, <strong>όλα</strong> τα links προωθούν ταυτόχρονα μέσω equal-cost multipath, και δεν υπάρχει spanning tree να μπλοκάρει τη μισή χωρητικότητά σου ή να συγκλίνει αργά. Η μόνη δουλειά του underlay είναι να μετακινεί πακέτα ανάμεσα στα loopback των leaf (τα endpoints του VXLAN tunnel) γρήγορα και αξιόπιστα. Κράτα το βαρετό: ένα καθαρό πλάνο διευθύνσεων για τα links του fabric και τα loopback, ένα routing protocol, καθόλου policy. Όλη η ενδιαφέρουσα συμπεριφορά ανά-tenant συμβαίνει στο overlay.</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Το Overlay — Το VXLAN Αιωρει Το Layer 2 Πανω Στο Layer 3</h2>
+  <p class="section-thesis"><em>Το VXLAN τυλίγει Ethernet frames tenant σε UDP και τα κάνει tunnel leaf-προς-leaf πάνω από το routed underlay. Ένα VLAN γίνεται ένα VNI που μπορεί να ζει σε οποιοδήποτε leaf, αποσυνδεδεμένο από τη φυσική καλωδίωση.</em></p>
+  <p>Ένα <strong>VTEP</strong> (VXLAN Tunnel Endpoint — το leaf) κάνει encapsulate το Ethernet frame ενός host σε ένα πακέτο VXLAN/UDP, το στέλνει πάνω από το underlay στο VTEP του leaf προορισμού, που το κάνει decapsulate και το παραδίδει. Το δίκτυο tenant αναγνωρίζεται από ένα 24-bit <strong>VNI</strong> (16 εκατομμύρια από αυτά, έναντι 4.094 VLAN — η νίκη της κλίμακας). Το αποτέλεσμα: ένας server στο rack 1 και ένας server στο rack 40 μπορούν να κάθονται στο ίδιο segment Layer-2 παρόλο που το fabric ανάμεσά τους είναι εντελώς routed. Η κινητικότητα VM, τα τεντωμένα clusters, και το multi-tenancy ακολουθούν όλα από αυτή την αποσύνδεση — το segment ορίζεται σε software, όχι στην καλωδίωση.</p>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">EVPN — Το Control Plane Που Το Κανει Να Κλιμακωνει</h2>
+  <p class="section-thesis"><em>Το πρώιμο VXLAN έκανε flood για να μάθει MAC — εντάξει για ένα lab, καταστροφή σε κλίμακα. Το EVPN χρησιμοποιεί BGP για να διαφημίσει mappings MAC/IP-προς-VTEP, ώστε τα leaf να μαθαίνουν προσβασιμότητα από ένα control plane αντί για flooding.</em></p>
+  <p>Χωρίς control plane, ένα VTEP βρίσκει ένα απομακρυσμένο MAC με flooding (multicast/ingress-replication) και μαθαίνοντας από την απάντηση — θορυβώδες και μη κλιμακούμενο. Το <strong>EVPN</strong> (μια address family του BGP, MP-BGP) το διορθώνει: κάθε leaf <em>διαφημίζει</em> τα MAC και IP πίσω του, ώστε κάθε άλλο leaf να ξέρει πού ζει ένας host χωρίς flooding. Φέρνει επίσης ARP suppression (τα leaf απαντούν σε ARP τοπικά από τον πίνακα EVPN), distributed anycast gateways (η ίδια IP/MAC gateway σε κάθε leaf, ώστε το default gateway ενός host να είναι πάντα τοπικό), και καθαρό multi-tenancy μέσω route-targets. Το EVPN είναι ο λόγος που το VXLAN πέρασε από «ωραίο κόλπο για lab» σε «έτσι χτίζονται τα data centre» — είναι η διαφορά ανάμεσα σε ένα fabric που κλιμακώνει και ένα που πνίγεται σε broadcast.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Αυτο Ειναι Δεσμευση Δεξιοτητας Και Πλατφορμας, Οχι Ενα Feature Toggle</span>
+    <p>Το Spine-leaf/VXLAN/EVPN είναι ισχυρό, αλλά να είσαι ειλικρινής για το κόστος: χρειάζεται ικανό hardware (data centre switches — Nexus, Catalyst 9k σε fabric mode, Arista· το MikroTik κάνει VXLAN αλλά η υποστήριξη EVPN είναι περιορισμένη και εξαρτάται από version), μια ομάδα άνετη με BGP και overlays, και πειθαρχημένο automation γιατί το config ανά-κουτί δεν κλιμακώνει. Το να το αναπτύξεις για ένα δίκτυο που θα εξυπηρετούσε ένα <a href="arch-campus-topologies.html">three-tier</a> ή ακόμα και collapsed-core design είναι κλασική παγίδα over-engineering — αγοράζεις πολυπλοκότητα που θα πληρώνεις σε κάθε περιστατικό στις 2 τα ξημερώματα. Χρησιμοποίησέ το όταν η κίνηση east-west, η κλίμακα tenant, ή η κινητικότητα VM το απαιτούν γνήσια, και δεσμεύσου στο automation και τις δεξιότητες που απαιτεί.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Χώρισε το fabric από τους tenants:</strong> ένα routed spine-leaf underlay κουβαλάει ένα VXLAN overlay από software-defined segments Layer-2.</li>
+      <li><strong>Το underlay είναι καθαρό L3, ECMP, χωρίς STP</strong> — κάθε link ενεργό, ντετερμινιστικό bandwidth. Κράτα το βαρετό.</li>
+      <li><strong>Το VXLAN αιωρεί το Layer 2 πάνω στο Layer 3</strong> — ένα VNI (24-bit, 16Μ) μπορεί να ζει σε οποιοδήποτε leaf, αποσυνδέοντας το segment από την καλωδίωση. Η κινητικότητα VM και το multi-tenancy ακολουθούν.</li>
+      <li><strong>Το EVPN είναι το control plane</strong> — το BGP διαφημίζει mappings MAC/IP-προς-VTEP, αντικαθιστώντας το flood-and-learn και προσθέτοντας ARP suppression και anycast gateways.</li>
+      <li><strong>Το underlay κάνει route, το overlay κουβαλάει τους tenants, το EVPN τους εντοπίζει</strong> — αυτό το μοντέλο τριών γραμμών είναι όλη η αρχιτεκτονική.</li>
+      <li><strong>Είναι δέσμευση, όχι toggle</strong> — ικανό hardware, δεξιότητες BGP/overlay, automation. Μην το αναπτύσσεις εκεί που θα αρκούσε three-tier.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Ξεπερνας ενα ιεραρχικο δικτυο σε κλιμακα data centre;</h3>
+    <p>Το spine-leaf και το VXLAN/EVPN είναι η σωστή απάντηση για κάποια δίκτυα και εντελώς υπερβολικά για τα περισσότερα από αυτά που με ρωτάνε. Θα χτίσω το fabric σωστά όταν δικαιολογείται &mdash; και θα σου πω ειλικρινά όταν ένας απλούστερος σχεδιασμός κάνει την ίδια δουλειά για λιγότερα.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

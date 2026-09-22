@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: EEM — On-Box Automation — S. Markakis</title>
+<meta name="description" content="Κάνε τον router να διορθώνει μόνος του τον εαυτό του — applets Embedded Event Manager που αντιδρούν σε syslog, timers, και track state: αυτόματη ανάκτηση err-disabled θυρών, backup config σε αλλαγή, και ειδοποίηση σε γεγονότα.">
+<meta property="og:title" content="Cisco IOS: EEM On-Box Automation — S. Markakis">
+<meta property="og:description" content="Κάνε τον router να διορθώνει μόνος του τον εαυτό του — applets Embedded Event Manager που αντιδρούν σε syslog, timers, και track state: αυτόματη ανάκτηση err-disabled θυρών, backup config σε αλλαγή, και ειδοποίηση σε γεγονότα.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-eem-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-eem.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-eem.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-eem-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-eem.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-eem-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-eem.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: EEM On-Box Automation",
+  "description": "Κάνε τον router να διορθώνει μόνος του τον εαυτό του — applets Embedded Event Manager που αντιδρούν σε syslog, timers, και track state: αυτόματη ανάκτηση err-disabled θυρών, backup config σε αλλαγή, και ειδοποίηση σε γεγονότα.",
+  "datePublished": "2026-08-05",
+  "dateModified": "2026-08-05",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-eem-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-eem.png",
+  "keywords": [
+    "cisco",
+    "automation"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-eem"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-eem.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Αυτοματοποιηση EEM</h1>
+  <p class="post-subtitle">Ο router μπορεί να παρακολουθεί τα δικά του logs και να ενεργεί. Το Embedded Event Manager τρέχει μικρά applets που ενεργοποιούνται από ένα μήνυμα syslog, έναν timer, ή μια παρακολουθούμενη αστοχία — και απαντούν με εντολές CLI. Αυτόματη ανάκτηση μιας πεσμένης θύρας, snapshot του config τη στιγμή που αλλάζει, email σε ένα γεγονός. Scripting IOS, με τον τρόπο του RouterOS.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">EEM</span>
+    <span class="tag">Automation</span>
+    <span class="tag">Applet</span>
+    <span class="tag">Event Manager</span>
+    <span class="tag">Ops</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: event -> action -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ep" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
+      </defs>
+      <rect width="720" height="150" fill="#e1ded7"/>
+      <rect x="40" y="52" width="180" height="46" rx="6" fill="#eee6d8" stroke="#c08020"/>
+      <text x="130" y="72" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#8a5a10;text-anchor:middle;">EVENT</text>
+      <text x="130" y="88" style="font-family:'Inter',sans-serif;font-size:8px;fill:#8a5a10;text-anchor:middle;">syslog · timer · track · none</text>
+      <rect x="500" y="52" width="180" height="46" rx="6" fill="#cfe0ee" stroke="#3a5a78"/>
+      <text x="590" y="72" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">ACTIONS</text>
+      <text x="590" y="88" style="font-family:'Inter',sans-serif;font-size:8px;fill:#3a5a78;text-anchor:middle;">cli · syslog · mail · reload</text>
+      <rect x="290" y="56" width="140" height="38" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
+      <text x="360" y="79" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">EEM applet</text>
+      <line x1="220" y1="75" x2="288" y2="75" style="stroke:#c63d1f;stroke-width:1.6;marker-end:url(#ep)"/>
+      <line x1="430" y1="75" x2="498" y2="75" style="stroke:#c63d1f;stroke-width:1.6;marker-end:url(#ep)"/>
+      <text x="360" y="128" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">«Όταν συμβεί ΑΥΤΟ, τρέξε ΑΥΤΕΣ τις εντολές.» Κανένας εξωτερικός server, κανένα NMS — ζει στη συσκευή.</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Το Embedded Event Manager είναι μια μικρή μηχανή αυτοματισμού ενσωματωμένη στο IOS. Κάθε applet έχει το ίδιο σχήμα: ένα <strong>event</strong> που το ενεργοποιεί (ένα μήνυμα syslog που ταιριάζει με ένα pattern, ένας timer, ένα παρακολουθούμενο αντικείμενο που αλλάζει state, μια χειροκίνητη εκτέλεση) και μια λίστα από <strong>actions</strong> που τρέχουν όταν πυροδοτηθεί — συνήθως εντολές CLI, συν logging ή email. Κανένας εξωτερικός orchestrator, κανένα NMS, κανένας agent: η λογική ζει στη συσκευή και συνεχίζει να δουλεύει ακόμα κι όταν είναι κάτω το δίκτυο διαχείρισης.</p>
+    <p>Αυτό κάνει το EEM τέλειο για τα μικρά, τοπικά αντανακλαστικά που αλλιώς θα καλούσαν έναν άνθρωπο: ξανα-ενεργοποίησε μια θύρα που έκλεισε ένα χαρακτηριστικό ασφάλειας, βγάλε snapshot το config τη στιγμή που κάποιος το αλλάζει, καθάρισε μπαγιάτικο NAT όταν κάνει failover ένα WAN, ή πυροδότησε μια ειδοποίηση σε συγκεκριμένο γεγονός. Είναι η απάντηση της Cisco στο <a href="mikrotik-scripting.html">scripting + scheduler του MikroTik</a> — και συνδυάζεται με όλα τα προηγούμενα σε αυτή τη σειρά, αφού τα γεγονότα που παρακολουθεί (err-disable, track state, αλλαγή config) είναι ακριβώς αυτά που παράγουν εκείνα τα posts.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Άνεση με το config IOS και τα γεγονότα στα οποία θέλεις να αντιδράς (patterns syslog, tracks)</li>
+      <li>Ιδανικά ρυθμισμένο <a href="cisco-observability.html">syslog/logging</a> ώστε να βλέπεις τα applets να πυροδοτούν</li>
+      <li>Μια συσκευή δοκιμής — τα applets τρέχουν πραγματικές εντολές· δοκίμασε πάντα πρώτα σε εξοπλισμό lab</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Ανατομια ενος Applet</h2>
+  <p class="section-thesis"><em>Μία γραμμή event, αριθμημένες γραμμές action. Το απλούστερο χρήσιμο applet: κατέγραψε ένα προσαρμοσμένο μήνυμα όποτε πέφτει ένα interface. Ξεκίνα εδώ για να δεις το σχήμα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ενα ελαχιστο applet με πυροδοτηση syslog</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">event manager applet LINK-DOWN-ALERT</span>
+<span class="cmt"># EVENT: πυροδότησε όταν εμφανιστεί ταιριαστό μήνυμα syslog</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">event syslog pattern "Interface GigabitEthernet0/1, changed state to down"</span>
+<span class="cmt"># ACTIONS: αριθμημένα ώστε να τρέχουν με τη σειρά</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 1.0 syslog msg "EEM: Gi0/1 went down — investigate"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 2.0 cli command "enable"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 3.0 cli command "show interface GigabitEthernet0/1" </span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 4.0 syslog msg "EEM: captured interface state to buffer"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">end</span>
+
+<span class="cmt"># Επιβεβαίωσε ότι είναι εγγεγραμμένο και παρακολούθησε τον μετρητή εκτελέσεών του</span>
+<span class="pc">R1#</span> <span class="out">show event manager policy registered</span>
+<span class="pc">R1#</span> <span class="out">show event manager history events</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Τα Applets Τρεχουν Μη Διαδραστικα· Ξεκινα με "enable"</span>
+    <p>Οι actions CLI του EEM εκτελούνται σαν να πληκτρολογήθηκαν σε φρέσκο session, οπότε ξεκινούν σε <strong>user EXEC</strong> — αν μια action χρειάζεται privileged ή config mode, το applet πρέπει να περπατήσει μόνο του εκεί: <code>action ... cli command "enable"</code>, μετά <code>"configure terminal"</code>, μετά τις πραγματικές εντολές. Και δεν υπάρχει άνθρωπος να απαντήσει σε prompts: κάθε εντολή που κάνει ερώτηση θα κολλήσει εκτός αν είτε αποφύγεις τη διαδραστική μορφή είτε προσθέσεις <code>action ... cli command "..." pattern "confirm"</code> για να απαντήσει αυτόματα. Δοκίμασε κάθε applet σε εξοπλισμό lab — ένα applet που κάνει loop ή πυροδοτεί λάθος σε production είναι αυτοπροκαλούμενη διακοπή.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Περιπτωση Χρησης — Αυτοματη Ανακτηση Θυρας err-disabled</h2>
+  <p class="section-thesis"><em>Το <a href="cisco-switch-security.html">post Ασφάλεια Switch</a> άφησε θύρες να γίνονται err-disabled σε παραβίαση, χρειαζόμενες χειροκίνητο bounce. Το EEM μπορεί να παρακολουθεί εκείνο το log και να ανακτά τη θύρα μετά από καθυστέρηση — χωρίς κλήση στο help-desk.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ανακτησε ενα err-disable απο psecure-violation</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">event manager applet PSECURE-RECOVER</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">event syslog pattern "PSECURE_VIOLATION.*Gi0/5"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 1.0 syslog msg "EEM: Gi0/5 err-disabled — recovering in 60s"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 2.0 wait 60</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 3.0 cli command "enable"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 4.0 cli command "configure terminal"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 5.0 cli command "interface Gi0/5"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 6.0 cli command "shutdown"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 7.0 cli command "no shutdown"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 8.0 syslog msg "EEM: Gi0/5 recovered"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">end</span>
+<span class="cmt"># (Το ενσωματωμένο "errdisable recovery" κάνει και αυτό το ίδιο· το EEM σε αφήνει να το περιορίσεις
+# σε ΜΙΑ θύρα, να προσθέσεις καθυστέρηση, να το καταγράψεις, ή να ειδοποιήσεις — πιο λεπτός έλεγχος από το global.)</span></pre>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Περιπτωση Χρησης — Snapshot Config σε Καθε Αλλαγη</h2>
+  <p class="section-thesis"><em>Ένα audit trail δωρεάν: όποτε κάποιος αποθηκεύει ή αλλάζει το config, το EEM αρχειοθετεί ένα αντίγραφο εκτός συσκευής και καταγράφει ποιος το έκανε. Συνδυάζεται με το archive feature από το post backup.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — καν το backup οταν αλλαζει το config</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">event manager applet CONFIG-BACKUP</span>
+<span class="cmt"># Πυροδοτεί στο syslog "configured from console/vty" που βγάζει το IOS σε αλλαγή</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">event syslog pattern "SYS-5-CONFIG_I"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 1.0 cli command "enable"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 2.0 cli command "copy running-config scp://backup@192.168.1.50/R1-$_event_pub_sec.cfg" pattern "assword"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 3.0 cli command "BackupPass123"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 4.0 syslog msg "EEM: config changed — off-box backup taken"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">end</span>
+<span class="cmt"># Το $_event_pub_sec είναι μια ενσωματωμένη μεταβλητή EEM (timestamp γεγονότος) — χρήσιμη για
+# μοναδικά ονόματα αρχείων. Το "pattern" απαντάει αυτόματα στο prompt κωδικού.</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Οι Ενσωματωμενες Μεταβλητες του EEM Κανουν τα Applets Εξυπνα</span>
+    <p>Το EEM εκθέτει πλαίσιο για το γεγονός που πυροδότησε μέσω μεταβλητών <code>$_</code>: <code>$_syslog_msg</code> (η πλήρης ταιριασμένη γραμμή log), <code>$_event_pub_sec</code> (πότε πυροδότησε), και για γεγονότα track το <code>$_track_state</code> (up/down). Χρησιμοποίησέ τα για να χτίσεις μοναδικά ονόματα αρχείων, να συμπεριλάβεις το ένοχο μήνυμα σε μια ειδοποίηση, ή να διακλαδώσεις συμπεριφορά. Σε συνδυασμό με το <code>action ... regexp</code> για να εξάγεις μια τιμή (όπως το όνομα interface) από το ταιριασμένο μήνυμα, τα applets περνάνε από το «κάνε ένα σταθερό πράγμα» στο «αντίδρασε έξυπνα σε αυτό που πραγματικά συνέβη» — γνήσια μικρά προγράμματα, που τρέχουν στον router.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Περιπτωση Χρησης — Καθαρισμος NAT σε Failover WAN</h2>
+  <p class="section-thesis"><em>Η ακριβής χαλαρή άκρη από το post του failover IP SLA: μπαγιάτικες μεταφράσεις NAT παραμένουν στο παλιό WAN μετά από ένα failover. Ένα applet οδηγούμενο από track τις καθαρίζει τη στιγμή που γυρίζει το track.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — καθαρισε το NAT οταν πεσει το track 1 (το probe WAN)</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">event manager applet FLUSH-NAT-ON-FAILOVER</span>
+<span class="cmt"># EVENT: το ίδιο αντικείμενο track που οδηγεί το route failover + HSRP</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">event track 1 state any</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 1.0 syslog msg "EEM: WAN track changed to $_track_state — clearing NAT"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 2.0 cli command "enable"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 3.0 cli command "clear ip nat translation *"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">end</span>
+<span class="cmt"># Τώρα το failover είναι πλήρως αδιάφορο: το probe αποτυγχάνει → αλλάζει το route (post δρομολόγησης)
+# → η πύλη κάνει failover (post HSRP) → καθαρίζεται το NAT (εδώ). Ένα track, τρεις
+# αντιδράσεις, μηδέν ανθρώπινη εμπλοκή.</span></pre>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Περιπτωση Χρησης — Προγραμματισμενες Εργασιες με Timer</h2>
+  <p class="section-thesis"><em>Οι timers του EEM αντικαθιστούν το kron για πολλές δουλειές και είναι πιο ευέλικτοι — προγράμματα σε στυλ cron, timers αντίστροφης μέτρησης, ή διαστήματα watchdog που τρέχουν κάτι κάθε N δευτερόλεπτα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — ενα νυχτερινο και ενα applet διαστηματος</span>
+    <pre class="term"><span class="cmt"># Σε στυλ cron: κάθε μέρα στις 02:30, αποθήκευσε + κάνε backup</span>
+<span class="pc">R1(config)#</span> <span class="out">event manager applet NIGHTLY-SAVE</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">event timer cron cron-entry "30 2 * * *"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 1.0 cli command "enable"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 2.0 cli command "write memory"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 3.0 syslog msg "EEM: nightly config save complete"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Watchdog: κάθε 300δ, κατέγραψε το CPU αν έχει ενδιαφέρον (παλμός υγείας)</span>
+<span class="pc">R1(config)#</span> <span class="out">event manager applet CPU-HEARTBEAT</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">event timer watchdog time 300</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 1.0 cli command "enable"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">action 2.0 cli command "show processes cpu | include CPU utilization"</span>
+<span class="pc">R1(config-applet)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Επαληθευσε, Δοκιμασε &amp; Διαχειριστου με Ασφαλεια <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Κατοχύρωσε, τρέξε χειροκίνητα για δοκιμή, παρακολούθησε το ιστορικό, και ξέρε πώς να απενεργοποιήσεις γρήγορα ένα αν φέρεται άσχημα. Το EEM τρέχει πραγματικές εντολές — αντιμετώπισε τα applets σαν κώδικα.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — οι εντολες ελεγχου EEM</span>
+    <pre class="term"><span class="cmt"># Δοκίμασε ένα applet κατά παραγγελία χωρίς να περιμένεις το event του (πρόσθεσε "event none")</span>
+<span class="pc">R1#</span> <span class="out">event manager run MY-APPLET</span>
+
+<span class="cmt"># Τι είναι εγγεγραμμένο, και οι μετρητές εκτελέσεών τους;</span>
+<span class="pc">R1#</span> <span class="out">show event manager policy registered</span>
+
+<span class="cmt"># Πυροδότησαν τα applets, και πέτυχαν οι actions τους;</span>
+<span class="pc">R1#</span> <span class="out">show event manager history events</span>
+<span class="pc">R1#</span> <span class="out">show event manager history traps</span>
+
+<span class="cmt"># Σκότωσε ένα applet που φέρεται άσχημα αμέσως</span>
+<span class="pc">R1(config)#</span> <span class="out">no event manager applet PSECURE-RECOVER</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Προσεξε τον Βροχο Ανατροφοδοτησης</span>
+    <p>Το κλασικό footgun του EEM: ένα applet του οποίου οι <em>actions</em> παράγουν το <em>event</em> που το πυροδοτεί. Ένα applet που αντιδρά στο <code>SYS-5-CONFIG_I</code> (μια αλλαγή config) και μετά κάνει μια αλλαγή config θα ξαναπυροδοτήσει τον εαυτό του, δυνητικά σε σφιχτό loop που καρφώνει το CPU. Προστατέψου: χρησιμοποίησε εντολές <code>action ... cli</code> που δεν εκπέμπουν το παρακολουθούμενο pattern, πρόσθεσε ένα όριο <code>maxrun</code> (<code>event manager applet X ... maxrun 30</code>) ώστε ένα applet να μην τρέχει για πάντα, και βάλε rate-limit με <code>ratelimit</code>. Δοκίμαζε πάντα με <code>event manager run</code> και παρακολούθησε <code>show event manager history</code> πριν εμπιστευτείς ένα applet σε production.</p>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">MikroTik ↔ Cisco — Αυτοματισμος στη Συσκευη</h2>
+  <p class="section-thesis"><em>Το scripting + scheduler + netwatch του RouterOS είναι το αντίστοιχο του EEM· το νοητικό μοντέλο είναι το ίδιο.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>MikroTik / RouterOS</th><th>Cisco IOS EEM</th></tr></thead>
+    <tbody>
+      <tr><td>/system script (ονομασμένο script)</td><td><code>event manager applet</code></td></tr>
+      <tr><td>/system scheduler (cron)</td><td><code>event timer cron</code> / <code>watchdog</code></td></tr>
+      <tr><td>/tool netwatch script up/down</td><td><code>event track</code> (+ IP SLA)</td></tr>
+      <tr><td>Κανόνας log που πυροδοτεί script</td><td><code>event syslog pattern</code></td></tr>
+      <tr><td>:log info "..." σε script</td><td><code>action ... syslog msg</code></td></tr>
+      <tr><td>Global μεταβλητές σε scripts</td><td>ενσωματωμένες μεταβλητές EEM <code>$_</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Ποτε να Στραφεις σε Tcl ή Guest Shell Αντ' Αυτου</span>
+    <p>Τα applets είναι ιδανικά για «ταίριαξε ένα event, τρέξε κάποιες εντολές». Όταν χρειάζεσαι πραγματική λογική — loops, μαθηματικά, parsing δομημένου output, κλήση API — το IOS υποστηρίζει επίσης <strong>scripts Tcl του EEM</strong>, και το σύγχρονο IOS-XE προσθέτει ένα Linux <strong>Guest Shell</strong> (Python πάνω στη συσκευή). Για αυτοματισμό σε επίπεδο στόλου, όμως, το καλύτερο εργαλείο είναι η διαχείριση config εκτός συσκευής (Ansible), που είναι το επόμενο post. Εμπειρικός κανόνας: EEM για τοπικά, αυτόνομα αντανακλαστικά που πρέπει να δουλεύουν ακόμα κι όταν είναι κάτω το δίκτυο προς τη συσκευή· Ansible για να οργανώνεις αλλαγές σε πολλές συσκευές από ένα κεντρικό σημείο.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Κάθε applet είναι event → actions.</strong> Μια πυροδότηση (syslog / timer / track / none) και αριθμημένες actions CLI+log+mail. Η λογική ζει στη συσκευή και τρέχει ακόμα κι όταν είναι κάτω το δίκτυο διαχείρισης.</li>
+      <li><strong>Οι actions ξεκινούν σε user EXEC και δεν μπορούν να απαντήσουν σε prompt.</strong> Περπάτα σε privileged/config mode με actions <code>enable</code>/<code>configure terminal</code>, και απάντα αυτόματα σε prompts με <code>pattern</code>.</li>
+      <li><strong>Οι καλύτερες χρήσεις είναι μικρά τοπικά αντανακλαστικά:</strong> ανάκτηση θύρας err-disabled, snapshot config σε αλλαγή, καθαρισμός NAT σε failover, ειδοποίηση σε συγκεκριμένο γεγονός.</li>
+      <li><strong>Κλείνει βρόχους από προηγούμενα posts:</strong> το ίδιο track που οδηγεί το failover IP SLA και το HSRP μπορεί να πυροδοτήσει applet για να καθαρίσει το NAT — πλήρως αδιάφορο failover.</li>
+      <li><strong>Χρησιμοποίησε τις μεταβλητές <code>$_</code>.</strong> Το ταιριασμένο μήνυμα, το timestamp, και το track state μετατρέπουν ένα σταθερό applet σε ένα που αντιδρά σε αυτό που πραγματικά συνέβη.</li>
+      <li><strong>Προστατέψου από βρόχους ανατροφοδότησης.</strong> Ένα applet που προκαλεί τη δική του πυροδότηση μπορεί να ξεφύγει — χρησιμοποίησε <code>maxrun</code>, <code>ratelimit</code>, και actions που δεν πυροδοτούν.</li>
+      <li><strong>Δοκίμασέ το σαν κώδικα.</strong> <code>event manager run</code>, παρακολούθησε <code>show event manager history</code>, και κράτα έτοιμο το <code>no event manager applet</code>. Για αλλαγή σε επίπεδο στόλου, στρέψου αντ' αυτού στο Ansible.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Θελεις το δικτυο σου να διορθωνει μονο του τα μικρα προβληματα στην Κρητη;</h3>
+    <p>Τα περισσότερα προβλήματα δικτύου στις 3 το πρωί είναι μικρά και επαναλαμβανόμενα &mdash; μια θύρα που χρειάζεται επανενεργοποίηση, ένα backup που χρειάζεται πυροδότηση. Χτίζω αυτοματισμό αυτο-θεραπείας με EEM και το αντίστοιχό του σε RouterOS απευθείας στον εξοπλισμό που διαχειρίζομαι, ώστε αυτά να διορθώνονται μόνα τους πριν χτυπήσει το τηλέφωνο κανενός.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

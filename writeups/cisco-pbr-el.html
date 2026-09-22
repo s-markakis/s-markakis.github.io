@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Policy-Based Routing — S. Markakis</title>
+<meta name="description" content="Δρομολόγησε με βάση ποιος έστειλε το πακέτο, όχι μόνο πού πάει — route-maps PBR που στρέφουν ένα subnet ή μια εφαρμογή σε διαφορετικό next-hop, οι διαφορές των set-clause, και συνδυασμός με IP SLA ώστε μια νεκρή διαδρομή να μη γίνεται ποτέ blackhole.">
+<meta property="og:title" content="Cisco IOS: Policy-Based Routing — S. Markakis">
+<meta property="og:description" content="Δρομολόγησε με βάση ποιος έστειλε το πακέτο, όχι μόνο πού πάει — route-maps PBR που στρέφουν ένα subnet ή μια εφαρμογή σε διαφορετικό next-hop, οι διαφορές των set-clause, και συνδυασμός με IP SLA ώστε μια νεκρή διαδρομή να μη γίνεται ποτέ blackhole.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-pbr-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-pbr.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-pbr.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-pbr-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-pbr.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-pbr-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-pbr.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Policy-Based Routing",
+  "description": "Δρομολόγησε με βάση ποιος έστειλε το πακέτο, όχι μόνο πού πάει — route-maps PBR που στρέφουν ένα subnet ή μια εφαρμογή σε διαφορετικό next-hop, οι διαφορές των set-clause, και συνδυασμός με IP SLA ώστε μια νεκρή διαδρομή να μη γίνεται ποτέ blackhole.",
+  "datePublished": "2026-07-30",
+  "dateModified": "2026-07-30",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-pbr-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-pbr.png",
+  "keywords": [
+    "cisco",
+    "routing"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-pbr"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-pbr.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Routing &nbsp;·&nbsp; Ιουλιος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Policy-Based Routing</h1>
+  <p class="post-subtitle">Ο πίνακας δρομολόγησης προωθεί με βάση τον προορισμό — αυτή είναι όλη του η δουλειά. Αλλά μερικές φορές χρειάζεσαι να δρομολογήσεις με βάση <em>ποιος το έστειλε</em>, όχι <em>πού πάει</em>: το VLAN guest από τον φθηνό ISP, το προσωπικό από τον καλό· το VoIP από το link χαμηλού latency. Το Policy-Based Routing παρακάμπτει τον πίνακα δρομολόγησης για κίνηση που διαλέγεις εσύ. Ο δίδυμος της προσέγγισης routing-rules-and-mangle του MikroTik.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">PBR</span>
+    <span class="tag">Policy Routing</span>
+    <span class="tag">Route-Map</span>
+    <span class="tag">Dual-WAN</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Η κανονική δρομολόγηση βασίζεται στον προορισμό και είναι ίδια για όλους: ένα πακέτο προς 8.8.8.8 παίρνει την ίδια διαδρομή είτε ήρθε από το laptop του CEO είτε από την τηλεόραση του λόμπι. Το <strong>Policy-Based Routing (PBR)</strong> σπάει αυτή τη συμμετρία — σου αφήνει να ταιριάξεις κίνηση με βάση source, πρωτόκολλο, port, ή μέγεθος και να ορίσεις διαφορετικό next-hop <em>πριν</em> ψηφίσει ο πίνακας δρομολόγησης. Έτσι υλοποιείς το «οι guests φεύγουν μέσω του backup ISP ώστε να μην αγγίζουν ποτέ το ακριβό μετρημένο link», ή «στείλε αυτό το ένα subnet μέσα από το VPN και όλα τα υπόλοιπα κανονικά».</p>
+    <p>Το PBR είναι ένα <strong>route-map εφαρμοσμένο inbound σε ένα interface</strong>: οι προτάσεις <code>match</code> διαλέγουν την κίνηση (συνήθως μέσω ενός ACL), οι προτάσεις <code>set</code> διαλέγουν το next-hop. Τρέχει στον router που δέχεται την κίνηση, πριν από το lookup στο FIB. Αυτό συνδυάζεται φυσικά με το <a href="cisco-bgp-dual-isp.html">edge dual-ISP</a> και το post <a href="cisco-ipsla-failover.html">IP SLA failover</a>, και το αντίστοιχό του σε RouterOS είναι τα <a href="mikrotik-routing-rules.html">routing rules &amp; mangle</a>.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Δύο (ή περισσότερες) διαδρομές εξόδου — dual-WAN, ένα VPN tunnel, ένα δεύτερο next-hop</li>
+      <li><a href="cisco-acls.html">ACL</a> για να ταξινομήσεις την κίνηση που θέλεις να στρέψεις</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Ταιριαξε την Κινηση, Ορισε το Next-Hop</h2>
+  <p class="section-thesis"><em>Ταξινόμησε με ένα ACL, μετά ένα route-map που ορίζει το next-hop για τα ταιριάσματα και πέφτει σε κανονική δρομολόγηση για όλα τα υπόλοιπα. Εφάρμοσέ το inbound στο interface όπου φτάνει αυτή η κίνηση.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — στειλε το subnet guest απο τον ISP-B, ολοι οι υπολοιποι κανονικα</span>
+    <pre class="term"><span class="cmt"># 1. Ταξινόμησε: ποια κίνηση παίρνει ειδική μεταχείριση;</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list extended GUEST-OUT</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit ip 10.10.20.0 0.0.0.255 any</span>
+
+<span class="cmt"># 2. Η πολιτική: ταίριασε το ACL, όρισε το next-hop του ISP-B.</span>
+<span class="pc">R1(config)#</span> <span class="out">route-map PBR-GUEST permit 10</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">match ip address GUEST-OUT</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">set ip next-hop 203.0.113.9</span>     <span class="cmt"># πύλη ISP-B</span>
+<span class="cmt"># Μια πρόταση permit χωρίς set = «δρομολόγησέ τα κανονικά» (ρητό passthrough).</span>
+<span class="pc">R1(config)#</span> <span class="out">route-map PBR-GUEST permit 20</span>
+
+<span class="cmt"># 3. Εφάρμοσέ το INBOUND στο interface όπου φτάνει η κίνηση guest.</span>
+<span class="pc">R1(config)#</span> <span class="out">interface Vlan20</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip policy route-map PBR-GUEST</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Inbound στο Interface Εισοδου, Οχι στην Εξοδο</span>
+    <p>Το PBR εφαρμόζεται με <code>ip policy</code> στο interface όπου η κίνηση <strong>μπαίνει</strong> στον router, όχι εκεί που φεύγει. Οι καινούργιοι μηχανικοί αντανακλαστικά το βάζουν στο interface WAN και δεν συμβαίνει τίποτα. Πρόσεξε επίσης την κατεύθυνση: το route-map επηρεάζει μόνο την κίνηση <em>διέλευσης</em> που φτάνει σε αυτό το interface — για κίνηση που παράγει ο ίδιος ο router (pings, διαχείριση), χρειάζεσαι ξεχωριστά το <code>ip local policy route-map</code>. Ταίριασε το interface με το πού εμφανίζεται η ενδιαφέρουσα κίνηση.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">set next-hop vs set interface vs default — η Σειρα Εχει Σημασια</h2>
+  <p class="section-thesis"><em>Υπάρχουν αρκετά ρήματα <code>set</code> και διαφέρουν στο πότε νικούν τον πίνακα δρομολόγησης. Διάλεξε το λάθος και το PBR είτε παρακάμπτει υπερβολικά επιθετικά είτε καθόλου.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Προταση <code>set</code></th><th>Συμπεριφορα</th></tr></thead>
+    <tbody>
+      <tr><td>set ip next-hop X</td><td>Επίβαλε το next-hop X — <strong>παρακάμπτει</strong> τον πίνακα δρομολόγησης. Γίνεται blackhole αν το X είναι down.</td></tr>
+      <tr><td>set ip next-hop verify-availability</td><td>Το ίδιο, αλλά παράλειψέ το αν το X είναι απρόσιτο (χρησιμοποιεί CDP/tracking) — πιο ασφαλές.</td></tr>
+      <tr><td>set interface Tunnel0</td><td>Επίβαλε έξοδο από ένα interface (καλό για point-to-point / tunnels).</td></tr>
+      <tr><td>set ip default next-hop X</td><td>Χρησιμοποίησε το X <strong>μόνο αν</strong> ο πίνακας δρομολόγησης δεν έχει συγκεκριμένη διαδρομή — ένα απαλό σπρώξιμο.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Συνδυασε το PBR με Tracking για Failover</span>
+    <p>Ένα γυμνό <code>set ip next-hop</code> κάνει blackhole την ταιριασμένη κίνηση τη στιγμή που πεθαίνει εκείνο το next-hop — το PBR δεν συμβουλεύεται την προσβασιμότητα by default. Συνδύασέ το με ένα track <a href="cisco-ipsla-failover.html">IP SLA</a> και <code>set ip next-hop verify-availability &lt;nh&gt; &lt;seq&gt; track &lt;n&gt;</code> ώστε η πολιτική να παραμερίζει όταν η διαδρομή είναι down και το πακέτο να πέφτει στην κανονική δρομολόγηση (ή την επόμενη πρόταση set). Το policy routing χωρίς έλεγχο υγείας είναι μια αυτοπροκαλούμενη διακοπή που περιμένει να χρειαστεί το backup link.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Περα απο το Source — Ταιριαξε ο,τι Θελεις</h2>
+  <p class="section-thesis"><em>Η δύναμη του PBR είναι ότι το match μπορεί να είναι οτιδήποτε εκφράζει ένα ACL — πρωτόκολλο, port, DSCP, ακόμα και μήκος πακέτου. Έτσι δρομολογείς με βάση την εφαρμογή, όχι μόνο το subnet.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — δρομολογησε το VoIP απο το link χαμηλου latency, τον ογκο απο το αλλο</span>
+    <pre class="term"><span class="cmt"># Ταίριασε με DSCP (VoIP σημαδεμένο EF) ή port, μετά στρέψε στο καλό link.</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list extended VOICE</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit ip any any dscp ef</span>
+<span class="pc">R1(config)#</span> <span class="out">route-map PBR-APP permit 10</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">match ip address VOICE</span>
+<span class="pc">R1(config-route-map)#</span> <span class="out">set ip next-hop verify-availability 198.51.100.1 1 track 1</span>
+<span class="cmt"># το match ip address με ένα ACL μήκους, ή το match length, είναι επίσης έγκυρο —
+# π.χ. στείλε μεγάλα backups από το μετρημένο link, κράτα το interactive στην ίνα.</span></pre>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Επαληθευσε οτι το PBR Πραγματικα Δρα <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Οι αστοχίες PBR είναι σιωπηλές — η κίνηση απλώς δρομολογείται κανονικά. Επιβεβαίωσε ότι η πολιτική είναι προσαρτημένη, ταιριάζει, και οι μετρητές της ανεβαίνουν.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — αποδειξε οτι η πολιτικη χτυπιεται</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show ip policy</span>                    <span class="cmt"># ποια interfaces έχουν route-map</span>
+<span class="pc">R1#</span> <span class="out">show route-map PBR-GUEST</span>           <span class="cmt"># "policy routing matches: N packets"</span>
+<span class="cmt"># Ιχνηλάτησε την απόφαση για μια συγκεκριμένη ροή:</span>
+<span class="pc">R1#</span> <span class="out">debug ip policy</span>                    <span class="cmt"># (προσεκτικά, σε lab / χαμηλή κίνηση)</span>
+<span class="cmt"># Από έναν host guest, ένα traceroute τώρα θα πρέπει να βγαίνει από την πύλη του ISP-B.</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Το PBR δρομολογεί με βάση source/εφαρμογή, όχι προορισμό</strong> — παρακάμπτει τον πίνακα δρομολόγησης για κίνηση που ταιριάζεις. Το εργαλείο για το «αυτό το subnet φεύγει με διαφορετικό τρόπο».</li>
+      <li><strong>Είναι ένα route-map εφαρμοσμένο inbound</strong> στο interface εισόδου με <code>ip policy</code> — όχι στην έξοδο, και κίνηση που παράγει ο ίδιος ο router χρειάζεται <code>ip local policy</code>.</li>
+      <li><strong>Διάλεξε το σωστό <code>set</code>:</strong> το <code>next-hop</code> παρακάμπτει τον πίνακα (και κάνει blackhole αν είναι down)· το <code>default next-hop</code> γεμίζει μόνο ένα κενό· το <code>verify-availability</code> προσθέτει έλεγχο ασφαλείας.</li>
+      <li><strong>Συνδύαζε πάντα με tracking</strong> — το γυμνό PBR δεν έχει έλεγχο υγείας και θα κάνει blackhole την ταιριασμένη κίνηση όταν πεθάνει το next-hop.</li>
+      <li><strong>Ταίριαξε ο,τιδήποτε μπορεί να εκφράσει ένα ACL</strong> — source, port, DSCP, μήκος — για να δρομολογείς με βάση την εφαρμογή.</li>
+      <li><strong>Οι αστοχίες είναι σιωπηλές</strong> — επαλήθευσε με <code>show ip policy</code> και τους μετρητές match του route-map.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Θελεις κινηση guest και backups εξω απο το καλο σου link αυτοματα;</h3>
+    <p>Δεν χρειάζεται όλη η κίνηση το ίδιο link, και μια νεκρή διαδρομή δεν πρέπει ποτέ να γίνεται σιωπηλά μαύρη τρύπα. Σχεδιάζω edges dual-WAN με policy routing σε Cisco και MikroTik που βάζουν τη σωστή κίνηση στο σωστό link, με ελέγχους υγείας να παρακολουθούν και τα δύο.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

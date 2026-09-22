@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Management-Plane Hardening — S. Markakis</title>
+<meta name="description" content="Έλεγξε και κλείδωσε κάθε συσκευή Cisco σε 15 λεπτά — SSH ciphers, SNMPv3, AAA, VTY access-class, control-plane policing, αχρησιμοποίητες υπηρεσίες, και τη λίστα ελέγχου login-hardening που τρέχουμε σε κάθε συσκευή.">
+<meta property="og:title" content="Cisco IOS: Management-Plane Hardening — S. Markakis">
+<meta property="og:description" content="Έλεγξε και κλείδωσε κάθε συσκευή Cisco σε 15 λεπτά — SSH ciphers, SNMPv3, AAA, VTY access-class, control-plane policing, αχρησιμοποίητες υπηρεσίες, και τη λίστα ελέγχου login-hardening που τρέχουμε σε κάθε συσκευή.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-hardening-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-hardening.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-hardening.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-hardening-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/cisco-hardening.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/cisco-hardening-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/cisco-hardening.html">
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Management-Plane Hardening",
+  "description": "Έλεγξε και κλείδωσε κάθε συσκευή Cisco σε 15 λεπτά — SSH ciphers, SNMPv3, AAA, VTY access-class, control-plane policing, αχρησιμοποίητες υπηρεσίες, και τη λίστα ελέγχου login-hardening που τρέχουμε σε κάθε συσκευή.",
+  "datePublished": "2026-08-09",
+  "dateModified": "2026-08-09",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-hardening-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-hardening.png",
+  "keywords": [
+    "cisco",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-hardening"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="cisco-hardening.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Tutorial &nbsp;·&nbsp; Αυγουστος 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Θωρακιση του Management-Plane</h1>
+  <p class="post-subtitle">Η ίδια η συσκευή είναι στόχος — το login της, τα πρωτόκολλα διαχείρισής της, το control plane της. Αυτή είναι η ενοποιημένη λίστα ελέγχου που τρέχουμε σε κάθε συσκευή Cisco που αναλαμβάνουμε: τι να απενεργοποιήσεις, τι να κρυπτογραφήσεις, τι να περιορίσεις, και πώς να το επαληθεύσεις. Δεκαπέντε λεπτά που μετατρέπουν έναν εύκολο στόχο σε δύσκολο.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Hardening</span>
+    <span class="tag">CoPP</span>
+    <span class="tag">SSH</span>
+    <span class="tag">AAA</span>
+    <span class="tag">Security</span>
+    <span class="tag">Audit</span>
+  </div>
+  <hr class="title-rule">
+
+  <!-- Hero diagram: three planes -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 160" xmlns="http://www.w3.org/2000/svg">
+      <rect width="720" height="160" fill="#e1ded7"/>
+      <text x="360" y="26" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">ΤΡΙΑ PLANES — αυτο το post θωρακιζει τα δυο πανω</text>
+      <rect x="60" y="40" width="600" height="30" rx="4" fill="#e8c8c0" stroke="#c63d1f"/>
+      <text x="80" y="60" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#c63d1f;">MANAGEMENT PLANE</text>
+      <text x="640" y="60" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#c63d1f;text-anchor:end;">SSH · SNMP · AAA · logging — πώς τη διαχειρίζεσαι</text>
+      <rect x="60" y="76" width="600" height="30" rx="4" fill="#eee6d8" stroke="#c08020"/>
+      <text x="80" y="96" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#8a5a10;">CONTROL PLANE</text>
+      <text x="640" y="96" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#8a5a10;text-anchor:end;">routing, ARP, CDP — κίνηση ΠΡΟΣ το CPU (CoPP)</text>
+      <rect x="60" y="112" width="600" height="30" rx="4" fill="#d4d2cc" stroke="#888880"/>
+      <text x="80" y="132" style="font-family:'Inter',sans-serif;font-weight:700;font-size:10px;fill:#555550;">DATA PLANE</text>
+      <text x="640" y="132" style="font-family:'Inter',sans-serif;font-size:8.5px;fill:#888880;text-anchor:end;">κίνηση χρηστών που διέρχεται — το καλύπτουν ACL / ZBF</text>
+    </svg>
+  </div>
+
+  <!-- Thesis -->
+  <div class="thesis-card">
+    <p>Σε όλη αυτή τη σειρά θωρακίσαμε την κίνηση <em>μέσα από</em> τη συσκευή — <a href="cisco-acls.html">ACL</a>, <a href="cisco-zbf.html">firewalls</a>, <a href="cisco-switch-security.html">αμυνες L2</a>. Αυτό το post θωρακίζει την ίδια τη συσκευή: το <strong>management plane</strong> (πώς συνδέεσαι και την παρακολουθείς) και το <strong>control plane</strong> (το CPU που τρέχει τη δρομολόγηση και απαντάει σε ARP). Και τα δύο είναι επιφάνεια επίθεσης, και έρχονται και τα δύο μαλακά by default — default υπηρεσίες ανοιχτές, αδύναμο ή ανύπαρκτο auth, διαχείριση προσβάσιμη από παντού.</p>
+    <p>Σε εσωτερικά pentest, το management plane είναι εκεί που ένα foothold γίνεται πλήρης κατοχή: μια default κοινότητα SNMP ξεχύνει όλο το config, μια θύρα Telnet κλέβει έναν κωδικό, μια απεριόριστη γραμμή VTY προσκαλεί brute-force. Οπότε αυτό είναι σκόπιμα μια <strong>λίστα ελέγχου</strong>, όχι αφήγημα — οι ακριβείς εντολές που εφαρμόζουμε σε κάθε συσκευή που διαχειριζόμαστε, ομαδοποιημένες ανά τομέα, με το «γιατί» και την επαλήθευση για κάθε μία. Τρέξ' την από πάνω ως κάτω σε κάθε συσκευή που κληρονομείς και μετατρέπεται από εύκολο σε δύσκολο στόχο σε περίπου δεκαπέντε λεπτά.</p>
+    <div class="prereqs-label">Προαπαιτουμενα</div>
+    <ul class="prereqs-list">
+      <li>Τα κομμάτια που αυτό ενοποιεί: <a href="cisco-first-contact.html">ρύθμιση SSH</a>, <a href="cisco-acls.html">VTY access-class</a>, <a href="cisco-observability.html">logging &amp; SNMPv3</a></li>
+      <li>Πρόσβαση από console ως δίχτυ ασφαλείας — μερικά από αυτά μπορούν να σε κλειδώσουν έξω αν κάνεις λάθος πληκτρολόγηση</li>
+      <li>Ένα change window· δοκίμασε κάθε block, μην κάνεις paste όλα τυφλά σε ζωντανή απομακρυσμένη συσκευή</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">Υγιεινη Login &amp; Κωδικων</h2>
+  <p class="section-thesis"><em>Ισχυρά, hashed διαπιστευτήρια· κανένας μη κρυπτογραφημένος κωδικός στο config· ένα banner login· και throttling brute-force στο ίδιο το login.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — διαπιστευτηρια και προστασια login</span>
+    <pre class="term"><span class="cmt"># Σύγχρονο hashing: enable secret + username με type-8/9 (scrypt/PBKDF2)</span>
+<span class="pc">R1(config)#</span> <span class="out">enable algorithm-type scrypt secret S0meStr0ng!Pass</span>
+<span class="pc">R1(config)#</span> <span class="out">username admin privilege 15 algorithm-type scrypt secret Adm1n!Str0ng</span>
+<span class="pc">R1(config)#</span> <span class="out">service password-encryption</span>          <span class="cmt"># κρύψε τυχόν υπολείμματα type-7</span>
+
+<span class="cmt"># Throttle το brute force: μετά από 3 αποτυχίες σε 60δ, μπλόκαρε τα login για 60δ</span>
+<span class="pc">R1(config)#</span> <span class="out">login block-for 60 attempts 3 within 60</span>
+<span class="pc">R1(config)#</span> <span class="out">login on-failure log</span>
+<span class="pc">R1(config)#</span> <span class="out">login on-success log</span>
+
+<span class="cmt"># Ένα νομικό banner (όχι "welcome" — αυτό έχει βοηθήσει επιτιθέμενους στο δικαστήριο)</span>
+<span class="pc">R1(config)#</span> <span class="out">banner login ^Authorised access only. Activity is logged.^</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Type 7 Δεν Ειναι Κρυπτογραφηση</span>
+    <p>Το <code>service password-encryption</code> εφαρμόζει την κωδικοποίηση "type 7" της Cisco, που είναι <strong>τετριμμένα αναστρέψιμη</strong> — decoders είναι μια αναζήτηση web μακριά. Σταματάει το shoulder-surfing, τίποτα παραπάνω. Ποτέ μην αντιμετωπίζεις ένα string type-7 σαν μυστικό, και ποτέ μην ανεβάζεις δημόσια ένα config με ένα τέτοιο νομίζοντας ότι είναι ασφαλές. Πραγματική προστασία είναι τα one-way hashes: <strong>type 8 (scrypt)</strong> ή <strong>type 9</strong> για <code>enable secret</code> και <code>username … secret</code>. Έλεγξε μια κληρονομημένη συσκευή με <code>show run | include secret|password</code> — κάθε γυμνό <code>password</code> (type 0) ή διαπιστευτήριο type-7 που φυλάει πραγματική πρόσβαση είναι finding.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Κλειδωσε την Απομακρυσμενη Προσβαση (VTY)</h2>
+  <p class="section-thesis"><em>Μόνο SSH, μόνο από το management subnet, με idle timeouts. Αυτό είναι το ένα block με τη μεγαλύτερη αξία — έτσι φτάνουν οι επιτιθέμενοι τη συσκευή μέσω δικτύου.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — γραμμες VTY μονο-SSH, περιορισμενες, με timeout</span>
+    <pre class="term"><span class="cmt"># Ποιος μπορεί καν να ΔΟΚΙΜΑΣΕΙ να συνδεθεί (από το post των ACL)</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list standard MGMT-ONLY</span>
+<span class="pc">R1(config-std-nacl)#</span> <span class="out">permit 192.168.99.0 0.0.0.255</span>
+<span class="pc">R1(config-std-nacl)#</span> <span class="out">deny any log</span>
+<span class="pc">R1(config-std-nacl)#</span> <span class="out">exit</span>
+
+<span class="pc">R1(config)#</span> <span class="out">line vty 0 4</span>
+<span class="pc">R1(config-line)#</span> <span class="out">transport input ssh</span>          <span class="cmt"># ΚΑΘΟΛΟΥ telnet, ποτέ</span>
+<span class="pc">R1(config-line)#</span> <span class="out">access-class MGMT-ONLY in</span>     <span class="cmt"># μόνο από το mgmt subnet</span>
+<span class="pc">R1(config-line)#</span> <span class="out">login local</span>                  <span class="cmt"># ή AAA</span>
+<span class="pc">R1(config-line)#</span> <span class="out">exec-timeout 10 0</span>            <span class="cmt"># auto-logout αδρανών sessions</span>
+<span class="pc">R1(config-line)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Θωράκισε το ίδιο το SSH: μόνο v2, ισχυρά keys, μικρή χάρη, λιγότερες προσπάθειες</span>
+<span class="pc">R1(config)#</span> <span class="out">ip ssh version 2</span>
+<span class="pc">R1(config)#</span> <span class="out">ip ssh time-out 60</span>
+<span class="pc">R1(config)#</span> <span class="out">ip ssh authentication-retries 3</span>
+<span class="pc">R1(config)#</span> <span class="out">crypto key generate rsa modulus 4096</span>   <span class="cmt"># 2048 ελάχιστο, 4096 καλύτερο</span></pre>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Κλεισε Οτι Δεν Χρησιμοποιεις</h2>
+  <p class="section-thesis"><em>Το legacy IOS έρχεται με έναν σωρό υπηρεσίες που είναι επιφάνεια επίθεσης και τίποτα άλλο. Απενεργοποίησέ τες. Αυτό το block είναι καθαρή μείωση κινδύνου με μηδενικό μειονέκτημα σε ένα σύγχρονο δίκτυο.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — απενεργοποιηση legacy/αχρηστων υπηρεσιων</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">no ip http server</span>              <span class="cmt"># web mgmt σε καθαρό κείμενο</span>
+<span class="pc">R1(config)#</span> <span class="out">no ip http secure-server</span>       <span class="cmt"># αν δεν το χρησιμοποιείς</span>
+<span class="pc">R1(config)#</span> <span class="out">no service pad</span>
+<span class="pc">R1(config)#</span> <span class="out">no ip finger</span>
+<span class="pc">R1(config)#</span> <span class="out">no ip bootp server</span>
+<span class="pc">R1(config)#</span> <span class="out">no service config</span>
+<span class="pc">R1(config)#</span> <span class="out">no cdp run</span>                     <span class="cmt"># ή τουλάχιστον απενεργοποίησέ το σε θύρες WAN/edge</span>
+
+<span class="cmt"># Ανά interface, σε ό,τι βλέπει χρήστες/μη έμπιστα:</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">no ip redirects</span>
+<span class="pc">R1(config-if)#</span> <span class="out">no ip unreachables</span>
+<span class="pc">R1(config-if)#</span> <span class="out">no ip proxy-arp</span>
+<span class="pc">R1(config-if)#</span> <span class="out">no lldp transmit</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 CDP/LLDP — Ευκολια vs Recon</span>
+    <p>Το CDP και το LLDP κάνουν broadcast το μοντέλο, την έκδοση IOS, και το management IP της συσκευής σε κάθε γείτονα — χρυσός για έναν επιτιθέμενο που χαρτογραφεί το δίκτυο, και κάτι που ένας pentester αρπάζει σε δευτερόλεπτα από μια ζωντανή θύρα. Είναι γνήσια χρήσιμα εσωτερικά (χαρτογράφηση rack, discovery τηλεφώνων), οπότε η ισορροπία είναι: κράτα τα ανοιχτά σε <em>έμπιστα</em> links switch-προς-switch και switch-προς-τηλέφωνο, και κλείσ' τα <strong>σε θύρες edge/WAN και θύρες που βλέπουν χρήστες</strong> (<code>no cdp enable</code> / <code>no lldp transmit</code> ανά interface). Ποτέ μην τρέχεις CDP προς το internet. Είναι κλασικό finding ακριβώς επειδή είναι ανοιχτό by default και σπάνια ελέγχεται.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">SNMP &amp; AAA — η Επιφανεια Monitoring/Auth</h2>
+  <p class="section-thesis"><em>Δύο υπηρεσίες που, αν είναι λάθος ρυθμισμένες, παραδίδουν τη συσκευή. SNMP μόνο σε v3· AAA με τοπικό fallback ώστε μια διακοπή RADIUS να μη σε κλειδώσει έξω. Και τα δύο χτίστηκαν νωρίτερα σε αυτή τη σειρά — εδώ είναι η θωρακισμένη μορφή.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — SNMPv3 + AAA, με ασφαλεια</span>
+    <pre class="term"><span class="cmt"># SNMP: v3 auth+priv, περιορισμένο στο NMS με ACL. ΚΑΘΟΛΟΥ κοινότητες v2c.</span>
+<span class="pc">R1(config)#</span> <span class="out">no snmp-server community public</span>    <span class="cmt"># αφαίρεσε πρώτα τυχόν defaults</span>
+<span class="pc">R1(config)#</span> <span class="out">no snmp-server community private</span>
+<span class="pc">R1(config)#</span> <span class="out">snmp-server group MON v3 priv read MON-VIEW</span>
+<span class="pc">R1(config)#</span> <span class="out">snmp-server user nms MON v3 auth sha AuthPass123 priv aes 128 PrivPass123</span>
+
+<span class="cmt"># AAA για admin logins, με ΤΟΠΙΚΟ fallback (μην κολλήσεις τον εαυτό σου έξω)</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa new-model</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa authentication login default group radius local</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa authorization exec default group radius local</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa accounting commands 15 default start-stop group radius</span>
+<span class="cmt"># command accounting = ένα audit trail κάθε privileged εντολής που πληκτρολογήθηκε.</span></pre>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Control-Plane Policing (CoPP)</h2>
+  <p class="section-thesis"><em>Το control plane είναι το CPU που τρέχει τη δρομολόγηση, απαντάει σε ARP, και τερματίζει το SSH. Πλημμύρισέ το — μια σάρωση, ένα DoS, ένα broadcast storm — και ο εγκέφαλος της συσκευής κολλάει ακόμα κι αν το data plane είναι μια χαρά. Το CoPP βάζει rate-limit στην κίνηση που πηγαίνει στο CPU.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">IOS — μια ελαχιστη πολιτικη CoPP που προστατευει το CPU</span>
+    <pre class="term"><span class="cmt"># Κατηγοριοποίησε την κίνηση "punt to CPU" που θέλεις να περιορίσεις (management + ICMP)</span>
+<span class="pc">R1(config)#</span> <span class="out">ip access-list extended CPP-MGMT</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit tcp 192.168.99.0 0.0.0.255 any eq 22</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">class-map CPP-MGMT</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">match access-group name CPP-MGMT</span>
+<span class="pc">R1(config-cmap)#</span> <span class="out">exit</span>
+
+<span class="pc">R1(config)#</span> <span class="out">policy-map CONTROL-PLANE-POLICY</span>
+<span class="pc">R1(config-pmap)#</span> <span class="out">class CPP-MGMT</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">police 64000 conform-action transmit exceed-action drop</span>
+<span class="pc">R1(config-pmap-c)#</span> <span class="out">exit</span>
+
+<span class="cmt"># Πρόσδεσέ το στο ίδιο το control plane</span>
+<span class="pc">R1(config)#</span> <span class="out">control-plane</span>
+<span class="pc">R1(config-cp)#</span> <span class="out">service-policy input CONTROL-PLANE-POLICY</span>
+<span class="pc">R1(config-cp)#</span> <span class="out">end</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το CoPP Ειναι Ισχυρο και Ευκολο να το Κανεις Λαθος</span>
+    <p>Το CoPP είναι το ένα στοιχείο αυτής της λίστας που πρέπει να το πλησιάσεις προσεκτικά: ένας πολύ σφιχτός policer, ή κλάσεις που κατά λάθος ταιριάζουν τα hellos του πρωτοκόλλου δρομολόγησης / SSH / ARP, μπορούν να <strong>σπάσουν την ικανότητα της συσκευής να δρομολογεί ή να διαχειρίζεται</strong> — το ισοδύναμο του control-plane με το να πυροβολήσεις τον πιλότο. Ξεκίνα επιτρεπτικά: κάνε police μόνο ξεκάθαρα καταχρηστικές κλάσεις, άφησε γενναιόδωρο το <code>class class-default</code>, και παρακολούθησε τους μετρητές <code>show policy-map control-plane</code> για λίγο πριν σφίξεις. Σε χαμηλότερου επιπέδου εξοπλισμό SMB μπορεί να μη χρειάζεται καθόλου· το ίδιο το hardware punt-limiting της πλατφόρμας συχνά αρκεί. Βάλ' το σε ένα audit, αλλά συντόνισέ το, μην το κάνεις paste.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Το Audit — Επαληθευσε σε 5 Εντολες <span class="safe-badge">Ασφαλες να το Τρεξεις</span></h2>
+  <p class="section-thesis"><em>Για να ελέγξεις μια συσκευή που δεν έχτισες εσύ, δεν διαβάζεις όλο το config — κάνεις grep για τα σημάδια κινδύνου. Αυτά τα πέντε reads βγάζουν στην επιφάνεια σχεδόν κάθε αδυναμία management-plane.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Εντολη</th><th>Ψαξε για</th></tr></thead>
+    <tbody>
+      <tr><td>show run | include transport|telnet</td><td>Οποιοδήποτε <code>transport input telnet</code> — θα έπρεπε να είναι μόνο ssh.</td></tr>
+      <tr><td>show run | include snmp-server community</td><td>Οποιαδήποτε κοινότητα v2c, ειδικά <code>public</code>/<code>private</code>.</td></tr>
+      <tr><td>show run | include password|secret</td><td>Διαπιστευτήρια type-0/type-7 που φυλάνε πραγματική πρόσβαση.</td></tr>
+      <tr><td>show run | section line vty</td><td>Λείπει <code>access-class</code>, λείπει timeout, επιτρέπεται telnet.</td></tr>
+      <tr><td>show ip http server status</td><td>HTTP server ενεργό ενώ δεν θα έπρεπε.</td></tr>
+      <tr><td>show run | include http server|cdp run|proxy-arp</td><td>Αχρείαστες υπηρεσίες ακόμα ανοιχτές.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Η Σειρα, Ενοποιημενη</span>
+    <p>Αυτό το post είναι η ραχοκοκαλιά ασφάλειας όλης της σειράς μαζεμένη σε ένα runbook: SSH από το <a href="cisco-first-contact.html">First Contact</a>, VTY <code>access-class</code> από τα <a href="cisco-acls.html">ACL</a>, SNMPv3 από το <a href="cisco-observability.html">Observability</a>, η self-zone από το <a href="cisco-zbf.html">ZBF</a>, και οι έλεγχοι L2 από την <a href="cisco-switch-security.html">Ασφάλεια Switch</a>. Κράτα το ως template config με τα κομμάτια που αλλάζουν ανά site (mgmt subnet, IP RADIUS, keys) ως κενά προς συμπλήρωση, και κάθε νέα συσκευή παίρνει την ίδια θωρακισμένη βάση σε λίγα λεπτά. Η συνέπεια είναι από μόνη της ένας έλεγχος ασφάλειας — η συσκευή που κάποιος ρύθμισε «γρήγορα, μόνο αυτή τη φορά» είναι αυτή που πέφτει.</p>
+  </div>
+
+  <!-- TAKEAWAYS -->
+  <div class="takeaways">
+    <p class="takeaways-title">Συμπερασματα</p>
+    <ol>
+      <li><strong>Η συσκευή είναι στόχος, όχι απλώς αγωγός.</strong> Θωράκισε το management plane (login, SSH, SNMP, AAA) και το control plane (CPU) — ξεχωριστά από τη δουλειά ACL/firewall που προστατεύει την κίνηση που διέρχεται.</li>
+      <li><strong>Το type 7 δεν είναι κρυπτογράφηση.</strong> Χρησιμοποίησε hashes scrypt/PBKDF2 (type 8/9) για πραγματικά μυστικά, βάλε throttle στα login με <code>login block-for</code>, και ποτέ μην εμπιστεύεσαι ένα string type-7.</li>
+      <li><strong>Το κλείδωμα VTY είναι το block με τη μεγαλύτερη αξία:</strong> μόνο SSH, <code>access-class</code> στο mgmt subnet, idle timeouts, ισχυρά SSH keys. Έτσι φτάνει το δίκτυο τη συσκευή.</li>
+      <li><strong>Απενεργοποίησε τις legacy υπηρεσίες</strong> — HTTP, finger, BOOTP, PAD, proxy-arp, redirects — και περιόρισε το CDP/LLDP μόνο σε έμπιστα links. Καθαρή μείωση επιφάνειας επίθεσης.</li>
+      <li><strong>SNMPv3 και AAA-με-τοπικό-fallback.</strong> Αφαίρεσε τις default κοινότητες, κρυπτογράφησε το monitoring, και κράτα ένα τοπικό login ώστε μια διακοπή του auth-server να μη σε κολλήσει έξω. Το command accounting σου δίνει audit trail.</li>
+      <li><strong>Το CoPP προστατεύει το CPU — αλλά συντόνισέ το.</strong> Βάλε rate-limit στην καταχρηστική κίνηση προς το control plane, ξεκίνα επιτρεπτικά, και παρακολούθησε τους μετρητές. Μια κακή πολιτική CoPP σπάει την ίδια τη διαχείριση.</li>
+      <li><strong>Έλεγξε κάνοντας grep για σημάδια κινδύνου,</strong> όχι διαβάζοντας όλο το config. Πέντε reads <code>show run | include</code> βγάζουν στην επιφάνεια σχεδόν κάθε αδυναμία· ένα συνεπές θωρακισμένο template τις αποτρέπει.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Θελεις ελεγχο ασφαλειας του εξοπλισμου Cisco σου στην Κρητη;</h3>
+    <p>Αυτή είναι η ακριβής λίστα ελέγχου που τρέχω ως επί πληρωμή audit θωράκισης, μαζί με τους ελέγχους Layer-2 και traffic-plane από τον υπόλοιπο της σειράς. Παίρνεις μια αναφορά ευρημάτων ταξινομημένη με βάση το τι έχει πραγματικά σημασία, όχι ένα PDF 40 σελίδων που δεν διαβάζει κανείς.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

