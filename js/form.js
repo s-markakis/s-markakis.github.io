@@ -7,7 +7,7 @@
   const t = (k, fb) => (window.Sp1r4I18n ? window.Sp1r4I18n.t(k) : fb);
 
   // Replace with your deployed Worker URL (see worker/README.md). Leave empty to disable.
-  const TELEGRAM_ENDPOINT = 'https://noctis-telegram.sp1r4.workers.dev';
+  const TELEGRAM_ENDPOINT = 'https://leads-telegram.sp1r4.workers.dev';
 
   // Notify Telegram via the Worker. Best-effort: never blocks or fails the form UX.
   function notifyTelegram(formData) {

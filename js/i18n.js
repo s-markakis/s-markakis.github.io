@@ -10,6 +10,7 @@
       'nav.services': 'Services',
       'nav.projects': 'Projects',
       'nav.blog': 'Blog',
+      'nav.managed': 'Managed',
       'nav.toggleMenu': 'Toggle menu',
       'nav.toggleTheme': 'Toggle theme',
       'nav.toggleLang': 'Toggle language',
@@ -43,7 +44,7 @@
       'services.consulting.i4': 'Security strategy & incident response',
       'services.consulting.more': 'IT consulting & networks — learn more →',
       'services.starlink.title': 'Starlink Installation & Managed Connectivity',
-      'services.starlink.badge': 'Most requested',
+      'services.starlink.badge': 'Free site survey',
       'services.starlink.desc': "Internet where the line doesn't reach. Villages, villas, worksites, businesses that can't afford to drop offline. If the main line goes down the backup takes over by itself and nobody in the building notices. From the survey to running it afterwards, I handle all of it.",
       'services.starlink.i1': 'Multi-WAN failover (Starlink + 4G/DSL)',
       'services.starlink.i2': 'Site survey & obstruction check',
@@ -58,6 +59,14 @@
       'services.cameras.i3': 'PoE switching & structured cabling',
       'services.cameras.i4': 'Isolated camera VLAN & hardened remote access',
       'services.cameras.i5': 'Retention planning & ongoing maintenance',
+      'services.managed.title': 'Managed Network Plans',
+      'services.managed.desc': 'Monthly per-site care for hotels, rentals and businesses: 24/7 uptime monitoring, config backups, firmware and security updates, guest Wi-Fi and Starlink/failover checks — so problems get caught before your guests notice.',
+      'services.managed.i1': '24/7 monitoring & alerts',
+      'services.managed.i2': 'Automatic config backups',
+      'services.managed.i3': 'Firmware & security updates',
+      'services.managed.i4': 'Guest Wi-Fi & failover checks',
+      'services.managed.i5': 'From €30/month per site',
+      'services.managed.more': 'Managed network plans — see pricing →',
       'services.cert.mtcna.title': 'MikroTik Certified Network Associate',
       'services.cert.mtcna.org': 'MikroTik Training Center',
       'services.cert.mtcna.desc': 'Foundational expertise in RouterOS configuration, routing, firewalls, wireless networks, QoS, and tunneling on MikroTik infrastructure.',
@@ -352,6 +361,7 @@
       'nav.services': 'Υπηρεσίες',
       'nav.projects': 'Έργα',
       'nav.blog': 'Ιστολόγιο',
+      'nav.managed': 'Διαχείριση',
       'nav.toggleMenu': 'Άνοιγμα μενού',
       'nav.toggleTheme': 'Αλλαγή θέματος',
       'nav.toggleLang': 'Αλλαγή γλώσσας',
@@ -385,7 +395,7 @@
       'services.consulting.i4': 'Στρατηγική ασφάλειας &amp; απόκριση σε περιστατικά',
       'services.consulting.more': 'Συμβουλευτική IT & δίκτυα — δες αναλυτικά →',
       'services.starlink.title': 'Εγκατάσταση Starlink & Διαχείριση Σύνδεσης',
-      'services.starlink.badge': 'Πιο ζητούμενο',
+      'services.starlink.badge': 'Δωρεαν αυτοψια',
       'services.starlink.desc': 'Ίντερνετ εκεί που δεν φτάνει η γραμμή. Χωριά, βίλες, εργοτάξια, επιχειρήσεις που δεν αντέχουν να μείνουν εκτός. Πέφτει η κύρια γραμμή, μπαίνει η εφεδρική μόνη της και δεν το καταλαβαίνει κανείς. Από την αυτοψία μέχρι τη διαχείριση μετά, τα αναλαμβάνω όλα.',
       'services.starlink.i1': 'Multi-WAN failover (Starlink + 4G/DSL)',
       'services.starlink.i2': 'Αυτοψία χώρου & έλεγχος εμποδίων',
@@ -400,6 +410,14 @@
       'services.cameras.i3': 'Μεταγωγείς PoE & δομημένη καλωδίωση',
       'services.cameras.i4': 'Απομονωμένο VLAN καμερών & ασφαλής απομακρυσμένη πρόσβαση',
       'services.cameras.i5': 'Σχεδιασμός διατήρησης αρχείου & συντήρηση',
+      'services.managed.title': 'Πακέτα Διαχείρισης Δικτύου',
+      'services.managed.desc': 'Μηνιαία φροντίδα ανά χώρο για καταλύματα, ενοικιαζόμενα και επιχειρήσεις: παρακολούθηση 24/7, backup ρυθμίσεων, ενημερώσεις firmware και ασφάλειας, guest Wi-Fi και έλεγχοι Starlink/failover — ώστε τα προβλήματα να λύνονται πριν τα δει ο πελάτης σας.',
+      'services.managed.i1': 'Παρακολούθηση & ειδοποιήσεις 24/7',
+      'services.managed.i2': 'Αυτόματα backup ρυθμίσεων',
+      'services.managed.i3': 'Ενημερώσεις firmware & ασφάλειας',
+      'services.managed.i4': 'Guest Wi-Fi & έλεγχοι failover',
+      'services.managed.i5': 'Από €30/μήνα ανά χώρο',
+      'services.managed.more': 'Πακέτα διαχείρισης — δείτε τιμές →',
       'services.cert.mtcna.title': 'MikroTik Certified Network Associate',
       'services.cert.mtcna.org': 'MikroTik Training Center',
       'services.cert.mtcna.desc': 'Θεμελιώδης εμπειρία σε ρυθμίσεις RouterOS, δρομολόγηση, firewalls, ασύρματα δίκτυα, QoS και tunneling σε υποδομές MikroTik.',
@@ -731,6 +749,14 @@
           el.setAttribute(target, t(attr.value));
         }
       }
+    });
+    // Language-aware links: an <a data-href-el="…-el.html"> points at its Greek
+    // twin when the UI is in Greek, and back to the English file otherwise. Used
+    // for shared surfaces (nav, homepage, services) that link to a separate-file
+    // Greek page like managed-el.html.
+    root.querySelectorAll('a[data-href-el]').forEach(a => {
+      if (!a.dataset.hrefEn) a.dataset.hrefEn = a.getAttribute('href');
+      a.setAttribute('href', currentLang === 'el' ? a.dataset.hrefEl : a.dataset.hrefEn);
     });
     document.documentElement.setAttribute('lang', currentLang);
   }

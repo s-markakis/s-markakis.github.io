@@ -31,18 +31,18 @@ public site code.
    ```sh
    wrangler deploy
    ```
-   Copy the printed URL, e.g. `https://noctis-telegram.<you>.workers.dev`.
+   Copy the printed URL, e.g. `https://leads-telegram.<you>.workers.dev`.
 
 6. **Plug the URL into the site** — replace the placeholder in **two** files:
    - `js/form.js` → `TELEGRAM_ENDPOINT`
    - `starlink.html` → the `connect-src` entry in the `Content-Security-Policy`
-     (replace `https://noctis-telegram.YOUR-SUBDOMAIN.workers.dev`)
+     (replace `https://leads-telegram.YOUR-SUBDOMAIN.workers.dev`)
 
    Then commit & push.
 
 ## Test
 ```sh
-curl -X POST https://noctis-telegram.<you>.workers.dev \
+curl -X POST https://leads-telegram.<you>.workers.dev \
   -H 'Content-Type: application/json' \
   -d '{"name":"Test","email":"t@t.gr","location":"Χανιά","message":"δοκιμή"}'
 ```

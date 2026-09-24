@@ -5,6 +5,7 @@
 (function () {
   const NAV_LINKS = [
     { href: 'services.html', i18n: 'nav.services' },
+    { href: 'managed.html', i18n: 'nav.managed', elHref: 'managed-el.html' },
     { href: 'projects.html', i18n: 'nav.projects' },
     { href: 'blog.html', i18n: 'nav.blog' },
   ];
@@ -23,8 +24,10 @@
     // Prefix the shared nav links so they resolve from either location.
     const base = location.pathname.includes('/writeups/') ? '../' : '';
     const links = NAV_LINKS.map(l => {
-      const active = l.href === here ? ' active' : '';
-      return `<a href="${base}${l.href}" class="nav-link${active}" data-i18n="${l.i18n}"></a>`;
+      // Active also matches the Greek twin (e.g. managed-el.html → managed).
+      const active = (l.href === here || l.elHref === here) ? ' active' : '';
+      const elAttr = l.elHref ? ` data-href-el="${base}${l.elHref}"` : '';
+      return `<a href="${base}${l.href}" class="nav-link${active}"${elAttr} data-i18n="${l.i18n}"></a>`;
     }).join('');
 
     target.classList.add('site-nav');

@@ -1,5 +1,5 @@
 // Service worker — cache-first for static assets, network-first for HTML.
-const VERSION = 'v75';
+const VERSION = 'v77';
 const STATIC_CACHE = `sp1r4-static-${VERSION}`;
 const RUNTIME_CACHE = `sp1r4-runtime-${VERSION}`;
 
@@ -7,8 +7,16 @@ const PRECACHE = [
   '/',
   '/index.html',
   '/services.html',
+  '/managed.html',
+  '/managed-el.html',
   '/starlink.html',
   '/starlink-el.html',
+  '/starlink-rethymno.html',
+  '/starlink-rethymno-el.html',
+  '/wifi-airbnb-chania.html',
+  '/wifi-airbnb-chania-el.html',
+  '/cctv-villas-crete.html',
+  '/cctv-villas-crete-el.html',
   '/pentest.html',
   '/consulting.html',
   '/projects.html',
@@ -31,6 +39,7 @@ const PRECACHE = [
   '/js/fx.js',
   '/js/form.js',
   '/js/nav.js',
+  '/js/contact.js',
   '/js/index.js',
   '/js/blog.js',
   '/js/projects.js',
