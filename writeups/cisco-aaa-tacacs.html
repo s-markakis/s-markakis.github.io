@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Device-Admin AAA (TACACS+ &amp; RADIUS) — S. Markakis</title>
+<meta name="description" content="Centralise who can log into your switches and routers — AAA method lists against TACACS+ (with per-command authorization and accounting) or RADIUS, done the way that won't lock you out of the box.">
+<meta property="og:title" content="Cisco IOS: Device-Admin AAA (TACACS+ &amp; RADIUS) — S. Markakis">
+<meta property="og:description" content="Centralise who can log into your switches and routers — AAA method lists against TACACS+ (with per-command authorization and accounting) or RADIUS, done the way that won't lock you out of the box.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-aaa-tacacs.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-aaa-tacacs.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-aaa-tacacs.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-aaa-tacacs.html">
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"\203A";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Device-Admin AAA (TACACS+ & RADIUS)",
+  "description": "Centralise who can log into your switches and routers — AAA method lists against TACACS+ (with per-command authorization and accounting) or RADIUS, done the way that won't lock you out of the box.",
+  "datePublished": "2026-09-23",
+  "dateModified": "2026-09-23",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-aaa-tacacs.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-aaa-tacacs.png",
+  "keywords": [
+    "cisco",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-aaa-tacacs"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Security &nbsp;·&nbsp; September 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Device-Admin AAA</h1>
+  <p class="post-subtitle">A local <code>username</code> on every box doesn't scale and doesn't audit. <strong>AAA</strong> centralises device login against TACACS+ or RADIUS — one place to add or revoke an engineer, per-command control, and an accounting trail of who typed what. This is admin access to the gear itself, not <a href="cisco-8021x.html">802.1X port authentication</a> for endpoints. The MikroTik twin is <a href="mikrotik-radius-login.html">login via RADIUS &amp; User Manager</a>.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">AAA</span>
+    <span class="tag">TACACS+</span>
+    <span class="tag">RADIUS</span>
+    <span class="tag">Hardening</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Local users are fine for one lab switch. Across a fleet they rot: a leaver's account lingers on forty boxes, nobody can say who changed the ACL at 2am, and rotating a shared password means a maintenance window. <strong>AAA</strong> — Authentication, Authorization, Accounting — moves all three off the box to a central server (TACACS+ or RADIUS) so identity, permissions and audit live in one place.</p>
+    <p><strong>TACACS+</strong> (Cisco's protocol, TCP/49) is the right tool for device admin: it encrypts the whole payload and does <em>per-command</em> authorization and accounting. <strong>RADIUS</strong> (UDP/1812-1813) authenticates fine and can hand back a privilege level, but its command-level control is coarse. Use TACACS+ for the network team; RADIUS is the fallback when that's all you have (or you're already running it for <a href="cisco-8021x.html">802.1X</a>). The golden rule throughout: <strong>never remove your local escape hatch.</strong></p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>Reachable TACACS+/RADIUS server (ISE, ClearPass, tac_plus, FreeRADIUS)</li>
+      <li>SSH already configured and a <a href="cisco-hardening.html">management-plane baseline</a></li>
+      <li><strong>A second live session to the box while you test</strong> — non-negotiable</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Turn On AAA — With a Local Escape Hatch First</h2>
+  <p class="section-thesis"><em>The instant you type <code>aaa new-model</code> the login behaviour changes. Build the local fallback and open a second session <strong>before</strong> you point anything at a server.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — safety net before anything else</span>
+    <pre class="term"><span class="cmt"># 1. A real local admin that survives a dead AAA server.</span>
+<span class="pc">R1(config)#</span> <span class="out">username breakglass privilege 15 secret S0me-Str0ng-Pass</span>
+
+<span class="cmt"># 2. Enable AAA. Login prompts now follow method lists, not the vty password.</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa new-model</span>
+
+<span class="cmt"># 3. Keep an enable secret so 'enable' still works if AAA is unreachable.</span>
+<span class="pc">R1(config)#</span> <span class="out">enable secret An0ther-Str0ng-Pass</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — This Is the Command That Locks People Out</span>
+    <p>More engineers have been locked out by AAA than by any other feature. Two rules make it safe: <strong>(1)</strong> every method list ends in <code>local</code> (or <code>enable</code>) so a dead server falls back to the box, and <strong>(2)</strong> you keep a second SSH session open the whole time — if the new config breaks login, that session is still authenticated and can undo it. Test from a <em>new</em> session; never from your only one.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Point at TACACS+ and Build the Method Lists</h2>
+  <p class="section-thesis"><em>Define the server, group it, then attach method lists for authentication (who are you), authorization (what may you do), and accounting (what did you do). Each list falls back to local.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — TACACS+ server + default method lists</span>
+    <pre class="term"><span class="cmt"># Define the server (IOS 15.x+ syntax) and the shared secret.</span>
+<span class="pc">R1(config)#</span> <span class="out">tacacs server TAC-1</span>
+<span class="pc">R1(config-server-tacacs)#</span> <span class="out">address ipv4 10.0.0.10</span>
+<span class="pc">R1(config-server-tacacs)#</span> <span class="out">key 0 SharedSecretHere</span>   <span class="cmt"># stored as type 7 — obfuscated, not safe</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa group server tacacs+ TAC-GRP</span>
+<span class="pc">R1(config-sg-tacacs+)#</span> <span class="out">server name TAC-1</span>
+
+<span class="cmt"># Authentication: try the group, fall back to the LOCAL user database.</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa authentication login default group TAC-GRP local</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa authentication enable default group TAC-GRP enable</span>
+
+<span class="cmt"># Authorization: exec = may you open a shell + what privilege you land in.</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa authorization exec default group TAC-GRP local</span>
+
+<span class="cmt"># Source AAA from a stable interface (loopback) so the server sees one IP.</span>
+<span class="pc">R1(config)#</span> <span class="out">ip tacacs source-interface Loopback0</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Source-Interface = Fewer Mystery Failures</span>
+    <p>If the router picks a different egress IP per packet, the AAA server's client entry won't match and auth silently fails. Pin <code>ip tacacs source-interface</code> (and <code>ip radius source-interface</code>) to a loopback, and register that exact IP on the server. Same discipline as pinning your <a href="cisco-observability.html">syslog/SNMP</a> source.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Per-Command Authorization &amp; Accounting</h2>
+  <p class="section-thesis"><em>This is why TACACS+ exists: authorize each command against the server and log every one. It's also the fastest way to lock the team out — layer it on only once login works.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — command control + audit trail</span>
+    <pre class="term"><span class="cmt"># Authorize privilege-15 commands against the server (fall back to local).</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa authorization commands 15 default group TAC-GRP local</span>
+
+<span class="cmt"># Accounting: record who ran what, and every exec (shell) session.</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa accounting commands 15 default start-stop group TAC-GRP</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa accounting exec default start-stop group TAC-GRP</span>
+
+<span class="cmt"># By default the CONSOLE bypasses authorization. Turn it on explicitly</span>
+<span class="cmt"># only after you have proven console local login still works.</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa authorization console</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Command Authorization Fails Closed</span>
+    <p>If <code>aaa authorization commands 15</code> points only at the server and the server is unreachable, privileged commands are <strong>denied</strong> — you can log in but not do anything. The trailing <code>local</code> helps only if a matching local privilege is defined. Roll command authorization out in monitor-mode thinking: prove the server returns the right command sets for your groups <em>before</em> you rely on it, and keep <code>breakglass</code> at privilege 15 so it's never subject to the server's command rules.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">RADIUS — When That's What You Have</h2>
+  <p class="section-thesis"><em>RADIUS authenticates admins and can set a privilege level via a vendor attribute, but it can't do clean per-command control. Good enough for read-mostly access or when you're already running it.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — RADIUS admin login + privilege via AV-pair</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">radius server RAD-1</span>
+<span class="pc">R1(config-radius-server)#</span> <span class="out">address ipv4 10.0.0.11 auth-port 1812 acct-port 1813</span>
+<span class="pc">R1(config-radius-server)#</span> <span class="out">key 0 RadiusSecret</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa group server radius RAD-GRP</span>
+<span class="pc">R1(config-sg-radius)#</span> <span class="out">server name RAD-1</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa authentication login default group RAD-GRP local</span>
+<span class="pc">R1(config)#</span> <span class="out">aaa authorization exec default group RAD-GRP local</span>
+<span class="cmt"># The server returns the privilege level in a Cisco AV-pair on the user:</span>
+<span class="cmt">#     cisco-avpair = "shell:priv-lvl=15"     (drop to 1 for read-only staff)</span></pre>
+  </div>
+  <table class="cheat">
+    <thead><tr><th>TACACS+</th><th>RADIUS</th></tr></thead>
+    <tbody>
+      <tr><td>TCP/49, whole packet encrypted</td><td>UDP/1812-1813, only the password hidden</td></tr>
+      <tr><td>Per-command authz + accounting</td><td>Privilege level via AV-pair; no clean per-command</td></tr>
+      <tr><td>Best for the network team</td><td>Fine for read access / reusing 802.1X infra</td></tr>
+    </tbody>
+  </table>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Verify Before You Trust It <span class="safe-badge">Safe to Run</span></h2>
+  <p class="section-thesis"><em>Prove authentication, the reachability of the server, and the fallback path — from a second session — before you close the first.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — prove it works and fails safe</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">test aaa group TAC-GRP alice C1sco legacy</span>   <span class="cmt"># server-side auth check</span>
+<span class="pc">R1#</span> <span class="out">show tacacs</span>                              <span class="cmt"># socket opens, failures</span>
+<span class="pc">R1#</span> <span class="out">show aaa sessions</span>                        <span class="cmt"># active accounted sessions</span>
+<span class="pc">R1#</span> <span class="out">debug aaa authentication</span>                 <span class="cmt"># on a lab / quiet box only</span>
+<span class="cmt"># The real test: from a NEW ssh session, log in as a TACACS user, then</span>
+<span class="cmt"># shut the server's reachability and confirm 'breakglass' still gets in.</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Create a local <code>breakglass</code> user and an <code>enable secret</code> before <code>aaa new-model</code></strong>, and keep a second session open the whole time.</li>
+      <li><strong>Every method list ends in <code>local</code> / <code>enable</code></strong> so a dead AAA server falls back to the box instead of bricking access.</li>
+      <li><strong>TACACS+ for the network team</strong> — encrypted, per-command authorization and accounting; <strong>RADIUS</strong> for coarse or read-mostly access.</li>
+      <li><strong>Pin the source-interface</strong> to a loopback so the server always sees one client IP.</li>
+      <li><strong>Add command authorization last</strong> — it fails closed, so prove the server returns correct command sets before relying on it.</li>
+      <li><strong>Enable <code>aaa authorization console</code> only after</strong> proving console local login still works.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Need centralised, audited access to your network gear?</h3>
+    <p>Shared passwords on switches are a finding waiting to happen. I roll out TACACS+/RADIUS admin access across Cisco and MikroTik fleets — role-based, accounted, and with a tested break-glass path so a server outage never locks you out.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

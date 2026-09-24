@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: PPPoE Client &amp; Server — S. Markakis</title>
+<meta name="description" content="Both ends of PPPoE on IOS — a dialer-interface client for a Cisco CPE behind DSL/fibre, and a bba-group virtual-template server, plus the 1492 MTU / 1452 MSS clamp that keeps large transfers from black-holing.">
+<meta property="og:title" content="Cisco IOS: PPPoE Client &amp; Server — S. Markakis">
+<meta property="og:description" content="Both ends of PPPoE on IOS — a dialer-interface client for a Cisco CPE behind DSL/fibre, and a bba-group virtual-template server, plus the 1492 MTU / 1452 MSS clamp that keeps large transfers from black-holing.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-pppoe.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-pppoe.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-pppoe.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-pppoe.html">
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"\203A";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: PPPoE Client & Server",
+  "description": "Both ends of PPPoE on IOS — a dialer-interface client for a Cisco CPE behind DSL/fibre, and a bba-group virtual-template server, plus the 1492 MTU / 1452 MSS clamp that keeps large transfers from black-holing.",
+  "datePublished": "2026-09-23",
+  "dateModified": "2026-09-23",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-pppoe.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-pppoe.png",
+  "keywords": [
+    "cisco",
+    "routing"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-pppoe"
+  },
+  "timeRequired": "PT5M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Routing &nbsp;·&nbsp; September 2026</p>
+  <h1 class="post-title">Cisco IOS<br>PPPoE</h1>
+  <p class="post-subtitle">PPPoE is how most DSL and a lot of fibre hands you a session. On IOS a Cisco router is the <strong>client</strong> — a dialer interface that authenticates and pulls an address — or the <strong>server</strong>, a bba-group and virtual-template acting as a small access concentrator. Either way the MTU maths decides if it works. The RouterOS twin is <a href="mikrotik-pppoe-server.html">the MikroTik PPPoE server</a>.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">PPPoE</span>
+    <span class="tag">Dialer</span>
+    <span class="tag">BBA-Group</span>
+    <span class="tag">WAN</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>PPPoE runs a PPP session — with its authentication, address negotiation and accounting — over Ethernet. Most of the time a Cisco box is the <strong>client</strong>: it sits behind an ISP's DSL/fibre handoff, dials a session over a <code>Dialer</code> interface, does CHAP, and receives its WAN address. Less often it's the <strong>server</strong>, terminating client sessions with a <code>bba-group</code> and a <code>virtual-template</code> — the Cisco equivalent of the <a href="mikrotik-pppoe-server.html">RouterOS PPPoE server</a>.</p>
+    <p>The concept is identical on both ends; the config is two distinct recipes. And on both, the same 8-byte PPPoE overhead means an <strong>MTU of 1492</strong> and an MSS clamp of <strong>1452</strong> — skip it and you get the maddening "small sites load, big downloads and some HTTPS hang" fault. This pairs with the <a href="cisco-ipsla-failover.html">dual-WAN failover</a> and <a href="cisco-hardening.html">hardening</a> posts.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>An ISP handoff that speaks PPPoE (client role) — a username/password from the provider</li>
+      <li>Basic <a href="cisco-routing-ospf.html">routing</a> and interface config comfort</li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Client — A Dialer Interface Behind the ISP</h2>
+  <p class="section-thesis"><em>The physical port just enables PPPoE and points at a dial pool; all the real config — address, auth, MTU — lives on a logical <code>Dialer</code> interface.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — PPPoE client (CPE behind DSL/fibre)</span>
+    <pre class="term"><span class="cmt"># The physical WAN port: no IP, just bind it to a PPPoE dial pool.</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">no ip address</span>
+<span class="pc">R1(config-if)#</span> <span class="out">pppoe enable group global</span>
+<span class="pc">R1(config-if)#</span> <span class="out">pppoe-client dial-pool-number 1</span>
+
+<span class="cmt"># The logical Dialer holds the session config.</span>
+<span class="pc">R1(config)#</span> <span class="out">interface Dialer1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">mtu 1492</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip address negotiated</span>          <span class="cmt"># WAN IP from the ISP</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip tcp adjust-mss 1452</span>        <span class="cmt"># clamp for the 8-byte overhead</span>
+<span class="pc">R1(config-if)#</span> <span class="out">encapsulation ppp</span>
+<span class="pc">R1(config-if)#</span> <span class="out">dialer pool 1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">dialer-group 1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ppp authentication chap pap callin</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ppp chap hostname user@isp</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ppp chap password 0 ProviderSecret</span>
+
+<span class="cmt"># Default route out the dialer, and permit interesting traffic to bring it up.</span>
+<span class="pc">R1(config)#</span> <span class="out">ip route 0.0.0.0 0.0.0.0 Dialer1</span>
+<span class="pc">R1(config)#</span> <span class="out">dialer-list 1 protocol ip permit</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — <code>ip nat</code> Goes on the Dialer, Not the Physical Port</span>
+    <p>The WAN address lives on <code>Dialer1</code>, so that's your <code>ip nat outside</code> interface — not <code>Gi0/0</code>, which has no IP. New PPPoE configs frequently NAT to the wrong interface and nothing translates. Everything that references "the WAN" — NAT, ACLs, the default route, IP SLA tracking — points at the dialer.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Server — bba-group + Virtual-Template</h2>
+  <p class="section-thesis"><em>To terminate sessions, a <code>bba-group</code> catches PPPoE on a port and clones a <code>virtual-template</code> per client — the template defines addressing and auth for every session.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — PPPoE server (small access concentrator)</span>
+    <pre class="term"><span class="cmt"># The group ties the access port to a template to clone per session.</span>
+<span class="pc">R1(config)#</span> <span class="out">bba-group pppoe BBA-GRP</span>
+<span class="pc">R1(config-bba-group)#</span> <span class="out">virtual-template 1</span>
+
+<span class="cmt"># The template: unnumbered off a loopback, hand clients a pool address, CHAP.</span>
+<span class="pc">R1(config)#</span> <span class="out">interface Virtual-Template1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">mtu 1492</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip unnumbered Loopback0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">peer default ip address pool PPPOE-POOL</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ppp authentication chap</span>
+
+<span class="cmt"># Bind the group to the client-facing port; define the pool + a subscriber.</span>
+<span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/1</span>
+<span class="pc">R1(config-if)#</span> <span class="out">pppoe enable group BBA-GRP</span>
+<span class="pc">R1(config)#</span> <span class="out">ip local pool PPPOE-POOL 10.60.0.10 10.60.0.254</span>
+<span class="pc">R1(config)#</span> <span class="out">username room101 password 0 SubscriberSecret</span>
+<span class="cmt"># For real subscriber counts, authenticate via AAA/RADIUS instead of local</span>
+<span class="cmt"># usernames — see the device-AAA post for the method-list pattern.</span></pre>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">The 1492 / 1452 Rule</h2>
+  <p class="section-thesis"><em>PPPoE's overhead is the single most common reason a "working" link half-works. Set the interface MTU to 1492 and clamp TCP MSS to 1452 on both ends — every time.</em></p>
+  <p>The symptom is unmistakable once you've seen it: ping works, DNS works, small web pages load, but large downloads stall and some HTTPS sites never render. That's Path-MTU discovery failing — the router sends 1500-byte packets that can't fit, and the ICMP that should signal it is filtered somewhere upstream. <code>ip tcp adjust-mss 1452</code> on the dialer or virtual-template makes TCP negotiate a segment that fits from the start, sidestepping PMTUD entirely for the traffic that matters.</p>
+  <table class="cheat">
+    <thead><tr><th>Value</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>MTU 1492</td><td>1500 Ethernet − 8 bytes PPPoE header.</td></tr>
+      <tr><td>ip tcp adjust-mss 1452</td><td>1492 − 40 (IP+TCP headers). Clamps TCP so it never needs PMTUD.</td></tr>
+      <tr><td>Symptom if skipped</td><td>Small pages load, big transfers &amp; some HTTPS hang. "Internet is broken but ping works."</td></tr>
+    </tbody>
+  </table>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Verify <span class="safe-badge">Safe to Run</span></h2>
+  <p class="section-thesis"><em>Confirm the session comes up, the dialer got an address, and — if it half-works — that the MSS clamp is doing its job.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — session + address + MTU checks</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show pppoe session</span>                   <span class="cmt"># state UP, the virtual-access iface</span>
+<span class="pc">R1#</span> <span class="out">show ip interface brief | include Dialer</span>  <span class="cmt"># did Dialer1 get an IP?</span>
+<span class="pc">R1#</span> <span class="out">show interface Dialer1 | include MTU</span>   <span class="cmt"># 1492</span>
+<span class="pc">R1#</span> <span class="out">show caller ip</span>                        <span class="cmt"># server side: connected peers</span>
+<span class="pc">R1#</span> <span class="out">debug pppoe events</span>                    <span class="cmt"># dial/auth trace (lab only)</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Client role:</strong> the physical port just <code>pppoe-client dial-pool-number</code>; the <code>Dialer</code> interface holds the address, auth and MTU.</li>
+      <li><strong>Point NAT/ACLs/default route at the Dialer</strong>, not the physical port — the WAN IP lives on the dialer.</li>
+      <li><strong>Server role:</strong> a <code>bba-group</code> binds a port to a <code>virtual-template</code> that's cloned per session for addressing and CHAP.</li>
+      <li><strong>MTU 1492, <code>ip tcp adjust-mss 1452</code></strong> on both ends — the non-negotiable fix for the "small works, big hangs" fault.</li>
+      <li><strong>Local usernames for a lab; AAA/RADIUS for real subscriber counts</strong> — the same method-list pattern as device admin.</li>
+      <li><strong>Verify with <code>show pppoe session</code></strong> and confirm the dialer actually received an address.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>A flaky PPPoE WAN that half-works?</h3>
+    <p>Nine times in ten it's MTU, and the tenth is auth or the wrong NAT interface. I build and troubleshoot PPPoE edges on Cisco and MikroTik — clean sessions, correct MSS, and failover watching the link. </p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
