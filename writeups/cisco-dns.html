@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: DNS — Resolver, Cache &amp; Name Services — S. Markakis</title>
+<meta name="description" content="How a Cisco router does DNS — name-server config, the domain-lookup hang that bites everyone, static host mappings, IOS as a small caching DNS server, and pinning the source interface so lookups behave.">
+<meta property="og:title" content="Cisco IOS: DNS — Resolver, Cache &amp; Name Services — S. Markakis">
+<meta property="og:description" content="How a Cisco router does DNS — name-server config, the domain-lookup hang that bites everyone, static host mappings, IOS as a small caching DNS server, and pinning the source interface so lookups behave.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-dns.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-dns.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-dns.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-dns.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"\203A";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: DNS — Resolver, Cache & Name Services",
+  "description": "How a Cisco router does DNS — name-server config, the domain-lookup hang that bites everyone, static host mappings, IOS as a small caching DNS server, and pinning the source interface so lookups behave.",
+  "datePublished": "2026-10-05",
+  "dateModified": "2026-10-05",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-dns.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-dns.png",
+  "keywords": [
+    "cisco",
+    "fundamentals"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-dns"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Fundamentals &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Cisco IOS<br>DNS &amp; Name Services</h1>
+  <p class="post-subtitle">A Cisco router is a modest DNS citizen: a <strong>resolver</strong> for its own management traffic, a place for a few <strong>static host</strong> mappings, and — if you ask it — a small <strong>caching server</strong> for a branch. Knowing exactly how much it does (and the one setting that hangs your CLI for 30 seconds) keeps name resolution out of your troubleshooting. The MikroTik twin, with DoH and FQDN firewalling, is <a href="mikrotik-dns.html">MikroTik: DNS, DoH &amp; FQDN filtering</a>.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">DNS</span>
+    <span class="tag">Resolver</span>
+    <span class="tag">Caching</span>
+    <span class="tag">Fundamentals</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>DNS on IOS splits cleanly in two. Most of the time the router is a <strong>client</strong> — it resolves <code>ntp.example.com</code>, a TACACS hostname, or the name you typed at the CLI. Occasionally you make it a <strong>server</strong>: static <code>ip host</code> entries, or a lightweight caching resolver for a small site that has no dedicated DNS box.</p>
+    <p>The honest framing: a router is not a DNS server. <code>ip dns server</code> is fine for a handful of hosts at a branch; anything real belongs on BIND, Unbound, Pi-hole, or AD DNS. This post covers the resolver you always use, the static entries you'll actually need, the caching server where it makes sense, and the <code>ip domain lookup</code> behaviour that has cost everyone 30 seconds of staring at a frozen terminal.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>An IOS router/switch with IP reachability to an upstream resolver</li>
+      <li>Working clock — ideally <a href="cisco-observability.html">NTP</a>, so logged lookups have real timestamps</li>
+      <li>Basic <a href="cisco-dhcp-nat.html">DHCP/NAT</a> familiarity (DHCP is what hands clients their DNS server)</li>
+    </ul>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 180" role="img" aria-label="Animated DNS query path: a query travels from client to the router cache, misses to the upstream resolver, and the answer returns">
+      <style>
+        .dbox{fill:var(--card);stroke:var(--rule);stroke-width:1.5;}
+        .dlbl{fill:var(--mid);font-family:var(--font-disp),sans-serif;font-weight:700;font-size:15px;letter-spacing:.04em;}
+        .dsub{fill:var(--body);font-family:var(--font-mono),monospace;font-size:10.5px;}
+        .darr{stroke:var(--accent);stroke-width:2;fill:none;opacity:.45;}
+        .dcap{fill:var(--body);font-family:var(--font-body),sans-serif;font-size:10.5px;}
+        .dhit{fill:var(--accent);font-family:var(--font-disp),sans-serif;font-weight:700;font-size:11px;}
+        .pkt{fill:var(--accent);}
+        .cache-ring{fill:none;stroke:var(--accent);stroke-width:2;transform-origin:380px 88px;}
+        @keyframes qflow{
+          0%{transform:translate(176px,88px);opacity:0;}
+          5%{opacity:1;}
+          24%{transform:translate(303px,88px);opacity:1;}
+          34%{transform:translate(303px,88px);opacity:1;}
+          55%{transform:translate(586px,88px);opacity:1;}
+          65%{transform:translate(586px,88px);opacity:1;}
+          86%{transform:translate(303px,88px);opacity:1;}
+          97%{transform:translate(176px,88px);opacity:1;}
+          100%{transform:translate(176px,88px);opacity:0;}
+        }
+        @keyframes cachePulse{
+          0%,24%{opacity:0;transform:scale(.4);}
+          30%{opacity:.8;transform:scale(1);}
+          40%{opacity:0;transform:scale(1.5);}
+          100%{opacity:0;transform:scale(1.5);}
+        }
+        .pkt{animation:qflow 5s ease-in-out infinite;}
+        .cache-ring{animation:cachePulse 5s ease-in-out infinite;}
+        @media (prefers-reduced-motion:reduce){
+          .pkt{animation:none;transform:translate(303px,88px);opacity:1;}
+          .cache-ring{animation:none;opacity:.6;}
+          .darr{opacity:.8;}
+        }
+      </style>
+      <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+      <rect class="dbox" x="24" y="56" width="150" height="64" rx="6"/>
+      <text class="dlbl" x="99" y="86" text-anchor="middle">CLIENT</text>
+      <text class="dsub" x="99" y="104" text-anchor="middle">asks for a name</text>
+      <rect class="dbox" x="305" y="44" width="150" height="88" rx="6"/>
+      <text class="dlbl" x="380" y="78" text-anchor="middle">IOS ROUTER</text>
+      <text class="dsub" x="380" y="96" text-anchor="middle">ip dns server</text>
+      <text class="dsub" x="380" y="110" text-anchor="middle">cache + ip host</text>
+      <rect class="dbox" x="586" y="56" width="150" height="64" rx="6"/>
+      <text class="dlbl" x="661" y="86" text-anchor="middle">UPSTREAM</text>
+      <text class="dsub" x="661" y="104" text-anchor="middle">8.8.8.8 / ISP</text>
+      <path class="darr" d="M176,88 L303,88" marker-end="url(#ah)"/>
+      <path class="darr" d="M457,100 L584,100" marker-end="url(#ah)"/>
+      <path class="darr" d="M584,76 L459,76" marker-end="url(#ah)"/>
+      <text class="dcap" x="240" y="78" text-anchor="middle">query</text>
+      <text class="dhit" x="380" y="30" text-anchor="middle">cache hit → answer, no upstream</text>
+      <text class="dcap" x="521" y="118" text-anchor="middle">miss: recurse</text>
+      <text class="dcap" x="521" y="68" text-anchor="middle">answer</text>
+      <circle class="cache-ring" cx="380" cy="88" r="10"/>
+      <circle class="pkt" r="6"/>
+    </svg>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">The Resolver — And the Hang Everyone Hits</h2>
+  <p class="section-thesis"><em>By default IOS tries to resolve any unrecognised word you type as a hostname — via broadcast. That's the frozen-terminal bug. Fix the resolver config and the CLI behaviour in the same breath.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — resolver config done right</span>
+    <pre class="term"><span class="cmt"># Point the router at real resolvers and give it a default domain.</span>
+<span class="pc">R1(config)#</span> <span class="out">ip name-server 1.1.1.1 9.9.9.9</span>
+<span class="pc">R1(config)#</span> <span class="out">ip domain name lab.lan</span>        <span class="cmt"># appended to unqualified names</span>
+<span class="pc">R1(config)#</span> <span class="out">ip domain lookup</span>              <span class="cmt"># enable resolution (on by default)</span>
+
+<span class="cmt"># Pin lookups to a stable source so ACLs/logs see one IP (same</span>
+<span class="cmt"># discipline as AAA/syslog source-interface).</span>
+<span class="pc">R1(config)#</span> <span class="out">ip domain lookup source-interface Loopback0</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Why Your CLI Freezes for 30 Seconds</span>
+    <p>Type a command wrong (say you fat-finger <code>sh ip rote</code>) and IOS decides the unknown word is a hostname. With no name-server set it <strong>broadcasts</strong> for it and the CLI blocks until the attempt times out — the classic "I can't type anything" freeze. Two cures: on boxes that don't need DNS, <code>no ip domain lookup</code>; on boxes that do, set <code>line vty 0 4 / transport preferred none</code> so a mistyped command isn't treated as a telnet target. If you're stuck mid-hang, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>6</kbd> aborts it.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Static Host Mappings</h2>
+  <p class="section-thesis"><em>A few names you don't want to depend on DNS for — the syslog box, the NTP master, a jump host. <code>ip host</code> is the router's /etc/hosts and always wins over the resolver.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — static A / AAAA entries</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">ip host syslog.lab.lan 10.0.0.5</span>
+<span class="pc">R1(config)#</span> <span class="out">ip host ntp.lab.lan 10.0.0.1</span>
+<span class="pc">R1(config)#</span> <span class="out">ip host v6host.lab.lan 2001:db8:10::5</span>   <span class="cmt"># AAAA</span>
+
+<span class="cmt"># Now you can reference names in config and they survive a DNS outage.</span>
+<span class="pc">R1(config)#</span> <span class="out">logging host syslog.lab.lan</span>
+<span class="pc">R1(config)#</span> <span class="out">ntp server ntp.lab.lan</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Static Entries for Anything Load-Bearing</span>
+    <p>Infrastructure the router depends on to <em>function</em> — its logging collector, NTP source, AAA server — should resolve even when DNS is down, because those are exactly the services you lean on during an outage. Pin them with <code>ip host</code>. Keep dynamic resolution for everything else.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">IOS as a Small Caching DNS Server</h2>
+  <p class="section-thesis"><em>At a branch with no DNS box, the router can answer clients directly: serve its static entries, cache recursive answers, and forward the rest upstream. Keep expectations small.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — caching name server for a branch</span>
+    <pre class="term"><span class="cmt"># Turn the router into a DNS server. It answers 'ip host' entries,</span>
+<span class="cmt"># caches answers it recurses, and forwards misses to the name-servers.</span>
+<span class="pc">R1(config)#</span> <span class="out">ip dns server</span>
+<span class="pc">R1(config)#</span> <span class="out">ip name-server 1.1.1.1 9.9.9.9</span>   <span class="cmt"># upstream for cache misses</span>
+
+<span class="cmt"># Hand this router's own LAN IP to clients as their DNS server via DHCP.</span>
+<span class="pc">R1(config)#</span> <span class="out">ip dhcp pool LAN</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">network 10.10.10.0 255.255.255.0</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">dns-server 10.10.10.1</span>          <span class="cmt"># = this router</span>
+<span class="pc">R1(dhcp-config)#</span> <span class="out">domain-name lab.lan</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Don't Make It an Open Resolver</span>
+    <p>If the router has a public interface and <code>ip dns server</code> is on, it will happily answer recursive queries from the internet — making you a free amplifier for DNS reflection DDoS and leaking internal names. Restrict UDP/TCP 53 to inside sources with an ACL on the WAN interface, the same way you'd lock down the <a href="mikrotik-dns.html">MikroTik resolver</a>. A branch router should answer its <em>own</em> clients, nobody else.</p>
+  </div>
+  <div class="term-wrap">
+    <span class="term-label">IOS — keep port 53 inside-only</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">ip access-list extended WAN-IN</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">deny udp any any eq domain</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">deny tcp any any eq domain</span>
+<span class="pc">R1(config-ext-nacl)#</span> <span class="out">permit ip any any</span>       <span class="cmt"># (rest of your edge policy)</span>
+<span class="pc">R1(config)#</span> <span class="out">interface Gi0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ip access-group WAN-IN in</span></pre>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Verify &amp; Troubleshoot <span class="safe-badge">Safe to Run</span></h2>
+  <p class="section-thesis"><em>Prove resolution works, read the cache, and watch a live query. All read-only.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — confirm name resolution end to end</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show hosts</span>                     <span class="cmt"># static + cached entries, TTLs</span>
+<span class="pc">R1#</span> <span class="out">show ip dns view</span>               <span class="cmt"># server/forwarder state</span>
+<span class="pc">R1#</span> <span class="out">ping ntp.lab.lan</span>               <span class="cmt"># resolves, then pings</span>
+<span class="pc">R1#</span> <span class="out">show hosts summary</span>
+<span class="pc">R1#</span> <span class="out">debug domain</span>                   <span class="cmt"># lab box only — watch queries live</span>
+<span class="pc">R1#</span> <span class="out">clear host *</span>                   <span class="cmt"># flush the cache when testing</span></pre>
+  </div>
+  <table class="cheat">
+    <thead><tr><th>Symptom</th><th>Likely cause</th></tr></thead>
+    <tbody>
+      <tr><td>CLI freezes on a typo</td><td><code>ip domain lookup</code> on + no name-server → fix per §01</td></tr>
+      <tr><td>Names resolve from router, not clients</td><td>DHCP <code>dns-server</code> points at the wrong IP, or <code>ip dns server</code> off</td></tr>
+      <tr><td>Resolution works, then stops</td><td>Upstream unreachable; cache expired — check <code>ip name-server</code> reachability</td></tr>
+      <tr><td>Internal names leak / abuse reports</td><td>Open resolver — ACL port 53 inbound (§03)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Always set <code>ip name-server</code></strong> — and either disable <code>ip domain lookup</code> or set <code>transport preferred none</code> so typos don't freeze the CLI.</li>
+      <li><strong>Pin <code>ip domain lookup source-interface</code></strong> to a loopback, the same discipline as AAA/syslog/NTP.</li>
+      <li><strong>Static <code>ip host</code> entries</strong> for anything the router depends on — logging, NTP, AAA — so they survive a DNS outage.</li>
+      <li><strong><code>ip dns server</code> is a branch convenience, not a DNS server</strong> — fine for a handful of hosts, never a replacement for a real resolver.</li>
+      <li><strong>Never run it as an open resolver</strong> — ACL UDP/TCP 53 to inside sources on any public interface.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Name resolution that doesn't fall over?</h3>
+    <p>DNS is the quiet dependency behind logging, VPNs, and auth — when it breaks, everything looks broken. I design resolver and caching layouts across Cisco and MikroTik sites, with the failure modes engineered out. Let's make yours boring.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

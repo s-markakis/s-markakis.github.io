@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: DNS, DoH &amp; FQDN Filtering — S. Markakis</title>
+<meta name="description" content="RouterOS is a real DNS server — a caching resolver, static entries with regex and split-horizon, DNS-over-HTTPS done right, FQDN firewall address-lists, and adlist blocking. Plus the open-resolver mistake that turns your router into a DDoS amplifier.">
+<meta property="og:title" content="MikroTik: DNS, DoH &amp; FQDN Filtering — S. Markakis">
+<meta property="og:description" content="RouterOS is a real DNS server — a caching resolver, static entries with regex and split-horizon, DNS-over-HTTPS done right, FQDN firewall address-lists, and adlist blocking. Plus the open-resolver mistake that turns your router into a DDoS amplifier.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-dns.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-dns.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-dns.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-dns.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"\203A";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: DNS, DoH & FQDN Filtering",
+  "description": "RouterOS is a real DNS server — a caching resolver, static entries with regex and split-horizon, DNS-over-HTTPS done right, FQDN firewall address-lists, and adlist blocking. Plus the open-resolver mistake that turns your router into a DDoS amplifier.",
+  "datePublished": "2026-10-05",
+  "dateModified": "2026-10-05",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-dns.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-dns.png",
+  "keywords": [
+    "mikrotik",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-dns"
+  },
+  "timeRequired": "PT8M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Security &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">MikroTik DNS<br>DoH &amp; FQDN Filtering</h1>
+  <p class="post-subtitle">Unlike a Cisco router, RouterOS is a genuinely capable DNS server: a caching resolver, static entries with regex and split-horizon, native <strong>DNS-over-HTTPS</strong>, and the thing no one else has quite like this — <strong>FQDN firewall address-lists</strong> that resolve names into live filter rules. It's also one <code>allow-remote-requests</code> away from being an open DDoS amplifier. The Cisco twin is <a href="cisco-dns.html">Cisco IOS: DNS &amp; Name Services</a>.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">DNS</span>
+    <span class="tag">DoH</span>
+    <span class="tag">FQDN</span>
+    <span class="tag">Security</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>RouterOS ships a real caching resolver, and with RouterOS 7 it does DNS-over-HTTPS natively, keeps static records with regex matching, and can forward specific zones to internal servers (split-horizon). That makes a MikroTik edge box a legitimate DNS layer for a small site — not the branch-only compromise a Cisco router's <code>ip dns server</code> is.</p>
+    <p>Two RouterOS-specific superpowers are worth the post on their own: <strong>FQDN address-lists</strong>, where the firewall resolves a domain name and tracks its IPs so you can filter by name; and <strong>adlist</strong> (7.15+), DNS-level ad/tracker blocking built into the resolver. Both lean security, which is how this post is framed. First, the mistake that undoes all of it: turning the resolver on without a firewall.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>RouterOS 7.x (DoH and adlist need 7.x; adlist specifically 7.15+)</li>
+      <li>A working clock via <a href="mikrotik-hardening.html">NTP</a> — DoH certificate validation fails without it</li>
+      <li>An input-chain <a href="mikrotik-firewall.html">firewall</a> you can edit (we rely on it to close port 53)</li>
+    </ul>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 196" role="img" aria-label="RouterOS DNS pipeline: client query through adlist and static records, DoH upstream, FQDN address-list feeding the firewall">
+      <style>
+        .dbox{fill:var(--card);stroke:var(--rule);stroke-width:1.5;}
+        .daccent{fill:var(--card);stroke:var(--accent);stroke-width:1.5;}
+        .dlbl{fill:var(--mid);font-family:var(--font-disp),sans-serif;font-weight:700;font-size:14px;letter-spacing:.03em;}
+        .dsub{fill:var(--body);font-family:var(--font-mono),monospace;font-size:10px;}
+        .darr{stroke:var(--accent);stroke-width:2;fill:none;opacity:.45;}
+        .dcap{fill:var(--body);font-family:var(--font-body),sans-serif;font-size:10px;}
+        .pkt{fill:var(--accent);}
+        .fw-ring{fill:none;stroke:var(--defender);stroke-width:2;transform-origin:650px 150px;}
+        @keyframes mtflow{
+          0%{transform:translate(142px,100px);opacity:0;}
+          6%{opacity:1;}
+          28%{transform:translate(250px,100px);opacity:1;}
+          38%{transform:translate(250px,100px);opacity:1;}
+          58%{transform:translate(560px,52px);opacity:1;}
+          66%{transform:translate(560px,52px);opacity:1;}
+          86%{transform:translate(250px,100px);opacity:1;}
+          98%{transform:translate(142px,100px);opacity:1;}
+          100%{transform:translate(142px,100px);opacity:0;}
+        }
+        @keyframes fwfeed{
+          0%,66%{transform:translate(452px,120px);opacity:0;}
+          72%{opacity:1;}
+          92%{transform:translate(558px,146px);opacity:1;}
+          100%{transform:translate(558px,146px);opacity:0;}
+        }
+        @keyframes fwPulse{0%,70%{opacity:0;}80%{opacity:.8;}100%{opacity:0;}}
+        .pkt-q{animation:mtflow 6s ease-in-out infinite;}
+        .pkt-fw{animation:fwfeed 6s ease-in-out infinite;}
+        .fw-ring{animation:fwPulse 6s ease-in-out infinite;}
+        @media (prefers-reduced-motion:reduce){
+          .pkt-q{animation:none;transform:translate(350px,100px);opacity:1;}
+          .pkt-fw{animation:none;transform:translate(558px,146px);opacity:1;}
+          .fw-ring{animation:none;opacity:.6;}
+          .darr{opacity:.8;}
+        }
+      </style>
+      <defs><marker id="ah2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+      <rect class="dbox" x="20" y="74" width="120" height="52" rx="6"/>
+      <text class="dlbl" x="80" y="98" text-anchor="middle">CLIENT</text>
+      <text class="dsub" x="80" y="114" text-anchor="middle">query</text>
+      <rect class="daccent" x="250" y="40" width="200" height="120" rx="6"/>
+      <text class="dlbl" x="350" y="64" text-anchor="middle">ROUTEROS DNS</text>
+      <text class="dsub" x="350" y="84" text-anchor="middle">adlist → block</text>
+      <text class="dsub" x="350" y="100" text-anchor="middle">static → answer</text>
+      <text class="dsub" x="350" y="116" text-anchor="middle">cache → answer</text>
+      <text class="dsub" x="350" y="132" text-anchor="middle">miss → DoH</text>
+      <rect class="dbox" x="560" y="26" width="180" height="48" rx="6"/>
+      <text class="dlbl" x="650" y="48" text-anchor="middle">DoH UPSTREAM</text>
+      <text class="dsub" x="650" y="64" text-anchor="middle">https:// resolver</text>
+      <rect class="dbox" x="560" y="126" width="180" height="48" rx="6"/>
+      <text class="dlbl" x="650" y="148" text-anchor="middle">FIREWALL</text>
+      <text class="dsub" x="650" y="164" text-anchor="middle">FQDN address-list</text>
+      <path class="darr" d="M142,100 L248,100" marker-end="url(#ah2)"/>
+      <path class="darr" d="M452,70 L558,52" marker-end="url(#ah2)"/>
+      <path class="darr" d="M452,120 L558,146" marker-end="url(#ah2)"/>
+      <text class="dcap" x="195" y="92" text-anchor="middle">:53 (inside only)</text>
+      <text class="dcap" x="505" y="48" text-anchor="middle">TLS</text>
+      <text class="dcap" x="505" y="140" text-anchor="middle">resolved IPs</text>
+      <circle class="fw-ring" cx="650" cy="150" r="10"/>
+      <circle class="pkt pkt-fw" r="5"/>
+      <circle class="pkt pkt-q" r="6"/>
+    </svg>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">The Caching Resolver — And the Open-Resolver Trap</h2>
+  <p class="section-thesis"><em>Enabling the resolver is one line. Enabling it for the whole internet is the same line with one wrong flag — and it makes you a DNS reflection amplifier. Turn it on, then immediately close port 53 to the outside.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — resolver + the firewall rule that must come with it</span>
+    <pre class="term"><span class="cmt"># Cache resolver. allow-remote-requests=yes lets LAN clients use it...</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/set servers=1.1.1.1,9.9.9.9 allow-remote-requests=yes \</span>
+<span class="pc"></span> <span class="out">    cache-size=4096KiB cache-max-ttl=1d</span>
+
+<span class="cmt"># ...but that same flag answers the WAN too. Close 53 from outside NOW.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/firewall/filter add chain=input in-interface-list=WAN \</span>
+<span class="pc"></span> <span class="out">    protocol=udp dst-port=53 action=drop comment="no open resolver"</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/firewall/filter add chain=input in-interface-list=WAN \</span>
+<span class="pc"></span> <span class="out">    protocol=tcp dst-port=53 action=drop</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — allow-remote-requests Without a Firewall = Amplifier</span>
+    <p>This is the single most common MikroTik misconfiguration on the public internet. <code>allow-remote-requests=yes</code> doesn't mean "LAN only" — it means "answer anyone who can reach UDP 53". A short query returns a large answer, so an attacker spoofs a victim's source IP and your router floods them: classic DNS reflection/amplification. Your box ends up in abuse feeds and shunned. The flag is fine; it must <strong>always</strong> ship with an input-chain rule dropping 53 from the WAN interface list. Verify from outside with <code>dig @your-public-ip google.com</code> — it should time out.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Static Records, Regex &amp; Split-Horizon</h2>
+  <p class="section-thesis"><em>RouterOS static DNS does more than A records: CNAME, TXT, regex-matched wildcards, and FWD entries that forward a specific zone to an internal server — split-horizon without a second box.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — static entries and conditional forwarding</span>
+    <pre class="term"><span class="cmt"># Plain A record, and an AAAA.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/static add name=nas.lab.lan address=10.0.0.20</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/static add name=nas.lab.lan type=AAAA address=2001:db8::20</span>
+
+<span class="cmt"># Regex wildcard: everything under internal.lab.lan to one host.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/static add regexp=".*\\.internal\\.lab\\.lan" address=10.0.0.10</span>
+
+<span class="cmt"># Split-horizon: forward one zone to the internal AD/DNS server,</span>
+<span class="cmt"># everything else still goes to the normal upstream.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/static add name=corp.lan type=FWD forward-to=10.0.0.5 \</span>
+<span class="pc"></span> <span class="out">    match-subdomain=yes</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Regex Entries Are Evaluated on Every Query</span>
+    <p>A <code>regexp=</code> static entry is tested against <em>every</em> name the resolver sees, in order, before the cache answers. A handful is fine; dozens of greedy patterns measurably add latency to all resolution. Prefer exact <code>name=</code> entries and <code>match-subdomain=yes</code> where you can, and keep regex for the cases that genuinely need it. Anchor your patterns (<code>\\.lab\\.lan$</code>) so they don't match more than you meant — the same unanchored-regex trap that bites RouterOS scripting.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">DNS-over-HTTPS — Done So It Actually Validates</h2>
+  <p class="section-thesis"><em>DoH encrypts the router's own upstream lookups so the ISP can't see or tamper with them. The trap is that it silently works without certificate validation — which defeats the point. Import the CA and verify.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — DoH with real certificate validation</span>
+    <pre class="term"><span class="cmt"># Fetch the CA bundle Mozilla publishes and import it, so the router can</span>
+<span class="cmt"># actually verify the DoH endpoint's certificate.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/tool/fetch url="https://curl.se/ca/cacert.pem" mode=https</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/certificate/import file-name=cacert.pem passphrase=""</span>
+
+<span class="cmt"># Point DoH at a resolver and REQUIRE cert verification.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/set use-doh-server="https://cloudflare-dns.com/dns-query" \</span>
+<span class="pc"></span> <span class="out">    verify-doh-cert=yes</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — DoH Needs the Clock, and the Chicken-and-Egg It Creates</span>
+    <p>Certificate validation checks the cert's validity dates, so a router with a wrong clock rejects a perfectly good DoH cert — or, worse, you disable <code>verify-doh-cert</code> to "make it work" and now you have unauthenticated DoH, which is theatre. But NTP often resolves <em>its</em> server by name, which needs DNS, which you've just moved to DoH. Break the loop: set NTP by <strong>IP address</strong> (or use a static DNS entry for the NTP host), let the clock sync over plain DNS, then enable DoH. See the <a href="mikrotik-hardening.html">hardening</a> post for the boot-order discipline.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">FQDN Address-Lists &amp; Adlist Blocking</h2>
+  <p class="section-thesis"><em>Two RouterOS features that only exist because DNS and the firewall live in the same box: filter traffic by domain name, and block ads/trackers at resolution time.</em></p>
+  <p>An <strong>FQDN address-list</strong> entry stores a name instead of an IP. The router resolves it and keeps the address-list populated with whatever that name currently points at — so a firewall rule matching that list follows the domain as its IPs change. Useful for allowing a SaaS endpoint or blocking a known-bad host by name.</p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — filter by domain name</span>
+    <pre class="term"><span class="cmt"># The firewall resolves this name and tracks its IPs automatically.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/firewall/address-list add list=blocked address=tracker.example.com</span>
+
+<span class="cmt"># Drop forward traffic to anything that name resolves to.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/firewall/filter add chain=forward dst-address-list=blocked \</span>
+<span class="pc"></span> <span class="out">    action=drop comment="FQDN-based block"</span></pre>
+  </div>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7.15+ — DNS-level ad/tracker blocking</span>
+    <pre class="term"><span class="cmt"># Load a hosts-format blocklist; matching names resolve to 0.0.0.0.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/adlist add url="https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts" \</span>
+<span class="pc"></span> <span class="out">    ssl-verify=yes</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/adlist/reload</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/adlist/print</span>          <span class="cmt"># shows match-count per list</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Where Adlist Belongs (and Doesn't)</span>
+    <p>Adlist is a real win for a guest or family network — fewer trackers, less malware-adjacent traffic, no client agent. But it eats RAM proportional to list size, so don't load a million-entry list onto a 16&nbsp;MB hEX. On small boxes, keep lists modest or push blocking to a dedicated Pi-hole/AdGuard and let the router just forward. And remember clients can bypass it by hard-coding their own DoH (8.8.8.8, 1.1.1.1 in the browser) — if you need enforcement, also redirect or block outbound 53/443-to-known-DoH, covered in the <a href="mikrotik-firewall.html">firewall</a> post.</p>
+  </div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Verify <span class="safe-badge">Safe to Run</span></h2>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — read the cache and confirm behaviour</span>
+    <pre class="term"><span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/print</span>                    <span class="cmt"># servers, DoH, cache-used</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/cache/print</span>              <span class="cmt"># live cached records</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/dns/cache/flush</span>              <span class="cmt"># clear when testing</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/firewall/address-list/print where list=blocked</span>  <span class="cmt"># FQDN → IPs</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/log/print where topics~"dns"</span></pre>
+  </div>
+  <table class="cheat">
+    <thead><tr><th>Setting</th><th>Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td>allow-remote-requests=yes</td><td>Needed for LAN clients — <strong>must</strong> pair with a WAN drop on 53</td></tr>
+      <tr><td>verify-doh-cert=yes</td><td>Without it, DoH is encrypted but unauthenticated — no integrity</td></tr>
+      <tr><td>type=FWD + match-subdomain</td><td>Split-horizon: send one zone to the internal server</td></tr>
+      <tr><td>address-list = FQDN</td><td>Firewall follows a domain's live IPs</td></tr>
+      <tr><td>adlist (7.15+)</td><td>Resolver-level blocking; RAM-bound, bypassable by client DoH</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong><code>allow-remote-requests=yes</code> always ships with a firewall rule dropping 53 from the WAN</strong> — the open-resolver mistake makes you a DDoS amplifier.</li>
+      <li><strong>Prefer exact and <code>match-subdomain</code> static entries over regex</strong>; anchor any regex you must use, because it runs on every query.</li>
+      <li><strong>DoH only counts with <code>verify-doh-cert=yes</code></strong> and an imported CA — and set NTP by IP first to escape the clock/DNS boot loop.</li>
+      <li><strong>FQDN address-lists</strong> let the firewall follow a domain's IPs — allow a SaaS endpoint or block a host by name.</li>
+      <li><strong>Adlist is great for guest/family nets</strong> but RAM-bound and client-bypassable; offload to Pi-hole on small boxes.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Want DNS that filters, encrypts, and can't be abused?</h3>
+    <p>A resolver layer done properly — DoH upstream, ad/tracker blocking, FQDN firewalling, and no open-resolver exposure — makes a network quieter and safer without touching a single endpoint. I deploy this across MikroTik and Cisco sites. Let's design yours.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

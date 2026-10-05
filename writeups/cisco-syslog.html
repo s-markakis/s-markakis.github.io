@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Cisco IOS: Syslog &amp; Centralized Logging — S. Markakis</title>
+<meta name="description" content="Ship Cisco logs somewhere they survive a reboot and an attacker — severity levels, timestamps that depend on NTP, logging to a collector, rate-limiting and discriminators to kill noise, and secure transport.">
+<meta property="og:title" content="Cisco IOS: Syslog &amp; Centralized Logging — S. Markakis">
+<meta property="og:description" content="Ship Cisco logs somewhere they survive a reboot and an attacker — severity levels, timestamps that depend on NTP, logging to a collector, rate-limiting and discriminators to kill noise, and secure transport.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/cisco-syslog.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-syslog.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/cisco-syslog.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/cisco-syslog.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"\203A";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Cisco IOS: Syslog & Centralized Logging",
+  "description": "Ship Cisco logs somewhere they survive a reboot and an attacker — severity levels, timestamps that depend on NTP, logging to a collector, rate-limiting and discriminators to kill noise, and secure transport.",
+  "datePublished": "2026-10-05",
+  "dateModified": "2026-10-05",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/cisco-syslog.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/cisco-syslog.png",
+  "keywords": [
+    "cisco",
+    "monitoring"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#cisco-syslog"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span>Cisco / IOS</span> &nbsp;·&nbsp; Monitoring &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Cisco IOS<br>Syslog &amp; Logging</h1>
+  <p class="post-subtitle">A log entry that only lives in the router's RAM buffer is gone at the next reboot — and the first thing an intruder clears. <strong>Centralized logging</strong> gets every event off the box, in order, timestamped against real time, to a collector you control. This post covers the severity model, the NTP dependency nobody mentions, shipping to a collector, and killing the noise that makes logs useless. The MikroTik twin is <a href="mikrotik-syslog.html">MikroTik: Logging &amp; Remote Syslog</a>; for metrics rather than events see <a href="cisco-observability.html">Cisco observability</a>.</p>
+  <div class="tags">
+    <span class="tag">Cisco IOS</span>
+    <span class="tag">Syslog</span>
+    <span class="tag">Logging</span>
+    <span class="tag">Monitoring</span>
+    <span class="tag">Hardening</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Logging on IOS is a pipeline with a filter in the middle. Every subsystem emits messages tagged with a <strong>severity</strong> 0–7 (emergency down to debug). Each destination — the console, your SSH session, the local buffer, a remote collector — has its own severity threshold, and only messages at or above it get through. Get the thresholds wrong and you either drown in debug noise or miss the <code>%LINK-3-UPDOWN</code> that explained the outage.</p>
+    <p>The goal is simple: send <em>informational and above</em> to a central syslog server, timestamped against NTP so events from forty devices line up on one timeline, over a transport an attacker can't quietly strip. Local buffers are a convenience; the collector is the record.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>A syslog collector (rsyslog, syslog-ng, Graylog, a SIEM) reachable from the devices</li>
+      <li><strong>Working NTP</strong> — without it timestamps are meaningless; see <a href="cisco-hardening.html">hardening</a></li>
+      <li>A management source interface convention (loopback) already in place</li>
+    </ul>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 200" role="img" aria-label="Animated syslog pipeline: a device emits events that pass through a severity gate; informational-and-above reach the collector while debug is dropped">
+      <style>
+        .sbox{fill:var(--card);stroke:var(--rule);stroke-width:1.5;}
+        .sgate{fill:var(--card);stroke:var(--accent);stroke-width:1.5;}
+        .slbl{fill:var(--mid);font-family:var(--font-disp),sans-serif;font-weight:700;font-size:14px;letter-spacing:.03em;}
+        .ssub{fill:var(--body);font-family:var(--font-mono),monospace;font-size:10px;}
+        .sarr{stroke:var(--accent);stroke-width:2;fill:none;opacity:.4;}
+        .scap{fill:var(--body);font-family:var(--font-body),sans-serif;font-size:10px;}
+        .pass{fill:var(--accent);}
+        .drop{fill:var(--gotcha);}
+        @keyframes passflow{
+          0%{transform:translate(168px,100px);opacity:0;}
+          6%{opacity:1;}
+          42%{transform:translate(300px,100px);opacity:1;}
+          50%{transform:translate(300px,100px);opacity:1;}
+          92%{transform:translate(600px,100px);opacity:1;}
+          100%{transform:translate(600px,100px);opacity:0;}
+        }
+        @keyframes dropflow{
+          0%{transform:translate(168px,100px);opacity:0;}
+          10%{opacity:1;}
+          46%{transform:translate(300px,100px);opacity:1;}
+          58%{transform:translate(360px,100px);opacity:0;}
+          100%{transform:translate(360px,100px);opacity:0;}
+        }
+        .p1{animation:passflow 4s ease-in-out infinite;}
+        .p2{animation:passflow 4s ease-in-out infinite;animation-delay:1.6s;}
+        .d1{animation:dropflow 4s ease-in-out infinite;animation-delay:.8s;}
+        @media (prefers-reduced-motion:reduce){
+          .p1{animation:none;transform:translate(470px,100px);opacity:1;}
+          .p2{animation:none;transform:translate(230px,100px);opacity:1;}
+          .d1{animation:none;transform:translate(320px,100px);opacity:.6;}
+          .sarr{opacity:.8;}
+        }
+      </style>
+      <defs><marker id="sah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+      <rect class="sbox" x="24" y="68" width="144" height="64" rx="6"/>
+      <text class="slbl" x="96" y="94" text-anchor="middle">DEVICE</text>
+      <text class="ssub" x="96" y="112" text-anchor="middle">emits events 0–7</text>
+      <rect class="sgate" x="300" y="52" width="130" height="96" rx="6"/>
+      <text class="slbl" x="365" y="86" text-anchor="middle">SEVERITY</text>
+      <text class="slbl" x="365" y="104" text-anchor="middle">GATE</text>
+      <text class="ssub" x="365" y="124" text-anchor="middle">trap ≤ 6</text>
+      <rect class="sbox" x="596" y="68" width="144" height="64" rx="6"/>
+      <text class="slbl" x="668" y="94" text-anchor="middle">COLLECTOR</text>
+      <text class="ssub" x="668" y="112" text-anchor="middle">rsyslog / SIEM</text>
+      <path class="sarr" d="M170,100 L298,100" marker-end="url(#sah)"/>
+      <path class="sarr" d="M432,100 L594,100" marker-end="url(#sah)"/>
+      <text class="scap" x="235" y="90" text-anchor="middle">UDP/TCP 514</text>
+      <text class="scap" x="500" y="90" text-anchor="middle">passes filter</text>
+      <text class="scap" x="365" y="40" text-anchor="middle" style="fill:var(--gotcha);">debug (7) dropped ✕</text>
+      <circle class="pass p1" r="6"/>
+      <circle class="pass p2" r="6"/>
+      <circle class="drop d1" r="5"/>
+    </svg>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Severity, Timestamps &amp; the NTP Dependency</h2>
+  <p class="section-thesis"><em>Before you log anywhere, make the timestamps real. A log with the wrong time is worse than no log — it sends you to the wrong five minutes.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — timestamps that correlate across devices</span>
+    <pre class="term"><span class="cmt"># Timestamp every log line with date+time to the millisecond, in a</span>
+<span class="cmt"># named timezone, so forty devices share one timeline.</span>
+<span class="pc">R1(config)#</span> <span class="out">service timestamps log datetime msec localtime show-timezone</span>
+<span class="pc">R1(config)#</span> <span class="out">service timestamps debug datetime msec localtime show-timezone</span>
+
+<span class="cmt"># Number the messages so you can spot a gap (a cleared or dropped log).</span>
+<span class="pc">R1(config)#</span> <span class="out">service sequence-numbers</span>
+
+<span class="cmt"># The whole thing is worthless without a synced clock.</span>
+<span class="pc">R1(config)#</span> <span class="out">ntp server 10.0.0.1</span>
+<span class="pc">R1(config)#</span> <span class="out">clock timezone EET 2 0</span></pre>
+  </div>
+  <table class="cheat">
+    <thead><tr><th>Level</th><th>Keyword — meaning</th></tr></thead>
+    <tbody>
+      <tr><td>0–2</td><td>emergency / alert / critical — box is in trouble</td></tr>
+      <tr><td>3</td><td>errors — <code>%LINK-3-UPDOWN</code>, interface/protocol failures</td></tr>
+      <tr><td>4–5</td><td>warnings / notifications — config changes, thresholds</td></tr>
+      <tr><td>6</td><td>informational — the sensible collector threshold</td></tr>
+      <tr><td>7</td><td>debugging — firehose; never send to a collector in prod</td></tr>
+    </tbody>
+  </table>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Uptime Timestamps Are the Default, and They're Useless</span>
+    <p>Out of the box IOS stamps logs with <em>uptime</em> (<code>%LINK-3-UPDOWN: 3w4d: ...</code>), not wall-clock time. Correlating that against a firewall log or a packet capture is guesswork. <code>service timestamps log datetime</code> fixes the format, but it only tells the truth if NTP is actually synced — check <code>show ntp status</code> reads <em>Clock is synchronized</em> before you trust a single timestamp.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Ship It Off the Box</h2>
+  <p class="section-thesis"><em>Point the device at a collector, set the threshold, and pin the source. The buffer stays as a local convenience; the collector is the system of record.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — remote collector + local buffer</span>
+    <pre class="term"><span class="cmt"># Send informational-and-above to the collector.</span>
+<span class="pc">R1(config)#</span> <span class="out">logging host 10.0.0.5</span>
+<span class="pc">R1(config)#</span> <span class="out">logging trap informational</span>        <span class="cmt"># level 6 — not debugging</span>
+
+<span class="cmt"># Pin the source so the collector always sees one IP (ACLs, parsing).</span>
+<span class="pc">R1(config)#</span> <span class="out">logging source-interface Loopback0</span>
+
+<span class="cmt"># Keep a decent local ring buffer too; survives link loss, not reboot.</span>
+<span class="pc">R1(config)#</span> <span class="out">logging buffered 128000 informational</span>
+
+<span class="cmt"># Stop logs spamming the console (it's synchronous and can hang the box).</span>
+<span class="pc">R1(config)#</span> <span class="out">logging console critical</span>
+<span class="pc">R1(config)#</span> <span class="out">logging monitor informational</span>      <span class="cmt"># vty — 'terminal monitor' to see</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Two Collectors, One Config</span>
+    <p>Add a second <code>logging host</code> and messages fan out to both — send a copy to the ops collector and a copy to the SIEM, so a retention purge on one never costs you the security trail. Pin the same source-interface and register that IP on both. This is the event-side twin of pinning your <a href="cisco-aaa-tacacs.html">AAA</a> and NTP sources.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Kill the Noise — Rate-Limit &amp; Discriminators</h2>
+  <p class="section-thesis"><em>A flapping interface or a chatty subsystem can bury the one line that matters. IOS can throttle volume and filter specific messages before they ever hit the collector.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — throttle and filter</span>
+    <pre class="term"><span class="cmt"># Cap bursts so a flap storm can't DoS your own logging pipeline.</span>
+<span class="pc">R1(config)#</span> <span class="out">logging rate-limit 20 except errors</span>   <span class="cmt"># keep all level ≤3</span>
+
+<span class="cmt"># A discriminator: drop a known-noisy message, keep everything else.</span>
+<span class="pc">R1(config)#</span> <span class="out">logging discriminator NO-FLAP msg-body drops UPDOWN</span>
+<span class="pc">R1(config)#</span> <span class="out">logging host 10.0.0.5 discriminator NO-FLAP</span>
+
+<span class="cmt"># Prefer fixing the flap. Filtering noise you should have cured just</span>
+<span class="cmt"># hides the problem from the collector too.</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — A Discriminator Can Silence Your Evidence</span>
+    <p>Discriminators match on message body/severity/facility and apply <em>per host</em>. It's easy to write one that drops more than you intended — filter on <code>msg-body drops UPDOWN</code> and you also lose a genuine flap during an incident. Scope them tightly, keep <code>except errors</code> on rate-limits so criticals always pass, and document every filter: a quiet collector because of a forgotten discriminator looks exactly like a quiet network.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Secure Transport &amp; What to Actually Log</h2>
+  <p class="section-thesis"><em>Plain syslog is UDP/514 — unauthenticated, unencrypted, trivially spoofed or dropped. On anything carrying security events, move to TLS.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">IOS — syslog over TLS (where the platform supports it)</span>
+    <pre class="term"><span class="cmt"># TCP transport first (reliable), then TLS with a trustpoint for the</span>
+<span class="cmt"># collector's CA so logs are encrypted and the peer is authenticated.</span>
+<span class="pc">R1(config)#</span> <span class="out">logging host 10.0.0.5 transport tls port 6514</span>
+<span class="pc">R1(config)#</span> <span class="out">crypto pki trustpoint SYSLOG-CA</span>
+<span class="pc">R1(config-pki)#</span> <span class="out">enrollment terminal</span>
+<span class="cmt"># ...install the collector CA cert, then IOS validates the TLS peer.</span>
+
+<span class="cmt"># Make sure the events that matter are even generated:</span>
+<span class="pc">R1(config)#</span> <span class="out">login on-failure log</span>              <span class="cmt"># failed logins</span>
+<span class="pc">R1(config)#</span> <span class="out">login on-success log</span>              <span class="cmt"># successful logins</span>
+<span class="pc">R1(config)#</span> <span class="out">archive</span>
+<span class="pc">R1(config-archive)#</span> <span class="out">log config</span>
+<span class="pc">R1(config-archive-log-cfg)#</span> <span class="out">logging enable</span>   <span class="cmt"># who changed what config</span></pre>
+  </div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Verify <span class="safe-badge">Safe to Run</span></h2>
+  <div class="term-wrap">
+    <span class="term-label">IOS — confirm the pipeline end to end</span>
+    <pre class="term"><span class="pc">R1#</span> <span class="out">show logging</span>                    <span class="cmt"># thresholds, hosts, buffer, counts</span>
+<span class="pc">R1#</span> <span class="out">show ntp status</span>                 <span class="cmt"># MUST read 'Clock is synchronized'</span>
+<span class="pc">R1#</span> <span class="out">show logging history</span>
+<span class="pc">R1#</span> <span class="out">send log level 6 "syslog test from R1"</span>   <span class="cmt"># prove it reaches the collector</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Fix timestamps first</strong> — <code>service timestamps log datetime msec localtime</code> + synced NTP, or every log lies about when it happened.</li>
+      <li><strong><code>logging trap informational</code> (6), never debugging (7)</strong> to a collector — and keep a local buffer for link-loss gaps.</li>
+      <li><strong>Pin <code>logging source-interface</code></strong> to a loopback; register that IP on the collector.</li>
+      <li><strong>Rate-limit with <code>except errors</code></strong> and scope discriminators tightly — a forgotten filter looks like a quiet network.</li>
+      <li><strong>Use TLS (6514)</strong> for anything security-relevant, and turn on login/config-change logging so the events you need exist at all.</li>
+      <li><strong>Two collectors</strong> — ops and SIEM — so one retention purge never costs you the trail.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Logs you can actually trust in an incident?</h3>
+    <p>Most networks log to the void — wrong timestamps, nothing shipped off-box, the one useful line buried in flap noise. I build centralized logging across Cisco and MikroTik fleets, correlated to real time and fed into the collector or SIEM you already run. Let's make your logs tell the truth.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

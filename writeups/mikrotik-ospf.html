@@ -158,32 +158,59 @@
 
   <!-- Hero diagram: mixed-vendor triangle -->
   <div class="diagram-wrap" style="margin-bottom:2rem;">
-    <svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg">
-      <rect width="720" height="260" fill="#e1ded7"/>
-      <!-- area badge -->
-      <rect x="250" y="14" width="220" height="24" rx="12" fill="#d9dee6" stroke="#3a5a78"/>
-      <text x="360" y="30" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">one OSPF area 0 — two vendors</text>
-      <!-- MT1 -->
-      <rect x="60" y="70" width="160" height="52" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
-      <text x="140" y="90" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">MT-1 (RB5009)</text>
-      <text x="140" y="104" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">RID 1.1.1.1 · LAN 10.1.0.0/24</text>
-      <text x="140" y="116" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">has the internet — originates default</text>
-      <!-- MT2 -->
-      <rect x="500" y="70" width="160" height="52" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
-      <text x="580" y="90" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">MT-2 (hEX)</text>
-      <text x="580" y="104" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">RID 2.2.2.2 · LAN 10.2.0.0/24</text>
-      <!-- Cisco -->
-      <rect x="280" y="180" width="160" height="52" rx="6" fill="#d4d2cc" stroke="#3a5a78" stroke-width="1.4"/>
-      <text x="360" y="200" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">CSC-1 (Cisco 2911)</text>
-      <text x="360" y="214" style="font-family:ui-monospace,monospace;font-size:8px;fill:#555550;text-anchor:middle;">RID 3.3.3.3 · LAN 10.3.0.0/24</text>
-      <!-- links -->
-      <line x1="220" y1="96" x2="500" y2="96" style="stroke:#558840;stroke-width:2;"/>
-      <text x="360" y="88" style="font-family:ui-monospace,monospace;font-size:8.5px;fill:#3a6a28;text-anchor:middle;">10.0.12.0/30</text>
-      <line x1="170" y1="122" x2="310" y2="180" style="stroke:#558840;stroke-width:2;"/>
-      <text x="200" y="160" style="font-family:ui-monospace,monospace;font-size:8.5px;fill:#3a6a28;">10.0.13.0/30</text>
-      <line x1="550" y1="122" x2="410" y2="180" style="stroke:#558840;stroke-width:2;"/>
-      <text x="468" y="160" style="font-family:ui-monospace,monospace;font-size:8.5px;fill:#3a6a28;">10.0.23.0/30</text>
-      <text x="360" y="250" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">a triangle, so every LAN has two paths — kill any one link and OSPF reroutes around it</text>
+    <svg viewBox="0 0 720 260" role="img" aria-label="Animated OSPF convergence: traffic from MT-1 to MT-2 takes the direct link; when that link fails OSPF reroutes the path through the Cisco router">
+      <style>
+        .obox{fill:var(--card);stroke:var(--rule);stroke-width:1.5;}
+        .obadge{fill:var(--card);stroke:var(--defender);stroke-width:1.3;}
+        .oname{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:11px;text-anchor:middle;fill:var(--mid);}
+        .omono{font-family:var(--font-mono),monospace;font-size:8px;text-anchor:middle;fill:var(--body);}
+        .ocap{font-family:var(--font-body),sans-serif;font-size:9px;text-anchor:middle;fill:var(--body);}
+        .olink{stroke:var(--defender);stroke-width:2;}
+        .opkt{fill:var(--accent);}
+        @keyframes linkUp{0%,38%{opacity:1;}44%,96%{opacity:0;}100%{opacity:1;}}
+        @keyframes linkDown{0%,38%{opacity:0;}44%,96%{opacity:1;}100%{opacity:0;}}
+        @keyframes pDirect{0%{transform:translate(220px,96px);opacity:0;}4%{opacity:1;}36%{transform:translate(500px,96px);opacity:1;}40%{opacity:0;}100%{opacity:0;}}
+        @keyframes pReroute{0%,44%{transform:translate(200px,118px);opacity:0;}48%{opacity:1;}70%{transform:translate(360px,200px);opacity:1;}92%{transform:translate(540px,120px);opacity:1;}96%{opacity:0;}100%{opacity:0;}}
+        .l-up{animation:linkUp 8s ease-in-out infinite;}
+        .l-down{animation:linkDown 8s ease-in-out infinite;}
+        .p-direct{animation:pDirect 8s ease-in-out infinite;}
+        .p-reroute{animation:pReroute 8s ease-in-out infinite;}
+        @media (prefers-reduced-motion:reduce){
+          .l-up{animation:none;opacity:1;}
+          .l-down{animation:none;opacity:0;}
+          .p-direct{animation:none;transform:translate(360px,96px);opacity:1;}
+          .p-reroute{animation:none;opacity:0;}
+        }
+      </style>
+      <rect class="obadge" x="250" y="14" width="220" height="24" rx="12"/>
+      <text class="oname" x="360" y="30" style="fill:var(--defender);">one OSPF area 0 — two vendors</text>
+      <rect class="obox" x="60" y="70" width="160" height="52" rx="6"/>
+      <text class="oname" x="140" y="90">MT-1 (RB5009)</text>
+      <text class="omono" x="140" y="104">RID 1.1.1.1 · LAN 10.1.0.0/24</text>
+      <text class="ocap" x="140" y="116" style="fill:var(--accent);">originates default</text>
+      <rect class="obox" x="500" y="70" width="160" height="52" rx="6"/>
+      <text class="oname" x="580" y="90">MT-2 (hEX)</text>
+      <text class="omono" x="580" y="104">RID 2.2.2.2 · LAN 10.2.0.0/24</text>
+      <rect class="obox" x="280" y="180" width="160" height="52" rx="6" style="stroke:var(--defender);"/>
+      <text class="oname" x="360" y="200">CSC-1 (Cisco 2911)</text>
+      <text class="omono" x="360" y="214">RID 3.3.3.3 · LAN 10.3.0.0/24</text>
+      <!-- bottom two legs always up -->
+      <line class="olink" x1="170" y1="122" x2="310" y2="180"/>
+      <text class="omono" x="196" y="158">10.0.13.0/30</text>
+      <line class="olink" x1="550" y1="122" x2="410" y2="180"/>
+      <text class="omono" x="474" y="158">10.0.23.0/30</text>
+      <!-- top link: up vs down states -->
+      <g class="l-up">
+        <line class="olink" x1="220" y1="96" x2="500" y2="96"/>
+        <text class="omono" x="360" y="88">10.0.12.0/30</text>
+      </g>
+      <g class="l-down">
+        <line x1="220" y1="96" x2="500" y2="96" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4" opacity=".7"/>
+        <text class="omono" x="360" y="88" style="fill:var(--accent);">✕ link down — reroute via CSC-1</text>
+      </g>
+      <text class="ocap" x="360" y="250">A triangle: every LAN has two paths — kill the direct link and OSPF reroutes around it.</text>
+      <circle class="opkt p-direct" r="6"/>
+      <circle class="opkt p-reroute" r="6"/>
     </svg>
   </div>
 

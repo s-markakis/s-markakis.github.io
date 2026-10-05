@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: Logging &amp; Remote Syslog — S. Markakis</title>
+<meta name="description" content="RouterOS logging done right — the topics-and-actions model, shipping to a remote syslog server, logging firewall rules with prefixes, and the flash-wear and ring-buffer traps that lose logs when you least expect it.">
+<meta property="og:title" content="MikroTik: Logging &amp; Remote Syslog — S. Markakis">
+<meta property="og:description" content="RouterOS logging done right — the topics-and-actions model, shipping to a remote syslog server, logging firewall rules with prefixes, and the flash-wear and ring-buffer traps that lose logs when you least expect it.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-syslog.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-syslog.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-syslog.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-syslog.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"\203A";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Logging & Remote Syslog",
+  "description": "RouterOS logging done right — the topics-and-actions model, shipping to a remote syslog server, logging firewall rules with prefixes, and the flash-wear and ring-buffer traps that lose logs when you least expect it.",
+  "datePublished": "2026-10-05",
+  "dateModified": "2026-10-05",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-syslog.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-syslog.png",
+  "keywords": [
+    "mikrotik",
+    "monitoring"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-syslog"
+  },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Monitoring &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">MikroTik<br>Logging &amp; Syslog</h1>
+  <p class="post-subtitle">RouterOS logging is a little routing engine of its own: events are tagged with <strong>topics</strong>, and <strong>rules</strong> send matching topics to <strong>actions</strong> — the memory ring, disk, or a remote syslog server. Master that one model and you can log exactly what you want, where it survives. Miss it and you'll wonder why the log is empty after a reboot, or why your flash is dying. The Cisco twin is <a href="cisco-syslog.html">Cisco IOS: Syslog &amp; Logging</a>; for metrics see <a href="mikrotik-prometheus.html">MikroTik + Prometheus</a>.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">Syslog</span>
+    <span class="tag">Logging</span>
+    <span class="tag">Monitoring</span>
+    <span class="tag">RouterOS</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Three nouns run RouterOS logging. A <strong>topic</strong> is what the message is about — <code>firewall</code>, <code>dhcp</code>, <code>system</code>, <code>error</code>, <code>account</code>. An <strong>action</strong> is where a message goes — the built-in <code>memory</code> (a RAM ring buffer), <code>disk</code>, <code>echo</code> (console), or a <code>remote</code> syslog target you define. A <strong>rule</strong> (<code>/system logging</code>) ties a set of topics to one action.</p>
+    <p>The defaults log almost everything to <code>memory</code>, which vanishes on reboot and holds only a few hundred lines. For anything you need to keep — security events, an audit trail, the evidence after an incident — you add a <code>remote</code> action and route the topics you care about to it. That, plus not killing your flash, is the whole job.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>A syslog collector (rsyslog, syslog-ng, Graylog, a SIEM) reachable from the router</li>
+      <li><strong>Synced clock via NTP</strong> — RouterOS logs local time; wrong clock = wrong timeline</li>
+      <li>An input-chain <a href="mikrotik-firewall.html">firewall</a> if the collector is across an untrusted path</li>
+    </ul>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 212" role="img" aria-label="Animated RouterOS logging model: events tagged by topic are routed by rules to three actions — memory ring buffer, disk, and a remote syslog server">
+      <style>
+        .lbox{fill:var(--card);stroke:var(--rule);stroke-width:1.5;}
+        .lsrc{fill:var(--card);stroke:var(--accent);stroke-width:1.5;}
+        .llbl{fill:var(--mid);font-family:var(--font-disp),sans-serif;font-weight:700;font-size:13px;letter-spacing:.03em;}
+        .lsub{fill:var(--body);font-family:var(--font-mono),monospace;font-size:9.5px;}
+        .larr{stroke:var(--accent);stroke-width:2;fill:none;opacity:.4;}
+        .lcap{fill:var(--body);font-family:var(--font-body),sans-serif;font-size:9.5px;}
+        .ev{fill:var(--accent);}
+        .ev-rem{fill:var(--defender);}
+        @keyframes toMem{0%{transform:translate(188px,106px);opacity:0;}8%{opacity:1;}45%{transform:translate(360px,106px);opacity:1;}100%{transform:translate(560px,44px);opacity:1;}}
+        @keyframes toDisk{0%{transform:translate(188px,106px);opacity:0;}8%{opacity:1;}45%{transform:translate(360px,106px);opacity:1;}100%{transform:translate(560px,106px);opacity:1;}}
+        @keyframes toRemote{0%{transform:translate(188px,106px);opacity:0;}8%{opacity:1;}45%{transform:translate(360px,106px);opacity:1;}88%{transform:translate(560px,168px);opacity:1;}100%{transform:translate(700px,168px);opacity:0;}}
+        .e-mem{animation:toMem 3.6s ease-in-out infinite;}
+        .e-disk{animation:toDisk 3.6s ease-in-out infinite;animation-delay:1.2s;}
+        .e-rem{animation:toRemote 3.6s ease-in-out infinite;animation-delay:2.4s;}
+        @media (prefers-reduced-motion:reduce){
+          .e-mem{animation:none;transform:translate(470px,70px);opacity:1;}
+          .e-disk{animation:none;transform:translate(470px,106px);opacity:1;}
+          .e-rem{animation:none;transform:translate(470px,140px);opacity:1;}
+          .larr{opacity:.75;}
+        }
+      </style>
+      <defs><marker id="lah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+      <rect class="lsrc" x="20" y="74" width="168" height="64" rx="6"/>
+      <text class="llbl" x="104" y="100" text-anchor="middle">EVENTS → TOPICS</text>
+      <text class="lsub" x="104" y="118" text-anchor="middle">firewall · dhcp · error</text>
+      <rect class="lbox" x="300" y="80" width="120" height="52" rx="6"/>
+      <text class="llbl" x="360" y="102" text-anchor="middle">RULES</text>
+      <text class="lsub" x="360" y="118" text-anchor="middle">topics→action</text>
+      <rect class="lbox" x="556" y="22" width="150" height="44" rx="6"/>
+      <text class="llbl" x="631" y="42" text-anchor="middle">MEMORY</text>
+      <text class="lsub" x="631" y="57" text-anchor="middle">RAM ring · volatile</text>
+      <rect class="lbox" x="556" y="84" width="150" height="44" rx="6"/>
+      <text class="llbl" x="631" y="104" text-anchor="middle">DISK</text>
+      <text class="lsub" x="631" y="119" text-anchor="middle">persists · wears flash</text>
+      <rect class="lbox" x="556" y="146" width="150" height="44" rx="6"/>
+      <text class="llbl" x="631" y="166" text-anchor="middle">REMOTE</text>
+      <text class="lsub" x="631" y="181" text-anchor="middle">syslog :514</text>
+      <path class="larr" d="M190,106 L298,106" marker-end="url(#lah)"/>
+      <path class="larr" d="M422,96 L554,50" marker-end="url(#lah)"/>
+      <path class="larr" d="M422,106 L554,106" marker-end="url(#lah)"/>
+      <path class="larr" d="M422,116 L554,162" marker-end="url(#lah)"/>
+      <text class="lcap" x="760" y="172" text-anchor="end">→ collector</text>
+      <circle class="ev e-mem" r="5.5"/>
+      <circle class="ev e-disk" r="5.5"/>
+      <circle class="ev-rem e-rem" r="5.5"/>
+    </svg>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">The Topics → Actions Model</h2>
+  <p class="section-thesis"><em>Everything starts here. Look at what RouterOS already logs, then understand that each line is a topic set routed to an action by a rule.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — the default rules and the clock they depend on</span>
+    <pre class="term"><span class="cmt"># See the shipped rules: info/error/warning/critical → memory, etc.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging/print</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging/action/print</span>   <span class="cmt"># memory, disk, echo, remote</span>
+
+<span class="cmt"># Logs are stamped in local time — sync the clock or the timeline lies.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/clock/set time-zone-name=Europe/Athens</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/ntp/client/set enabled=yes servers=10.0.0.1</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Set NTP by IP, Not by Name</span>
+    <p>If your NTP server is configured as a hostname and your resolver is down (or you've just moved upstream DNS to <a href="mikrotik-dns.html">DoH</a>, which needs a valid clock), the clock never syncs and every log line carries the wrong time — or 1970. Point <code>/system/ntp/client</code> at an <strong>IP</strong>, or add a <code>/ip/dns/static</code> entry for the NTP host, so time sync doesn't depend on name resolution. Confirm with <code>/system/ntp/client/print</code> showing <code>status: synchronized</code>.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Ship to a Remote Syslog Server</h2>
+  <p class="section-thesis"><em>Define a remote action, then add rules routing the topics you want to keep. This is the one change that turns volatile RAM logs into a durable record.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — remote action + routing rules</span>
+    <pre class="term"><span class="cmt"># 1. Define WHERE: a remote syslog target, sourced from a stable IP.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging/action add name=remote target=remote \</span>
+<span class="pc"></span> <span class="out">    remote=10.0.0.5 remote-port=514 src-address=10.0.0.1 \</span>
+<span class="pc"></span> <span class="out">    bsd-syslog=yes syslog-facility=local0</span>
+
+<span class="cmt"># 2. Route WHAT: send the topics worth keeping to that action.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging add topics=info action=remote</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging add topics=error,warning,critical action=remote</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging add topics=account action=remote</span>   <span class="cmt"># logins / logouts</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Exclude a Noisy Sub-Topic with "!"</span>
+    <p>Topics combine, and a leading <code>!</code> excludes. <code>topics=firewall,!debug</code> means "firewall events, but not the debug-level ones." That's how you log all firewall drops to the collector without the per-packet debug flood. Keep the memory action for live troubleshooting (<code>/log/print follow</code>) and the remote action for the durable, filtered record — the same split as a Cisco local buffer plus a collector.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Make the Firewall Talk</h2>
+  <p class="section-thesis"><em>A drop rule is silent unless you ask it to log. Add <code>log=yes</code> with a prefix, and those events flow into the firewall topic — and on to your collector.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — log the rules that matter, with a searchable prefix</span>
+    <pre class="term"><span class="cmt"># Tag logged hits with a prefix so the collector can filter/alert on it.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/ip/firewall/filter add chain=input action=drop \</span>
+<span class="pc"></span> <span class="out">    in-interface-list=WAN log=yes log-prefix="WAN-DROP:"</span>
+
+<span class="cmt"># Route the firewall topic (minus debug noise) to the remote collector.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging add topics=firewall,!debug action=remote</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — log=yes on a Busy Rule Can Drown Everything</span>
+    <p>Put <code>log=yes</code> on a high-traffic accept rule (or a port-scanned WAN drop) and RouterOS generates a log line per packet — thousands a second under a scan. That floods the memory ring (evicting everything useful), hammers a <code>disk</code> action, and can saturate the syslog link. Log <em>decisions</em>, not traffic: drops and rejects, new connections (<code>connection-state=new</code>), and auth events — never an established-traffic accept. If you need volume accounting, that's a job for <a href="mikrotik-prometheus.html">metrics</a>, not syslog.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Flash Wear &amp; the Ring-Buffer Trap</h2>
+  <p class="section-thesis"><em>The two ways RouterOS logging quietly fails: the disk action wears out flash, and the memory action silently overwrites itself. Know which action persists and which doesn't.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Action</th><th>Behaviour &amp; caution</th></tr></thead>
+    <tbody>
+      <tr><td>memory</td><td>RAM ring, <code>lines=</code> cap; fast, <strong>lost on reboot</strong>, overwrites oldest silently</td></tr>
+      <tr><td>disk</td><td>Persists reboots, but <strong>writes wear NAND flash</strong> — don't point verbose topics here on a routerboard</td></tr>
+      <tr><td>remote</td><td>UDP/514 by default — fire-and-forget, <strong>no delivery guarantee</strong>, spoofable</td></tr>
+      <tr><td>echo</td><td>Console/terminal only; for live watching, not retention</td></tr>
+    </tbody>
+  </table>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — size the ring, keep flash alive</span>
+    <pre class="term"><span class="cmt"># Give memory a bigger ring for live troubleshooting.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging/action/set memory memory-lines=2000</span>
+
+<span class="cmt"># If you MUST log to disk, cap files and stop-on-full to limit writes.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging/action/set disk disk-lines-per-file=5000 \</span>
+<span class="pc"></span> <span class="out">    disk-file-count=4 disk-stop-on-full=no</span>
+<span class="cmt"># Better: keep retention off-box on the collector, disk only as a buffer.</span></pre>
+  </div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Verify <span class="safe-badge">Safe to Run</span></h2>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — confirm routing and delivery</span>
+    <pre class="term"><span class="pc">[admin@edge] &gt;</span> <span class="out">/system/logging/print</span>              <span class="cmt"># rules: topics→action</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/log/print where topics~"firewall"</span>   <span class="cmt"># filter live log</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/log/print follow where topics~"account"</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/ntp/client/print</span>            <span class="cmt"># status: synchronized</span>
+<span class="cmt"># On the collector: tcpdump udp port 514 — confirm lines actually arrive.</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Learn the model: topics → rule → action.</strong> Everything in RouterOS logging is routing a topic set to memory, disk, or remote.</li>
+      <li><strong>Defaults log to volatile memory</strong> — add a <code>remote</code> action and route the topics you need to keep, or they're gone at the next reboot.</li>
+      <li><strong>Sync NTP by IP</strong> (or a static DNS entry) so timestamps are real and don't depend on name resolution.</li>
+      <li><strong>Exclude noise with <code>!</code></strong> — <code>topics=firewall,!debug</code> — and log firewall <em>decisions</em>, never established traffic.</li>
+      <li><strong>Mind the flash</strong>: disk wears NAND, memory is a silent ring, remote UDP is best-effort. Keep real retention on the collector.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>RouterOS logs that outlive a reboot — and an attacker?</h3>
+    <p>Default MikroTik logging keeps a few hundred lines in RAM and loses them the moment it matters. I set up topic-routed remote logging across RouterOS fleets — firewall decisions, auth events, config changes, shipped to your collector and correlated with the rest of the network. Let's make yours durable.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
