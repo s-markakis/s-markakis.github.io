@@ -164,6 +164,68 @@
     </ul>
   </div>
 
+  <!-- Hero diagram: animated RSTP convergence + bonding (theme-aware) -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 210" role="img" aria-label="Left: RSTP blocks the redundant link until a link fails, then unblocks it to forwarding. Right: bonding aggregates links so all members forward at once.">
+      <style>
+        .tbox{fill:var(--card);stroke:var(--rule);stroke-width:1.4;}
+        .troot{fill:var(--card);stroke:var(--defender);stroke-width:1.5;}
+        .ttl{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:11px;text-anchor:middle;fill:var(--mid);letter-spacing:.03em;}
+        .tlbl{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10px;text-anchor:middle;fill:var(--mid);}
+        .tcap{font-family:var(--font-body),sans-serif;font-size:8.5px;text-anchor:middle;fill:var(--body);}
+        .tmono{font-family:var(--font-mono),monospace;font-size:9px;text-anchor:middle;fill:var(--accent);}
+        .tok{stroke:var(--defender);stroke-width:2;}
+        @keyframes stA{0%,44%{opacity:1;}52%,95%{opacity:0;}100%{opacity:1;}}
+        @keyframes stB{0%,44%{opacity:0;}52%,95%{opacity:1;}100%{opacity:0;}}
+        @keyframes ecRide{0%{offset-distance:0%;opacity:0;}15%{opacity:1;}85%{opacity:1;}100%{offset-distance:100%;opacity:0;}}
+        .g-norm{animation:stA 7s ease-in-out infinite;}
+        .g-fail{animation:stB 7s ease-in-out infinite;}
+        .ec1{offset-path:path('M520 96 L570 96');animation:ecRide 1.8s linear infinite;}
+        .ec2{offset-path:path('M520 105 L570 105');animation:ecRide 1.8s linear infinite;animation-delay:.6s;}
+        .ec3{offset-path:path('M520 114 L570 114');animation:ecRide 1.8s linear infinite;animation-delay:1.2s;}
+        @media (prefers-reduced-motion:reduce){
+          .g-norm{animation:none;opacity:1;}
+          .g-fail{animation:none;opacity:0;}
+          .ec1,.ec2,.ec3{animation:none;offset-distance:50%;opacity:1;}
+        }
+      </style>
+      <text class="ttl" x="185" y="28">RSTP — block the loop</text>
+      <rect class="troot" x="130" y="46" width="110" height="30" rx="4"/>
+      <text class="tlbl" x="185" y="65" style="fill:var(--defender);">CORE (root)</text>
+      <rect class="tbox" x="60" y="150" width="100" height="30" rx="4"/>
+      <text class="tlbl" x="110" y="169">SW-A</text>
+      <rect class="tbox" x="210" y="150" width="100" height="30" rx="4"/>
+      <text class="tlbl" x="260" y="169">SW-B</text>
+      <line class="tok" x1="150" y1="76" x2="115" y2="150"/>
+      <g class="g-norm">
+        <line class="tok" x1="220" y1="76" x2="255" y2="150"/>
+        <line x1="160" y1="165" x2="210" y2="165" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5,4"/>
+        <text class="tcap" x="185" y="198" style="fill:var(--accent);">✕ SW-A↔SW-B discarding — loop prevented</text>
+      </g>
+      <g class="g-fail">
+        <line x1="220" y1="76" x2="255" y2="150" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5,4" opacity=".7"/>
+        <line class="tok" x1="160" y1="165" x2="210" y2="165"/>
+        <text class="tcap" x="185" y="198" style="fill:var(--defender);">CORE↔SW-B down → discarding link → FORWARDING</text>
+      </g>
+      <line x1="368" y1="24" x2="368" y2="192" stroke="var(--rule)" stroke-width="1"/>
+      <text class="ttl" x="545" y="28">BONDING — aggregate, don't block</text>
+      <rect class="tbox" x="410" y="88" width="110" height="34" rx="4"/>
+      <text class="tlbl" x="465" y="109">RB-A</text>
+      <rect class="tbox" x="570" y="88" width="110" height="34" rx="4"/>
+      <text class="tlbl" x="625" y="109">RB-B</text>
+      <line class="tok" x1="520" y1="96" x2="570" y2="96"/>
+      <line class="tok" x1="520" y1="105" x2="570" y2="105"/>
+      <line class="tok" x1="520" y1="114" x2="570" y2="114"/>
+      <ellipse cx="545" cy="105" rx="17" ry="24" fill="none" stroke="var(--accent)" stroke-width="1.4"/>
+      <text class="tmono" x="545" y="150">bond1 (802.3ad)</text>
+      <text class="tcap" x="545" y="168">STP sees ONE logical link —</text>
+      <text class="tcap" x="545" y="180">all members forward, nothing blocks</text>
+      <circle class="ec1" r="4" fill="var(--accent)"/>
+      <circle class="ec2" r="4" fill="var(--accent)"/>
+      <circle class="ec3" r="4" fill="var(--accent)"/>
+    </svg>
+  </div>
+
   <p class="section-num">01</p>
   <h2 class="section-title">Spanning Tree — Pick RSTP, Then Set the Root</h2>
   <p class="section-thesis"><em>RouterOS bridges default to RSTP, which is what you want — fast convergence, backwards-compatible. The mistake is leaving root-bridge election to chance; you should decide which switch is root, not let MAC addresses decide.</em></p>

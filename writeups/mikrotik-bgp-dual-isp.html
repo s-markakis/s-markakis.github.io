@@ -166,6 +166,53 @@
     </ul>
   </div>
 
+  <!-- Hero diagram: animated BGP dual-ISP failover (theme-aware) -->
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 200" role="img" aria-label="Animated BGP dual-ISP failover: outbound traffic takes ISP-A by local-preference; when the ISP-A session drops its routes are withdrawn and traffic reroutes via ISP-B">
+      <style>
+        .fbox{fill:var(--card);stroke:var(--rule);stroke-width:1.5;}
+        .fname{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:11px;text-anchor:middle;fill:var(--mid);}
+        .fmono{font-family:var(--font-mono),monospace;font-size:9px;text-anchor:middle;}
+        .fcap{font-family:var(--font-body),sans-serif;font-size:9px;text-anchor:middle;fill:var(--body);}
+        .fnet{fill:var(--card);stroke:var(--defender);stroke-width:1.5;}
+        .pkt{fill:var(--accent);}
+        @keyframes ridePri{0%{offset-path:path('M110 96 L500 66');offset-distance:0%;opacity:0;}5%{opacity:1;}40%{offset-distance:100%;opacity:1;}44%{opacity:0;}100%{opacity:0;}}
+        @keyframes rideBak{0%,50%{offset-path:path('M110 108 L500 140');offset-distance:0%;opacity:0;}55%{opacity:1;}92%{offset-distance:100%;opacity:1;}96%{opacity:0;}100%{opacity:0;}}
+        @keyframes priUp{0%,42%{opacity:1;}48%,96%{opacity:0;}100%{opacity:1;}}
+        @keyframes priDown{0%,42%{opacity:0;}48%,96%{opacity:1;}100%{opacity:0;}}
+        .p-pkt{offset-path:path('M110 96 L500 66');animation:ridePri 8s ease-in-out infinite;}
+        .b-pkt{offset-path:path('M110 108 L500 140');animation:rideBak 8s ease-in-out infinite;}
+        .g-up{animation:priUp 8s ease-in-out infinite;}
+        .g-down{animation:priDown 8s ease-in-out infinite;}
+        @media (prefers-reduced-motion:reduce){
+          .p-pkt{animation:none;offset-distance:55%;opacity:1;}
+          .b-pkt{animation:none;opacity:0;}
+          .g-up{animation:none;opacity:1;}
+          .g-down{animation:none;opacity:0;}
+        }
+      </style>
+      <rect class="fbox" x="40" y="80" width="130" height="46" rx="6"/>
+      <text class="fname" x="105" y="100">RB · AS 65001</text>
+      <text class="fcap" x="105" y="116" style="fill:var(--accent);">eBGP ×2</text>
+      <ellipse class="fnet" cx="560" cy="100" rx="66" ry="42"/>
+      <text class="fname" x="560" y="96" style="fill:var(--defender);">Internet</text>
+      <text class="fmono" x="560" y="112" style="fill:var(--defender);">default + full</text>
+      <line x1="170" y1="112" x2="494" y2="140" stroke="var(--gotcha)" stroke-width="1.6" stroke-dasharray="6,4"/>
+      <text class="fcap" x="320" y="164" style="fill:var(--gotcha);">ISP-B — local-pref 100 (backup)</text>
+      <g class="g-up">
+        <line x1="170" y1="94" x2="500" y2="66" stroke="var(--defender)" stroke-width="2.4"/>
+        <text class="fcap" x="326" y="50" style="fill:var(--defender);font-weight:700;">ISP-A — local-pref 200 · session UP</text>
+      </g>
+      <g class="g-down">
+        <line x1="170" y1="94" x2="500" y2="66" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4" opacity=".7"/>
+        <text class="fcap" x="326" y="50" style="fill:var(--accent);font-weight:700;">✕ ISP-A session down · routes withdrawn</text>
+      </g>
+      <text class="fcap" x="360" y="192">Local-pref makes ISP-A the exit. Session drops → its prefixes withdrawn → the ISP-B path installs automatically.</text>
+      <circle class="pkt p-pkt" r="5"/>
+      <circle class="pkt b-pkt" r="5"/>
+    </svg>
+  </div>
+
   <p class="section-num">01</p>
   <h2 class="section-title">Two eBGP Connections, Filtered</h2>
   <p class="section-thesis"><em>One <code>/routing bgp connection</code> per ISP, our aggregate advertised via a network entry, and an output filter chain that permits only our own prefix — the same anti-transit rule as Cisco, expressed as a filter chain.</em></p>

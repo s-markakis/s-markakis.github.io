@@ -159,25 +159,50 @@
 
   <!-- Hero diagram: probe-driven failover -->
   <div class="diagram-wrap" style="margin-bottom:2rem;">
-    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <marker id="fp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L0,6L7,3z" fill="#c63d1f"/></marker>
-      </defs>
-      <rect width="720" height="200" fill="#e1ded7"/>
-      <rect x="40" y="80" width="130" height="46" rx="6" fill="#d4d2cc" stroke="#c8c5be"/>
-      <text x="105" y="100" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#1a1a18;text-anchor:middle;">R1 edge</text>
-      <text x="105" y="116" style="font-family:'Inter',sans-serif;font-size:8px;fill:#c63d1f;text-anchor:middle;">IP SLA ping 8.8.8.8</text>
-      <!-- primary path -->
-      <line x1="170" y1="94" x2="470" y2="60" style="stroke:#558840;stroke-width:2.4;marker-end:url(#fp)"/>
-      <text x="320" y="52" style="font-family:'Inter',sans-serif;font-size:9.5px;fill:#3a6a28;text-anchor:middle;font-weight:700;">FIBRE — primary (track UP)</text>
-      <!-- backup path -->
-      <line x1="170" y1="112" x2="470" y2="146" style="stroke:#c08020;stroke-width:1.6;stroke-dasharray:6,4;marker-end:url(#fp)"/>
-      <text x="320" y="164" style="font-family:'Inter',sans-serif;font-size:9.5px;fill:#8a5a10;text-anchor:middle;">STARLINK / LTE — floating backup</text>
-      <!-- internet -->
-      <ellipse cx="560" cy="100" rx="66" ry="42" fill="#cfe0ee" stroke="#3a5a78"/>
-      <text x="560" y="96" style="font-family:'Inter',sans-serif;font-weight:700;font-size:11px;fill:#3a5a78;text-anchor:middle;">Internet</text>
-      <text x="560" y="112" style="font-family:ui-monospace,monospace;font-size:9px;fill:#3a5a78;text-anchor:middle;">8.8.8.8</text>
-      <text x="360" y="192" style="font-family:'Inter',sans-serif;font-size:9px;fill:#888880;text-anchor:middle;">Probe stops replying → track goes DOWN → primary route withdrawn → backup installs. Not "is the cable in."</text>
+    <svg viewBox="0 0 720 200" role="img" aria-label="Animated WAN failover: traffic uses the fibre while the IP SLA probe is up; when the probe fails the primary route is withdrawn and traffic reroutes over the Starlink/LTE backup">
+      <style>
+        .fbox{fill:var(--card);stroke:var(--rule);stroke-width:1.5;}
+        .fname{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:11px;text-anchor:middle;fill:var(--mid);}
+        .fmono{font-family:var(--font-mono),monospace;font-size:9px;text-anchor:middle;}
+        .fcap{font-family:var(--font-body),sans-serif;font-size:9px;text-anchor:middle;fill:var(--body);}
+        .fnet{fill:var(--card);stroke:var(--defender);stroke-width:1.5;}
+        .pkt{fill:var(--accent);}
+        @keyframes ridePri{0%{offset-path:path('M110 96 L500 66');offset-distance:0%;opacity:0;}5%{opacity:1;}40%{offset-distance:100%;opacity:1;}44%{opacity:0;}100%{opacity:0;}}
+        @keyframes rideBak{0%,50%{offset-path:path('M110 108 L500 140');offset-distance:0%;opacity:0;}55%{opacity:1;}92%{offset-distance:100%;opacity:1;}96%{opacity:0;}100%{opacity:0;}}
+        @keyframes priUp{0%,42%{opacity:1;}48%,96%{opacity:0;}100%{opacity:1;}}
+        @keyframes priDown{0%,42%{opacity:0;}48%,96%{opacity:1;}100%{opacity:0;}}
+        .p-pkt{offset-path:path('M110 96 L500 66');animation:ridePri 8s ease-in-out infinite;}
+        .b-pkt{offset-path:path('M110 108 L500 140');animation:rideBak 8s ease-in-out infinite;}
+        .g-up{animation:priUp 8s ease-in-out infinite;}
+        .g-down{animation:priDown 8s ease-in-out infinite;}
+        @media (prefers-reduced-motion:reduce){
+          .p-pkt{animation:none;offset-distance:55%;opacity:1;}
+          .b-pkt{animation:none;opacity:0;}
+          .g-up{animation:none;opacity:1;}
+          .g-down{animation:none;opacity:0;}
+        }
+      </style>
+      <rect class="fbox" x="40" y="80" width="130" height="46" rx="6"/>
+      <text class="fname" x="105" y="100">R1 edge</text>
+      <text class="fcap" x="105" y="116" style="fill:var(--accent);">IP SLA ping 8.8.8.8</text>
+      <ellipse class="fnet" cx="560" cy="100" rx="66" ry="42"/>
+      <text class="fname" x="560" y="96" style="fill:var(--defender);">Internet</text>
+      <text class="fmono" x="560" y="112" style="fill:var(--defender);">8.8.8.8</text>
+      <!-- backup path (always drawn, dashed) -->
+      <line x1="170" y1="112" x2="494" y2="140" stroke="var(--gotcha)" stroke-width="1.6" stroke-dasharray="6,4"/>
+      <text class="fcap" x="320" y="164" style="fill:var(--gotcha);">STARLINK / LTE — floating backup</text>
+      <!-- primary link up vs down -->
+      <g class="g-up">
+        <line x1="170" y1="94" x2="500" y2="66" stroke="var(--defender)" stroke-width="2.4"/>
+        <text class="fcap" x="326" y="50" style="fill:var(--defender);font-weight:700;">FIBRE — primary · track UP</text>
+      </g>
+      <g class="g-down">
+        <line x1="170" y1="94" x2="500" y2="66" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,4" opacity=".7"/>
+        <text class="fcap" x="326" y="50" style="fill:var(--accent);font-weight:700;">✕ FIBRE down · track DOWN</text>
+      </g>
+      <text class="fcap" x="360" y="192">Probe stops replying → track goes DOWN → primary route withdrawn → backup installs. Not "is the cable in."</text>
+      <circle class="pkt p-pkt" r="5"/>
+      <circle class="pkt b-pkt" r="5"/>
     </svg>
   </div>
 
