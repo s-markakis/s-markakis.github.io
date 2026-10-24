@@ -725,7 +725,7 @@
 
   <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">STAGE-SW — C9300-24UX · ports, SVIs, routed uplink</span><span class="cfg-meta">45 lines · this step's additions · click to expand</span></summary><pre class="term">hostname STAGE-SW
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">STAGE-SW — C9300-24UX · ports, SVIs, routed uplink</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname STAGE-SW
 ip routing
 vlan 10
  name STAGE-PLAYERS
@@ -771,7 +771,31 @@ interface Vlan15
  ip address 10.90.15.1 255.255.255.0
 interface Vlan20
  ip address 10.90.20.1 255.255.255.0
-ip route 0.0.0.0 0.0.0.0 10.90.255.1</pre></details>
+ip route 0.0.0.0 0.0.0.0 10.90.255.1</pre><pre class="term vt-pane" data-v="mikrotik" hidden># STAGE-SW — CRS317-1G-16S+ as the pod's L3 switch: players, servers, referee
+/system identity set name=STAGE-SW
+/interface bridge add name=bridge vlan-filtering=yes
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 pvid=10 comment="TEAM A seats 1-5 (sfp1-5)"
+add bridge=bridge interface=sfp-sfpplus6 pvid=10 comment="TEAM B seats 1-5 (sfp6-10)"
+add bridge=bridge interface=sfp-sfpplus11 pvid=15 comment="match servers (main, spare)"
+add bridge=bridge interface=sfp-sfpplus13 pvid=20 comment="referee + capture-box mgmt"
+/interface bridge vlan add bridge=bridge vlan-ids=10,15,20 tagged=bridge
+# each player seat: exactly one MAC, pinned (= Cisco sticky port-security max 1)
+/interface bridge port set [find interface=sfp-sfpplus1] learn=no
+/interface bridge host add bridge=bridge interface=sfp-sfpplus1 \
+    mac-address=00:11:22:00:10:01
+# … one per seat
+/interface vlan
+add name=v10-players interface=bridge vlan-id=10
+add name=v15-servers interface=bridge vlan-id=15
+add name=v20-ops interface=bridge vlan-id=20
+/ip address
+add address=10.90.10.1/24 interface=v10-players
+add address=10.90.15.1/24 interface=v15-servers
+add address=10.90.20.1/24 interface=v20-ops
+# the pod's only door: a routed /30 to CORE (a pure L3 port, not in the bridge)
+/ip address add address=10.90.255.2/30 interface=sfp-sfpplus16
+/ip route add gateway=10.90.255.1</pre></div>
 
   <div class="callout gotcha">
     <span class="callout-label">"Same path" means more than same switch</span>
@@ -790,7 +814,7 @@ ip route 0.0.0.0 0.0.0.0 10.90.255.1</pre></details>
 
   <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <div class="term-wrap"><span class="term-label">BOOTCAMP-SW — C9300-48P</span><pre class="term">hostname BOOTCAMP-SW
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">BOOTCAMP-SW — C9300-48P</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname BOOTCAMP-SW
 vlan 11
  name BOOTCAMP
 interface range GigabitEthernet1/0/1 - 42
@@ -802,7 +826,19 @@ interface range GigabitEthernet1/0/1 - 42
 interface TenGigabitEthernet1/1/1
  description CORE
  switchport mode trunk
- switchport trunk allowed vlan 11,99</pre></div>
+ switchport trunk allowed vlan 11,99</pre><pre class="term vt-pane" data-v="mikrotik" hidden># BOOTCAMP-SW — CRS328-24P-4S+ (stacked): 42 practice PCs + servers on VLAN 11
+/system identity set name=BOOTCAMP-SW
+/interface bridge add name=bridge vlan-filtering=yes
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="CORE"
+add bridge=bridge interface=ether1 pvid=11 comment="bootcamp PCs + practice servers \
+    (ether1-42)"
+/interface bridge vlan
+add bridge=bridge vlan-ids=11,99 tagged=sfp-sfpplus1
+add bridge=bridge vlan-ids=99 tagged=bridge
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.90.99.14/24 interface=v99-mgmt
+/ip route add gateway=10.90.99.1</pre></div>
 
   <p>The bootcamp is deliberately ordinary: teams warm up, play online scrims against each other, and download patches. It gets the platform and the internet, but no path to the stage or to production. Keeping it on a separate switch means a team's patch download or a broken practice PC can't touch the stage switch's forwarding at all.</p>
 
@@ -836,10 +872,13 @@ interface Port-channel3
  switchport mode trunk
  switchport trunk allowed vlan 30,99</pre><pre class="term vt-pane" data-v="mikrotik" hidden># PROD-SW — CRS326-24S+2Q+: IGMP snooping and a querier on the bridge
 <span class="cmt"># enforcement OFF now, ON at the end (lock-out safety)</span>
-/interface bridge add name=bridge vlan-filtering=no igmp-snooping=yes multicast-querier=yes
-:for i from=1 to=14 do=&#123; /interface bridge port add bridge=bridge interface=(&quot;sfp-sfpplus&quot; . $i) pvid=30 &#125;
+/interface bridge add name=bridge vlan-filtering=no igmp-snooping=yes \
+    multicast-querier=yes
+:for i from=1 to=14 do=&#123; /interface bridge port add bridge=bridge \
+    interface=(&quot;sfp-sfpplus&quot; . $i) pvid=30 &#125;
 /interface bonding add name=bond-core slaves=sfp-sfpplus23,sfp-sfpplus24 mode=802.3ad
-/interface bridge port add bridge=bridge interface=bond-core frame-types=admit-only-vlan-tagged
+/interface bridge port add bridge=bridge interface=bond-core \
+    frame-types=admit-only-vlan-tagged
 /interface bridge vlan add bridge=bridge vlan-ids=30,99 tagged=bond-core
 /interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span></pre></div>
 
@@ -861,7 +900,7 @@ interface Port-channel3
 
   <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">FOH-SW — C9200L-24P</span><span class="cfg-meta">17 lines · this step's additions · click to expand</span></summary><pre class="term">hostname FOH-SW
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">FOH-SW — C9200L-24P</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname FOH-SW
 interface range GigabitEthernet1/0/1 - 8
  description ARENA APs (FlexConnect local switching)
  switchport mode trunk
@@ -878,7 +917,20 @@ interface range GigabitEthernet1/0/9 - 16
 interface TenGigabitEthernet1/1/1
  description CORE
  switchport mode trunk
- switchport trunk allowed vlan 40,50,99</pre></details>
+ switchport trunk allowed vlan 40,50,99</pre><pre class="term vt-pane" data-v="mikrotik" hidden># FOH-SW — CRS328-24P-4S+: arena AP trunks + press desks
+/system identity set name=FOH-SW
+/interface bridge add name=bridge vlan-filtering=yes
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="CORE"
+add bridge=bridge interface=ether1 pvid=99 comment="arena AP, local switching (ether1-8)"
+add bridge=bridge interface=ether9 pvid=40 comment="press desk (ether9-16)"
+/interface bridge vlan
+add bridge=bridge vlan-ids=40,50,99 \
+    tagged=sfp-sfpplus1,ether1,ether2,ether3,ether4,ether5,ether6,ether7,ether8
+add bridge=bridge vlan-ids=99 tagged=bridge
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.90.99.13/24 interface=v99-mgmt
+/ip route add gateway=10.90.99.1</pre></div>
 
   <p>The APs are mounted around the seating bowl and concourse, pointing at the crowd, with 20 MHz channels and a per-client rate limit of 1 Mb/s on the public SSID (set on the wireless controller). No AP is mounted on or near the stage: players use wired peripherals only (a common tournament rule, because the 2.4 GHz band in a full arena is unusable), and keeping APs away from the stage avoids anyone suggesting that the Wi-Fi had anything to do with a player's game.</p>
 
@@ -894,7 +946,7 @@ interface TenGigabitEthernet1/1/1
 
   <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">CORE — C9300-48T · links, SVIs, routes</span><span class="cfg-meta">41 lines · this step's additions · click to expand</span></summary><pre class="term">hostname CORE
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE — C9300-48T · links, SVIs, routes</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname CORE
 ip routing
 interface TenGigabitEthernet1/1/2
  description STAGE-SW (routed)
@@ -934,7 +986,44 @@ interface Vlan900
 ip route 10.90.10.0 255.255.255.0 10.90.255.2
 ip route 10.90.15.0 255.255.255.0 10.90.255.2
 ip route 10.90.20.0 255.255.255.0 10.90.255.2
-ip route 0.0.0.0 0.0.0.0 10.90.254.1</pre></details>
+ip route 0.0.0.0 0.0.0.0 10.90.254.1</pre><pre class="term vt-pane" data-v="mikrotik" hidden># CORE — CCR2116 as the L3 core: trunks, a routed link to the pod, SVIs, routes
+/system identity set name=CORE
+/interface bridge add name=bridge vlan-filtering=yes
+/interface bonding add name=bond-prod slaves=sfp-sfpplus4,sfp-sfpplus5 mode=802.3ad \
+    comment="PROD-SW"
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus3 frame-types=admit-only-vlan-tagged \
+    comment="BOOTCAMP-SW"
+add bridge=bridge interface=bond-prod frame-types=admit-only-vlan-tagged comment="PROD-SW"
+add bridge=bridge interface=sfp-sfpplus6 frame-types=admit-only-vlan-tagged \
+    comment="FOH-SW"
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="EDGE \
+    (50,900)"
+/interface bridge vlan
+add bridge=bridge vlan-ids=11,99 tagged=bridge,sfp-sfpplus3
+add bridge=bridge vlan-ids=30,99 tagged=bridge,bond-prod
+add bridge=bridge vlan-ids=40,50,99 tagged=bridge,sfp-sfpplus6
+add bridge=bridge vlan-ids=50,900 tagged=sfp-sfpplus1
+add bridge=bridge vlan-ids=900 tagged=bridge
+/interface vlan
+add name=v11-bootcamp interface=bridge vlan-id=11
+add name=v30-prod interface=bridge vlan-id=30
+add name=v40-press interface=bridge vlan-id=40
+add name=v99-mgmt interface=bridge vlan-id=99
+add name=v900-transit interface=bridge vlan-id=900
+/ip address
+add address=10.90.11.1/24 interface=v11-bootcamp
+add address=10.90.30.1/24 interface=v30-prod
+add address=10.90.40.1/24 interface=v40-press
+add address=10.90.99.1/24 interface=v99-mgmt
+add address=10.90.254.2/29 interface=v900-transit
+# the routed /30 to the stage pod (a pure L3 port)
+/ip address add address=10.90.255.1/30 interface=sfp-sfpplus2
+# the pod subnets are reached via STAGE-SW; the default goes to EDGE
+/ip route add dst-address=10.90.10.0/24 gateway=10.90.255.2
+/ip route add dst-address=10.90.15.0/24 gateway=10.90.255.2
+/ip route add dst-address=10.90.20.0/24 gateway=10.90.255.2
+/ip route add dst-address=0.0.0.0/0 gateway=10.90.254.1</pre></div>
 
   <p>Static routes are enough for a network with one door per zone and no redundant paths, and they're one less thing to go wrong on match day. The public VLAN passes through the core at Layer 2 to the edge, the same pattern as the <a href="build-law-firm.html">law firm</a> and the <a href="build-supermarket.html">supermarket</a>.</p>
 
@@ -1041,11 +1130,16 @@ interface TenGigabitEthernet1/1/1
 /ip firewall filter
 add chain=forward action=accept connection-state=established,related,untracked
 add chain=forward action=drop connection-state=invalid
-add chain=forward action=accept in-interface=v10-players out-interface=v15-servers protocol=udp dst-port=27015-27020
-add chain=forward action=accept in-interface=v10-players dst-address=10.90.20.53 protocol=udp dst-port=53
-add chain=forward action=drop in-interface=v10-players protocol=udp dst-port=53,853 log=yes log-prefix=DNS-BYPASS
-add chain=forward action=accept in-interface=v10-players out-interface=uplink protocol=tcp dst-port=443
-add chain=forward action=accept in-interface=uplink src-address=10.90.30.0/24 out-interface=v15-servers \
+add chain=forward action=accept in-interface=v10-players out-interface=v15-servers \
+    protocol=udp dst-port=27015-27020
+add chain=forward action=accept in-interface=v10-players dst-address=10.90.20.53 \
+    protocol=udp dst-port=53
+add chain=forward action=drop in-interface=v10-players protocol=udp dst-port=53,853 \
+    log=yes log-prefix=DNS-BYPASS
+add chain=forward action=accept in-interface=v10-players out-interface=uplink protocol=tcp \
+    dst-port=443
+add chain=forward action=accept in-interface=uplink src-address=10.90.30.0/24 \
+    out-interface=v15-servers \
     protocol=udp dst-port=27020 comment=&quot;observers: delayed spectator feed only&quot;
 add chain=forward action=accept in-interface=v20-ops
 add chain=forward action=drop log=yes log-prefix=POD-DROP</pre></div>
@@ -1071,9 +1165,12 @@ add chain=forward action=drop log=yes log-prefix=POD-DROP</pre></div>
 
   <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">STAGE-SW — SPAN all player and server ports to the capture box</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">monitor session 1 source interface TenGigabitEthernet1/0/1 - 12 both
 monitor session 1 destination interface TenGigabitEthernet1/0/24</pre><pre class="term vt-pane" data-v="mikrotik" hidden># CRS3xx port mirroring: every player and server port copied to the capture box on ether24
-/interface ethernet switch port set ether1,ether2,ether3,ether4,ether5,ether6,ether7,ether8,ether9,ether10,ether11,ether12 \
+/interface ethernet switch port set \
+    ether1,ether2,ether3,ether4,ether5,ether6,ether7,ether8,ether9,ether10,ether11,ether12 \
+    \
     mirror-ingress=yes mirror-egress=yes
-/interface ethernet switch set switch1 mirror-ingress-target=ether24 mirror-egress-target=ether24
+/interface ethernet switch set switch1 mirror-ingress-target=ether24 \
+    mirror-egress-target=ether24
 # property names have changed across RouterOS 7 releases: check /interface ethernet switch print</pre></div>
 
   <div class="term-wrap"><span class="term-label">Capture box — 10-minute files, 48 hours kept</span><pre class="term">dumpcap -i cap0 -b duration:600 -b files:288 -w /data/stage.pcapng</pre></div>
@@ -1138,7 +1235,7 @@ monitor session 1 destination interface TenGigabitEthernet1/0/24</pre><pre class
     </svg>
   </div>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">EDGE — C8300-1N1S-6T · zones, NAT per WAN, tracked default</span><span class="cfg-meta">54 lines · this step's additions · click to expand</span></summary><pre class="term">interface GigabitEthernet0/0/2.900
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">EDGE — C8300-1N1S-6T · zones, NAT per WAN, tracked default</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface GigabitEthernet0/0/2.900
  encapsulation dot1Q 900
  ip address 10.90.254.1 255.255.255.248
  ip nat inside
@@ -1191,7 +1288,30 @@ route-map NAT-A permit 10
 route-map NAT-B permit 10
  match interface GigabitEthernet0/0/1
 ip nat inside source route-map NAT-A interface GigabitEthernet0/0/0 overload
-ip nat inside source route-map NAT-B interface GigabitEthernet0/0/1 overload</pre></details>
+ip nat inside source route-map NAT-B interface GigabitEthernet0/0/1 overload</pre><pre class="term vt-pane" data-v="mikrotik" hidden># EDGE — RB5009: two ISPs, per-ISP NAT, tracked default, encoder-1 pinned to ISP B
+/interface vlan add name=v900 interface=ether3 vlan-id=900
+/interface vlan add name=v50-public interface=ether3 vlan-id=50
+/ip address add address=10.90.254.1/29 interface=v900
+/ip address add address=10.90.48.1/21 interface=v50-public
+/ip address add address=203.0.113.10/29 interface=ether1 comment="ISP A"
+/ip address add address=198.51.100.10/29 interface=ether2 comment="ISP B"
+# a probe pinned to each ISP; default via A, B as the backup (check-gateway)
+/ip route add dst-address=1.1.1.1/32 gateway=203.0.113.9 scope=10
+/ip route add dst-address=9.9.9.9/32 gateway=198.51.100.9 scope=10
+/ip route add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping \
+    distance=1 comment="main: ISP A"
+/ip route add dst-address=0.0.0.0/0 gateway=9.9.9.9 target-scope=11 check-gateway=ping \
+    distance=2 comment="backup: ISP B"
+/ip route add dst-address=10.90.0.0/16 gateway=10.90.254.2
+# encoder 1 always leaves via ISP B while it is healthy (PBR via a routing mark)
+/ip firewall mangle add chain=prerouting src-address=10.90.30.21 action=mark-routing \
+    new-routing-mark=via-B passthrough=no
+/ip route add dst-address=0.0.0.0/0 gateway=198.51.100.9 routing-mark=via-B \
+    check-gateway=ping
+# per-ISP source NAT
+/ip firewall nat
+add chain=srcnat out-interface=ether1 action=masquerade
+add chain=srcnat out-interface=ether2 action=masquerade</pre></div>
 
   <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">EDGE — who may use which ISP (zone pairs)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">zone security INSIDE
 zone security PUBLIC
@@ -1220,8 +1340,10 @@ add dst-address=0.0.0.0/0 gateway=203.0.113.9 distance=1 routing-table=isp-a-onl
 add dst-address=0.0.0.0/0 gateway=198.51.100.9 distance=1 routing-table=isp-b
 /routing rule
 add dst-address=10.90.0.0/16 action=lookup-only-in-table table=main
-add src-address=10.90.30.21/32 action=lookup table=isp-b comment=&quot;encoder 1 on ISP B&quot;
-add src-address=10.90.48.0/21 action=lookup-only-in-table table=isp-a-only comment=&quot;public: ISP A or nothing&quot;</pre></div>
+add src-address=10.90.30.21/32 action=lookup table=isp-b comment=&quot;encoder 1 on ISP \
+    B&quot;
+add src-address=10.90.48.0/21 action=lookup-only-in-table table=isp-a-only \
+    comment=&quot;public: ISP A or nothing&quot;</pre></div>
 
   <p>Putting each ISP in its own zone gives the "who may use the backup" rule for free, the same idea as the <a href="build-supermarket.html">supermarket</a>'s tunnel-only LTE zone. A self-zone policy for the probes isn't needed here, because nothing on the WAN needs to reach the edge itself. If you add one later, remember the echo-reply line from the <a href="build-law-firm.html">law firm</a>. The route-map NAT per interface is the law firm's dual-WAN NAT lesson again.</p>
 
@@ -1324,12 +1446,15 @@ add list=CRIT address=10.90.15.0/24
 add list=CRIT address=10.90.20.0/24
 add list=CRIT address=10.90.30.22
 /ip firewall mangle
-add chain=forward action=mark-packet new-packet-mark=crit out-interface=ether1 src-address-list=CRIT passthrough=no
-add chain=forward action=mark-packet new-packet-mark=rest out-interface=ether1 passthrough=no
+add chain=forward action=mark-packet new-packet-mark=crit out-interface=ether1 \
+    src-address-list=CRIT passthrough=no
+add chain=forward action=mark-packet new-packet-mark=rest out-interface=ether1 \
+    passthrough=no
 /queue type add name=fq kind=fq-codel
 /queue tree
 add name=ISP-A parent=ether1 max-limit=475M
-add name=crit parent=ISP-A packet-mark=crit priority=1 limit-at=285M max-limit=475M queue=fq
+add name=crit parent=ISP-A packet-mark=crit priority=1 limit-at=285M max-limit=475M \
+    queue=fq
 add name=rest parent=ISP-A packet-mark=rest priority=8 max-limit=475M queue=fq</pre></div>
 
   <div class="callout gotcha">
