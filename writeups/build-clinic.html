@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Medical Clinic Network — S. Markakis</title>
+<meta name="description" content="An outpatient clinic on MikroTik, built bottom-up in 11 tested steps: unpatchable medical devices fenced into their own VLAN, a local PACS so imaging never waits on the internet, per-device Wi-Fi keys, a 5G backup for reception and the EHR, voice-first queuing and scheduled vendor support windows.">
+<meta property="og:title" content="Build: The Medical Clinic Network — S. Markakis">
+<meta property="og:description" content="An outpatient clinic on MikroTik, built bottom-up in 11 tested steps: unpatchable medical devices fenced into their own VLAN, a local PACS so imaging never waits on the internet, per-device Wi-Fi keys, a 5G backup for reception and the EHR, voice-first queuing and scheduled vendor support windows.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-clinic.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-clinic.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-clinic.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-clinic.html">
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#3a7ca5;--v20:#4f8f4c;--v30:#b0453a;--v35:#8a5bb5;--v40:#c08020;--v45:#6f7f8f;--v50:#d9822b;--v60:#a14a4a;--v99:#2f8f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Medical Clinic Network",
+  "description": "An outpatient clinic on MikroTik, built bottom-up in 11 tested steps: medical devices that can't be patched fenced into their own VLAN, a local PACS so imaging never waits on the internet, per-device Wi-Fi keys for doctors' tablets, a 5G backup that keeps reception and the EHR online, voice-first queuing, and vendor support windows that open on a schedule — with Packet Tracer-style diagrams for every step.",
+  "datePublished": "2026-10-24",
+  "dateModified": "2026-10-24",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-clinic.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-clinic.png",
+  "keywords": [
+    "mikrotik",
+    "labs",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-clinic"
+  },
+  "timeRequired": "PT36M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; MikroTik RouterOS 7 &nbsp;·&nbsp; Real-World Network &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Build: The<br>Medical Clinic Network</h1>
+  <p class="post-subtitle">Six consulting rooms, an X-ray room, ultrasound, a small lab, a busy reception and a waiting room full of patients with phones. The clinic holds the most sensitive personal data there is, runs medical devices that can't be patched on your schedule, and can't stop seeing patients because the fibre is down. We build it on MikroTik from the rooms up in 11 tested steps.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">RouterOS 7</span>
+    <span class="tag">Healthcare</span>
+    <span class="tag">Medical Devices</span>
+    <span class="tag">PACS / DICOM</span>
+    <span class="tag">GDPR</span>
+    <span class="tag">5G Failover</span>
+    <span class="tag">WireGuard</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 530" role="img" aria-label="Interactive topology of the medical clinic network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="240" y1="310" x2="112" y2="455" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="226.8" cy="325.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="125.2" cy="440.0" r="2.4"/>
+<text class="lft-port lft-c" x="163.2" y="400.0">ether1-6</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="240" y1="310" x2="192" y2="455" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="233.7" cy="329.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="198.3" cy="436.0" r="2.4"/>
+<text class="lft-port lft-c" x="210.2" y="413.9">ether7-9</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="240" y1="310" x2="262" y2="455" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="243.0" cy="329.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="259.0" cy="435.2" r="2.4"/>
+<text class="lft-port lft-c" x="253.6" y="402.9">ether10-12</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="240" y1="310" x2="328" y2="455" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="250.4" cy="327.1" r="2.4"/>
+<circle class="lft-led bx-led" cx="317.6" cy="437.9" r="2.4"/>
+<text class="lft-port lft-c" x="294.6" y="413.9">ether13-18</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="540" y1="310" x2="450" y2="455" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="529.5" cy="327.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="460.5" cy="438.0" r="2.4"/>
+<text class="lft-port lft-c" x="486.0" y="400.0">ether1-2</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="540" y1="310" x2="528" y2="455" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="538.4" cy="329.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="529.6" cy="435.1" r="2.4"/>
+<text class="lft-port" x="538.8" y="411.0">ether3</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="540" y1="310" x2="606" y2="455" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="548.3" cy="328.2" r="2.4"/>
+<circle class="lft-led bx-led" cx="597.7" cy="436.8" r="2.4"/>
+<text class="lft-port lft-c" x="579.6" y="400.0">ether4-5</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="540" y1="310" x2="650" y2="232" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="556.3" cy="298.4" r="2.4"/>
+<circle class="lft-led bx-led" cx="633.7" cy="243.6" r="2.4"/>
+<text class="lft-port lft-c" x="595.0" y="270.0">ether23</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="540" y1="310" x2="716" y2="232" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="558.3" cy="301.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="697.7" cy="240.1" r="2.4"/>
+<text class="lft-port lft-c" x="636.8" y="280.1">ether24</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="240" y2="310" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="364.6" cy="206.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="255.4" cy="297.2" r="2.4"/>
+<text class="lft-port lft-c" x="310.0" y="255.0">ether2 ⇄ ether24 · trunk</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="540" y2="310" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="396.2" cy="205.7" r="2.4"/>
+<circle class="lft-led bx-led" cx="523.8" cy="298.3" r="2.4"/>
+<text class="lft-port lft-c" x="460.0" y="255.0">sfp+ ⇄ sfp+1 · 10G trunk</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="240" y1="310" x2="90" y2="300" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="220.0" cy="308.7" r="2.4"/>
+<circle class="lft-led bx-led" cx="110.0" cy="301.3" r="2.4"/>
+<text class="lft-port lft-c" x="165.0" y="302.0">ether20-22 · trunk</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-blink" x1="90" y1="300" x2="36" y2="455" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-c" x="63.0" y="380.5">CLINIC-STAFF</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-blink" x1="90" y1="300" x2="70" y2="200" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-c" x="80.0" y="253.0">CLINIC-Patients</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="290" y2="112" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="365.2" cy="180.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="304.8" cy="125.5" r="2.4"/>
+<text class="lft-port lft-c" x="335.0" y="156.0">ether1 · 2.5G</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="290" y1="112" x2="380" y2="40" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="305.6" cy="99.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="353.5" cy="61.2" r="2.4"/>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-blink" x1="380" y1="194" x2="470" y2="112" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="394.8" cy="180.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="455.2" cy="125.5" r="2.4"/>
+<text class="lft-port lft-c" x="425.0" y="156.0">ether8</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-blink" x1="470" y1="112" x2="380" y2="40" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="454.4" cy="99.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="406.5" cy="61.2" r="2.4"/>
+</g>
+<g class="bx-el" data-step="10">
+<path class="bx-blink" d="M668 96 Q644.4 20 432 40" style="stroke:var(--accent);stroke-width:1.6;fill:none;stroke-dasharray:6,4;"/><text class="lft-port lft-c" x="597.2" y="38" style="fill:var(--accent);">WireGuard</text></g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="380" cy="40" r="56"/>
+<use href="#lfi-cloud" x="328" y="16" width="104" height="48" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="380" y="45" style="fill:var(--defender);">Internet</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="290" cy="112" r="26"/>
+<use href="#lfi-modem" x="273" y="103" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="290" y="133">Fibre ONT</text>
+<text class="lft-chip lft-c" x="290" y="143" style="fill:var(--body);">500/100 · static</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="470" cy="112" r="25"/>
+<use href="#lfi-lte" x="456" y="96" width="28" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="470" y="140">5G router</text>
+<text class="lft-chip lft-c" x="470" y="150" style="fill:var(--body);">passthrough · CGNAT</text>
+</g>
+<g class="bx-el bx-dev" data-step="10">
+<circle class="bx-ring lft-ring" cx="668" cy="108" r="25"/>
+<use href="#lfi-laptop" x="652" y="96" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="668" y="132">On-call doctor</text>
+<text class="lft-chip lft-c" x="668" y="142" style="fill:var(--v10);">WireGuard</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="3" data-dev="r1" tabindex="0" role="button" aria-label="Show the configuration of R1 · RB5009">
+<circle class="bx-ring lft-ring" cx="380" cy="194" r="32"/>
+<circle class="bx-sel" cx="380" cy="194" r="28"/>
+<use href="#lfi-router" x="357" y="178" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="411" y="193">R1 · RB5009</text>
+<text class="lft-chip" x="411" y="203" style="fill:var(--body);">router · firewall · CAPsMAN</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="70" cy="200" r="25"/>
+<use href="#lfi-laptop" x="54" y="188" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="70" y="224">Patients</text>
+<text class="lft-chip lft-c" x="70" y="234" style="fill:var(--v50);">V50</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="90" cy="300" r="26"/>
+<use href="#lfi-ap" x="73" y="287" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="90" y="325">cAP ax ×3</text>
+<text class="lft-chip lft-c" x="90" y="335" style="fill:var(--body);">CAPsMAN</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="swc" tabindex="0" role="button" aria-label="Show the configuration of SW-CLINIC">
+<circle class="bx-ring lft-ring" cx="240" cy="310" r="34"/>
+<circle class="bx-sel" cx="240" cy="310" r="30"/>
+<use href="#lfi-l2" x="215" y="299" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="273" y="309">SW-CLINIC</text>
+<text class="lft-chip" x="273" y="319" style="fill:var(--body);">CRS328-24P-4S+</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="swm" tabindex="0" role="button" aria-label="Show the configuration of SW-MED">
+<circle class="bx-ring lft-ring" cx="540" cy="310" r="34"/>
+<circle class="bx-sel" cx="540" cy="310" r="30"/>
+<use href="#lfi-l2" x="515" y="299" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-e" x="507" y="309">SW-MED</text>
+<text class="lft-chip lft-e" x="507" y="319" style="fill:var(--body);">CRS326-24G-2S+</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="650" cy="232" r="25"/>
+<use href="#lfi-server" x="639" y="216" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="650" y="200">PACS + LIS</text>
+<text class="lft-chip lft-c" x="650" y="210" style="fill:var(--v35);">V35</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="716" cy="232" r="25"/>
+<use href="#lfi-server" x="705" y="216" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="716" y="200">NAS</text>
+<text class="lft-chip lft-c" x="716" y="210" style="fill:var(--v35);">V35</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="36" cy="455" r="24"/>
+<use href="#lfi-tablet" x="24" y="440" width="24" height="30" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="36" y="482">Doctors' tablets</text>
+<text class="lft-chip lft-c" x="36" y="492" style="fill:var(--v10);">V10 · PPSK</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="112" cy="455" r="34"/>
+<use href="#lfi-pc" x="87" y="441" width="28" height="28" style="color:var(--mid);"/><use href="#lfi-phone" x="114" y="447" width="22" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="112" y="481">Consult rooms ×6</text>
+<text class="lft-chip lft-c" x="112" y="491" style="fill:var(--v10);">V10 + voice 40</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="192" cy="455" r="34"/>
+<use href="#lfi-pc" x="167" y="441" width="28" height="28" style="color:var(--mid);"/><use href="#lfi-phone" x="194" y="447" width="22" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="192" y="481">Reception ×3</text>
+<text class="lft-chip lft-c" x="192" y="491" style="fill:var(--v20);">V20 + voice 40</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="262" cy="455" r="24"/>
+<use href="#lfi-printer" x="247" y="442" width="30" height="26" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="262" y="480">Printers ×3</text>
+<text class="lft-chip lft-c" x="262" y="490" style="fill:var(--v45);">V45</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="328" cy="455" r="23"/>
+<use href="#lfi-camera" x="314" y="444" width="28" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="328" y="478">Cameras ×6</text>
+<text class="lft-chip lft-c" x="328" y="488" style="fill:var(--v60);">V60</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="450" cy="455" r="28"/>
+<use href="#lfi-display" x="431" y="441" width="38" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="450" y="481">X-ray (DR)</text>
+<text class="lft-chip lft-c" x="450" y="491" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="528" cy="455" r="28"/>
+<use href="#lfi-display" x="509" y="441" width="38" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="528" y="481">Ultrasound</text>
+<text class="lft-chip lft-c" x="528" y="491" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="606" cy="455" r="21"/>
+<use href="#lfi-iot" x="594" y="443" width="24" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="606" y="479">Lab analyzers ×2</text>
+<text class="lft-chip lft-c" x="606" y="489" style="fill:var(--v30);">V30</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 11 steps built</text>
+<text class="lft-chip" x="20" y="520">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="11" value="11" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The Clinic Switch", "adds": "SW-CLINIC, Consult rooms ×6, Reception ×3, Printers ×3, Cameras ×6"}, {"n": 2, "title": "The Medical Switch, Devices & Servers", "adds": "SW-MED, PACS + LIS, NAS, X-ray (DR), Ultrasound, Lab analyzers ×2"}, {"n": 3, "title": "The Router: VLANs, DHCP, DNS, Time", "adds": "R1 · RB5009"}, {"n": 4, "title": "Wi-Fi: Per-Device Keys and Patients", "adds": "Patients, cAP ax ×3, Doctors' tablets"}, {"n": 5, "title": "Firewall: The Matrix as Rules", "adds": "policy / services"}, {"n": 6, "title": "Imaging: From the Detector to the Doctor", "adds": "policy / services"}, {"n": 7, "title": "Fibre, 5G, and Who May Use the Backup", "adds": "Internet, Fibre ONT, 5G router"}, {"n": 8, "title": "Voice and Telemedicine First", "adds": "policy / services"}, {"n": 9, "title": "The Vendor Support Window", "adds": "policy / services"}, {"n": 10, "title": "On-Call Access for Doctors", "adds": "On-call doctor"}, {"n": 11, "title": "Backups & Hardening", "adds": "policy / services"}], "devices": {"swc": "SW-CLINIC", "swm": "SW-MED", "r1": "R1 · RB5009"}, "configs": {"swc": [{"step": 1, "title": "The Clinic Switch", "label": "SW-CLINIC — CRS328-24P-4S+", "text": "/system identity set name=SW-CLINIC\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=ether24 frame-types=admit-only-vlan-tagged comment=\"uplink R1\"\nadd bridge=bridge interface=ether1 pvid=10 comment=\"consult room 1 (PC behind phone)\"   # … ether2-6\nadd bridge=bridge interface=ether7 pvid=20 comment=\"reception 1 (PC behind phone)\"      # … ether8-9\nadd bridge=bridge interface=ether10 pvid=45 comment=\"printer 1\"                         # … ether11-12\nadd bridge=bridge interface=ether13 pvid=60 comment=\"camera 1\"                          # … ether14-18\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,20,45,60 tagged=ether24\nadd bridge=bridge vlan-ids=40 tagged=ether24,ether1,ether2,ether3,ether4,ether5,ether6,ether7,ether8,ether9\nadd bridge=bridge vlan-ids=99 tagged=bridge,ether24\n/ip neighbor discovery-settings set lldp-med-net-policy-vlan=40   # phones learn their voice VLAN\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.60.99.11/24 interface=v99-mgmt\n/ip route add gateway=10.60.99.1\n/interface ethernet disable ether19,ether23\n/interface bridge set bridge vlan-filtering=yes"}], "swm": [{"step": 2, "title": "The Medical Switch, Devices & Servers", "label": "SW-MED — CRS326-24G-2S+", "text": "/system identity set name=SW-MED\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"uplink R1 (10G)\"\nadd bridge=bridge interface=ether1 pvid=30 learn=no comment=\"X-ray workstation\"\nadd bridge=bridge interface=ether2 pvid=30 learn=no comment=\"X-ray detector\"\nadd bridge=bridge interface=ether3 pvid=30 learn=no comment=\"ultrasound\"\nadd bridge=bridge interface=ether4 pvid=30 learn=no comment=\"analyzer 1\"\nadd bridge=bridge interface=ether5 pvid=30 learn=no comment=\"analyzer 2\"\nadd bridge=bridge interface=ether23 pvid=35 comment=\"PACS + LIS server\"\nadd bridge=bridge interface=ether24 pvid=35 comment=\"NAS\"\n# learning is off on device ports: only the device's own MAC may use each one\n/interface bridge host\nadd bridge=bridge interface=ether1 mac-address=00:1E:8F:00:00:11\nadd bridge=bridge interface=ether2 mac-address=00:1E:8F:00:00:12\n# … one static entry per medical device\n/interface bridge vlan\nadd bridge=bridge vlan-ids=30,35 tagged=sfp-sfpplus1\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.60.99.12/24 interface=v99-mgmt\n/ip route add gateway=10.60.99.1\n/interface ethernet disable ether6,ether7,ether8,ether9,ether10,ether11,ether12,ether13,ether14,ether15,\\\n    ether16,ether17,ether18,ether19,ether20,ether21,ether22,sfp-sfpplus2\n/interface bridge set bridge vlan-filtering=yes"}], "r1": [{"step": 3, "title": "The Router: VLANs, DHCP, DNS, Time", "label": "R1 — RB5009 · trunks and VLAN interfaces", "text": "/system identity set name=R1\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment=\"SW-CLINIC\"\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"SW-MED (10G)\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,20,40,45,50,60 tagged=bridge,ether2\nadd bridge=bridge vlan-ids=30,35 tagged=bridge,sfp-sfpplus1\nadd bridge=bridge vlan-ids=99 tagged=bridge,ether2,sfp-sfpplus1\n/interface vlan\nadd name=v10-clinical interface=bridge vlan-id=10\nadd name=v20-reception interface=bridge vlan-id=20\nadd name=v30-meddev interface=bridge vlan-id=30\nadd name=v35-srv interface=bridge vlan-id=35\nadd name=v40-voice interface=bridge vlan-id=40\nadd name=v45-print interface=bridge vlan-id=45\nadd name=v50-patients interface=bridge vlan-id=50\nadd name=v60-cctv interface=bridge vlan-id=60\nadd name=v99-mgmt interface=bridge vlan-id=99\n/ip address\nadd address=10.60.10.1/24 interface=v10-clinical\n# … .1 on every VLAN interface\n/ip dhcp-server\nadd name=d-clinical interface=v10-clinical address-pool=p-clinical lease-time=1d\nadd name=d-reception interface=v20-reception address-pool=p-reception lease-time=1d\nadd name=d-voice interface=v40-voice address-pool=p-voice lease-time=1d\nadd name=d-print interface=v45-print address-pool=static-only lease-time=1d\nadd name=d-patients interface=v50-patients address-pool=p-patients lease-time=1h\n# MEDDEV, SERVERS and CCTV: static addresses, no DHCP server at all\n/ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112\n/system ntp client set enabled=yes servers=time.cloudflare.com\n/system ntp server set enabled=yes\n/interface bridge set bridge vlan-filtering=yes"}, {"step": 4, "title": "Wi-Fi: Per-Device Keys and Patients", "label": "R1 — CAPsMAN for three cAP ax, per-device keys on CLINIC-STAFF", "text": "/interface wifi security\nadd name=sec-staff authentication-types=wpa2-psk passphrase=\"unused-fallback-*****************\"\n/interface wifi datapath\nadd name=dp-staff bridge=bridge vlan-id=10\nadd name=dp-patients bridge=bridge vlan-id=50 client-isolation=yes\n/interface wifi configuration\nadd name=cfg-staff ssid=CLINIC-STAFF security=sec-staff datapath=dp-staff country=Greece\nadd name=cfg-patients ssid=CLINIC-Patients datapath=dp-patients country=Greece\n# each tablet: its own MAC, its own passphrase, on the staff SSID only\n/interface wifi access-list\nadd ssid-regexp=\"^CLINIC-STAFF\\$\" mac-address=AA:BB:CC:00:10:01 passphrase=\"*****************\" action=accept comment=\"tablet 01\"\nadd ssid-regexp=\"^CLINIC-STAFF\\$\" mac-address=AA:BB:CC:00:10:02 passphrase=\"*****************\" action=accept comment=\"tablet 02\"\nadd ssid-regexp=\"^CLINIC-STAFF\\$\" action=reject comment=\"unknown device on the staff SSID\"\n/interface wifi capsman set enabled=yes interfaces=v99-mgmt\n/interface wifi provisioning add action=create-dynamic-enabled master-configuration=cfg-patients \\\n    slave-configurations=cfg-staff\n# patients: 10 Mb/s each, 100/20 in total\n/queue type\nadd name=pcq-pt-down kind=pcq pcq-classifier=dst-address pcq-rate=10M\nadd name=pcq-pt-up kind=pcq pcq-classifier=src-address pcq-rate=10M\n/queue simple add name=patients target=10.60.50.0/24 max-limit=20M/100M queue=pcq-pt-up/pcq-pt-down"}, {"step": 5, "title": "Firewall: The Matrix as Rules", "label": "R1 — address lists and forward rules", "text": "/ip firewall address-list\nadd list=PACS address=10.60.35.10\nadd list=LIS address=10.60.35.11\nadd list=NVR address=10.60.60.10\n/interface list\nadd name=LAN\nadd name=WAN\nadd name=MGMT\nadd name=ONLINE comment=\"zones that may use the internet\"\n/interface list member\nadd list=ONLINE interface=v10-clinical\nadd list=ONLINE interface=v20-reception\nadd list=ONLINE interface=v40-voice\nadd list=ONLINE interface=v50-patients\nadd list=MGMT interface=v99-mgmt\n# … every v* interface into LAN\n/ip firewall filter\nadd chain=input action=accept connection-state=established,related,untracked\nadd chain=input action=drop connection-state=invalid\nadd chain=input action=accept protocol=icmp\nadd chain=input action=accept in-interface-list=MGMT\nadd chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67,123\nadd chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53\nadd chain=input action=drop log=yes log-prefix=IN-DROP\nadd chain=forward action=accept connection-state=established,related,untracked\nadd chain=forward action=drop connection-state=invalid\nadd chain=forward action=accept in-interface=v30-meddev dst-address-list=PACS protocol=tcp dst-port=104 \\\n    comment=\"DICOM store + worklist\"\nadd chain=forward action=accept in-interface=v30-meddev dst-address-list=LIS protocol=tcp dst-port=2575 \\\n    comment=\"HL7 lab results\"\nadd chain=forward action=accept in-interface=v10-clinical dst-address-list=PACS protocol=tcp dst-port=443 \\\n    comment=\"PACS web viewer\"\nadd chain=forward action=accept in-interface=v10-clinical dst-address-list=LIS protocol=tcp dst-port=443\nadd chain=forward action=accept in-interface=v20-reception dst-address-list=PACS protocol=tcp dst-port=443 \\\n    comment=\"worklist UI\"\nadd chain=forward action=accept in-interface=v20-reception dst-address-list=NVR protocol=tcp dst-port=443\nadd chain=forward action=accept in-interface=v10-clinical out-interface=v45-print protocol=tcp dst-port=9100\nadd chain=forward action=accept in-interface=v20-reception out-interface=v45-print protocol=tcp dst-port=9100\nadd chain=forward action=accept in-interface-list=ONLINE out-interface-list=WAN\nadd chain=forward action=accept in-interface-list=MGMT\nadd chain=forward action=drop log=yes log-prefix=FWD-DROP"}, {"step": 7, "title": "Fibre, 5G, and Who May Use the Backup", "label": "R1 — fibre, 5G passthrough, recursive failover, NAT", "text": "/ip address add address=203.0.113.50/29 interface=ether1 comment=\"fibre\"\n/ip dhcp-client add interface=ether8 default-route-distance=2 use-peer-dns=no comment=\"5G passthrough\"\n/interface list member\nadd list=WAN interface=ether1\nadd list=WAN interface=ether8\n/ip route\nadd dst-address=1.1.1.1/32 gateway=203.0.113.49 scope=10 comment=\"probe via fibre\"\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment=\"main: fibre\"\n/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN\n# the 5G line is for patient care\n/interface list add name=NO5G\n/interface list member\nadd list=NO5G interface=v50-patients\nadd list=NO5G interface=v35-srv\n/ip firewall filter add chain=forward action=reject reject-with=icmp-network-unreachable \\\n    in-interface-list=NO5G out-interface=ether8 place-before=0 comment=\"patients and archive uploads never use 5G\"\n# the archive upload may leave via the fibre\n/ip firewall filter add chain=forward action=accept in-interface=v35-srv out-interface=ether1 protocol=tcp dst-port=443 \\\n    place-before=[find log-prefix=FWD-DROP] comment=\"PACS/NAS archive to the cloud\""}, {"step": 8, "title": "Voice and Telemedicine First", "label": "R1 — mark real-time traffic, queue tree on the fibre", "text": "/ip firewall mangle\nadd chain=forward action=mark-packet new-packet-mark=rt-up out-interface=ether1 dscp=46 passthrough=no \\\n    comment=\"phones mark EF\"\nadd chain=forward action=mark-packet new-packet-mark=rt-up out-interface=ether1 in-interface=v10-clinical \\\n    protocol=udp passthrough=no comment=\"video consultations (WebRTC/UDP)\"\nadd chain=forward action=mark-packet new-packet-mark=bulk-up out-interface=ether1 passthrough=no\nadd chain=forward action=mark-packet new-packet-mark=rt-down in-interface=ether1 out-interface=v40-voice passthrough=no\nadd chain=forward action=mark-packet new-packet-mark=rt-down in-interface=ether1 out-interface=v10-clinical \\\n    protocol=udp passthrough=no\nadd chain=forward action=mark-packet new-packet-mark=bulk-down in-interface=ether1 passthrough=no\n/queue type add name=fq kind=fq-codel\n/queue tree\nadd name=UP parent=ether1 max-limit=95M\nadd name=up-rt parent=UP packet-mark=rt-up priority=1 limit-at=20M max-limit=95M queue=fq\nadd name=up-bulk parent=UP packet-mark=bulk-up priority=8 max-limit=95M queue=fq\nadd name=DOWN parent=global max-limit=475M\nadd name=down-rt parent=DOWN packet-mark=rt-down priority=1 limit-at=20M max-limit=475M queue=fq\nadd name=down-bulk parent=DOWN packet-mark=bulk-down priority=8 max-limit=475M queue=fq"}, {"step": 9, "title": "The Vendor Support Window", "label": "R1 — a disabled rule and two schedules", "text": "/ip firewall address-list\nadd list=VENDOR-HUB address=support.vendor.example comment=\"from the vendor's remote-service guide\"\n/ip firewall filter add chain=forward action=accept src-address=10.60.30.11 dst-address-list=VENDOR-HUB \\\n    protocol=tcp dst-port=443 log=yes log-prefix=VENDOR disabled=yes comment=VENDOR-XRAY \\\n    place-before=[find log-prefix=FWD-DROP]\n/system scheduler\nadd name=vx-open start-date=2026-11-04 start-time=14:00:00 interval=7d on-event={\n  /ip firewall filter enable [find comment=VENDOR-XRAY]\n  :log warning \"vendor window OPEN (X-ray)\"\n}\nadd name=vx-close start-date=2026-11-04 start-time=17:00:00 interval=7d on-event={\n  /ip firewall filter disable [find comment=VENDOR-XRAY]\n  /ip firewall connection remove [find src-address~\"^10.60.30.11:\"]\n  :log warning \"vendor window CLOSED (X-ray)\"\n}"}, {"step": 10, "title": "On-Call Access for Doctors", "label": "R1 — WireGuard for the on-call laptop, reaching only the viewer", "text": "/interface wireguard add name=wg-oncall listen-port=13231\n/interface wireguard peers add interface=wg-oncall public-key=\"<on-call laptop public key>\" \\\n    allowed-address=10.60.200.2/32 comment=\"on-call laptop 1\"\n/ip address add address=10.60.200.1/24 interface=wg-oncall\n/ip firewall filter\nadd chain=input action=accept in-interface=ether1 protocol=udp dst-port=13231 \\\n    place-before=[find log-prefix=IN-DROP] comment=\"WireGuard on the fibre address\"\nadd chain=forward action=accept in-interface=wg-oncall dst-address-list=PACS protocol=tcp dst-port=443 \\\n    place-before=[find log-prefix=FWD-DROP] comment=\"on-call: PACS viewer only\""}]}}</script>
+</div>
+  </div>
+
+  <div class="thesis-card">
+    <p>This is part 5 of the <a href="build-index.html">Build series</a>. The <a href="build-law-firm.html">law firm</a> had confidential files; a clinic has health data, which GDPR treats as a special category with stricter requirements. The <a href="build-supermarket.html">supermarket</a> had payment devices it couldn't trust; a clinic has medical devices it can't update, because their software is certified as part of the device. And unlike either, a clinic's network failing has a direct effect on patient care.</p>
+    <p>The design answer is the same pattern applied more strictly: put each category of device in its own small network, give each network exactly the paths it needs, keep the clinical work local so it doesn't depend on the internet, and make the internet itself redundant for the parts that live in the cloud.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-vlans.html">VLANs</a>, <a href="mikrotik-firewall.html">the RouterOS firewall</a>, <a href="mikrotik-qos.html">QoS</a></li>
+      <li>The <a href="build-coffee-shop.html">coffee shop build</a> for the backup-line pattern, the <a href="build-gaming-center.html">gaming center</a> for recursive failover</li>
+      <li>RouterOS 7.x with the <code>wifi</code> package (for per-device Wi-Fi keys in step 4)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but typical private outpatient clinic: GPs and specialists, imaging on site, 20 staff, 150 patients a day.</em></p>
+
+  <p>The clinic has <strong>six consulting rooms</strong>, each with a PC and a desk phone, plus a treatment room where doctors use tablets. <strong>Reception</strong> has three desks that run the appointment system and the electronic health record (EHR), both cloud services. Imaging is a <strong>digital X-ray</strong> (detector plus acquisition workstation) and an <strong>ultrasound</strong> system, both sending images to a <strong>PACS</strong> (the image archive and viewer). The <strong>lab</strong> has two blood analyzers that send results to a LIS (lab information system) bridge, which forwards them to the EHR. There are six cameras, three printers, hosted VoIP, and a waiting room where patients expect Wi-Fi. One of the doctors is on call some nights and needs to look at images from home.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Health data</td><td>GDPR Art. 9 and 32: health data needs protection appropriate to the risk. Clinical systems are segmented from everything patients and visitors can reach, and access is logged.</td></tr>
+      <tr><td>R2 Unpatchable devices</td><td>X-ray, ultrasound and analyzers run vendor-certified software, often on old Windows versions, updated only by the vendor. They get a VLAN that reaches its servers and nothing else, ever.</td></tr>
+      <tr><td>R3 Imaging works offline</td><td>A doctor must see an X-ray seconds after it's taken, internet or not. So the PACS is local; the cloud only holds an archive copy.</td></tr>
+      <tr><td>R4 Reception never stops</td><td>The EHR and appointments are in the cloud. A 5G backup keeps reception, consulting rooms and phones online; patient Wi-Fi and big uploads stay off it.</td></tr>
+      <tr><td>R5 Voice and telemedicine</td><td>The phone is how patients reach the clinic, and video consultations are routine. Both are prioritised over everything else on the WAN.</td></tr>
+      <tr><td>R6 Lost tablets</td><td>Doctors' tablets get lost. Each has its own Wi-Fi key, so revoking one doesn't mean changing the password on every device.</td></tr>
+      <tr><td>R7 Vendor support</td><td>Imaging vendors need remote access for service. They get it only in agreed windows, from the device outwards, never through an open port.</td></tr>
+      <tr><td>R8 On-call</td><td>The on-call doctor views images from home through a VPN that reaches the PACS viewer and nothing else.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>Each of these trades a little convenience for something a clinic can't do without.</em></p>
+
+  <h3 class="sub">1 · Medical devices get their own switch</h3>
+  <p>The X-ray, ultrasound and lab analyzers sit on a separate CRS326 with a 10G uplink, together with the PACS and NAS. Imaging studies are large (a CT-sized study can be hundreds of MB, even plain X-ray sets add up), so the 10G path between devices, router and PACS matters. Physically separating the device switch also means the people who service medical equipment can work on their switch without touching the one patients' and staff devices hang off.</p>
+
+  <h3 class="sub">2 · The PACS is local, the archive is in the cloud</h3>
+  <p>Images go from the modality to the on-site PACS over DICOM, and doctors view them from there. A nightly encrypted copy goes to a cloud archive for retention and disaster recovery. The clinic's daily work never waits on the internet, and the archive copy means a burnt-out server closet doesn't lose years of patient images.</p>
+
+  <h3 class="sub">3 · Per-device Wi-Fi keys instead of 802.1X</h3>
+  <p>802.1X with a RADIUS server is the textbook answer for staff Wi-Fi, but it needs a server and a certificate setup that a 20-person clinic won't maintain. RouterOS 7's <code>wifi</code> access list can give each MAC address its own passphrase on the same SSID (sometimes called PPSK). A lost tablet's entry is deleted in seconds, and every other device keeps working.</p>
+
+  <h3 class="sub">4 · Vendors dial out, on a schedule</h3>
+  <p>Imaging vendors usually ask for "a port forward to the workstation". That would put an unpatchable Windows machine on the internet. Instead, the vendor's support agent on the workstation is allowed to connect <em>out</em> to the vendor's hub, and only while a scheduled firewall rule is enabled. No inbound port exists, ever.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>Nine VLANs, 10.60.x.0/24, third octet = VLAN ID. Every device that a rule names has a reservation.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>VLAN · subnet</th><th>Who lives here · notes</th></tr></thead>
+    <tbody>
+      <tr><td>10 CLINICAL · 10.60.10.0/24</td><td>Consulting-room PCs .21–.26, doctors' tablets .50+. EHR in the cloud, PACS viewer and LIS locally.</td></tr>
+      <tr><td>20 RECEPTION · 10.60.20.0/24</td><td>Reception PCs .21–.23, admin PC .31. EHR, appointments, PACS worklist UI.</td></tr>
+      <tr><td>30 MEDDEV · 10.60.30.0/24</td><td>X-ray workstation .11, detector .12, ultrasound .21, analyzers .41–.42. Static. No internet.</td></tr>
+      <tr><td>35 SERVERS · 10.60.35.0/24</td><td>PACS .10, LIS bridge .11, NAS .20.</td></tr>
+      <tr><td>40 VOICE · 10.60.40.0/24</td><td>Desk phones (voice VLAN behind the PCs), hosted PBX.</td></tr>
+      <tr><td>45 PRINT · 10.60.45.0/24</td><td>Three printers (prescriptions, labels, office).</td></tr>
+      <tr><td>50 PATIENTS · 10.60.50.0/24</td><td>Waiting-room Wi-Fi: internet only, client isolation, 10 Mb/s per device.</td></tr>
+      <tr><td>60 CCTV · 10.60.60.0/24</td><td>Six cameras and the NVR. Local only.</td></tr>
+      <tr><td>99 MGMT · 10.60.99.0/24</td><td>R1 .1, SW-CLINIC .11, SW-MED .12, APs .21–.23. WireGuard on-call: 10.60.200.0/24.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 300" role="img" aria-label="Floor plan of the clinic colour-coded by VLAN: reception and waiting room, six consulting rooms, the imaging rooms and lab, the admin office, and the server closet">
+    <text class="lf-name" x="15" y="20">PATIENT SIDE</text><rect x="15" y="28" width="360" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <text class="lf-name" x="385" y="20">CLINICAL &amp; IMAGING</text><rect x="385" y="28" width="360" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <rect x="25" y="38" width="160" height="80" rx="3" style="fill:var(--v20);fill-opacity:.13;stroke:var(--v20);stroke-width:1.4;"/><text class="lf-sm lf-c" x="105" y="76">Reception</text><text class="lf-mono lf-c" x="105" y="90">3 desks · V20 + voice</text>
+    <rect x="195" y="38" width="170" height="80" rx="3" style="fill:var(--v50);fill-opacity:.13;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-sm lf-c" x="280" y="76">Waiting room</text><text class="lf-mono lf-c" x="280" y="90">patient Wi-Fi · V50</text>
+    <rect x="25" y="128" width="340" height="70" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="195" y="161">Consulting rooms 1–6</text><text class="lf-mono lf-c" x="195" y="175">PC + phone each · V10</text>
+    <rect x="25" y="208" width="160" height="62" rx="3" style="fill:var(--v45);fill-opacity:.13;stroke:var(--v45);stroke-width:1.4;"/><text class="lf-sm lf-c" x="105" y="237">Admin office</text><text class="lf-mono lf-c" x="105" y="251">printers · V45</text>
+    <rect x="195" y="208" width="170" height="62" rx="3" style="fill:var(--v60);fill-opacity:.13;stroke:var(--v60);stroke-width:1.4;"/><text class="lf-sm lf-c" x="280" y="237">Entrance &amp; corridors</text><text class="lf-mono lf-c" x="280" y="251">6 cameras · V60</text>
+    <rect x="395" y="38" width="165" height="90" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="477.5" y="81">X-ray room</text><text class="lf-mono lf-c" x="477.5" y="95">DR detector + workstation · V30</text>
+    <rect x="570" y="38" width="165" height="90" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="652.5" y="81">Ultrasound</text><text class="lf-mono lf-c" x="652.5" y="95">V30</text>
+    <rect x="395" y="138" width="165" height="70" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="477.5" y="171">Lab</text><text class="lf-mono lf-c" x="477.5" y="185">2 analyzers · V30</text>
+    <rect x="570" y="138" width="165" height="70" rx="3" style="fill:var(--v35);fill-opacity:.13;stroke:var(--v35);stroke-width:1.4;"/><text class="lf-sm lf-c" x="652.5" y="171">Server closet</text><text class="lf-mono lf-c" x="652.5" y="185">R1 · switches · PACS · NAS</text>
+    <rect x="395" y="218" width="340" height="52" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="565" y="242">Treatment room</text><text class="lf-mono lf-c" x="565" y="256">doctors' tablets · V10</text>
+    <circle cx="190" cy="40" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="190" y="43" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="370" cy="200" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="370" y="203" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="565" cy="222" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="565" y="225" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <text class="lf-cap lf-c" x="380" y="296">Medical devices sit in their own rooms on their own switch. Nothing a patient can plug into or connect to shares a network with them.</text>
+    </svg>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start, columns receive. Default deny. Medical devices have one green cell, and it's their server.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 350" role="img" aria-label="Policy matrix for the clinic: which zones may start connections to clinical PCs, medical devices, the PACS and LIS servers, reception, CCTV and the internet">
+    <text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM ↓  ·  TO →</text>
+    <text class="lf-sm lf-c" x="222.5" y="38">Clinical PCs</text>
+    <text class="lf-sm lf-c" x="317.5" y="38">Med devices</text>
+    <text class="lf-sm lf-c" x="412.5" y="38">PACS · LIS</text>
+    <text class="lf-sm lf-c" x="507.5" y="38">Reception</text>
+    <text class="lf-sm lf-c" x="602.5" y="38">CCTV</text>
+    <text class="lf-sm lf-c" x="697.5" y="38">Internet</text>
+    <rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="70">Clinical · V10</text>
+    <rect x="177" y="54" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="222.5" y="71" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="272" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="412.5" y="71" style="fill:var(--defender);font-weight:700;">✓ viewer · LIS</text>
+    <rect x="462" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="71" style="fill:var(--defender);font-weight:700;">✓ EHR</text>
+    <rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="100">Reception · V20</text>
+    <rect x="177" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="84" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="101" style="fill:var(--gotcha);font-weight:700;">◐ worklist UI</text>
+    <rect x="462" y="84" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="507.5" y="101" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="557" y="84" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="602.5" y="101" style="fill:var(--gotcha);font-weight:700;">◐ door view</text>
+    <rect x="652" y="84" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="101" style="fill:var(--defender);font-weight:700;">✓ EHR</text>
+    <rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="130">Med devices · V30</text>
+    <rect x="177" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="114" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="317.5" y="131" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="367" y="114" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="131" style="fill:var(--gotcha);font-weight:700;">◐ DICOM · HL7</text>
+    <rect x="462" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="697.5" y="131" style="fill:var(--accent);font-weight:700;">✕ never</text>
+    <rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v35);"/><text class="lf-sm" x="38" y="160">Servers · V35</text>
+    <rect x="177" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="144" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="412.5" y="161" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="462" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ archive 443</text>
+    <rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--v50);"/><text class="lf-sm" x="38" y="190">Patients · V50</text>
+    <rect x="177" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="174" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="191" style="fill:var(--defender);font-weight:700;">✓ 10 Mb/s</text>
+    <rect x="20" y="211" width="10" height="10" rx="2" style="fill:var(--v60);"/><text class="lf-sm" x="38" y="220">CCTV · V60</text>
+    <rect x="177" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="204" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="602.5" y="221" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="652" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="697.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="20" y="241" width="10" height="10" rx="2" style="fill:var(--accent);"/><text class="lf-sm" x="38" y="250">On-call · WireGuard</text>
+    <rect x="177" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="234" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="251" style="fill:var(--gotcha);font-weight:700;">◐ PACS viewer</text>
+    <rect x="462" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="234" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="697.5" y="251" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="20" y="271" width="10" height="10" rx="2" style="fill:var(--accent);"/><text class="lf-sm" x="38" y="280">Vendor · window</text>
+    <rect x="177" y="264" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="281" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="264" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="317.5" y="281" style="fill:var(--gotcha);font-weight:700;">◐ scheduled</text>
+    <rect x="367" y="264" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="281" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="264" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="281" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="264" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="281" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="264" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="697.5" y="281" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="20" y="310" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="320">allowed</text>
+    <rect x="140" y="310" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="320">limited to the host/port shown</text>
+    <rect x="360" y="310" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="320">denied (default)</text>
+    <rect x="520" y="310" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="320">same zone / n.a.</text>
+    <text class="lf-cap" x="20" y="336">All enforced in R1's forward chain. Medical devices never reach the internet; vendor support happens only through the scheduled window in step 9.</text>
+    </svg>
+  </div>
+
+  <p>Read the <strong>Med devices</strong> row and column together: devices reach only the PACS/LIS, and only a scheduled vendor window reaches them. The <strong>On-call</strong> row is equally narrow: one port on one server, not "the clinic network over VPN".</p>
+
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+  <table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Health data</td><td><a href="#step-4">step 4</a> · <a href="#step-5">step 5</a></td><td>per-device Wi-Fi keys; forward chain per VLAN; patients isolated</td><td>"Segmentation" drill, <a href="#sec-16">section 16</a></td></tr>
+      <tr><td>R2 Unpatchable devices</td><td><a href="#step-2">step 2</a> · <a href="#step-5">step 5</a></td><td>learn=no + static hosts on SW-MED; DICOM/HL7-only rules; no internet for V30</td><td>"Device isolation" drill</td></tr>
+      <tr><td>R3 Imaging works offline</td><td><a href="#step-2">step 2</a> · <a href="#step-6">step 6</a></td><td>local PACS on VLAN 35; 10G path; the archive is only a copy</td><td>"Imaging offline" drill</td></tr>
+      <tr><td>R4 Reception never stops</td><td><a href="#step-7">step 7</a></td><td>recursive failover to 5G; NO5G list for patients and archive</td><td>"Fibre cut" drill</td></tr>
+      <tr><td>R5 Voice &amp; telemedicine</td><td><a href="#step-8">step 8</a></td><td>EF and clinical UDP in a priority-1 class with limit-at 20M</td><td>"Busy line" drill</td></tr>
+      <tr><td>R6 Lost tablets</td><td><a href="#step-4">step 4</a></td><td>one wifi access-list entry per tablet, scoped to CLINIC-STAFF</td><td>"Lost tablet" drill</td></tr>
+      <tr><td>R7 Vendor support</td><td><a href="#step-9">step 9</a></td><td>disabled rule + open/close schedules + connection flush</td><td>"Vendor window" drill</td></tr>
+      <tr><td>R8 On-call</td><td><a href="#step-10">step 10</a></td><td>WireGuard peer per laptop; forward only to the PACS viewer</td><td>"On-call" drill</td></tr>
+    </tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">Bottom to Top, One Layer at a Time</h2>
+  <p class="section-thesis"><em>Rooms first, internet last. Every step ends with a checkpoint.</em></p>
+  <p>Eleven steps: the clinic switch, the medical switch with its devices and servers, the router, Wi-Fi, the firewall, imaging, the two WANs, voice-first queuing, the vendor window, on-call access, and finally backups with hardening. Use Safe Mode (<kbd>Ctrl</kbd>+<kbd>X</kbd>) for every bridge change on a remote device.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 11</p>
+  <h2 class="section-title">The Clinic Switch</h2>
+  <p class="section-thesis"><em>Consulting rooms, reception, printers and cameras on one PoE switch. Each desk carries a PC and, tagged, its phone.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">SW-CLINIC — CRS328-24P-4S+</span><span class="cfg-meta">18 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=SW-CLINIC
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=ether24 frame-types=admit-only-vlan-tagged comment="uplink R1"
+add bridge=bridge interface=ether1 pvid=10 comment="consult room 1 (PC behind phone)"   <span class="cmt"># … ether2-6</span>
+add bridge=bridge interface=ether7 pvid=20 comment="reception 1 (PC behind phone)"      <span class="cmt"># … ether8-9</span>
+add bridge=bridge interface=ether10 pvid=45 comment="printer 1"                         <span class="cmt"># … ether11-12</span>
+add bridge=bridge interface=ether13 pvid=60 comment="camera 1"                          <span class="cmt"># … ether14-18</span>
+/interface bridge vlan
+add bridge=bridge vlan-ids=10,20,45,60 tagged=ether24
+add bridge=bridge vlan-ids=40 tagged=ether24,ether1,ether2,ether3,ether4,ether5,ether6,ether7,ether8,ether9
+add bridge=bridge vlan-ids=99 tagged=bridge,ether24
+/ip neighbor discovery-settings set lldp-med-net-policy-vlan=40   <span class="cmt"># phones learn their voice VLAN</span>
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.60.99.11/24 interface=v99-mgmt
+/ip route add gateway=10.60.99.1
+/interface ethernet disable ether19,ether23
+/interface bridge set bridge vlan-filtering=yes</pre></details>
+
+  <p>Each desk port carries the PC untagged in its VLAN and the phone tagged in VLAN 40. The phone learns that through LLDP-MED, so no phone has to be configured by hand. Ports ether20–22 become AP trunks in step 4.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/interface bridge vlan print</code>: 40 tagged on ether1–9, the other VLANs untagged where planned.</li><li>A desk phone shows VLAN 40 in its network settings (learned via LLDP-MED).</li><li><code>/interface ethernet poe print</code>: phones and cameras powered.</li></ul>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 11</p>
+  <h2 class="section-title">The Medical Switch, Devices &amp; Servers</h2>
+  <p class="section-thesis"><em>Imaging, lab and the servers they report to, on their own switch with a 10G uplink. Each device port accepts only that device.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-MED — CRS326-24G-2S+</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-MED — Catalyst 9200L-24T-4X: sticky MAC with &quot;restrict&quot;, not &quot;shutdown&quot;:
+! an unknown device is dropped and logged, the modality is never err-disabled mid-exam
+interface range GigabitEthernet1/0/1 - 5
+ description MEDICAL DEVICES
+ switchport mode access
+ switchport access vlan 30
+ switchport port-security mac-address sticky
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range GigabitEthernet1/0/23 - 24
+ description PACS + LIS / NAS
+ switchport mode access
+ switchport access vlan 35
+interface TenGigabitEthernet1/1/1
+ description R1 (10G)
+ switchport mode trunk
+ switchport trunk allowed vlan 30,35,99</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=SW-MED
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="uplink R1 (10G)"
+add bridge=bridge interface=ether1 pvid=30 learn=no comment="X-ray workstation"
+add bridge=bridge interface=ether2 pvid=30 learn=no comment="X-ray detector"
+add bridge=bridge interface=ether3 pvid=30 learn=no comment="ultrasound"
+add bridge=bridge interface=ether4 pvid=30 learn=no comment="analyzer 1"
+add bridge=bridge interface=ether5 pvid=30 learn=no comment="analyzer 2"
+add bridge=bridge interface=ether23 pvid=35 comment="PACS + LIS server"
+add bridge=bridge interface=ether24 pvid=35 comment="NAS"
+<span class="cmt"># learning is off on device ports: only the device's own MAC may use each one</span>
+/interface bridge host
+add bridge=bridge interface=ether1 mac-address=00:1E:8F:00:00:11
+add bridge=bridge interface=ether2 mac-address=00:1E:8F:00:00:12
+<span class="cmt"># … one static entry per medical device</span>
+/interface bridge vlan
+add bridge=bridge vlan-ids=30,35 tagged=sfp-sfpplus1
+add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.60.99.12/24 interface=v99-mgmt
+/ip route add gateway=10.60.99.1
+/interface ethernet disable ether6,ether7,ether8,ether9,ether10,ether11,ether12,ether13,ether14,ether15,\
+    ether16,ether17,ether18,ether19,ether20,ether21,ether22,sfp-sfpplus2
+/interface bridge set bridge vlan-filtering=yes</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Medical devices and "don't touch the network settings"</span>
+    <p>Medical device vendors usually forbid changes on the device itself, including adding software, changing its firewall, sometimes even its IP address. That's why every control here lives in the network: static addressing set once by the vendor's engineer, a port that accepts only that device's MAC, and (step 5) a firewall that lets it reach only its server. Agree the addressing with the vendor <em>before</em> installation day; changing a modality's IP later can mean a paid service visit.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>A laptop plugged into ether1 in place of the X-ray workstation: no traffic passes (no learning, not the static MAC).</li><li><code>/interface bridge host print where !dynamic</code> lists every device.</li><li>The analyzers and modalities show link on their ports; nothing routes yet.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 11</p>
+  <h2 class="section-title">The Router: VLANs, DHCP, DNS, Time</h2>
+  <p class="section-thesis"><em>An RB5009 joins both switches and becomes the gateway, DHCP server, resolver and clock for nine small networks.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — RB5009 · trunks and VLAN interfaces</span><span class="cfg-meta">33 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=R1
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment="SW-CLINIC"
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="SW-MED (10G)"
+/interface bridge vlan
+add bridge=bridge vlan-ids=10,20,40,45,50,60 tagged=bridge,ether2
+add bridge=bridge vlan-ids=30,35 tagged=bridge,sfp-sfpplus1
+add bridge=bridge vlan-ids=99 tagged=bridge,ether2,sfp-sfpplus1
+/interface vlan
+add name=v10-clinical interface=bridge vlan-id=10
+add name=v20-reception interface=bridge vlan-id=20
+add name=v30-meddev interface=bridge vlan-id=30
+add name=v35-srv interface=bridge vlan-id=35
+add name=v40-voice interface=bridge vlan-id=40
+add name=v45-print interface=bridge vlan-id=45
+add name=v50-patients interface=bridge vlan-id=50
+add name=v60-cctv interface=bridge vlan-id=60
+add name=v99-mgmt interface=bridge vlan-id=99
+/ip address
+add address=10.60.10.1/24 interface=v10-clinical
+<span class="cmt"># … .1 on every VLAN interface</span>
+/ip dhcp-server
+add name=d-clinical interface=v10-clinical address-pool=p-clinical lease-time=1d
+add name=d-reception interface=v20-reception address-pool=p-reception lease-time=1d
+add name=d-voice interface=v40-voice address-pool=p-voice lease-time=1d
+add name=d-print interface=v45-print address-pool=static-only lease-time=1d
+add name=d-patients interface=v50-patients address-pool=p-patients lease-time=1h
+<span class="cmt"># MEDDEV, SERVERS and CCTV: static addresses, no DHCP server at all</span>
+/ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112
+/system ntp client set enabled=yes servers=time.cloudflare.com
+/system ntp server set enabled=yes
+/interface bridge set bridge vlan-filtering=yes</pre></details>
+
+  <p>R1 is also the clinic's time server. That matters more here than elsewhere: DICOM studies, lab results and EHR entries are timestamped by different machines, and a modality whose clock drifts by ten minutes produces records that don't line up. Every device, including the medical ones, is pointed at 10.60.x.1 for NTP.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Consulting-room PCs get 10.60.10.x, phones 10.60.40.x, a patient phone 10.60.50.x (once Wi-Fi exists).</li><li>The X-ray workstation pings 10.60.30.1 and syncs its clock from it.</li><li>From R1, both switches answer on 10.60.99.11 and .12.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 11</p>
+  <h2 class="section-title">Wi-Fi: Per-Device Keys and Patients</h2>
+  <p class="section-thesis"><em>One staff SSID where every tablet has its own key, and a patient SSID that reaches the internet and nothing else.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — CAPsMAN for three cAP ax, per-device keys on CLINIC-STAFF</span><span class="cfg-meta">21 lines · this step's additions · click to expand</span></summary><pre class="term">/interface wifi security
+add name=sec-staff authentication-types=wpa2-psk passphrase="unused-fallback-*****************"
+/interface wifi datapath
+add name=dp-staff bridge=bridge vlan-id=10
+add name=dp-patients bridge=bridge vlan-id=50 client-isolation=yes
+/interface wifi configuration
+add name=cfg-staff ssid=CLINIC-STAFF security=sec-staff datapath=dp-staff country=Greece
+add name=cfg-patients ssid=CLINIC-Patients datapath=dp-patients country=Greece
+<span class="cmt"># each tablet: its own MAC, its own passphrase, on the staff SSID only</span>
+/interface wifi access-list
+add ssid-regexp="^CLINIC-STAFF\$" mac-address=AA:BB:CC:00:10:01 passphrase="*****************" action=accept comment="tablet 01"
+add ssid-regexp="^CLINIC-STAFF\$" mac-address=AA:BB:CC:00:10:02 passphrase="*****************" action=accept comment="tablet 02"
+add ssid-regexp="^CLINIC-STAFF\$" action=reject comment="unknown device on the staff SSID"
+/interface wifi capsman set enabled=yes interfaces=v99-mgmt
+/interface wifi provisioning add action=create-dynamic-enabled master-configuration=cfg-patients \
+    slave-configurations=cfg-staff
+<span class="cmt"># patients: 10 Mb/s each, 100/20 in total</span>
+/queue type
+add name=pcq-pt-down kind=pcq pcq-classifier=dst-address pcq-rate=10M
+add name=pcq-pt-up kind=pcq pcq-classifier=src-address pcq-rate=10M
+/queue simple add name=patients target=10.60.50.0/24 max-limit=20M/100M queue=pcq-pt-up/pcq-pt-down</pre></details>
+
+  <p>The <code>ssid-regexp</code> on every entry is essential: the access list applies to all SSIDs, and without it the final reject would also block every patient. Tablets need a fixed MAC on this SSID (turn off MAC randomization for it in the device management profile), otherwise the access-list entry won't match. Per-device keys need WPA2-PSK. On SW-CLINIC, ether20–22 become AP trunks: management VLAN 99 untagged, VLANs 10 and 50 tagged.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Tablet 01 joins CLINIC-STAFF with its own key and gets 10.60.10.x.</li><li>A laptop that knows tablet 01's key but has a different MAC is rejected.</li><li>Delete tablet 02's entry: tablet 02 drops off; tablet 01 is unaffected.</li><li>Two patient phones can't reach each other and each tops out near 10 Mb/s.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 11</p>
+  <h2 class="section-title">Firewall: The Matrix as Rules</h2>
+  <p class="section-thesis"><em>Medical devices reach their servers on their protocols. Clinical PCs reach the viewers. Everyone else reaches only what the matrix says.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 390" role="img" aria-label="Animated clinic firewall: a consulting room opens the PACS viewer and a lab analyzer sends results to the LIS; an X-ray workstation is blocked from the internet and a patient phone is blocked from the PACS">
+      <style>@keyframes cl1p0{0%,1%{transform:translate(132px,70px);opacity:0;}4%{opacity:1;}18%{transform:translate(612px,70px);opacity:1;}22%,100%{transform:translate(612px,70px);opacity:0;}}@keyframes cl1m0{0%,16%{opacity:0;}18%,96%{opacity:1;}98%,100%{opacity:0;}}.cl1-p0{animation:cl1p0 16s ease-in-out infinite;} .cl1-m0{animation:cl1m0 16s linear infinite;}@keyframes cl1p1{0%,26%{transform:translate(132px,150px);opacity:0;}29%{opacity:1;}43%{transform:translate(612px,150px);opacity:1;}47%,100%{transform:translate(612px,150px);opacity:0;}}@keyframes cl1m1{0%,41%{opacity:0;}43%,96%{opacity:1;}98%,100%{opacity:0;}}.cl1-p1{animation:cl1p1 16s ease-in-out infinite;} .cl1-m1{animation:cl1m1 16s linear infinite;}@keyframes cl1p2{0%,51%{transform:translate(132px,230px);opacity:0;}54%{opacity:1;}68%{transform:translate(276px,230px);opacity:1;}72%,100%{transform:translate(276px,230px);opacity:0;}}@keyframes cl1m2{0%,66%{opacity:0;}68%,96%{opacity:1;}98%,100%{opacity:0;}}.cl1-p2{animation:cl1p2 16s ease-in-out infinite;} .cl1-m2{animation:cl1m2 16s linear infinite;}@keyframes cl1p3{0%,76%{transform:translate(132px,310px);opacity:0;}79%{opacity:1;}93%{transform:translate(276px,310px);opacity:1;}97%,100%{transform:translate(276px,310px);opacity:0;}}@keyframes cl1m3{0%,91%{opacity:0;}93%,96%{opacity:1;}98%,100%{opacity:0;}}.cl1-p3{animation:cl1p3 16s ease-in-out infinite;} .cl1-m3{animation:cl1m3 16s linear infinite;}@media (prefers-reduced-motion:reduce){.cl1-p0,.cl1-p1,.cl1-p2,.cl1-p3{animation:none;opacity:0;}.cl1-m0,.cl1-m1,.cl1-m2,.cl1-m3{animation:none;opacity:1;}}</style>
+      <rect class="lf-boxa" x="280" y="24" width="150" height="320" rx="7"/><text class="lf-name lf-c" x="355" y="42">R1 · forward</text>
+      <text class="lf-cap lf-c" x="355" y="334">default deny</text>
+      <rect class="lf-box" x="20" y="50" width="112" height="40" rx="5"/><rect x="20" y="50" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="67">Consult room 3</text><text class="lf-mono lf-c" x="78" y="81">10.60.10.23</text>
+      <rect class="lf-box" x="620" y="50" width="122" height="40" rx="5"/><rect x="620" y="50" width="5" height="40" style="fill:var(--v35);"/><text class="lf-sm lf-c" x="683" y="67">PACS viewer</text><text class="lf-mono lf-c" x="683" y="81">10.60.35.10:443</text>
+      <text class="lf-mono lf-c" x="355" y="62" style="fill:var(--defender);">v10 → PACS:443 ✓</text>
+      <line class="lf-link" x1="132" y1="70" x2="620" y2="70"/>
+      <text class="lf-mono" x="140" y="62">→ tcp/443</text>
+      <g class="cl1-m0"><text class="lf-cap" x="440" y="62" style="fill:var(--defender);font-weight:700;">✓ clinical → PACS viewer</text></g>
+      <rect class="lf-box" x="20" y="130" width="112" height="40" rx="5"/><rect x="20" y="130" width="5" height="40" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="78" y="147">Lab analyzer 1</text><text class="lf-mono lf-c" x="78" y="161">10.60.30.41</text>
+      <rect class="lf-box" x="620" y="130" width="122" height="40" rx="5"/><rect x="620" y="130" width="5" height="40" style="fill:var(--v35);"/><text class="lf-sm lf-c" x="683" y="147">LIS bridge</text><text class="lf-mono lf-c" x="683" y="161">10.60.35.11:2575</text>
+      <text class="lf-mono lf-c" x="355" y="142" style="fill:var(--defender);">v30 → LIS:2575 ✓</text>
+      <line class="lf-link" x1="132" y1="150" x2="620" y2="150"/>
+      <text class="lf-mono" x="140" y="142">→ HL7 tcp/2575</text>
+      <g class="cl1-m1"><text class="lf-cap" x="440" y="142" style="fill:var(--defender);font-weight:700;">✓ analyzer → LIS only</text></g>
+      <rect class="lf-box" x="20" y="210" width="112" height="40" rx="5"/><rect x="20" y="210" width="5" height="40" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="78" y="227">X-ray workstation</text><text class="lf-mono lf-c" x="78" y="241">10.60.30.11</text>
+      <rect class="lf-boxd" x="620" y="210" width="122" height="40" rx="5"/><text class="lf-sm lf-c" x="681" y="227">Internet</text><text class="lf-mono lf-c" x="681" y="241">any site</text>
+      <text class="lf-mono lf-c" x="355" y="222" style="fill:var(--accent);">v30 → WAN: none</text>
+      <line class="lf-dash" x1="132" y1="230" x2="620" y2="230"/>
+      <text class="lf-mono" x="140" y="222">→ tcp/443</text>
+      <g class="cl1-m2"><text x="262" y="237" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="222" style="fill:var(--accent);font-weight:700;">✕ med devices: no internet</text></g>
+      <rect class="lf-box" x="20" y="290" width="112" height="40" rx="5"/><rect x="20" y="290" width="5" height="40" style="fill:var(--v50);"/><text class="lf-sm lf-c" x="78" y="307">Patient phone</text><text class="lf-mono lf-c" x="78" y="321">10.60.50.77</text>
+      <rect class="lf-box" x="620" y="290" width="122" height="40" rx="5"/><rect x="620" y="290" width="5" height="40" style="fill:var(--v35);"/><text class="lf-sm lf-c" x="683" y="307">PACS</text><text class="lf-mono lf-c" x="683" y="321">10.60.35.10</text>
+      <text class="lf-mono lf-c" x="355" y="302" style="fill:var(--accent);">v50 → v35: none</text>
+      <line class="lf-dash" x1="132" y1="310" x2="620" y2="310"/>
+      <text class="lf-mono" x="140" y="302">→ any</text>
+      <g class="cl1-m3"><text x="262" y="317" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="302" style="fill:var(--accent);font-weight:700;">✕ V50 → LAN: no rule</text></g>
+      <text class="lf-cap lf-c" x="380" y="378">Each medical device reaches exactly the server it reports to, and nothing on the internet. Patients reach the internet and nothing else.</text>
+      <circle class="lf-pkt cl1-p0" r="6"/>
+      <circle class="lf-pkt cl1-p1" r="6"/>
+      <circle class="lf-pkt cl1-p2" r="6"/>
+      <circle class="lf-pkt cl1-p3" r="6"/>
+    </svg>
+  </div>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — address lists and forward rules</span><span class="cfg-meta">41 lines · this step's additions · click to expand</span></summary><pre class="term">/ip firewall address-list
+add list=PACS address=10.60.35.10
+add list=LIS address=10.60.35.11
+add list=NVR address=10.60.60.10
+/interface list
+add name=LAN
+add name=WAN
+add name=MGMT
+add name=ONLINE comment="zones that may use the internet"
+/interface list member
+add list=ONLINE interface=v10-clinical
+add list=ONLINE interface=v20-reception
+add list=ONLINE interface=v40-voice
+add list=ONLINE interface=v50-patients
+add list=MGMT interface=v99-mgmt
+<span class="cmt"># … every v* interface into LAN</span>
+/ip firewall filter
+add chain=input action=accept connection-state=established,related,untracked
+add chain=input action=drop connection-state=invalid
+add chain=input action=accept protocol=icmp
+add chain=input action=accept in-interface-list=MGMT
+add chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67,123
+add chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53
+add chain=input action=drop log=yes log-prefix=IN-DROP
+add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+add chain=forward action=accept in-interface=v30-meddev dst-address-list=PACS protocol=tcp dst-port=104 \
+    comment="DICOM store + worklist"
+add chain=forward action=accept in-interface=v30-meddev dst-address-list=LIS protocol=tcp dst-port=2575 \
+    comment="HL7 lab results"
+add chain=forward action=accept in-interface=v10-clinical dst-address-list=PACS protocol=tcp dst-port=443 \
+    comment="PACS web viewer"
+add chain=forward action=accept in-interface=v10-clinical dst-address-list=LIS protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v20-reception dst-address-list=PACS protocol=tcp dst-port=443 \
+    comment="worklist UI"
+add chain=forward action=accept in-interface=v20-reception dst-address-list=NVR protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v10-clinical out-interface=v45-print protocol=tcp dst-port=9100
+add chain=forward action=accept in-interface=v20-reception out-interface=v45-print protocol=tcp dst-port=9100
+add chain=forward action=accept in-interface-list=ONLINE out-interface-list=WAN
+add chain=forward action=accept in-interface-list=MGMT
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></details>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Which DICOM port?</span>
+    <p>The DICOM standard port is 104, but many PACS products listen on 11112 instead (104 is a privileged port on Linux), and some modalities use a second port for the worklist. Take the AE titles, IPs and ports from the PACS vendor's install sheet and write each one as its own rule from the specific modality's address. Watch <code>/log print where message~"FWD-DROP"</code> during the first study: a DICOM echo that times out almost always means a port the install sheet didn't mention.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From the X-ray workstation: a DICOM echo (C-ECHO) to the PACS succeeds; a ping to 9.9.9.9 fails and is logged.</li><li>An analyzer's test result arrives in the LIS.</li><li>From a patient phone: 10.60.35.10 is unreachable.</li><li>A consulting-room PC opens the PACS viewer and prints a prescription.</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 11</p>
+  <h2 class="section-title">Imaging: From the Detector to the Doctor</h2>
+  <p class="section-thesis"><em>An X-ray taken in room 7 should be on the screen in room 3 before the patient has walked back.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated imaging flow: the X-ray system stores a study on the local PACS, a doctor in a consulting room views it, and the PACS sends an encrypted copy to the cloud archive at night">
+      <style>@keyframes cl2h0{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}24.5333%{offset-distance:100%;opacity:1;}27.5333%,100%{offset-distance:100%;opacity:0;}}.cl2-h0{offset-path:path('M90 63 L380 139');offset-rotate:0deg;animation:cl2h0 12.5s ease-in-out infinite;}@keyframes cl2h1{0%,31.6667%{offset-distance:0%;opacity:0;}33.6667%{opacity:1;}55.2%{offset-distance:100%;opacity:1;}58.2%,100%{offset-distance:100%;opacity:0;}}.cl2-h1{offset-path:path('M380 139 L90 213');offset-rotate:0deg;animation:cl2h1 12.5s ease-in-out infinite;}@keyframes cl2h2{0%,62.3333%{offset-distance:0%;opacity:0;}64.3333%{opacity:1;}85.8667%{offset-distance:100%;opacity:1;}88.8667%,100%{offset-distance:100%;opacity:0;}}.cl2-h2{offset-path:path('M380 139 L665 139');offset-rotate:0deg;animation:cl2h2 12.5s ease-in-out infinite;}@media (prefers-reduced-motion:reduce){.cl2-h0,.cl2-h1,.cl2-h2{animation:none;opacity:0;}}</style>
+      <line class="lf-link" x1="90" y1="63" x2="380" y2="139"/>
+      <text class="lf-cap lf-c" x="235" y="93">1 · DICOM C-STORE → :104</text>
+      <line class="lf-link" x1="380" y1="139" x2="90" y2="213"/>
+      <text class="lf-cap lf-c" x="235" y="168">2 · doctor opens the study</text>
+      <line class="lf-link" x1="380" y1="139" x2="665" y2="139"/>
+      <text class="lf-cap lf-c" x="522.5" y="131">3 · 02:00 encrypted copy</text>
+      <rect class="lf-box" x="20" y="40" width="140" height="46" rx="5"/><rect x="20" y="40" width="5" height="46" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="92" y="60">X-ray DR</text><text class="lf-mono lf-c" x="92" y="74">10.60.30.11</text>
+      <rect class="lf-boxa" x="300" y="112" width="160" height="54" rx="5"/><rect x="300" y="112" width="5" height="54" style="fill:var(--v35);"/><text class="lf-sm lf-c" x="382" y="136">PACS cache</text><text class="lf-mono lf-c" x="382" y="150">10.60.35.10 · 8 TB</text>
+      <rect class="lf-boxd" x="590" y="112" width="150" height="54" rx="5"/><text class="lf-sm lf-c" x="665" y="136">Cloud archive</text><text class="lf-mono lf-c" x="665" y="150">nightly · 443</text>
+      <rect class="lf-box" x="20" y="190" width="140" height="46" rx="5"/><rect x="20" y="190" width="5" height="46" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="92" y="210">Consult room 3</text><text class="lf-mono lf-c" x="92" y="224">web viewer</text>
+      <text class="lf-cap lf-c" x="380" y="260">Images land on the local PACS at LAN speed and are on the doctor's screen seconds later, with or without internet. The cloud archive gets an encrypted copy overnight.</text>
+      <circle class="lf-pkt cl2-h0" r="6"/>
+      <circle class="lf-pkt cl2-h1" r="6"/>
+      <circle class="lf-pkt cl2-h2" r="6"/>
+    </svg>
+  </div>
+
+  <p>The path is entirely local: modality → SW-MED → 10G → R1 (one routing hop between VLAN 30 and 35) → back down the same 10G link → PACS. The doctor's viewer pulls the study from the PACS over HTTPS. A single X-ray study is a few tens of MB and moves in under a second; even a large ultrasound clip set doesn't strain a 10G uplink. The overnight archive copy (step 11) runs at 02:00, when nobody's waiting for images and the fibre is quiet.</p>
+
+  <table class="cheat">
+    <thead><tr><th>DICOM node</th><th>AE title · address · port (example)</th></tr></thead>
+    <tbody>
+      <tr><td>PACS</td><td>CLINIC_PACS · 10.60.35.10 · 104 (store, query, worklist)</td></tr>
+      <tr><td>X-ray workstation</td><td>DR_ROOM7 · 10.60.30.11 · sends to CLINIC_PACS, queries the worklist</td></tr>
+      <tr><td>Ultrasound</td><td>US_ROOM8 · 10.60.30.21 · sends to CLINIC_PACS</td></tr>
+      <tr><td>LIS bridge</td><td>10.60.35.11 · HL7 MLLP 2575 from the analyzers, HTTPS out to the EHR</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Reception books an X-ray; the modality's worklist shows the patient (worklist query works).</li><li>The image appears in the PACS viewer in a consulting room within seconds of acquisition.</li><li>Unplug the WAN (none exists yet anyway): imaging still works end to end.</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 11</p>
+  <h2 class="section-title">Fibre, 5G, and Who May Use the Backup</h2>
+  <p class="section-thesis"><em>The EHR lives in the cloud, so reception's uptime is the internet's uptime. Two lines, recursive failover, and a backup reserved for patient care.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated failover from fibre to 5G, with patient Wi-Fi and archive uploads refused on the backup link">
+      <style>@keyframes cl3up{0%,44%{opacity:1;}48%,96%{opacity:0;}100%{opacity:1;}}
+@keyframes cl3dn{0%,44%{opacity:0;}48%,96%{opacity:1;}100%{opacity:0;}}
+@keyframes cl3f{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}38%{offset-distance:100%;opacity:1;}41%,100%{offset-distance:100%;opacity:0;}} @keyframes cl3b{0%,53%{offset-distance:0%;opacity:0;}55%{opacity:1;}90%{offset-distance:100%;opacity:1;}93%,100%{offset-distance:100%;opacity:0;}}
+@keyframes cl3p{0%{offset-distance:0%;opacity:1;}85%{offset-distance:100%;opacity:1;}100%{offset-distance:100%;opacity:0;}}
+.cl3-up{animation:cl3up 12s linear infinite;} .cl3-dn{animation:cl3dn 12s linear infinite;}
+.cl3-pf{offset-path:path('M130 120 L200 120 L350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:cl3f 12s ease-in-out infinite;}
+.cl3-pb{offset-path:path('M130 120 L200 120 L350 135 L420 182 L530 182 L612 142');offset-rotate:0deg;animation:cl3b 12s ease-in-out infinite;}
+.cl3-pr{offset-path:path('M350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:cl3p 1.5s linear infinite;fill:var(--gotcha);}
+.cl3-px{offset-path:path('M350 105 L420 58 L530 58 L568 78');offset-rotate:0deg;animation:cl3p 1.5s linear infinite;fill:var(--gotcha);}
+@media (prefers-reduced-motion:reduce){.cl3-up{animation:none;opacity:0;}.cl3-dn{animation:none;opacity:1;}.cl3-pf,.cl3-pr,.cl3-px{animation:none;opacity:0;}.cl3-pb{animation:none;offset-distance:75%;opacity:1;}}</style>
+      <rect class="lf-box" x="20" y="95" width="110" height="50" rx="5"/><text class="lf-sm lf-c" x="75" y="117">Clinic LAN</text><text class="lf-mono lf-c" x="75" y="131">10.60.0.0/16</text>
+      <rect class="lf-boxa" x="200" y="90" width="150" height="60" rx="5"/><text class="lf-sm lf-c" x="275" y="117">R1</text><text class="lf-mono lf-c" x="275" y="131">recursive routes</text>
+      <line class="lf-link" x1="130" y1="120" x2="200" y2="120"/>
+      <rect class="lf-box" x="420" y="40" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="55">Fibre ONT</text><text class="lf-mono lf-c" x="475" y="69">ether1 · distance 1</text>
+      <rect class="lf-box" x="420" y="164" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="179">5G router</text><text class="lf-mono lf-c" x="475" y="193">ether8 · distance 2</text>
+      <ellipse class="lf-boxd" cx="675" cy="120" rx="68" ry="42"/><text class="lf-name lf-c" x="675" y="116" style="fill:var(--defender);">Internet</text><text class="lf-mono lf-c" x="675" y="131" style="fill:var(--defender);">probe 1.1.1.1</text>
+      <line class="lf-dash" x1="350" y1="135" x2="420" y2="182"/><line class="lf-dash" x1="530" y1="182" x2="612" y2="142"/>
+      <g class="cl3-up"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--defender);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--defender);font-weight:700;">Fibre up: EHR, voice, patient Wi-Fi and the archive all use the fibre</text><circle class="cl3-pr" r="3.5"/></g>
+      <g class="cl3-dn"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:6,4;"/><text x="562" y="85" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><path d="M350 135 L420 182 M530 182 L612 142" style="stroke:var(--gotcha);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--accent);font-weight:700;">Fibre down: EHR, voice and reception move to 5G; patient Wi-Fi and archive uploads are refused on 5G</text><circle class="cl3-px" r="3.5"/></g>
+      <text class="lf-cap lf-c" x="380" y="258">Appointments, prescriptions and phones keep working. The waiting room's Netflix doesn't.</text>
+      <circle class="lf-pkt cl3-pf" r="6"/><circle class="lf-pkt cl3-pb" r="6"/>
+    </svg>
+  </div>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — fibre, 5G passthrough, recursive failover, NAT</span><span class="cfg-meta">19 lines · this step's additions · click to expand</span></summary><pre class="term">/ip address add address=203.0.113.50/29 interface=ether1 comment="fibre"
+/ip dhcp-client add interface=ether8 default-route-distance=2 use-peer-dns=no comment="5G passthrough"
+/interface list member
+add list=WAN interface=ether1
+add list=WAN interface=ether8
+/ip route
+add dst-address=1.1.1.1/32 gateway=203.0.113.49 scope=10 comment="probe via fibre"
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment="main: fibre"
+/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN
+<span class="cmt"># the 5G line is for patient care</span>
+/interface list add name=NO5G
+/interface list member
+add list=NO5G interface=v50-patients
+add list=NO5G interface=v35-srv
+/ip firewall filter add chain=forward action=reject reject-with=icmp-network-unreachable \
+    in-interface-list=NO5G out-interface=ether8 place-before=0 comment="patients and archive uploads never use 5G"
+<span class="cmt"># the archive upload may leave via the fibre</span>
+/ip firewall filter add chain=forward action=accept in-interface=v35-srv out-interface=ether1 protocol=tcp dst-port=443 \
+    place-before=[find log-prefix=FWD-DROP] comment="PACS/NAS archive to the cloud"</pre></details>
+
+  <p>The pattern is the one from the <a href="build-coffee-shop.html">coffee shop</a>: recursive probe on the primary, a DHCP route at distance 2 on the backup, and whole zones rejected on the backup at the top of the forward chain. Here the rejected zones are the patients and the servers' archive traffic. An outage at 02:00 shouldn't push a night's worth of images over a metered 5G line; the PACS retries on the fibre once it's back.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Reception opens the EHR; a patient phone browses; a test call to the clinic's number rings at reception.</li><li>Pull the fibre upstream of the ONT: within ~15–20 s reception and phones work over 5G; patient phones report "no internet".</li><li>Plug it back: everything returns to the fibre.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 11</p>
+  <h2 class="section-title">Voice and Telemedicine First</h2>
+  <p class="section-thesis"><em>A patient calling to cancel and a doctor on a video consultation must never stutter because the waiting room is streaming.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Animated queue tree: voice and video-consultation packets pass first while other traffic waits in a lower-priority class">
+      <style>.cl4-l0{offset-path:path('M30 88 L460 88 L505 123 L745 123');offset-rotate:0deg;animation:cl4mv 3s linear infinite;fill:var(--gotcha);}.cl4-l1{offset-path:path('M30 158 L460 158 L505 123 L745 123');offset-rotate:0deg;animation:cl4mv 10s linear infinite;fill:var(--defender);}@keyframes cl4mv{0%{offset-distance:0%;opacity:0;}4%{opacity:1;}96%{opacity:1;}100%{offset-distance:100%;opacity:0;}}@media (prefers-reduced-motion:reduce){.cl4-l0,.cl4-l1{animation:none;offset-distance:40%;}}</style>
+      <rect class="lf-boxa" x="170" y="22" width="390" height="188" rx="7" style="fill:none;"/><text class="lf-name lf-c" x="365" y="40">R1 queue tree · fibre upload and download</text>
+      <text class="lf-mono" x="30" y="76" style="fill:var(--gotcha);font-weight:700;">voice · telemedicine</text>
+      <rect x="200" y="74" width="250" height="28" rx="4" style="fill:var(--gotcha);fill-opacity:.13;stroke:var(--gotcha);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="114" style="fill:var(--gotcha);">priority 1 · guaranteed 20 Mb/s</text>
+      <text class="lf-mono" x="30" y="146" style="fill:var(--defender);font-weight:700;">EHR · email · rest</text>
+      <rect x="200" y="144" width="250" height="28" rx="4" style="fill:var(--defender);fill-opacity:.13;stroke:var(--defender);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="184" style="fill:var(--defender);">priority 8 · fair per host</text>
+      <rect class="lf-box" x="470" y="78" width="80" height="90" rx="5"/><text class="lf-sm lf-c" x="510" y="118">HTB</text><text class="lf-mono lf-c" x="510" y="132">475M / 95M</text>
+      <line x1="550" y1="123" x2="745" y2="123" style="stroke:var(--rule);stroke-width:10;"/><text class="lf-mono lf-c" x="650" y="108">fibre 500/100</text>
+      <text class="lf-cap lf-c" x="380" y="234">A telemedicine call and a ringing reception phone stay clear while the archive upload or a patient's video fills the line.</text>
+      <circle class="cl4-l0" r="5" style="animation-delay:0.00s;"/>
+      <circle class="cl4-l0" r="5" style="animation-delay:-1.00s;"/>
+      <circle class="cl4-l0" r="5" style="animation-delay:-2.00s;"/>
+      <rect class="cl4-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:0.00s;"/>
+      <rect class="cl4-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-2.00s;"/>
+      <rect class="cl4-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-4.00s;"/>
+      <rect class="cl4-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-6.00s;"/>
+      <rect class="cl4-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-8.00s;"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — mark real-time traffic, queue tree on the fibre</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — C8200L: LLQ under a shaper on the fibre
+ip access-list extended TELEMED
+ permit udp 10.60.10.0 0.0.0.255 any
+class-map match-any REALTIME
+ match dscp ef
+ match access-group name TELEMED
+policy-map WAN-CHILD
+ class REALTIME
+  priority 20000
+ class class-default
+  fair-queue
+policy-map WAN-OUT
+ class class-default
+  shape average 95000000
+  service-policy WAN-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output WAN-OUT</pre><pre class="term vt-pane" data-v="mikrotik">/ip firewall mangle
+add chain=forward action=mark-packet new-packet-mark=rt-up out-interface=ether1 dscp=46 passthrough=no \
+    comment="phones mark EF"
+add chain=forward action=mark-packet new-packet-mark=rt-up out-interface=ether1 in-interface=v10-clinical \
+    protocol=udp passthrough=no comment="video consultations (WebRTC/UDP)"
+add chain=forward action=mark-packet new-packet-mark=bulk-up out-interface=ether1 passthrough=no
+add chain=forward action=mark-packet new-packet-mark=rt-down in-interface=ether1 out-interface=v40-voice passthrough=no
+add chain=forward action=mark-packet new-packet-mark=rt-down in-interface=ether1 out-interface=v10-clinical \
+    protocol=udp passthrough=no
+add chain=forward action=mark-packet new-packet-mark=bulk-down in-interface=ether1 passthrough=no
+/queue type add name=fq kind=fq-codel
+/queue tree
+add name=UP parent=ether1 max-limit=95M
+add name=up-rt parent=UP packet-mark=rt-up priority=1 limit-at=20M max-limit=95M queue=fq
+add name=up-bulk parent=UP packet-mark=bulk-up priority=8 max-limit=95M queue=fq
+add name=DOWN parent=global max-limit=475M
+add name=down-rt parent=DOWN packet-mark=rt-down priority=1 limit-at=20M max-limit=475M queue=fq
+add name=down-bulk parent=DOWN packet-mark=bulk-down priority=8 max-limit=475M queue=fq</pre></div>
+
+  <p>The phones mark their packets EF themselves. Video consultations from the clinical VLAN are WebRTC over UDP, so "UDP from a clinical PC" is a good enough match for this network. <code>limit-at=20M</code> guarantees real-time traffic its share even if bulk traffic was there first, and shaping 5% under the line rate keeps the queue in R1, where it can be managed. As in the <a href="build-gaming-center.html">gaming center</a>, there's no FastTrack rule, because fast-tracked packets skip the queue tree.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Start a large upload from the admin PC and a 4K stream on a patient phone, then make a test call and a test video consultation: both stay clear.</li><li><code>/queue tree print stats</code>: drops in the bulk queues, none in the real-time queues.</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 11</p>
+  <h2 class="section-title">The Vendor Support Window</h2>
+  <p class="section-thesis"><em>The X-ray vendor's engineer gets Wednesday afternoons, through the device's own outbound support agent, and nothing at any other time.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 350" role="img" aria-label="Animated vendor support window: the X-ray workstation's support agent can reach the vendor only while a scheduler has enabled the firewall rule, and the sessions are cut when the window closes">
+      <style>.cl5-arw{stroke:var(--mid);stroke-width:1.4;fill:none;} .cl5-rad{stroke:var(--defender);stroke-width:1.6;fill:none;}@keyframes cl5r0{0%,4%{opacity:0;}6%,94%{opacity:1;}96%,100%{opacity:0;}}.cl5-r0{animation:cl5r0 16s linear infinite;}@keyframes cl5r1{0%,18.1667%{opacity:0;}20.1667%,94%{opacity:1;}96%,100%{opacity:0;}}.cl5-r1{animation:cl5r1 16s linear infinite;}@keyframes cl5r2{0%,32.3333%{opacity:0;}34.3333%,94%{opacity:1;}96%,100%{opacity:0;}}.cl5-r2{animation:cl5r2 16s linear infinite;}@keyframes cl5r3{0%,46.5%{opacity:0;}48.5%,94%{opacity:1;}96%,100%{opacity:0;}}.cl5-r3{animation:cl5r3 16s linear infinite;}@keyframes cl5r4{0%,60.6667%{opacity:0;}62.6667%,94%{opacity:1;}96%,100%{opacity:0;}}.cl5-r4{animation:cl5r4 16s linear infinite;}@keyframes cl5r5{0%,74.8333%{opacity:0;}76.8333%,94%{opacity:1;}96%,100%{opacity:0;}}.cl5-r5{animation:cl5r5 16s linear infinite;}@keyframes cl5un{0%,88%{opacity:1;}91%,96%{opacity:0;}100%{opacity:1;}}@keyframes cl5au{0%,89%{opacity:0;}91%,96%{opacity:1;}98%,100%{opacity:0;}}.cl5-un{animation:cl5un 16s linear infinite;} .cl5-au{animation:cl5au 16s linear infinite;}@media (prefers-reduced-motion:reduce){.cl5-r0,.cl5-r1,.cl5-r2,.cl5-r3,.cl5-r4,.cl5-r5{animation:none;opacity:1;}.cl5-un{animation:none;opacity:0;}.cl5-au{animation:none;opacity:1;}}</style>
+      <defs><marker id="cl5ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--mid);"/></marker></defs>
+      <rect class="lf-box" x="50" y="14" width="160" height="42" rx="5"/><rect x="50" y="14" width="5" height="42" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="132" y="32">X-ray workstation</text><text class="lf-mono lf-c" x="132" y="46">vendor support agent</text>
+      <line class="lf-dash" x1="130" y1="56" x2="130" y2="260"/>
+      <rect class="lf-boxa" x="300" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="380" y="32">R1</text><text class="lf-mono lf-c" x="380" y="46">rule VENDOR-XRAY</text>
+      <line class="lf-dash" x1="380" y1="56" x2="380" y2="260"/>
+      <rect class="lf-boxd" x="550" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="630" y="32">Vendor hub</text><text class="lf-mono lf-c" x="630" y="46">support.vendor.example</text>
+      <line class="lf-dash" x1="630" y1="56" x2="630" y2="260"/>
+      <g class="cl5-r0"><line class="cl5-arw" x1="134" y1="92" x2="376" y2="92" marker-end="url(#cl5ar)"/><text class="lf-cap lf-c" x="255" y="87">Monday: agent tries to dial out</text></g>
+      <g class="cl5-r1"><text class="lf-cap lf-c" x="380" y="120" style="fill:var(--defender);font-weight:700;">rule disabled → rejected, logged</text></g>
+      <g class="cl5-r2"><text class="lf-cap lf-c" x="380" y="148" style="fill:var(--defender);font-weight:700;">Wed 14:00: scheduler enables rule</text></g>
+      <g class="cl5-r3"><line class="cl5-rad" x1="134" y1="176" x2="626" y2="176" marker-end="url(#cl5ar)"/><text class="lf-cap lf-c" x="380" y="171" style="fill:var(--defender);font-weight:700;">agent → hub :443 (outbound only)</text></g>
+      <g class="cl5-r4"><line class="cl5-arw" x1="626" y1="204" x2="134" y2="204" marker-end="url(#cl5ar)" marker-start="url(#cl5ar)" style="stroke-dasharray:3,3;"/><text class="lf-cap lf-c" x="380" y="199">engineer works through the agent</text></g>
+      <g class="cl5-r5"><text class="lf-cap lf-c" x="380" y="232" style="fill:var(--defender);font-weight:700;">17:00: rule off, sessions cut</text></g>
+      <rect class="lf-box" x="250" y="276" width="260" height="30" rx="15"/><text class="lf-sm lf-c cl5-au" x="380" y="295" style="fill:var(--defender);">WINDOW OPEN · LOGGED</text><text class="lf-sm lf-c cl5-un" x="380" y="295" style="fill:var(--accent);">WINDOW CLOSED</text>
+      <text class="lf-cap lf-c" x="380" y="340">Nothing listens on the clinic's WAN. The device dials out, only to its vendor, only in the window the clinic agreed to.</text>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — a disabled rule and two schedules</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — a time-range on the inbound ACL of the device subinterface.
+! A stateless ACL is checked on every packet, so the session stops at 17:00 by itself.
+time-range VENDOR-XRAY
+ periodic Wednesday 14:00 to 17:00
+object-group network VENDOR-HUB
+ 203.0.113.200 255.255.255.255
+ip access-list extended MEDDEV-IN
+ 25 permit tcp host 10.60.30.11 object-group VENDOR-HUB eq 443 time-range VENDOR-XRAY log</pre><pre class="term vt-pane" data-v="mikrotik">/ip firewall address-list
+add list=VENDOR-HUB address=support.vendor.example comment="from the vendor's remote-service guide"
+/ip firewall filter add chain=forward action=accept src-address=10.60.30.11 dst-address-list=VENDOR-HUB \
+    protocol=tcp dst-port=443 log=yes log-prefix=VENDOR disabled=yes comment=VENDOR-XRAY \
+    place-before=[find log-prefix=FWD-DROP]
+/system scheduler
+add name=vx-open start-date=2026-11-04 start-time=14:00:00 interval=7d on-event={
+  /ip firewall filter enable [find comment=VENDOR-XRAY]
+  :log warning "vendor window OPEN (X-ray)"
+}
+add name=vx-close start-date=2026-11-04 start-time=17:00:00 interval=7d on-event={
+  /ip firewall filter disable [find comment=VENDOR-XRAY]
+  /ip firewall connection remove [find src-address~"^10.60.30.11:"]
+  :log warning "vendor window CLOSED (X-ray)"
+}</pre></div>
+
+  <p>Closing the window takes two actions: disabling the rule stops <em>new</em> connections, and removing the workstation's tracked connections ends the one already open (otherwise the established/related accept would keep an engineer's session alive past 17:00). For an emergency call-out, the practice manager asks the IT contractor to run <code>vx-open</code> by hand, and the <code>warning</code> log lines on the monitoring box record when it happened.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Monday: the support agent on the workstation shows "offline"; R1's log shows its attempts dropped.</li><li>Wednesday 14:00: the agent shows "online"; the vendor can start a session.</li><li>17:00: the session is cut, and the log has both window events.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 11</p>
+  <h2 class="section-title">On-Call Access for Doctors</h2>
+  <p class="section-thesis"><em>A WireGuard tunnel to one port on one server: the PACS viewer.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="10">▲ Show step 10 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap"><span class="term-label">R1 — WireGuard for the on-call laptop, reaching only the viewer</span><pre class="term">/interface wireguard add name=wg-oncall listen-port=13231
+/interface wireguard peers add interface=wg-oncall public-key="&lt;on-call laptop public key&gt;" \
+    allowed-address=10.60.200.2/32 comment="on-call laptop 1"
+/ip address add address=10.60.200.1/24 interface=wg-oncall
+/ip firewall filter
+add chain=input action=accept in-interface=ether1 protocol=udp dst-port=13231 \
+    place-before=[find log-prefix=IN-DROP] comment="WireGuard on the fibre address"
+add chain=forward action=accept in-interface=wg-oncall dst-address-list=PACS protocol=tcp dst-port=443 \
+    place-before=[find log-prefix=FWD-DROP] comment="on-call: PACS viewer only"</pre></div>
+
+  <p>The tunnel proves the laptop's identity (each laptop has its own key, removed if the laptop is lost); the PACS viewer still requires the doctor's own login with MFA, so a stolen laptop alone isn't enough. The tunnel listens only on the fibre's static address. During a fibre outage the 5G line is behind carrier NAT and can't accept connections, so on-call viewing pauses. If that's not acceptable, use the dial-out hub design from the <a href="build-coffee-shop.html">coffee shop</a>.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From home, the on-call laptop connects and opens the PACS viewer at https://10.60.35.10.</li><li>From the same tunnel: the LIS, the NAS and the router's Winbox port are unreachable.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="step-11">15 · Step 11 of 11</p>
+  <h2 class="section-title">Backups &amp; Hardening</h2>
+  <p class="section-thesis"><em>Patient images and records must survive ransomware, theft and fire. The network's part is making sure the backups are unreachable from everything a user touches.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>What</th><th>Where it goes · how</th></tr></thead>
+    <tbody>
+      <tr><td>PACS images</td><td>Nightly encrypted copy to the cloud archive (step 7 rule, 443, fibre only). Object lock on the archive bucket.</td></tr>
+      <tr><td>PACS + LIS databases</td><td>The NAS <strong>pulls</strong> them hourly from VLAN 35 with a read-only service account; it then pushes a nightly encrypted copy to an immutable cloud bucket.</td></tr>
+      <tr><td>Router + switch configs</td><td>Each device runs a nightly <code>/export</code> and uploads it to the NAS with <code>/tool fetch</code> over SFTP. The devices start the connection, so the NAS never needs a path into the MGMT VLAN.</td></tr>
+      <tr><td>The EHR</td><td>Backed up by the EHR provider; check the contract states retention and restore time.</td></tr>
+    </tbody>
+  </table>
+
+  <p>No clinical, reception, patient or medical-device VLAN has any rule allowing traffic to the NAS (10.60.35.20). The NAS reaches out; nothing reaches in except management. Hardening is the same baseline as in the other MikroTik builds: management services only from the MGMT list, MAC-Winbox and neighbour discovery limited to MGMT, the default admin account disabled, DHCP snooping on both switches with the uplinks trusted, and remote logging to the monitoring box (see <a href="mikrotik-hardening.html">hardening</a> and <a href="mikrotik-backup.html">backups</a>).</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From a consulting-room PC and a reception PC: 10.60.35.20 doesn't answer on any port.</li><li>Restore one study from the cloud archive and one LIS database from the NAS to a test machine, and time both.</li><li>From the patient Wi-Fi and the clinical VLAN: no Winbox discovery, no SSH to any network device.</li></ul>
+  </div>
+
+  <!-- 16 -->
+  <p class="section-num" id="sec-16">16</p>
+  <h2 class="section-title">Verify Before the First Patient</h2>
+  <p class="section-thesis"><em>Each drill maps to a requirement. Keep the results: they belong in the clinic's GDPR record of technical measures.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody>
+      <tr><td>Segmentation (R1)</td><td>From the patient Wi-Fi, a scan of 10.60.0.0/16 finds only 10.60.50.1. From reception, only the PACS viewer, NVR, printers and the gateway answer.</td></tr>
+      <tr><td>Device isolation (R2)</td><td>From the X-ray workstation, everything except the PACS on its DICOM port and R1's DNS/NTP is unreachable, including the internet.</td></tr>
+      <tr><td>Imaging offline (R3)</td><td>With both WAN cables unplugged, an X-ray reaches a consulting room's viewer within seconds.</td></tr>
+      <tr><td>Fibre cut (R4)</td><td>Reception, EHR and phones continue over 5G in ~15–20 s; patients are refused; the archive waits.</td></tr>
+      <tr><td>Busy line (R5)</td><td>A saturating upload plus streaming doesn't degrade a test call or video consultation.</td></tr>
+      <tr><td>Lost tablet (R6)</td><td>Deleting one access-list entry disconnects only that tablet.</td></tr>
+      <tr><td>Vendor window (R7)</td><td>The support agent connects only inside the scheduled window; the log records open and close.</td></tr>
+      <tr><td>On-call (R8)</td><td>The tunnel reaches the PACS viewer and nothing else.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">Residual Risk</h2>
+  <p class="section-thesis"><em>What the network can't fix on its own, and what covers each gap.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Old operating systems on medical devices.</strong> They will stay old until the vendor certifies an update. The network limits each device to its server and its vendor window; the clinic's job is to keep a register of device versions and ask vendors for their patch plans at every service visit.</li>
+    <li><strong>Accounts, not networks, protect the EHR.</strong> The EHR is a cloud service reachable from any internet connection. Strong individual logins with MFA, and the EHR's own access logs, are the real control there.</li>
+    <li><strong>Phishing on clinical PCs.</strong> A PC that's compromised by email can still reach what its user can reach: the PACS viewer, the LIS, the EHR. Endpoint protection, least-privilege Windows accounts and email filtering cover that; the network keeps it away from the devices, the servers' file shares and the backups.</li>
+    <li><strong>Unattended screens.</strong> Consulting rooms are left open between patients. Short screen-lock timeouts and badge or PIN unlock matter as much as any VLAN.</li>
+    <li><strong>The server closet.</strong> Lock it, keep it cool, and put the PACS, NAS, router and switches on a UPS sized for a clean shutdown.</li>
+  </ul>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">Lab It in CHR / GNS3</h2>
+  <p class="section-thesis"><em>Everything except the radios and PoE runs on free CHR images.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>This post</th><th>In the lab</th></tr></thead>
+    <tbody>
+      <tr><td>R1 RB5009</td><td>A CHR with two WAN interfaces (two upstream CHRs as ISPs), one trunk to each "switch". Firewall, failover, queues, schedulers and WireGuard all work.</td></tr>
+      <tr><td>SW-CLINIC / SW-MED</td><td>CHR bridges with VLAN filtering; the learn=no + static host trick works on a software bridge too.</td></tr>
+      <tr><td>PACS and modalities</td><td>An Orthanc container as the PACS, and the dcmtk tools (<code>echoscu</code>, <code>storescu</code>) on a Linux VM in VLAN 30 as the "modality" for testing the DICOM rules.</td></tr>
+      <tr><td>Wi-Fi</td><td>Skip it, or place VMs in VLANs 10 and 50.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT. The PACS, LIS and medical devices come from their vendors.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>R1 · RB5009UG+S+IN</td><td>200 – 240</td></tr>
+      <tr><td>SW-CLINIC · CRS328-24P-4S+</td><td>420 – 520</td></tr>
+      <tr><td>SW-MED · CRS326-24G-2S+</td><td>180 – 230</td></tr>
+      <tr><td>2× 10G DAC / SFP+ modules</td><td>40 – 80</td></tr>
+      <tr><td>3× cAP ax</td><td>300 – 380</td></tr>
+      <tr><td>5G router (passthrough) + business SIM</td><td>300 – 450, plus ~20–30/month</td></tr>
+      <tr><td>NAS (4-bay) + disks</td><td>900 – 1,500</td></tr>
+      <tr><td>UPS for the server closet</td><td>400 – 700</td></tr>
+      <tr><td>Network + backup total</td><td><strong>≈ 2,700 – 4,100</strong>, plus ~40 cable runs</td></tr>
+    </tbody>
+  </table>
+
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on Cisco</h2>
+  <p class="section-thesis"><em>Same clinic, same VLANs and matrix on Catalyst switches and a branch router. The Cisco tabs on the config blocks above show the key steps side by side; this appendix covers what changes underneath.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Role</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>R1</td><td>RB5009 → C8200L-1N-4T (router-on-a-stick to both switches)</td></tr>
+      <tr><td>SW-CLINIC (PoE)</td><td>CRS328-24P-4S+ → Catalyst 9200L-24P-4G</td></tr>
+      <tr><td>SW-MED (10G uplink)</td><td>CRS326-24G-2S+ → Catalyst 9200L-24T-4X</td></tr>
+      <tr><td>Wi-Fi</td><td>3× cAP ax + CAPsMAN → 3× C9115AXI with the embedded controller</td></tr>
+      <tr><td>Indicative total (network only)</td><td>≈ 1,400 – 1,900 → ≈ 8,000 – 11,000 EUR ex VAT</td></tr>
+    </tbody>
+  </table>
+
+  <table class="cheat">
+    <thead><tr><th>Feature</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>Device port lock</td><td><code>learn=no</code> + static host → sticky MAC with <code>violation restrict</code></td></tr>
+      <tr><td>Per-device Wi-Fi keys</td><td>wifi access list → Identity PSK on the controller, which needs a RADIUS server</td></tr>
+      <tr><td>Inter-VLAN policy</td><td>stateful forward chain → ACLs per subinterface, or ZBF for stateful inspection</td></tr>
+      <tr><td>Vendor window</td><td>disabled rule + scheduler + flush → <code>time-range</code> on the ACL</td></tr>
+      <tr><td>Voice / telemedicine</td><td>mangle + queue tree → LLQ under a shaper</td></tr>
+      <tr><td>Failover</td><td>recursive routes → IP SLA + track</td></tr>
+      <tr><td>On-call access</td><td>WireGuard → IKEv2 remote access (FlexVPN), as in the law-firm build</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>Per-device Wi-Fi keys need a server on Cisco.</strong> Identity PSK works the same way for the user, but the controller asks a RADIUS server for each tablet's key, which is the server this design avoided. <strong>The vendor window is simpler:</strong> a time-range on a stateless ACL ends the session at closing time without any flush. <strong>Medical ports use "restrict"</strong> so an unknown device is logged and dropped without taking a modality offline.</p><p>The rest translates one to one. The cost difference is about five to six times for the network hardware.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Fence unpatchable medical devices into their own VLAN</strong>, reaching only their server on its documented ports, never the internet. Every control lives in the network because the device itself can't be changed.</li>
+      <li><strong>Keep imaging local.</strong> A PACS on site means X-rays reach doctors in seconds with or without internet; the cloud gets an encrypted archive copy overnight.</li>
+      <li><strong>Per-device Wi-Fi keys</strong> give most of 802.1X's benefit (revoke one device without touching the rest) without a RADIUS server, as long as each entry is scoped to its SSID.</li>
+      <li><strong>Reserve the backup line for patient care.</strong> Reject patient Wi-Fi and archive uploads on 5G, at the top of the chain.</li>
+      <li><strong>Vendors dial out on a schedule.</strong> A disabled rule, two scheduler entries and a connection flush replace the port forward vendors ask for.</li>
+      <li><strong>Give on-call access one door.</strong> A WireGuard peer per laptop, reaching the PACS viewer and nothing else, with the viewer's own MFA behind it.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 5 of the <a href="build-index.html"><strong>Build series</strong></a>. Earlier: <a href="build-law-firm.html">the law firm</a>, <a href="build-gaming-center.html">the gaming center</a>, <a href="build-coffee-shop.html">the coffee shop</a>, <a href="build-supermarket.html">the supermarket</a>. Next: <a href="build-villa.html">the holiday villa</a>.</p>
+
+  <div class="cta-card">
+    <h3>Running a clinic on a flat network?</h3>
+    <p>I design and build clinic networks like this one: medical devices isolated the way vendors can live with, imaging that never waits on the internet, and documentation you can put in your GDPR records.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Gaming Center Network — S. Markakis</title>
+<meta name="description" content="A 40-seat gaming center on MikroTik, built bottom-up in 12 tested steps: diskless seats over 10G, switch-chip port isolation, a LAN game cache, UPnP for consoles only, two WANs with games pinned to one, latency-first queuing and tournament mode.">
+<meta property="og:title" content="Build: The Gaming Center Network — S. Markakis">
+<meta property="og:description" content="A 40-seat gaming center on MikroTik, built bottom-up in 12 tested steps: diskless seats over 10G, switch-chip port isolation, a LAN game cache, UPnP for consoles only, two WANs with games pinned to one, latency-first queuing and tournament mode.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-gaming-center.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-gaming-center.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-gaming-center.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-gaming-center.html">
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#3a7ca5;--v20:#8a5bb5;--v30:#6f7f8f;--v40:#4f8f4c;--v50:#d9822b;--v60:#a14a4a;--v99:#2f8f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Gaming Center Network",
+  "description": "A 40-seat gaming center on MikroTik, built bottom-up in 12 tested steps: diskless seats booting over 10G, port-isolated customers, a LAN game cache, console booths with UPnP, two WANs with games pinned to one, latency-first queuing, tournament mode and guest Wi-Fi — with Packet Tracer-style diagrams for every step.",
+  "datePublished": "2026-10-24",
+  "dateModified": "2026-10-24",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-gaming-center.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-gaming-center.png",
+  "keywords": [
+    "mikrotik",
+    "labs",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-gaming-center"
+  },
+  "timeRequired": "PT49M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; MikroTik RouterOS 7 &nbsp;·&nbsp; Real-World Network &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Build: The<br>Gaming Center Network</h1>
+  <p class="post-subtitle">Forty gaming PCs, six console booths, a counter and a lounge full of waiting parents. The customers are the threat model here, the product is low latency, and every PC has to be clean for the next person. We build it on MikroTik from the seats up in 12 tested steps: diskless seats booting over 10G, customers isolated from each other by the switch chip, a game cache that downloads each title once, UPnP only where consoles need it, two WANs with games pinned to one, queuing that protects ping times, and a tournament mode you can switch on with one script.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">RouterOS 7</span>
+    <span class="tag">Gaming Center</span>
+    <span class="tag">Diskless Boot</span>
+    <span class="tag">Port Isolation</span>
+    <span class="tag">LANCache</span>
+    <span class="tag">UPnP</span>
+    <span class="tag">Queue Tree</span>
+    <span class="tag">Recursive Failover</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 548" role="img" aria-label="Interactive topology of the gaming center network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="236" y1="305" x2="105" y2="470" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="223.6" cy="320.7" r="2.4"/>
+<circle class="lft-led bx-led" cx="117.4" cy="454.3" r="2.4"/>
+<text class="lft-port lft-c" x="157.4" y="407.0">ether1-10</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="236" y1="305" x2="178" y2="470" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="229.4" cy="323.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="184.6" cy="451.1" r="2.4"/>
+<text class="lft-port lft-c" x="200.0" y="421.3">ether11-20</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="236" y1="305" x2="251" y2="470" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="237.8" cy="324.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="249.2" cy="450.1" r="2.4"/>
+<text class="lft-port" x="251.3" y="410.3">ether21-30</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="236" y1="305" x2="324" y2="470" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="245.4" cy="322.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="314.6" cy="452.4" r="2.4"/>
+<text class="lft-port lft-c" x="290.6" y="421.3">ether31-40</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="236" y1="305" x2="72" y2="252" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="217.0" cy="298.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="91.0" cy="258.2" r="2.4"/>
+<text class="lft-port lft-c" x="145.8" y="274.9">sfp+2 · 10G</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="236" y1="305" x2="72" y2="345" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="216.6" cy="309.7" r="2.4"/>
+<circle class="lft-led bx-led" cx="91.4" cy="340.3" r="2.4"/>
+<text class="lft-port lft-c" x="145.8" y="340.0">sfp+3 · 10G</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="560" y1="305" x2="450" y2="470" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="548.9" cy="321.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="461.1" cy="453.4" r="2.4"/>
+<text class="lft-port lft-c" x="494.0" y="407.0">ether1-6</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="560" y1="305" x2="548" y2="470" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="558.5" cy="324.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="549.5" cy="450.1" r="2.4"/>
+<text class="lft-port" x="558.8" y="418.0">ether9-10</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="560" y1="305" x2="628" y2="470" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="567.6" cy="323.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="620.4" cy="451.5" r="2.4"/>
+<text class="lft-port lft-c" x="600.8" y="407.0">ether13-20</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="560" y1="305" x2="698" y2="470" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="572.8" cy="320.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="685.2" cy="454.7" r="2.4"/>
+<text class="lft-port lft-c" x="642.8" y="418.0">ether21</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="560" y1="305" x2="690" y2="228" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="577.2" cy="294.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="672.8" cy="238.2" r="2.4"/>
+<text class="lft-port lft-c" x="625.0" y="263.5">ether22-24 · trunk</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="236" y1="305" x2="380" y2="194" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="251.8" cy="292.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="364.2" cy="206.2" r="2.4"/>
+<text class="lft-port lft-c" x="308.0" y="252.5">sfp+1 ⇄ sfp+1 · 10G trunk</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="560" y1="305" x2="380" y2="194" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="543.0" cy="294.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="397.0" cy="204.5" r="2.4"/>
+<text class="lft-port lft-c" x="470.0" y="252.5">sfp+1 ⇄ sfp+2 · 10G trunk</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="290" y2="112" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="365.2" cy="180.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="304.8" cy="125.5" r="2.4"/>
+<text class="lft-port lft-c" x="335.0" y="156.0">ether1</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="290" y1="112" x2="380" y2="40" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="305.6" cy="99.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="353.5" cy="61.2" r="2.4"/>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-blink" x1="380" y1="194" x2="470" y2="112" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="394.8" cy="180.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="455.2" cy="125.5" r="2.4"/>
+<text class="lft-port lft-c" x="425.0" y="156.0">ether2</text>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-blink" x1="470" y1="112" x2="380" y2="40" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="454.4" cy="99.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="406.5" cy="61.2" r="2.4"/>
+</g>
+<g class="bx-el" data-step="11">
+<line class="bx-blink" x1="690" y1="228" x2="712" y2="330" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-c" x="701.0" y="282.0">ARENA-Guest</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="380" cy="40" r="56"/>
+<use href="#lfi-cloud" x="328" y="16" width="104" height="48" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="380" y="45" style="fill:var(--defender);">Internet</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="290" cy="112" r="26"/>
+<use href="#lfi-modem" x="273" y="103" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="290" y="133">WAN1 · fibre</text>
+<text class="lft-chip lft-c" x="290" y="143" style="fill:var(--body);">1000/200 · static</text>
+</g>
+<g class="bx-el bx-dev" data-step="8">
+<circle class="bx-ring lft-ring" cx="470" cy="112" r="26"/>
+<use href="#lfi-modem" x="453" y="103" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="470" y="133">WAN2 · VDSL</text>
+<text class="lft-chip lft-c" x="470" y="143" style="fill:var(--body);">100/20 · other ISP</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="4" data-dev="r1" tabindex="0" role="button" aria-label="Show the configuration of R1">
+<circle class="bx-ring lft-ring" cx="380" cy="194" r="32"/>
+<circle class="bx-sel" cx="380" cy="194" r="28"/>
+<use href="#lfi-router" x="357" y="178" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="411" y="193">R1</text>
+<text class="lft-chip" x="411" y="203" style="fill:var(--body);">CCR2004-16G-2S+</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="72" cy="252" r="25"/>
+<use href="#lfi-server" x="61" y="236" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="72" y="220">BOOT01</text>
+<text class="lft-chip lft-c" x="72" y="230" style="fill:var(--v10);">diskless images</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="72" cy="345" r="25"/>
+<use href="#lfi-server" x="61" y="329" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="72" y="373">CACHE01</text>
+<text class="lft-chip lft-c" x="72" y="383" style="fill:var(--v10);">game cache · DNS</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="sw1" tabindex="0" role="button" aria-label="Show the configuration of SW-SEATS">
+<circle class="bx-ring lft-ring" cx="236" cy="305" r="34"/>
+<circle class="bx-sel" cx="236" cy="305" r="30"/>
+<use href="#lfi-l2" x="211" y="294" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="269" y="304">SW-SEATS</text>
+<text class="lft-chip" x="269" y="314" style="fill:var(--body);">CRS354-48G-4S+2Q+</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="3" data-dev="sw2" tabindex="0" role="button" aria-label="Show the configuration of SW-FRONT">
+<circle class="bx-ring lft-ring" cx="560" cy="305" r="34"/>
+<circle class="bx-sel" cx="560" cy="305" r="30"/>
+<use href="#lfi-l2" x="535" y="294" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-e" x="527" y="304">SW-FRONT</text>
+<text class="lft-chip lft-e" x="527" y="314" style="fill:var(--body);">CRS328-24P-4S+</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="690" cy="228" r="26"/>
+<use href="#lfi-ap" x="673" y="215" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="690" y="199">cAP ax ×3</text>
+<text class="lft-chip lft-c" x="690" y="209" style="fill:var(--body);">CAPsMAN</text>
+</g>
+<g class="bx-el bx-dev" data-step="11">
+<circle class="bx-ring lft-ring" cx="712" cy="330" r="25"/>
+<use href="#lfi-laptop" x="696" y="318" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="712" y="354">Guests</text>
+<text class="lft-chip lft-c" x="712" y="364" style="fill:var(--v50);">V50</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="105" cy="470" r="23"/>
+<use href="#lfi-pc" x="91" y="456" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="105" y="496">Seats 1–10</text>
+<text class="lft-chip lft-c" x="105" y="506" style="fill:var(--v10);">V10 · stage</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="178" cy="470" r="23"/>
+<use href="#lfi-pc" x="164" y="456" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="178" y="496">Seats 11–20</text>
+<text class="lft-chip lft-c" x="178" y="506" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="251" cy="470" r="23"/>
+<use href="#lfi-pc" x="237" y="456" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="251" y="496">Seats 21–30</text>
+<text class="lft-chip lft-c" x="251" y="506" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="324" cy="470" r="23"/>
+<use href="#lfi-pc" x="310" y="456" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="324" y="496">Seats 31–40</text>
+<text class="lft-chip lft-c" x="324" y="506" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="450" cy="470" r="34"/>
+<use href="#lfi-console" x="426" y="462" width="32" height="20" style="color:var(--mid);"/><use href="#lfi-display" x="445" y="452" width="38" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="450" y="496">Console booths ×6</text>
+<text class="lft-chip lft-c" x="450" y="506" style="fill:var(--v20);">V20</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="548" cy="470" r="34"/>
+<use href="#lfi-pos" x="520" y="455" width="32" height="30" style="color:var(--mid);"/><use href="#lfi-pinpad" x="552" y="458" width="20" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="548" y="496">Counter</text>
+<text class="lft-chip lft-c" x="548" y="506" style="fill:var(--v40);">POS · card · V40</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="628" cy="470" r="23"/>
+<use href="#lfi-camera" x="614" y="459" width="28" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="628" y="493">CCTV ×8</text>
+<text class="lft-chip lft-c" x="628" y="503" style="fill:var(--v60);">V60</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="698" cy="470" r="25"/>
+<use href="#lfi-server" x="687" y="454" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="698" y="498">NVR</text>
+<text class="lft-chip lft-c" x="698" y="508" style="fill:var(--v60);">V60</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 12 steps built</text>
+<text class="lft-chip" x="20" y="538">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="12" value="12" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "Seats & the Seat Switch", "adds": "SW-SEATS, Seats 1–10, Seats 11–20, Seats 21–30, Seats 31–40"}, {"n": 2, "title": "The Game Servers: Boot & Cache", "adds": "BOOT01, CACHE01"}, {"n": 3, "title": "Front of House: Booths, Counter, Cameras, APs", "adds": "SW-FRONT, cAP ax ×3, Console booths ×6, Counter, CCTV ×8, NVR"}, {"n": 4, "title": "The Router: Gateways, DHCP & Network Boot", "adds": "R1"}, {"n": 5, "title": "Firewall: The Matrix as Rules", "adds": "policy / services"}, {"n": 6, "title": "The Game Cache & DNS", "adds": "policy / services"}, {"n": 7, "title": "WAN1, NAT & Open NAT for Consoles", "adds": "Internet, WAN1 · fibre"}, {"n": 8, "title": "WAN2: Failover & Where Downloads Go", "adds": "WAN2 · VDSL"}, {"n": 9, "title": "Latency First: The Queue Tree", "adds": "policy / services"}, {"n": 10, "title": "Tournament Mode", "adds": "policy / services"}, {"n": 11, "title": "Guest & Staff Wi-Fi", "adds": "Guests"}, {"n": 12, "title": "Hardening, Snooping & Backups", "adds": "policy / services"}], "devices": {"sw1": "SW-SEATS", "sw2": "SW-FRONT", "r1": "R1"}, "configs": {"sw1": [{"step": 1, "title": "Seats & the Seat Switch", "label": "SW-SEATS — bridge, VLANs, seat ports", "text": "/system identity set name=SW-SEATS\n/interface bridge add name=bridge vlan-filtering=no\n# seats: untagged VLAN 10 only\n:for i from=1 to=40 do={\n  /interface bridge port add bridge=bridge interface=(\"ether\" . $i) pvid=10 \\\n      frame-types=admit-only-untagged-and-priority-tagged\n}\n/interface bridge port\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"uplink R1\"\nadd bridge=bridge interface=sfp-sfpplus2 pvid=10 comment=\"BOOT01 (step 2)\"\nadd bridge=bridge interface=sfp-sfpplus3 pvid=10 comment=\"CACHE01 (step 2)\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10 tagged=sfp-sfpplus1\nadd bridge=bridge vlan-ids=30 tagged=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.30.99.11/24 interface=v99-mgmt\n/ip route add gateway=10.30.99.1                 # R1 arrives in step 4\n/interface ethernet disable ether41,ether42,ether43,ether44,ether45,ether46,ether47,ether48\n# last, from the console port or in Safe Mode:\n/interface bridge set bridge vlan-filtering=yes"}, {"step": 1, "title": "Seats & the Seat Switch", "label": "SW-SEATS — port isolation in the switch chip", "text": ":for i from=1 to=40 do={\n  /interface ethernet switch port-isolation add port=(\"ether\" . $i) \\\n      forwarding-override=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3\n}"}, {"step": 10, "title": "Tournament Mode", "label": "SW-SEATS — tournament on/off, scheduled", "text": "/system script\nadd name=tournament-on source={\n  :local bracket \"sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3\"\n  :for i from=1 to=10 do={ :set bracket ($bracket . \",ether\" . $i) }\n  :for i from=1 to=10 do={\n    /interface ethernet switch port-isolation set [find port=(\"ether\" . $i)] forwarding-override=$bracket\n  }\n  :log warning \"TOURNAMENT ON: seats 1-10 can reach each other\"\n}\nadd name=tournament-off source={\n  :for i from=1 to=10 do={\n    /interface ethernet switch port-isolation set [find port=(\"ether\" . $i)] \\\n        forwarding-override=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3\n  }\n  :log warning \"TOURNAMENT OFF: seats 1-10 isolated again\"\n}\n/system scheduler\nadd name=t-on start-date=2026-11-07 start-time=17:00:00 interval=7d on-event=tournament-on\nadd name=t-off start-date=2026-11-07 start-time=23:30:00 interval=7d on-event=tournament-off"}, {"step": 12, "title": "Hardening, Snooping & Backups", "label": "R1 + both switches — management plane", "text": "/interface list add name=MGMT\n/interface list member add list=MGMT interface=v99-mgmt\n/ip service disable telnet,ftp,www,api,api-ssl\n/ip service set ssh address=10.30.99.0/24\n/ip service set winbox address=10.30.99.0/24\n/tool mac-server set allowed-interface-list=MGMT\n/tool mac-server mac-winbox set allowed-interface-list=MGMT\n/ip neighbor discovery-settings set discover-interface-list=MGMT\n/user add name=netadmin group=full password=********\n/user disable admin\n/system ntp client set enabled=yes servers=time.cloudflare.com\n/system logging action add name=remote target=remote remote=10.30.99.20\n/system logging add topics=warning action=remote\n/system logging add topics=firewall action=remote\n/system scheduler add name=nightly-export interval=1d start-time=04:00:00 \\\n    on-event=\"/export show-sensitive file=nightly\""}, {"step": 12, "title": "Hardening, Snooping & Backups", "label": "SW-SEATS + SW-FRONT — DHCP snooping", "text": "/interface bridge set bridge dhcp-snooping=yes\n/interface bridge port set [find interface=sfp-sfpplus1] trusted=yes"}], "sw2": [{"step": 3, "title": "Front of House: Booths, Counter, Cameras, APs", "label": "SW-FRONT — CRS328-24P-4S+ (PoE)", "text": "/system identity set name=SW-FRONT\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"uplink R1\"\nadd bridge=bridge interface=ether1 pvid=20 comment=\"booth 1\"   # … ether2-6: booths 2-6, same\nadd bridge=bridge interface=ether9 pvid=40 comment=\"POS PC\"\nadd bridge=bridge interface=ether10 pvid=40 comment=\"card terminal\"\nadd bridge=bridge interface=ether13 pvid=60 comment=\"cam 1\"     # … ether14-20: cams 2-8\nadd bridge=bridge interface=ether21 pvid=60 comment=\"NVR\"\nadd bridge=bridge interface=ether22 pvid=99 comment=\"cAP 1 (trunk)\"\nadd bridge=bridge interface=ether23 pvid=99 comment=\"cAP 2 (trunk)\"\nadd bridge=bridge interface=ether24 pvid=99 comment=\"cAP 3 (trunk)\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=20,40,60 tagged=sfp-sfpplus1\nadd bridge=bridge vlan-ids=40,50 tagged=sfp-sfpplus1,ether22,ether23,ether24\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.30.99.12/24 interface=v99-mgmt\n/ip route add gateway=10.30.99.1\n# cameras: no learning, only their own MAC may use the port\n/interface bridge port set [find interface=ether13] learn=no\n/interface bridge host add bridge=bridge interface=ether13 mac-address=AC:CC:8E:00:00:21\n# … repeat per camera; then:\n/interface bridge set bridge vlan-filtering=yes"}, {"step": 12, "title": "Hardening, Snooping & Backups", "label": "R1 + both switches — management plane", "text": "/interface list add name=MGMT\n/interface list member add list=MGMT interface=v99-mgmt\n/ip service disable telnet,ftp,www,api,api-ssl\n/ip service set ssh address=10.30.99.0/24\n/ip service set winbox address=10.30.99.0/24\n/tool mac-server set allowed-interface-list=MGMT\n/tool mac-server mac-winbox set allowed-interface-list=MGMT\n/ip neighbor discovery-settings set discover-interface-list=MGMT\n/user add name=netadmin group=full password=********\n/user disable admin\n/system ntp client set enabled=yes servers=time.cloudflare.com\n/system logging action add name=remote target=remote remote=10.30.99.20\n/system logging add topics=warning action=remote\n/system logging add topics=firewall action=remote\n/system scheduler add name=nightly-export interval=1d start-time=04:00:00 \\\n    on-event=\"/export show-sensitive file=nightly\""}, {"step": 12, "title": "Hardening, Snooping & Backups", "label": "SW-SEATS + SW-FRONT — DHCP snooping", "text": "/interface bridge set bridge dhcp-snooping=yes\n/interface bridge port set [find interface=sfp-sfpplus1] trusted=yes"}], "r1": [{"step": 4, "title": "The Router: Gateways, DHCP & Network Boot", "label": "R1 — CCR2004-16G-2S+ · trunks and VLAN interfaces", "text": "/system identity set name=R1\n/interface bridge add name=br-lan vlan-filtering=yes\n/interface bridge port\nadd bridge=br-lan interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"SW-SEATS\"\nadd bridge=br-lan interface=sfp-sfpplus2 frame-types=admit-only-vlan-tagged comment=\"SW-FRONT\"\n/interface bridge vlan\nadd bridge=br-lan vlan-ids=10,30 tagged=br-lan,sfp-sfpplus1\nadd bridge=br-lan vlan-ids=20,40,50,60 tagged=br-lan,sfp-sfpplus2\nadd bridge=br-lan vlan-ids=99 tagged=br-lan,sfp-sfpplus1,sfp-sfpplus2\n/interface vlan\nadd name=v10-seats interface=br-lan vlan-id=10\nadd name=v20-consoles interface=br-lan vlan-id=20\nadd name=v30-srv interface=br-lan vlan-id=30\nadd name=v40-counter interface=br-lan vlan-id=40\nadd name=v50-guest interface=br-lan vlan-id=50\nadd name=v60-cctv interface=br-lan vlan-id=60\nadd name=v99-mgmt interface=br-lan vlan-id=99\n/ip address\nadd address=10.30.10.1/24 interface=v10-seats\nadd address=10.30.20.1/24 interface=v20-consoles\nadd address=10.30.30.1/24 interface=v30-srv\nadd address=10.30.40.1/24 interface=v40-counter\nadd address=10.30.50.1/24 interface=v50-guest\nadd address=10.30.60.1/24 interface=v60-cctv\nadd address=10.30.99.1/24 interface=v99-mgmt\n/interface list add name=LAN\n/interface list member\nadd list=LAN interface=v10-seats\n# … the same for every v* interface"}, {"step": 4, "title": "The Router: Gateways, DHCP & Network Boot", "label": "R1 — DHCP with PXE options for the seats", "text": "/ip pool\nadd name=p-seats ranges=10.30.10.150-10.30.10.199   # spares; real seats use reservations\nadd name=p-consoles ranges=10.30.20.50-10.30.20.99\nadd name=p-counter ranges=10.30.40.50-10.30.40.99\nadd name=p-guest ranges=10.30.50.20-10.30.50.250\n/ip dhcp-server\nadd name=d-seats interface=v10-seats address-pool=p-seats lease-time=12h\nadd name=d-consoles interface=v20-consoles address-pool=p-consoles lease-time=12h\nadd name=d-counter interface=v40-counter address-pool=p-counter lease-time=1d\nadd name=d-guest interface=v50-guest address-pool=p-guest lease-time=1h\n/ip dhcp-server network\nadd address=10.30.10.0/24 gateway=10.30.10.1 dns-server=10.30.10.20 \\\n    next-server=10.30.10.10 boot-file-name=ipxe.efi comment=\"seats: PXE to BOOT01\"\nadd address=10.30.20.0/24 gateway=10.30.20.1 dns-server=10.30.10.20\nadd address=10.30.40.0/24 gateway=10.30.40.1 dns-server=10.30.40.1\nadd address=10.30.50.0/24 gateway=10.30.50.1 dns-server=10.30.50.1\n/ip dhcp-server lease\nadd server=d-seats mac-address=58:11:22:00:00:01 address=10.30.10.101 comment=\"Seat 1\"\n# … one reservation per seat; the diskless platform maps the same MAC to the seat number\n/ip dns set allow-remote-requests=yes servers=1.1.1.2,1.0.0.2"}, {"step": 5, "title": "Firewall: The Matrix as Rules", "label": "R1 — address lists and filter rules", "text": "/ip firewall address-list\nadd list=CACHE address=10.30.10.20\nadd list=BOOT address=10.30.10.10\nadd list=POS address=10.30.40.10\nadd list=NVR address=10.30.60.10\n/ip firewall filter\n# --- the router itself\nadd chain=input action=accept connection-state=established,related,untracked\nadd chain=input action=drop connection-state=invalid\nadd chain=input action=accept protocol=icmp\nadd chain=input action=accept in-interface=v99-mgmt comment=\"manage only from MGMT\"\nadd chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67\nadd chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53\nadd chain=input action=drop log=yes log-prefix=IN-DROP\n# --- through the router\nadd chain=forward action=accept connection-state=established,related,untracked\nadd chain=forward action=drop connection-state=invalid\nadd chain=forward action=accept connection-nat-state=dstnat comment=\"UPnP mappings (step 7)\"\nadd chain=forward action=accept in-interface=v10-seats out-interface-list=WAN comment=\"seats -> internet\"\nadd chain=forward action=accept in-interface=v20-consoles dst-address-list=CACHE\nadd chain=forward action=accept in-interface=v20-consoles out-interface-list=WAN\nadd chain=forward action=accept in-interface=v40-counter out-interface-list=WAN\nadd chain=forward action=accept src-address-list=POS dst-address-list=BOOT protocol=tcp dst-port=443 \\\n    comment=\"staff console of the diskless platform (wake/restart seats)\"\nadd chain=forward action=accept src-address-list=POS dst-address-list=NVR protocol=tcp dst-port=443\nadd chain=forward action=accept in-interface=v50-guest out-interface-list=WAN\nadd chain=forward action=accept in-interface=v30-srv out-interface-list=WAN protocol=tcp dst-port=443\nadd chain=forward action=accept in-interface=v99-mgmt\nadd chain=forward action=drop log=yes log-prefix=FWD-DROP"}, {"step": 6, "title": "The Game Cache & DNS", "label": "R1 — seats use the cache's DNS, nothing else", "text": "/ip firewall filter\nadd chain=forward action=drop in-interface=v10-seats protocol=udp dst-port=53,853 \\\n    place-before=[find comment=\"seats -> internet\"] comment=\"no DNS bypass\"\nadd chain=forward action=drop in-interface=v10-seats protocol=tcp dst-port=53,853 \\\n    place-before=[find comment=\"seats -> internet\"]"}, {"step": 7, "title": "WAN1, NAT & Open NAT for Consoles", "label": "R1 — WAN1, masquerade, UPnP on the console VLAN only", "text": "/interface list add name=WAN\n/interface list member add list=WAN interface=ether1\n/ip address add address=203.0.113.10/29 interface=ether1 comment=\"WAN1 fibre\"\n/ip route add gateway=203.0.113.9 comment=\"temporary, replaced in step 8\"\n/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN\n\n/ip upnp set enabled=yes show-dummy-rule=no\n/ip upnp interfaces\nadd interface=v20-consoles type=internal\nadd interface=ether1 type=external"}, {"step": 8, "title": "WAN2: Failover & Where Downloads Go", "label": "R1 — WAN2, recursive failover, and a routing table for the cache", "text": "/interface pppoe-client add name=pppoe-wan2 interface=ether2 user=arena@isp2 password=******** \\\n    add-default-route=no use-peer-dns=no disabled=no\n/interface list member add list=WAN interface=pppoe-wan2\n/ip route remove [find comment=\"temporary, replaced in step 8\"]\n/ip route\nadd dst-address=1.1.1.1/32 gateway=203.0.113.9 scope=10 comment=\"probe via WAN1\"\nadd dst-address=9.9.9.9/32 gateway=pppoe-wan2 scope=10 comment=\"probe via WAN2\"\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment=\"main: WAN1\"\nadd dst-address=0.0.0.0/0 gateway=9.9.9.9 target-scope=11 check-gateway=ping distance=2 comment=\"main: WAN2\"\n# a second table where the preference is reversed\n/routing table add name=via-wan2 fib\n/ip route\nadd dst-address=0.0.0.0/0 gateway=9.9.9.9 target-scope=11 check-gateway=ping distance=1 routing-table=via-wan2\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=2 routing-table=via-wan2\n/routing rule\nadd dst-address=10.30.0.0/16 action=lookup-only-in-table table=main comment=\"LAN stays LAN\"\nadd src-address=10.30.10.20/32 action=lookup table=via-wan2 comment=\"cache downloads ride WAN2\""}, {"step": 9, "title": "Latency First: The Queue Tree", "label": "R1 — mangle and queue tree (WAN1)", "text": "/ip firewall mangle\nadd chain=forward action=mark-connection new-connection-mark=bulk protocol=tcp \\\n    connection-bytes=5000000-0 connection-mark=no-mark passthrough=yes comment=\"past 5 MB = a download\"\nadd chain=forward action=mark-packet in-interface=ether1 connection-mark=bulk new-packet-mark=dl-bulk passthrough=no\nadd chain=forward action=mark-packet in-interface=ether1 new-packet-mark=dl-int passthrough=no\nadd chain=forward action=mark-packet out-interface=ether1 connection-mark=bulk new-packet-mark=ul-bulk passthrough=no\nadd chain=forward action=mark-packet out-interface=ether1 new-packet-mark=ul-int passthrough=no\n/queue type\nadd name=pcq-down kind=pcq pcq-classifier=dst-address pcq-rate=0\nadd name=fq kind=fq-codel\n/queue tree\nadd name=DOWN parent=global max-limit=950M\nadd name=down-int parent=DOWN packet-mark=dl-int priority=1 max-limit=950M queue=pcq-down\nadd name=down-bulk parent=DOWN packet-mark=dl-bulk priority=8 max-limit=950M queue=pcq-down\nadd name=UP parent=ether1 max-limit=190M\nadd name=up-int parent=UP packet-mark=ul-int priority=1 max-limit=190M queue=fq\nadd name=up-bulk parent=UP packet-mark=ul-bulk priority=8 max-limit=190M queue=fq"}, {"step": 11, "title": "Guest & Staff Wi-Fi", "label": "R1 — CAPsMAN for three cAP ax (RouterOS 7 wifi)", "text": "/interface wifi security\nadd name=sec-guest authentication-types=wpa2-psk,wpa3-psk passphrase=\"rotate-me-monthly\"\nadd name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase=\"********\"\n/interface wifi datapath\nadd name=dp-guest bridge=bridge vlan-id=50 client-isolation=yes\nadd name=dp-staff bridge=bridge vlan-id=40\n/interface wifi configuration\nadd name=cfg-guest ssid=ARENA-Guest security=sec-guest datapath=dp-guest country=Greece\nadd name=cfg-staff ssid=ARENA-Staff security=sec-staff datapath=dp-staff country=Greece hide-ssid=yes\n/interface wifi capsman set enabled=yes interfaces=v99-mgmt\n/interface wifi provisioning\nadd action=create-dynamic-enabled supported-bands=5ghz-ax master-configuration=cfg-guest slave-configurations=cfg-staff\nadd action=create-dynamic-enabled supported-bands=2ghz-ax master-configuration=cfg-guest slave-configurations=cfg-staff\n\n# 30 Mb/s for the whole lounge, split evenly per device\n/queue simple add name=guest-wifi target=10.30.50.0/24 max-limit=30M/30M \\\n    queue=pcq-upload-default/pcq-download-default"}, {"step": 12, "title": "Hardening, Snooping & Backups", "label": "R1 + both switches — management plane", "text": "/interface list add name=MGMT\n/interface list member add list=MGMT interface=v99-mgmt\n/ip service disable telnet,ftp,www,api,api-ssl\n/ip service set ssh address=10.30.99.0/24\n/ip service set winbox address=10.30.99.0/24\n/tool mac-server set allowed-interface-list=MGMT\n/tool mac-server mac-winbox set allowed-interface-list=MGMT\n/ip neighbor discovery-settings set discover-interface-list=MGMT\n/user add name=netadmin group=full password=********\n/user disable admin\n/system ntp client set enabled=yes servers=time.cloudflare.com\n/system logging action add name=remote target=remote remote=10.30.99.20\n/system logging add topics=warning action=remote\n/system logging add topics=firewall action=remote\n/system scheduler add name=nightly-export interval=1d start-time=04:00:00 \\\n    on-event=\"/export show-sensitive file=nightly\""}]}}</script>
+</div>
+  </div>
+
+  <div class="thesis-card">
+    <p>This is part 2 of the <a href="build-index.html">Build series</a>. The <a href="build-law-firm.html">law firm</a> was about keeping trusted staff away from things they didn't need. A gaming center turns that around: the people sitting at the keyboards are strangers, some of them are bored teenagers with a USB stick, and a few of them will try to cheat, sniff or crash the person next to them. At the same time the business sells exactly one thing, a fast and smooth game, so every security control has to cost zero latency.</p>
+    <p>It's built on MikroTik because that's what most real gaming centers run: a CCR handles 1 Gb/s of NAT with queues on every packet for a few hundred euros, and the CRS3xx switch chip can isolate ports at line rate. The design ideas carry over to any vendor.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-vlans.html">VLANs on RouterOS</a>, <a href="mikrotik-firewall.html">the RouterOS firewall</a> and <a href="mikrotik-qos.html">QoS</a>. This post moves fast through all three.</li>
+      <li><a href="mikrotik-routing-rules.html">Policy routing</a> for step 8, <a href="mikrotik-capsman.html">CAPsMAN</a> for step 11, <a href="mikrotik-scripting.html">scripting</a> for step 10.</li>
+      <li>RouterOS 7.x. Everything except port isolation and the radios also runs on CHR (see section 19).</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but typical center: one hall, 40 PCs, 6 console booths, open 14 hours a day, and an owner who measures the network in complaints per evening.</em></p>
+
+  <p>The arena has <strong>40 gaming PCs</strong> in four rows of ten, the first row beside a small stage used for weekend tournaments. There are <strong>6 console booths</strong> with a PS5 and a big TV each, a <strong>counter</strong> with the POS PC and a card terminal, a <strong>lounge</strong> where parents wait and want Wi-Fi, and <strong>8 cameras</strong>. Customers pay per hour through a cloud session-management service that runs a client on every PC. The owner wants three things above all: nobody complains about lag, nobody can mess with the PC next to them, and nobody leaves anything behind on a PC.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Clean seats</td><td>Customers install things, plug in USB sticks and leave logged-in accounts behind. Every seat must be <strong>factory-clean after every reboot</strong>, so the seats are diskless and boot an image over the network.</td></tr>
+      <tr><td>R2 Seat isolation</td><td>Customers attack each other: ARP poisoning to snoop logins, LAN flooding to lag a rival. Seats must not reach each other <strong>at Layer 2</strong>, which means isolation in the switch, not on the router.</td></tr>
+      <tr><td>R3 Latency first</td><td>One customer downloading a 120 GB game must not add a single millisecond to someone else's match. Interactive traffic is queued ahead of bulk on every packet.</td></tr>
+      <tr><td>R4 Download once</td><td>Forty seats patching the same game on release day would saturate any line. A <strong>LAN game cache</strong> fetches each title once and serves it at 10G.</td></tr>
+      <tr><td>R5 Consoles need open NAT</td><td>PS5 matchmaking and voice chat suffer behind strict NAT. Consoles get UPnP; nothing else does.</td></tr>
+      <tr><td>R6 Stay online, stay stable</td><td>Two ISPs. But a game that switches public IP mid-match drops anyway, so games stay on WAN1 and only bulk downloads use WAN2, until something fails.</td></tr>
+      <tr><td>R7 Tournaments</td><td>On weekends, seats 1–10 must see each other for LAN play, then go back to isolated. That has to be one action for staff, not a config change.</td></tr>
+      <tr><td>R8 Money &amp; cameras</td><td>The card terminal and POS are on their own network, and so are the cameras. Neither is ever reachable from a seat.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>Most of this is forced by the brief. These four choices aren't, and each one is a trade-off worth stating out loud.</em></p>
+
+  <h3 class="sub">1 · Diskless seats, served at Layer 2</h3>
+  <p>Diskless platforms boot every seat from a <strong>golden image</strong> on a server over iSCSI; each seat's writes go to an overlay that's thrown away at reboot. That solves R1 completely. The network decision is <em>where</em> the boot server sits. When a full room powers on at opening time, every seat reads several gigabytes at once. If that traffic had to cross the router, the router would become the bottleneck and the opening queue would last ten minutes. So BOOT01 sits <strong>in the seats' VLAN</strong>, on a 10G port of the seat switch, and the boot storm never leaves the switch chip.</p>
+
+  <h3 class="sub">2 · Isolation in the switch chip, not in VLANs</h3>
+  <p>The textbook way to stop clients talking to each other is a VLAN per client or private VLANs. Forty VLANs would mean forty subnets, forty DHCP scopes and a boot server with forty legs. Instead, the CRS354's switch chip does <strong>port isolation</strong>: each seat port may only forward to the uplink and the two server ports. Seats share one subnet, can't exchange a single frame, and the boot and cache servers are still one hop away at line rate.</p>
+
+  <h3 class="sub">3 · Games pinned to WAN1, bulk on WAN2</h3>
+  <p>Load-balancing every connection across two WANs (PCC) sounds efficient, but games and anti-cheat systems dislike a player whose public IP changes between connections, and some platforms flag it. So interactive traffic always uses WAN1, and only the game cache's downloads use WAN2, where a slow line doesn't matter. If either WAN fails, everything moves to the other one.</p>
+
+  <h3 class="sub">4 · No FastTrack</h3>
+  <p>FastTrack makes RouterOS much faster by skipping most of the packet path, including the queues. That would defeat R3. A CCR2004 handles 1 Gb/s of NAT with a queue tree and full firewall without FastTrack, so we leave it off and accept the extra CPU load. On smaller routers, this trade-off goes the other way.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>One /16, one /24 per VLAN, third octet = VLAN ID. Seats get fixed addresses by MAC, so "seat 17" is always .117.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>VLAN · subnet</th><th>Who lives here · gateway · DHCP</th></tr></thead>
+    <tbody>
+      <tr><td>10 SEATS · 10.30.10.0/24</td><td>Seats 1–40 at .101–.140 (reservations by MAC), BOOT01 data .10, CACHE01 data .20. GW .1 on R1. DHCP on R1 with PXE options; DNS = CACHE01.</td></tr>
+      <tr><td>20 CONSOLES · 10.30.20.0/24</td><td>PS5s .11–.16 (reservations). DNS = CACHE01 (PSN updates are cacheable too). UPnP allowed.</td></tr>
+      <tr><td>30 SRV-MGMT · 10.30.30.0/24</td><td>BOOT01 and CACHE01 management interfaces (.10, .20), tagged on their 10G ports. Admin only.</td></tr>
+      <tr><td>40 COUNTER · 10.30.40.0/24</td><td>POS PC .10, card terminal .11, staff Wi-Fi. Internet + boot admin UI + NVR viewing.</td></tr>
+      <tr><td>50 GUEST · 10.30.50.0/24</td><td>Lounge Wi-Fi. Internet only, client isolation, 30 Mb/s shared.</td></tr>
+      <tr><td>60 CCTV · 10.30.60.0/24</td><td>8 cameras .21–.28, NVR .10. No internet.</td></tr>
+      <tr><td>99 MGMT · 10.30.99.0/24</td><td>R1 .1, SW-SEATS .11, SW-FRONT .12, cAPs .21–.23, monitoring box .20.</td></tr>
+      <tr><td>WAN1 · 203.0.113.10/29</td><td>Fibre, static, gateway .9. Games, consoles, seats, guests.</td></tr>
+      <tr><td>WAN2 · DHCP</td><td>VDSL from a second ISP. Game-cache downloads, plus everything if WAN1 dies.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 300" role="img" aria-label="Floor plan colour-coded by VLAN: the main hall with four rows of ten seats, the tournament stage beside seats 1 to 10, console booths and the network closet; front of house with the counter, the lounge and the entrance">
+    <text class="lf-name" x="15" y="20">MAIN HALL</text><rect x="15" y="28" width="500" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <text class="lf-name" x="525" y="20">FRONT OF HOUSE</text><rect x="525" y="28" width="220" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <rect x="25" y="38" width="230" height="60" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="140" y="66">Stage + seats 1–10</text><text class="lf-mono lf-c" x="140" y="80">V10 · tournament block</text>
+    <rect x="265" y="38" width="240" height="60" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="385" y="66">Seats 11–20</text><text class="lf-mono lf-c" x="385" y="80">V10</text>
+    <rect x="25" y="108" width="230" height="60" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="140" y="136">Seats 21–30</text><text class="lf-mono lf-c" x="140" y="150">V10</text>
+    <rect x="265" y="108" width="240" height="60" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="385" y="136">Seats 31–40</text><text class="lf-mono lf-c" x="385" y="150">V10 · seat 40 = stream booth</text>
+    <rect x="25" y="178" width="220" height="92" rx="3" style="fill:var(--v20);fill-opacity:.13;stroke:var(--v20);stroke-width:1.4;"/><text class="lf-sm lf-c" x="135" y="222">Console booths ×6</text><text class="lf-mono lf-c" x="135" y="236">V20 · PS5 + 55" TV</text>
+    <rect x="255" y="178" width="250" height="92" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="380" y="222">Network closet</text><text class="lf-mono lf-c" x="380" y="236">R1 · switches · BOOT01 · CACHE01 · UPS</text>
+    <rect x="535" y="38" width="200" height="70" rx="3" style="fill:var(--v40);fill-opacity:.13;stroke:var(--v40);stroke-width:1.4;"/><text class="lf-sm lf-c" x="635" y="71">Counter</text><text class="lf-mono lf-c" x="635" y="85">POS · card terminal · V40</text>
+    <rect x="535" y="118" width="200" height="82" rx="3" style="fill:var(--v50);fill-opacity:.13;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-sm lf-c" x="635" y="157">Lounge &amp; snacks</text><text class="lf-mono lf-c" x="635" y="171">guest Wi-Fi · V50</text>
+    <rect x="535" y="210" width="200" height="60" rx="3" style="fill:var(--v60);fill-opacity:.13;stroke:var(--v60);stroke-width:1.4;"/><text class="lf-sm lf-c" x="635" y="238">Entrance</text><text class="lf-mono lf-c" x="635" y="252">CCTV · NVR · V60</text>
+    <circle cx="250" cy="104" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="250" y="107" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="505" cy="172" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="505" y="175" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="725" cy="128" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="725" y="131" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <text class="lf-cap lf-c" x="380" y="296">Seats 1–10 sit beside the stage so tournament mode is one contiguous port range. Every seat is diskless: nothing a customer does survives a reboot.</text>
+    </svg>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start the connection, columns receive it. Default deny. Two enforcement points: the switch chip for seat-to-seat, R1's forward chain for everything else.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 320" role="img" aria-label="Policy matrix for the gaming center: which zones may start connections to seats, consoles, the boot and cache servers, the counter, CCTV and the internet">
+    <text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM ↓  ·  TO →</text>
+    <text class="lf-sm lf-c" x="222.5" y="38">Seats</text>
+    <text class="lf-sm lf-c" x="317.5" y="38">Consoles</text>
+    <text class="lf-sm lf-c" x="412.5" y="38">Boot · cache</text>
+    <text class="lf-sm lf-c" x="507.5" y="38">Counter</text>
+    <text class="lf-sm lf-c" x="602.5" y="38">CCTV · NVR</text>
+    <text class="lf-sm lf-c" x="697.5" y="38">Internet</text>
+    <rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="70">Seats · V10</text>
+    <rect x="177" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="71" style="fill:var(--accent);font-weight:700;">✕ isolated</text>
+    <rect x="272" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="412.5" y="71" style="fill:var(--defender);font-weight:700;">✓ L2 · 10G</text>
+    <rect x="462" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="71" style="fill:var(--defender);font-weight:700;">✓ queued</text>
+    <rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="100">Consoles · V20</text>
+    <rect x="177" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="84" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="317.5" y="101" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="367" y="84" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="101" style="fill:var(--gotcha);font-weight:700;">◐ cache only</text>
+    <rect x="462" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="84" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="101" style="fill:var(--defender);font-weight:700;">✓ + UPnP</text>
+    <rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="130">Srv mgmt · V30</text>
+    <rect x="177" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="114" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="412.5" y="131" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="462" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="114" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="131" style="fill:var(--gotcha);font-weight:700;">◐ 443</text>
+    <rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v40);"/><text class="lf-sm" x="38" y="160">Counter · V40</text>
+    <rect x="177" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ boot admin</text>
+    <rect x="462" y="144" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="507.5" y="161" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="557" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="602.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ NVR 443</text>
+    <rect x="652" y="144" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="161" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--v50);"/><text class="lf-sm" x="38" y="190">Guest · V50</text>
+    <rect x="177" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="174" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="191" style="fill:var(--defender);font-weight:700;">✓ 30 Mb/s</text>
+    <rect x="20" y="211" width="10" height="10" rx="2" style="fill:var(--v60);"/><text class="lf-sm" x="38" y="220">CCTV · V60</text>
+    <rect x="177" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="204" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="602.5" y="221" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="652" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="697.5" y="221" style="fill:var(--accent);font-weight:700;">✕ never</text>
+    <rect x="20" y="241" width="10" height="10" rx="2" style="fill:var(--v99);"/><text class="lf-sm" x="38" y="250">Mgmt · V99</text>
+    <rect x="177" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="222.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="272" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="317.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="367" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="412.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="462" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="507.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="557" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="602.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="652" y="234" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="251" style="fill:var(--gotcha);font-weight:700;">◐ updates</text>
+    <rect x="20" y="280" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="290">allowed</text>
+    <rect x="140" y="280" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="290">limited to the host/port shown</text>
+    <rect x="360" y="280" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="290">denied (default)</text>
+    <rect x="520" y="280" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="290">same zone / n.a.</text>
+    <text class="lf-cap" x="20" y="306">Seat↔seat is blocked in the switch chip (port isolation); everything else is R1's forward chain. During a tournament, seats 1–10 may reach each other.</text>
+    </svg>
+  </div>
+
+  <p>Two cells explain most of the design. <strong>Seats → Boot · cache</strong> is "✓ L2" because those servers live in the seat VLAN on override ports, so that traffic never reaches R1 at all. And <strong>Seats → Seats</strong> is ✕ even though they share a subnet, because the switch chip never forwards one seat port to another.</p>
+
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+  <table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Clean seats</td><td><a href="#step-2">step 2</a> · <a href="#step-4">step 4</a></td><td>BOOT01 in the seats' VLAN on 10G; DHCP next-server + boot file; read-only golden image</td><td>"Opening rush" and "Dirty seat" drills, <a href="#sec-17">section 17</a></td></tr>
+      <tr><td>R2 Seat isolation</td><td><a href="#step-1">step 1</a> · <a href="#step-12">step 12</a></td><td>port-isolation forwarding-override on ether1-40; DHCP snooping on both switches</td><td>"ARP poison" and "Room sweep" drills</td></tr>
+      <tr><td>R3 Latency first</td><td><a href="#step-9">step 9</a></td><td>connection-bytes bulk mark; queue tree priority 1/8 with PCQ and fq-codel; no FastTrack</td><td>"Lag under load" drill</td></tr>
+      <tr><td>R4 Download once</td><td><a href="#step-2">step 2</a> · <a href="#step-6">step 6</a></td><td>CACHE01 as the seats' DNS; DNS and DoT bypass dropped</td><td>"Release day" drill</td></tr>
+      <tr><td>R5 Consoles need open NAT</td><td><a href="#step-7">step 7</a></td><td>UPnP internal on v20-consoles only</td><td>"Console NAT" drill</td></tr>
+      <tr><td>R6 Stay online</td><td><a href="#step-8">step 8</a></td><td>recursive routes; via-wan2 table for the cache; LAN-first routing rule</td><td>"Fibre cut" drill</td></tr>
+      <tr><td>R7 Tournaments</td><td><a href="#step-10">step 10</a></td><td>tournament-on/off scripts + scheduler on SW-SEATS</td><td>"Tournament" drill</td></tr>
+      <tr><td>R8 Money &amp; cameras</td><td><a href="#step-3">step 3</a> · <a href="#step-5">step 5</a></td><td>camera ports learn=no + static hosts; forward chain keeps V40/V60 away from seats</td><td>"Money &amp; cameras" drill</td></tr>
+    </tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">Bottom to Top, One Layer at a Time</h2>
+  <p class="section-thesis"><em>Seats first, internet last. Each step ends with a checkpoint, and nothing goes up a layer until the current one passes.</em></p>
+  <p>Twelve steps: the seat switch, the game servers, the front-of-house switch, the router, the firewall, the cache, WAN1 and consoles, WAN2 and failover, queuing, tournament mode, guest Wi-Fi, and finally hardening. Each step that adds equipment opens with the topology: built parts solid, the step's additions in orange, later steps faded.</p>
+  <p style="font-size:.88rem;"><em>Safety first:</em> when you change bridge VLAN settings on a remote MikroTik, use Safe Mode (<kbd>Ctrl</kbd>+<kbd>X</kbd>) or a console cable. Turning on <code>vlan-filtering</code> with one wrong line cuts off your own management access. See the <a href="mikrotik-vlans.html">VLAN post</a>.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 12</p>
+  <h2 class="section-title">Seats &amp; the Seat Switch</h2>
+  <p class="section-thesis"><em>Forty seats on one CRS354, one VLAN, and a switch chip that refuses to forward a single frame from one seat to another.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>The CRS354-48G-4S+2Q+ has 48 gigabit ports for the seats and four 10G SFP+ ports: one up to the router and two for the game servers, with one spare. All seat ports are untagged members of VLAN 10. The uplink is a tagged trunk. Hardware offload stays on, so the switch chip does all of this at line rate, not the switch's CPU.</p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">SW-SEATS — bridge, VLANs, seat ports</span><span class="cfg-meta">21 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=SW-SEATS
+/interface bridge add name=bridge vlan-filtering=no
+<span class="cmt"># seats: untagged VLAN 10 only</span>
+:for i from=1 to=40 do={
+  /interface bridge port add bridge=bridge interface=("ether" . $i) pvid=10 \
+      frame-types=admit-only-untagged-and-priority-tagged
+}
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="uplink R1"
+add bridge=bridge interface=sfp-sfpplus2 pvid=10 comment="BOOT01 (step 2)"
+add bridge=bridge interface=sfp-sfpplus3 pvid=10 comment="CACHE01 (step 2)"
+/interface bridge vlan
+add bridge=bridge vlan-ids=10 tagged=sfp-sfpplus1
+add bridge=bridge vlan-ids=30 tagged=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3
+add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.30.99.11/24 interface=v99-mgmt
+/ip route add gateway=10.30.99.1                 <span class="cmt"># R1 arrives in step 4</span>
+/interface ethernet disable ether41,ether42,ether43,ether44,ether45,ether46,ether47,ether48
+<span class="cmt"># last, from the console port or in Safe Mode:</span>
+/interface bridge set bridge vlan-filtering=yes</pre></details>
+
+  <p>Now the isolation. On CRS3xx switches, each port can be given an explicit list of ports it's allowed to forward to. A seat port may forward only to the uplink and the two server ports:</p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-SEATS — port isolation in the switch chip</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-SEATS — Catalyst 9300-48T + C9300-NM-8X: protected ports are Cisco&#x27;s port isolation
+interface range GigabitEthernet1/0/1 - 40
+ description SEAT
+ switchport mode access
+ switchport access vlan 10
+ switchport protected                     ! protected ports never forward to each other
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range TenGigabitEthernet1/1/1 - 3
+ description R1 uplink / BOOT01 / CACHE01  ! NOT protected: every seat reaches these
+! careful: an unprotected port can reach every protected one (see tournament mode)</pre><pre class="term vt-pane" data-v="mikrotik">:for i from=1 to=40 do={
+  /interface ethernet switch port-isolation add port=("ether" . $i) \
+      forwarding-override=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3
+}</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Why not just firewall seat-to-seat on the router?</span>
+    <p>Two seats in the same subnet never send their traffic to the router. Seat 12 ARPs for seat 13, gets its MAC and sends frames straight across the switch. A router firewall rule can't see that traffic, and that's exactly where ARP poisoning and LAN floods happen. The block has to be in the switch. Port isolation does it in hardware, which also means it can't be bypassed by changing an IP address. The port isolation menu has moved between RouterOS releases, so check <code>/interface ethernet switch port-isolation print</code> on yours, and confirm the bridge ports still show the <code>H</code> (hardware-offloaded) flag afterwards.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/interface bridge port print</code>: every port has the <code>H</code> flag (hardware offload).</li><li><code>/interface bridge vlan print</code>: VLAN 10 lists ether1–40 as (dynamic) untagged and sfp-sfpplus1 as tagged.</li><li>Two seats with temporary static addresses 10.30.10.201 and .202 <strong>can't</strong> ping each other, and <code>arp -a</code> on each shows no entry for the other.</li><li>Remove the isolation entry for one of them: the ping works. Put it back.</li></ul>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 12</p>
+  <h2 class="section-title">The Game Servers: Boot &amp; Cache</h2>
+  <p class="section-thesis"><em>Two boxes on 10G in the seats' own VLAN. One serves every seat's operating system, the other serves every game download after the first.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p><strong>BOOT01</strong> runs the diskless platform: an NVMe-backed golden Windows image plus a writeback overlay per seat. Its 10G port is untagged in VLAN 10 (address 10.30.10.10) and tagged in VLAN 30 for management (10.30.30.10). <strong>CACHE01</strong> runs <a href="https://lancache.net" rel="noopener">LANCache</a>: a caching proxy plus a DNS server that answers the game launchers' CDN hostnames with its own address. It's set up the same way: 10.30.10.20 in VLAN 10, 10.30.30.20 in VLAN 30.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Server</th><th>What matters for the network</th></tr></thead>
+    <tbody>
+      <tr><td>BOOT01</td><td>Reads, not writes, dominate: at opening time 40 seats each read a few GB within about two minutes. One 10G port on the same switch handles that at line rate. NVMe is the real limit, not the network.</td></tr>
+      <tr><td>CACHE01</td><td>16 TB of disk is enough for the 40–60 titles a center actually runs. Its DNS forwards everything it doesn't cache to a filtering resolver upstream (step 6).</td></tr>
+      <tr><td>Both</td><td>Spare 10G port sfp-sfpplus4 is the upgrade path: LACP the boot server when the room grows, or add a second cache.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>A seat with a temporary static address pings 10.30.10.10 and 10.30.10.20: the override ports work.</li><li>Seat-to-seat ping still fails.</li><li>Copy a 20 GB file from BOOT01 to a seat: ~110 MB/s, the seat's 1G port is the limit. Start the same copy on five seats at once: each still gets ~110 MB/s, because the server's 10G link isn't the bottleneck.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 12</p>
+  <h2 class="section-title">Front of House: Booths, Counter, Cameras, APs</h2>
+  <p class="section-thesis"><em>A second, smaller switch for everything that isn't a seat. Different devices, different VLANs, same rules.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">SW-FRONT — CRS328-24P-4S+ (PoE)</span><span class="cfg-meta">24 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=SW-FRONT
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="uplink R1"
+add bridge=bridge interface=ether1 pvid=20 comment="booth 1"   <span class="cmt"># … ether2-6: booths 2-6, same</span>
+add bridge=bridge interface=ether9 pvid=40 comment="POS PC"
+add bridge=bridge interface=ether10 pvid=40 comment="card terminal"
+add bridge=bridge interface=ether13 pvid=60 comment="cam 1"     <span class="cmt"># … ether14-20: cams 2-8</span>
+add bridge=bridge interface=ether21 pvid=60 comment="NVR"
+add bridge=bridge interface=ether22 pvid=99 comment="cAP 1 (trunk)"
+add bridge=bridge interface=ether23 pvid=99 comment="cAP 2 (trunk)"
+add bridge=bridge interface=ether24 pvid=99 comment="cAP 3 (trunk)"
+/interface bridge vlan
+add bridge=bridge vlan-ids=20,40,60 tagged=sfp-sfpplus1
+add bridge=bridge vlan-ids=40,50 tagged=sfp-sfpplus1,ether22,ether23,ether24
+add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.30.99.12/24 interface=v99-mgmt
+/ip route add gateway=10.30.99.1
+<span class="cmt"># cameras: no learning, only their own MAC may use the port</span>
+/interface bridge port set [find interface=ether13] learn=no
+/interface bridge host add bridge=bridge interface=ether13 mac-address=AC:CC:8E:00:00:21
+<span class="cmt"># … repeat per camera; then:</span>
+/interface bridge set bridge vlan-filtering=yes</pre></details>
+
+  <p>RouterOS has no "sticky MAC". The equivalent for the outdoor cameras is to turn off MAC learning on the port and add the camera's MAC as a static host. A laptop plugged into a camera cable then gets nowhere (see <a href="mikrotik-port-security.html">port security</a>). The three cAPs sit on ether22–24 as trunks (management untagged, staff and guest SSIDs tagged) and get their SSIDs in step 11.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/interface bridge vlan print</code>: 20 on ether1–6, 40 on ether9–10, 60 on ether13–21, and 40, 50 and 99 on the AP ports ether22–24.</li><li>A laptop on a camera port (ether13): no link to anything, and the camera's own MAC still works when it's plugged back in.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 12</p>
+  <h2 class="section-title">The Router: Gateways, DHCP &amp; Network Boot</h2>
+  <p class="section-thesis"><em>R1 joins both switches, owns every gateway, and tells each seat where to boot from.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — CCR2004-16G-2S+ · trunks and VLAN interfaces</span><span class="cfg-meta">29 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=R1
+/interface bridge add name=br-lan vlan-filtering=yes
+/interface bridge port
+add bridge=br-lan interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="SW-SEATS"
+add bridge=br-lan interface=sfp-sfpplus2 frame-types=admit-only-vlan-tagged comment="SW-FRONT"
+/interface bridge vlan
+add bridge=br-lan vlan-ids=10,30 tagged=br-lan,sfp-sfpplus1
+add bridge=br-lan vlan-ids=20,40,50,60 tagged=br-lan,sfp-sfpplus2
+add bridge=br-lan vlan-ids=99 tagged=br-lan,sfp-sfpplus1,sfp-sfpplus2
+/interface vlan
+add name=v10-seats interface=br-lan vlan-id=10
+add name=v20-consoles interface=br-lan vlan-id=20
+add name=v30-srv interface=br-lan vlan-id=30
+add name=v40-counter interface=br-lan vlan-id=40
+add name=v50-guest interface=br-lan vlan-id=50
+add name=v60-cctv interface=br-lan vlan-id=60
+add name=v99-mgmt interface=br-lan vlan-id=99
+/ip address
+add address=10.30.10.1/24 interface=v10-seats
+add address=10.30.20.1/24 interface=v20-consoles
+add address=10.30.30.1/24 interface=v30-srv
+add address=10.30.40.1/24 interface=v40-counter
+add address=10.30.50.1/24 interface=v50-guest
+add address=10.30.60.1/24 interface=v60-cctv
+add address=10.30.99.1/24 interface=v99-mgmt
+/interface list add name=LAN
+/interface list member
+add list=LAN interface=v10-seats
+<span class="cmt"># … the same for every v* interface</span></pre></details>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — DHCP with PXE options for the seats</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — C8300: IOS DHCP pool with the PXE options
+ip dhcp excluded-address 10.30.10.1 10.30.10.149
+ip dhcp pool SEATS
+ network 10.30.10.0 255.255.255.0
+ default-router 10.30.10.1
+ dns-server 10.30.10.20
+ next-server 10.30.10.10
+ bootfile ipxe.efi
+ lease 0 12
+ip dhcp pool SEAT-17
+ host 10.30.10.117 255.255.255.0
+ client-identifier 0158.1122.0000.11       ! 01 + the seat&#x27;s MAC</pre><pre class="term vt-pane" data-v="mikrotik">/ip pool
+add name=p-seats ranges=10.30.10.150-10.30.10.199   <span class="cmt"># spares; real seats use reservations</span>
+add name=p-consoles ranges=10.30.20.50-10.30.20.99
+add name=p-counter ranges=10.30.40.50-10.30.40.99
+add name=p-guest ranges=10.30.50.20-10.30.50.250
+/ip dhcp-server
+add name=d-seats interface=v10-seats address-pool=p-seats lease-time=12h
+add name=d-consoles interface=v20-consoles address-pool=p-consoles lease-time=12h
+add name=d-counter interface=v40-counter address-pool=p-counter lease-time=1d
+add name=d-guest interface=v50-guest address-pool=p-guest lease-time=1h
+/ip dhcp-server network
+add address=10.30.10.0/24 gateway=10.30.10.1 dns-server=10.30.10.20 \
+    next-server=10.30.10.10 boot-file-name=ipxe.efi comment="seats: PXE to BOOT01"
+add address=10.30.20.0/24 gateway=10.30.20.1 dns-server=10.30.10.20
+add address=10.30.40.0/24 gateway=10.30.40.1 dns-server=10.30.40.1
+add address=10.30.50.0/24 gateway=10.30.50.1 dns-server=10.30.50.1
+/ip dhcp-server lease
+add server=d-seats mac-address=58:11:22:00:00:01 address=10.30.10.101 comment="Seat 1"
+<span class="cmt"># … one reservation per seat; the diskless platform maps the same MAC to the seat number</span>
+/ip dns set allow-remote-requests=yes servers=1.1.1.2,1.0.0.2</pre></div>
+
+  <p>Here's what happens when a seat powers on:</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 378" role="img" aria-label="Animated diskless boot: the seat broadcasts a PXE DHCP request, R1 offers an address plus the boot server and file, the seat fetches iPXE over TFTP and logs into its iSCSI image on BOOT01">
+      <style>.gc1-arw{stroke:var(--mid);stroke-width:1.4;fill:none;} .gc1-rad{stroke:var(--defender);stroke-width:1.6;fill:none;}@keyframes gc1r0{0%,4%{opacity:0;}6%,94%{opacity:1;}96%,100%{opacity:0;}}.gc1-r0{animation:gc1r0 18s linear infinite;}@keyframes gc1r1{0%,16.1429%{opacity:0;}18.1429%,94%{opacity:1;}96%,100%{opacity:0;}}.gc1-r1{animation:gc1r1 18s linear infinite;}@keyframes gc1r2{0%,28.2857%{opacity:0;}30.2857%,94%{opacity:1;}96%,100%{opacity:0;}}.gc1-r2{animation:gc1r2 18s linear infinite;}@keyframes gc1r3{0%,40.4286%{opacity:0;}42.4286%,94%{opacity:1;}96%,100%{opacity:0;}}.gc1-r3{animation:gc1r3 18s linear infinite;}@keyframes gc1r4{0%,52.5714%{opacity:0;}54.5714%,94%{opacity:1;}96%,100%{opacity:0;}}.gc1-r4{animation:gc1r4 18s linear infinite;}@keyframes gc1r5{0%,64.7143%{opacity:0;}66.7143%,94%{opacity:1;}96%,100%{opacity:0;}}.gc1-r5{animation:gc1r5 18s linear infinite;}@keyframes gc1r6{0%,76.8571%{opacity:0;}78.8571%,94%{opacity:1;}96%,100%{opacity:0;}}.gc1-r6{animation:gc1r6 18s linear infinite;}@keyframes gc1un{0%,88%{opacity:1;}91%,96%{opacity:0;}100%{opacity:1;}}@keyframes gc1au{0%,89%{opacity:0;}91%,96%{opacity:1;}98%,100%{opacity:0;}}.gc1-un{animation:gc1un 18s linear infinite;} .gc1-au{animation:gc1au 18s linear infinite;}@media (prefers-reduced-motion:reduce){.gc1-r0,.gc1-r1,.gc1-r2,.gc1-r3,.gc1-r4,.gc1-r5,.gc1-r6{animation:none;opacity:1;}.gc1-un{animation:none;opacity:0;}.gc1-au{animation:none;opacity:1;}}</style>
+      <defs><marker id="gc1ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--mid);"/></marker></defs>
+      <rect class="lf-box" x="50" y="14" width="160" height="42" rx="5"/><rect x="50" y="14" width="5" height="42" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="132" y="32">Seat 17</text><text class="lf-mono lf-c" x="132" y="46">no disk · UEFI PXE</text>
+      <line class="lf-dash" x1="130" y1="56" x2="130" y2="288"/>
+      <rect class="lf-boxa" x="300" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="380" y="32">R1</text><text class="lf-mono lf-c" x="380" y="46">DHCP server</text>
+      <line class="lf-dash" x1="380" y1="56" x2="380" y2="288"/>
+      <rect class="lf-boxd" x="550" y="14" width="160" height="42" rx="5"/><rect x="550" y="14" width="5" height="42" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="632" y="32">BOOT01</text><text class="lf-mono lf-c" x="632" y="46">image server</text>
+      <line class="lf-dash" x1="630" y1="56" x2="630" y2="288"/>
+      <g class="gc1-r0"><line class="gc1-arw" x1="134" y1="92" x2="376" y2="92" marker-end="url(#gc1ar)"/><text class="lf-cap lf-c" x="255" y="87">DHCPDISCOVER (PXE client)</text></g>
+      <g class="gc1-r1"><line class="gc1-rad" x1="376" y1="120" x2="134" y2="120" marker-end="url(#gc1ar)"/><text class="lf-cap lf-c" x="255" y="115">OFFER 10.30.10.117 · next-server 10.30.10.10 · ipxe.efi</text></g>
+      <g class="gc1-r2"><line class="gc1-arw" x1="134" y1="148" x2="626" y2="148" marker-end="url(#gc1ar)"/><text class="lf-cap lf-c" x="380" y="143">TFTP: fetch ipxe.efi</text></g>
+      <g class="gc1-r3"><line class="gc1-arw" x1="626" y1="176" x2="134" y2="176" marker-end="url(#gc1ar)"/><text class="lf-cap lf-c" x="380" y="171">iPXE script: your seat = 17</text></g>
+      <g class="gc1-r4"><line class="gc1-arw" x1="134" y1="204" x2="626" y2="204" marker-end="url(#gc1ar)" marker-start="url(#gc1ar)" style="stroke-dasharray:3,3;"/><text class="lf-cap lf-c" x="380" y="199">iSCSI login → golden image + seat-17 overlay</text></g>
+      <g class="gc1-r5"><text class="lf-cap lf-c" x="630" y="232" style="fill:var(--defender);font-weight:700;">writes go to the overlay, wiped on reboot</text></g>
+      <g class="gc1-r6"><text class="lf-cap lf-c" x="130" y="260" style="fill:var(--defender);font-weight:700;">Windows up · session client starts</text></g>
+      <rect class="lf-box" x="250" y="304" width="260" height="30" rx="15"/><text class="lf-sm lf-c gc1-au" x="380" y="323" style="fill:var(--defender);">BOOTED · CLEAN IMAGE</text><text class="lf-sm lf-c gc1-un" x="380" y="323" style="fill:var(--accent);">NO DISK · POWERED OFF</text>
+      <text class="lf-cap lf-c" x="380" y="368">Every reboot is a factory reset: the golden image is read-only, and the per-seat overlay is thrown away.</text>
+    </svg>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">UEFI, legacy BIOS, and who answers PXE</span>
+    <p><code>ipxe.efi</code> only works for UEFI firmware. Every gaming PC from the last decade boots UEFI, so one boot file is enough. In a mixed room you'd hand out different files depending on DHCP option 93 (client architecture), which RouterOS 7 can do with <code>/ip dhcp-server matcher</code>. Some diskless platforms prefer to answer the PXE part themselves as a <strong>proxyDHCP</strong> server. In that case, remove <code>next-server</code> and <code>boot-file-name</code> here, and let R1 hand out only the addresses.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Seat 17 powers on and boots to Windows. <code>/ip dhcp-server lease print where server=d-seats</code> shows it at 10.30.10.117.</li><li>Power on all 40 at once (opening time): every seat is at its login screen within about three minutes, and <code>/interface monitor-traffic sfp-sfpplus1</code> on R1 shows almost nothing, because the boot traffic stayed in the switch.</li><li>A console in booth 3 gets 10.30.20.x.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 12</p>
+  <h2 class="section-title">Firewall: The Matrix as Rules</h2>
+  <p class="section-thesis"><em>Input chain protects the router, forward chain is the matrix. Established/related first, explicit accepts, logged drop last.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 390" role="img" aria-label="Animated: seat to seat is blocked by switch port isolation; seat to POS and guest to seat are dropped by R1's forward chain; seat to the boot server is allowed at layer 2">
+      <style>@keyframes gc2p0{0%,1%{transform:translate(132px,70px);opacity:0;}4%{opacity:1;}18%{transform:translate(276px,70px);opacity:1;}22%,100%{transform:translate(276px,70px);opacity:0;}}@keyframes gc2m0{0%,16%{opacity:0;}18%,96%{opacity:1;}98%,100%{opacity:0;}}.gc2-p0{animation:gc2p0 16s ease-in-out infinite;} .gc2-m0{animation:gc2m0 16s linear infinite;}@keyframes gc2p1{0%,26%{transform:translate(132px,150px);opacity:0;}29%{opacity:1;}43%{transform:translate(276px,150px);opacity:1;}47%,100%{transform:translate(276px,150px);opacity:0;}}@keyframes gc2m1{0%,41%{opacity:0;}43%,96%{opacity:1;}98%,100%{opacity:0;}}.gc2-p1{animation:gc2p1 16s ease-in-out infinite;} .gc2-m1{animation:gc2m1 16s linear infinite;}@keyframes gc2p2{0%,51%{transform:translate(132px,230px);opacity:0;}54%{opacity:1;}68%{transform:translate(276px,230px);opacity:1;}72%,100%{transform:translate(276px,230px);opacity:0;}}@keyframes gc2m2{0%,66%{opacity:0;}68%,96%{opacity:1;}98%,100%{opacity:0;}}.gc2-p2{animation:gc2p2 16s ease-in-out infinite;} .gc2-m2{animation:gc2m2 16s linear infinite;}@keyframes gc2p3{0%,76%{transform:translate(132px,310px);opacity:0;}79%{opacity:1;}93%{transform:translate(612px,310px);opacity:1;}97%,100%{transform:translate(612px,310px);opacity:0;}}@keyframes gc2m3{0%,91%{opacity:0;}93%,96%{opacity:1;}98%,100%{opacity:0;}}.gc2-p3{animation:gc2p3 16s ease-in-out infinite;} .gc2-m3{animation:gc2m3 16s linear infinite;}@media (prefers-reduced-motion:reduce){.gc2-p0,.gc2-p1,.gc2-p2,.gc2-p3{animation:none;opacity:0;}.gc2-m0,.gc2-m1,.gc2-m2,.gc2-m3{animation:none;opacity:1;}}</style>
+      <rect class="lf-boxa" x="280" y="24" width="150" height="320" rx="7"/><text class="lf-name lf-c" x="355" y="42">SW-SEATS → R1</text>
+      <text class="lf-cap lf-c" x="355" y="334">L2 first, then L3</text>
+      <rect class="lf-box" x="20" y="50" width="112" height="40" rx="5"/><rect x="20" y="50" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="67">Seat 12</text><text class="lf-mono lf-c" x="78" y="81">10.30.10.112</text>
+      <rect class="lf-box" x="620" y="50" width="122" height="40" rx="5"/><rect x="620" y="50" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="67">Seat 13</text><text class="lf-mono lf-c" x="683" y="81">10.30.10.113</text>
+      <text class="lf-mono lf-c" x="355" y="62" style="fill:var(--accent);">ether12 ↛ ether13</text>
+      <line class="lf-dash" x1="132" y1="70" x2="620" y2="70"/>
+      <text class="lf-mono" x="140" y="62">→ SMB / ARP poison</text>
+      <g class="gc2-m0"><text x="262" y="77" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="62" style="fill:var(--accent);font-weight:700;">✕ port isolation (switch chip)</text></g>
+      <rect class="lf-box" x="20" y="130" width="112" height="40" rx="5"/><rect x="20" y="130" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="147">Seat 12</text><text class="lf-mono lf-c" x="78" y="161">10.30.10.112</text>
+      <rect class="lf-box" x="620" y="130" width="122" height="40" rx="5"/><rect x="620" y="130" width="5" height="40" style="fill:var(--v40);"/><text class="lf-sm lf-c" x="683" y="147">Counter POS</text><text class="lf-mono lf-c" x="683" y="161">10.30.40.10</text>
+      <text class="lf-mono lf-c" x="355" y="142">v10 → v40: no rule</text>
+      <line class="lf-dash" x1="132" y1="150" x2="620" y2="150"/>
+      <text class="lf-mono" x="140" y="142">→ tcp/445</text>
+      <g class="gc2-m1"><text x="262" y="157" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="142" style="fill:var(--accent);font-weight:700;">✕ R1 forward: no rule, logged</text></g>
+      <rect class="lf-box" x="20" y="210" width="112" height="40" rx="5"/><rect x="20" y="210" width="5" height="40" style="fill:var(--v50);"/><text class="lf-sm lf-c" x="78" y="227">Guest phone</text><text class="lf-mono lf-c" x="78" y="241">10.30.50.31</text>
+      <rect class="lf-box" x="620" y="210" width="122" height="40" rx="5"/><rect x="620" y="210" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="227">Seat 12</text><text class="lf-mono lf-c" x="683" y="241">10.30.10.112</text>
+      <text class="lf-mono lf-c" x="355" y="222">v50 → v10: no rule</text>
+      <line class="lf-dash" x1="132" y1="230" x2="620" y2="230"/>
+      <text class="lf-mono" x="140" y="222">→ any</text>
+      <g class="gc2-m2"><text x="262" y="237" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="222" style="fill:var(--accent);font-weight:700;">✕ R1 forward: default drop</text></g>
+      <rect class="lf-box" x="20" y="290" width="112" height="40" rx="5"/><rect x="20" y="290" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="307">Seat 12</text><text class="lf-mono lf-c" x="78" y="321">10.30.10.112</text>
+      <rect class="lf-box" x="620" y="290" width="122" height="40" rx="5"/><rect x="620" y="290" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="307">BOOT01</text><text class="lf-mono lf-c" x="683" y="321">10.30.10.10</text>
+      <text class="lf-mono lf-c" x="355" y="302" style="fill:var(--defender);">ether12 → sfp+2 ✓</text>
+      <line class="lf-link" x1="132" y1="310" x2="620" y2="310"/>
+      <text class="lf-mono" x="140" y="302">→ iSCSI 3260</text>
+      <g class="gc2-m3"><text class="lf-cap" x="440" y="302" style="fill:var(--defender);font-weight:700;">✓ L2 · sfp+2 is allowed</text></g>
+      <text class="lf-cap lf-c" x="380" y="378">Seats can reach the boot and cache servers at line rate and the internet, but never each other, the till, or the guests.</text>
+      <circle class="lf-pkt gc2-p0" r="6"/>
+      <circle class="lf-pkt gc2-p1" r="6"/>
+      <circle class="lf-pkt gc2-p2" r="6"/>
+      <circle class="lf-pkt gc2-p3" r="6"/>
+    </svg>
+  </div>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — address lists and filter rules</span><span class="cfg-meta">29 lines · this step's additions · click to expand</span></summary><pre class="term">/ip firewall address-list
+add list=CACHE address=10.30.10.20
+add list=BOOT address=10.30.10.10
+add list=POS address=10.30.40.10
+add list=NVR address=10.30.60.10
+/ip firewall filter
+<span class="cmt"># --- the router itself</span>
+add chain=input action=accept connection-state=established,related,untracked
+add chain=input action=drop connection-state=invalid
+add chain=input action=accept protocol=icmp
+add chain=input action=accept in-interface=v99-mgmt comment="manage only from MGMT"
+add chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67
+add chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53
+add chain=input action=drop log=yes log-prefix=IN-DROP
+<span class="cmt"># --- through the router</span>
+add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+add chain=forward action=accept connection-nat-state=dstnat comment="UPnP mappings (step 7)"
+add chain=forward action=accept in-interface=v10-seats out-interface-list=WAN comment="seats -&gt; internet"
+add chain=forward action=accept in-interface=v20-consoles dst-address-list=CACHE
+add chain=forward action=accept in-interface=v20-consoles out-interface-list=WAN
+add chain=forward action=accept in-interface=v40-counter out-interface-list=WAN
+add chain=forward action=accept src-address-list=POS dst-address-list=BOOT protocol=tcp dst-port=443 \
+    comment="staff console of the diskless platform (wake/restart seats)"
+add chain=forward action=accept src-address-list=POS dst-address-list=NVR protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v50-guest out-interface-list=WAN
+add chain=forward action=accept in-interface=v30-srv out-interface-list=WAN protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v99-mgmt
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></details>
+
+  <p>The WAN interface list is created in step 7, so the <code>out-interface-list=WAN</code> rules match nothing until then. Staff wake and restart seats from the diskless platform's own console, which runs on BOOT01 inside VLAN 10 where Wake-on-LAN broadcasts work. That avoids routing WoL broadcasts across VLANs (for that, see <a href="mikrotik-wol.html">Wake-on-LAN on RouterOS</a>).</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From seat 12: ping 10.30.40.10 fails, and <code>/log print where message~"FWD-DROP"</code> shows it.</li><li>From the POS PC: the diskless platform's web console on 10.30.10.10 opens; the NVR on 10.30.60.10 opens.</li><li>From a guest laptop on VLAN 50 (cable it to an AP port temporarily): nothing in 10.30.0.0/16 answers except 10.30.50.1.</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 12</p>
+  <h2 class="section-title">The Game Cache &amp; DNS</h2>
+  <p class="section-thesis"><em>The cheapest bandwidth upgrade in the building: download each game once.</em></p>
+
+  <p>The seats' DNS server is CACHE01 (set in step 4). When Steam asks for its CDN hostname, the cache answers with its own address. The launcher then downloads from the cache at LAN speed. If the cache doesn't have the file yet, it fetches it once from the real CDN, stores it, and passes it on.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated game cache: a seat's download is redirected by DNS to the cache, the cache fetches it once from the CDN over WAN2, and a later seat gets the same files from the cache at LAN speed">
+      <style>@keyframes gc3h0{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}18.4%{offset-distance:100%;opacity:1;}21.4%,100%{offset-distance:100%;opacity:0;}}.gc3-h0{offset-path:path('M85 63 L380 139');offset-rotate:0deg;animation:gc3h0 16.0s ease-in-out infinite;}@keyframes gc3h1{0%,24%{offset-distance:0%;opacity:0;}26%{opacity:1;}41.4%{offset-distance:100%;opacity:1;}44.4%,100%{offset-distance:100%;opacity:0;}}.gc3-h1{offset-path:path('M380 139 L665 139');offset-rotate:0deg;animation:gc3h1 16.0s ease-in-out infinite;}@keyframes gc3h2{0%,47%{offset-distance:0%;opacity:0;}49%{opacity:1;}64.4%{offset-distance:100%;opacity:1;}67.4%,100%{offset-distance:100%;opacity:0;}}.gc3-h2{offset-path:path('M665 139 L380 139');offset-rotate:0deg;animation:gc3h2 16.0s ease-in-out infinite;}@keyframes gc3h3{0%,70%{offset-distance:0%;opacity:0;}72%{opacity:1;}87.4%{offset-distance:100%;opacity:1;}90.4%,100%{offset-distance:100%;opacity:0;}}.gc3-h3{offset-path:path('M380 139 L85 213');offset-rotate:0deg;animation:gc3h3 16.0s ease-in-out infinite;}@media (prefers-reduced-motion:reduce){.gc3-h0,.gc3-h1,.gc3-h2,.gc3-h3{animation:none;opacity:0;}}</style>
+      <line class="lf-link" x1="85" y1="63" x2="380" y2="139"/>
+      <text class="lf-cap lf-c" x="232.5" y="93">1 · DNS: steam CDN → 10.30.10.20</text>
+      <line class="lf-link" x1="380" y1="139" x2="665" y2="139"/>
+      <text class="lf-cap lf-c" x="522.5" y="131">2 · miss: fetch once</text>
+      <line class="lf-link" x1="665" y1="139" x2="380" y2="139"/>
+      <text class="lf-cap lf-c" x="522.5" y="155">3 · store 80 GB on disk</text>
+      <line class="lf-link" x1="380" y1="139" x2="85" y2="213"/>
+      <text class="lf-cap lf-c" x="232.5" y="168">4 · hit: served at ~1 GB/s</text>
+      <rect class="lf-box" x="20" y="40" width="130" height="46" rx="5"/><rect x="20" y="40" width="5" height="46" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="87" y="60">Seat 4</text><text class="lf-mono lf-c" x="87" y="74">first download</text>
+      <rect class="lf-box" x="20" y="190" width="130" height="46" rx="5"/><rect x="20" y="190" width="5" height="46" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="87" y="210">Seat 31</text><text class="lf-mono lf-c" x="87" y="224">same game, later</text>
+      <rect class="lf-boxa" x="300" y="112" width="160" height="54" rx="5"/><rect x="300" y="112" width="5" height="54" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="382" y="136">CACHE01</text><text class="lf-mono lf-c" x="382" y="150">10.30.10.20 · 16 TB</text>
+      <rect class="lf-boxd" x="590" y="112" width="150" height="54" rx="5"/><text class="lf-sm lf-c" x="665" y="136">Steam CDN</text><text class="lf-mono lf-c" x="665" y="150">via WAN2</text>
+      <text class="lf-cap lf-c" x="380" y="260">The cache answers DNS for the launchers' CDN names with its own address. The first seat pays for the download once; every later seat gets it at LAN speed.</text>
+      <circle class="lf-pkt gc3-h0" r="6"/>
+      <circle class="lf-pkt gc3-h1" r="6"/>
+      <circle class="lf-pkt gc3-h2" r="6"/>
+      <circle class="lf-pkt gc3-h3" r="6"/>
+    </svg>
+  </div>
+
+  <p>Every other DNS name is forwarded upstream to Cloudflare's malware-blocking resolver (1.1.1.2), or the family resolver (1.1.1.3) if the center admits under-16s on its own. To stop seats from bypassing the cache, and the filtering with it, with a hard-coded resolver, the forward chain drops DNS and DNS-over-TLS from seats. A seat's queries to CACHE01 never cross R1 (same VLAN), so the drop only hits bypass attempts:</p>
+
+  <div class="term-wrap"><span class="term-label">R1 — seats use the cache's DNS, nothing else</span><pre class="term">/ip firewall filter
+add chain=forward action=drop in-interface=v10-seats protocol=udp dst-port=53,853 \
+    place-before=[find comment="seats -&gt; internet"] comment="no DNS bypass"
+add chain=forward action=drop in-interface=v10-seats protocol=tcp dst-port=53,853 \
+    place-before=[find comment="seats -&gt; internet"]</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Why not just redirect DNS with dst-nat?</span>
+    <p>The usual trick, dst-nat any port-53 traffic to the resolver you want, breaks here. The cache is in the <em>same subnet</em> as the seats, so its reply goes straight back to the seat at Layer 2, from an address the seat never asked. The seat drops it. That's the classic hairpin-NAT problem, and the drop rule avoids it entirely. DNS-over-HTTPS can't be blocked by port, so the seat image itself disables DoH in browsers and launchers by policy. That's one more advantage of a single golden image.</p>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">What the cache can't do</span>
+    <p>LANCache works because the big launchers (Steam, Battle.net, Epic, Riot, PlayStation updates) still fetch game content over plain HTTP from predictable hostnames. Anything delivered only over HTTPS passes through uncached, because the cache can't read inside TLS and we're not going to break TLS on customers' machines. In practice the big downloads are cached and the long tail isn't.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>On a seat: <code>nslookup lancache.steamcontent.com</code> returns 10.30.10.20.</li><li>Install a 20 GB game on seat 4: speed is whatever the WAN gives. Install it on seat 31: ~110 MB/s (the seat's 1G port), and CACHE01's log shows HITs.</li><li><code>nslookup example.com 8.8.8.8</code> from a seat times out (bypass blocked).</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 12</p>
+  <h2 class="section-title">WAN1, NAT &amp; Open NAT for Consoles</h2>
+  <p class="section-thesis"><em>The fibre goes in, everything is masqueraded behind one public IP, and the console VLAN alone gets UPnP.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — WAN1, masquerade, UPnP on the console VLAN only</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — IOS has no UPnP. Open NAT for six consoles needs six public addresses:
+! ask the ISP for a /28 and give each booth a 1:1 static NAT.
+ip access-list standard NAT-ALL
+ permit 10.30.0.0 0.0.255.255
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload
+ip nat inside source static 10.30.20.11 203.0.113.17      ! booth 1
+ip nat inside source static 10.30.20.12 203.0.113.18      ! booth 2
+! … booths 3-6
+interface GigabitEthernet0/0/0
+ ip nat outside</pre><pre class="term vt-pane" data-v="mikrotik">/interface list add name=WAN
+/interface list member add list=WAN interface=ether1
+/ip address add address=203.0.113.10/29 interface=ether1 comment="WAN1 fibre"
+/ip route add gateway=203.0.113.9 comment="temporary, replaced in step 8"
+/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN
+
+/ip upnp set enabled=yes show-dummy-rule=no
+/ip upnp interfaces
+add interface=v20-consoles type=internal
+add interface=ether1 type=external</pre></div>
+
+  <p>A PS5 behind ordinary NAT reports "NAT Type 3": it can make outgoing connections but can't receive them, so matchmaking and party voice sometimes fail. UPnP lets the console ask R1 for a temporary inbound mapping:</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 350" role="img" aria-label="Animated UPnP: a console in the console VLAN asks R1 for a port mapping, R1 creates a dynamic destination NAT, and an inbound peer connection reaches the console">
+      <style>.gc4-arw{stroke:var(--mid);stroke-width:1.4;fill:none;} .gc4-rad{stroke:var(--defender);stroke-width:1.6;fill:none;}@keyframes gc4r0{0%,4%{opacity:0;}6%,94%{opacity:1;}96%,100%{opacity:0;}}.gc4-r0{animation:gc4r0 16s linear infinite;}@keyframes gc4r1{0%,18.1667%{opacity:0;}20.1667%,94%{opacity:1;}96%,100%{opacity:0;}}.gc4-r1{animation:gc4r1 16s linear infinite;}@keyframes gc4r2{0%,32.3333%{opacity:0;}34.3333%,94%{opacity:1;}96%,100%{opacity:0;}}.gc4-r2{animation:gc4r2 16s linear infinite;}@keyframes gc4r3{0%,46.5%{opacity:0;}48.5%,94%{opacity:1;}96%,100%{opacity:0;}}.gc4-r3{animation:gc4r3 16s linear infinite;}@keyframes gc4r4{0%,60.6667%{opacity:0;}62.6667%,94%{opacity:1;}96%,100%{opacity:0;}}.gc4-r4{animation:gc4r4 16s linear infinite;}@keyframes gc4r5{0%,74.8333%{opacity:0;}76.8333%,94%{opacity:1;}96%,100%{opacity:0;}}.gc4-r5{animation:gc4r5 16s linear infinite;}@keyframes gc4un{0%,88%{opacity:1;}91%,96%{opacity:0;}100%{opacity:1;}}@keyframes gc4au{0%,89%{opacity:0;}91%,96%{opacity:1;}98%,100%{opacity:0;}}.gc4-un{animation:gc4un 16s linear infinite;} .gc4-au{animation:gc4au 16s linear infinite;}@media (prefers-reduced-motion:reduce){.gc4-r0,.gc4-r1,.gc4-r2,.gc4-r3,.gc4-r4,.gc4-r5{animation:none;opacity:1;}.gc4-un{animation:none;opacity:0;}.gc4-au{animation:none;opacity:1;}}</style>
+      <defs><marker id="gc4ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--mid);"/></marker></defs>
+      <rect class="lf-box" x="50" y="14" width="160" height="42" rx="5"/><rect x="50" y="14" width="5" height="42" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="132" y="32">PS5 · booth 3</text><text class="lf-mono lf-c" x="132" y="46">10.30.20.13</text>
+      <line class="lf-dash" x1="130" y1="56" x2="130" y2="260"/>
+      <rect class="lf-boxa" x="300" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="380" y="32">R1</text><text class="lf-mono lf-c" x="380" y="46">UPnP on v20 only</text>
+      <line class="lf-dash" x1="380" y1="56" x2="380" y2="260"/>
+      <rect class="lf-boxd" x="550" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="630" y="32">Game peer</text><text class="lf-mono lf-c" x="630" y="46">somewhere online</text>
+      <line class="lf-dash" x1="630" y1="56" x2="630" y2="260"/>
+      <g class="gc4-r0"><line class="gc4-arw" x1="134" y1="92" x2="376" y2="92" marker-end="url(#gc4ar)"/><text class="lf-cap lf-c" x="255" y="87">SSDP: who is the gateway?</text></g>
+      <g class="gc4-r1"><line class="gc4-arw" x1="134" y1="120" x2="376" y2="120" marker-end="url(#gc4ar)"/><text class="lf-cap lf-c" x="255" y="115">AddPortMapping UDP 3074 → 10.30.20.13</text></g>
+      <g class="gc4-r2"><text class="lf-cap lf-c" x="380" y="148" style="fill:var(--defender);font-weight:700;">dynamic dst-nat rule created</text></g>
+      <g class="gc4-r3"><line class="gc4-rad" x1="626" y1="176" x2="384" y2="176" marker-end="url(#gc4ar)"/><text class="lf-cap lf-c" x="505" y="171">UDP to 203.0.113.10:3074</text></g>
+      <g class="gc4-r4"><line class="gc4-rad" x1="376" y1="204" x2="134" y2="204" marker-end="url(#gc4ar)"/><text class="lf-cap lf-c" x="255" y="199" style="fill:var(--defender);font-weight:700;">forwarded to booth 3</text></g>
+      <g class="gc4-r5"><text class="lf-cap lf-c" x="380" y="232" style="fill:var(--defender);font-weight:700;">console leaves: mapping expires</text></g>
+      <rect class="lf-box" x="250" y="276" width="260" height="30" rx="15"/><text class="lf-sm lf-c gc4-au" x="380" y="295" style="fill:var(--defender);">NAT TYPE 2 (OPEN)</text><text class="lf-sm lf-c gc4-un" x="380" y="295" style="fill:var(--accent);">NAT TYPE 3 (STRICT)</text>
+      <text class="lf-cap lf-c" x="380" y="340">UPnP is allowed only on the console VLAN. A seat full of customer software never gets to open inbound ports.</text>
+    </svg>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">One public IP, forty strangers: the shared-IP ban</span>
+    <p>Every seat leaves through 203.0.113.10. If one customer cheats or gets reported in an online game, some anti-cheat systems and game services ban or rate-limit the <strong>IP address</strong>, and then the whole center is banned for the evening. Talk to the ISP before opening: a /29 gives you a few spare public addresses. You can source-NAT the console VLAN and the stream booth to their own address, so a ban on the seats' address doesn't take out the consoles. Some game publishers also run registration programs for internet cafés, which put the center's IP range on an allow-list.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>A seat browses; <code>/ip firewall connection print count-only</code> grows.</li><li>PS5 → Settings → Network → Test Internet Connection: <strong>NAT Type 2</strong>.</li><li><code>/ip firewall nat print dynamic</code> shows the console's UPnP mapping while it's in a party, and it disappears afterwards.</li><li>A seat that sends an UPnP request (any UPnP tool) gets no answer: UPnP isn't enabled on v10.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 12</p>
+  <h2 class="section-title">WAN2: Failover &amp; Where Downloads Go</h2>
+  <p class="section-thesis"><em>The second ISP does two jobs: it carries the cache's downloads every day, and it carries everything on the day the fibre dies.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="8">▲ Show step 8 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>RouterOS detects a dead upstream with <strong>recursive routes</strong>. Each default route points at a public "probe" address (1.1.1.1 for WAN1, 9.9.9.9 for WAN2) that is itself only reachable through that WAN. <code>check-gateway=ping</code> pings the probe; when it stops answering, the default route that depends on it goes inactive and the next one takes over:</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated dual-WAN failover with recursive routing: traffic uses WAN1 while a probe through it succeeds, then moves to WAN2 when the probe fails">
+      <style>@keyframes gc5up{0%,44%{opacity:1;}48%,96%{opacity:0;}100%{opacity:1;}}
+@keyframes gc5dn{0%,44%{opacity:0;}48%,96%{opacity:1;}100%{opacity:0;}}
+@keyframes gc5f{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}38%{offset-distance:100%;opacity:1;}41%,100%{offset-distance:100%;opacity:0;}} @keyframes gc5b{0%,53%{offset-distance:0%;opacity:0;}55%{opacity:1;}90%{offset-distance:100%;opacity:1;}93%,100%{offset-distance:100%;opacity:0;}}
+@keyframes gc5p{0%{offset-distance:0%;opacity:1;}85%{offset-distance:100%;opacity:1;}100%{offset-distance:100%;opacity:0;}}
+.gc5-up{animation:gc5up 12s linear infinite;} .gc5-dn{animation:gc5dn 12s linear infinite;}
+.gc5-pf{offset-path:path('M130 120 L200 120 L350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:gc5f 12s ease-in-out infinite;}
+.gc5-pb{offset-path:path('M130 120 L200 120 L350 135 L420 182 L530 182 L612 142');offset-rotate:0deg;animation:gc5b 12s ease-in-out infinite;}
+.gc5-pr{offset-path:path('M350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:gc5p 1.5s linear infinite;fill:var(--gotcha);}
+.gc5-px{offset-path:path('M350 105 L420 58 L530 58 L568 78');offset-rotate:0deg;animation:gc5p 1.5s linear infinite;fill:var(--gotcha);}
+@media (prefers-reduced-motion:reduce){.gc5-up{animation:none;opacity:0;}.gc5-dn{animation:none;opacity:1;}.gc5-pf,.gc5-pr,.gc5-px{animation:none;opacity:0;}.gc5-pb{animation:none;offset-distance:75%;opacity:1;}}</style>
+      <rect class="lf-box" x="20" y="95" width="110" height="50" rx="5"/><text class="lf-sm lf-c" x="75" y="117">LAN</text><text class="lf-mono lf-c" x="75" y="131">10.30.0.0/16</text>
+      <rect class="lf-boxa" x="200" y="90" width="150" height="60" rx="5"/><text class="lf-sm lf-c" x="275" y="117">R1</text><text class="lf-mono lf-c" x="275" y="131">recursive routes</text>
+      <line class="lf-link" x1="130" y1="120" x2="200" y2="120"/>
+      <rect class="lf-box" x="420" y="40" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="55">WAN1 · fibre</text><text class="lf-mono lf-c" x="475" y="69">ether1 · distance 1</text>
+      <rect class="lf-box" x="420" y="164" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="179">WAN2 · VDSL</text><text class="lf-mono lf-c" x="475" y="193">ether2 · distance 2</text>
+      <ellipse class="lf-boxd" cx="675" cy="120" rx="68" ry="42"/><text class="lf-name lf-c" x="675" y="116" style="fill:var(--defender);">Internet</text><text class="lf-mono lf-c" x="675" y="131" style="fill:var(--defender);">probe 1.1.1.1</text>
+      <line class="lf-dash" x1="350" y1="135" x2="420" y2="182"/><line class="lf-dash" x1="530" y1="182" x2="612" y2="142"/>
+      <g class="gc5-up"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--defender);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--defender);font-weight:700;">WAN1 healthy: 1.1.1.1 answers via WAN1, so the recursive default route stays active</text><circle class="gc5-pr" r="3.5"/></g>
+      <g class="gc5-dn"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:6,4;"/><text x="562" y="85" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><path d="M350 135 L420 182 M530 182 L612 142" style="stroke:var(--gotcha);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--accent);font-weight:700;">WAN1 upstream dead: 1.1.1.1 stops answering, the recursive route goes inactive, distance 2 via WAN2 takes over</text><circle class="gc5-px" r="3.5"/></g>
+      <text class="lf-cap lf-c" x="380" y="258">The link light on ether1 stays green. Only a probe past the ISP's first hop notices the fault.</text>
+      <circle class="lf-pkt gc5-pf" r="6"/><circle class="lf-pkt gc5-pb" r="6"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — WAN2, recursive failover, and a routing table for the cache</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — IP SLA + track instead of recursive routes, PBR instead of a routing table
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ip sla 2
+ icmp-echo 9.9.9.9 source-interface GigabitEthernet0/0/1
+ip sla schedule 2 life forever start-time now
+track 2 ip sla 2 reachability
+ip route 1.1.1.1 255.255.255.255 203.0.113.9
+ip route 9.9.9.9 255.255.255.255 198.51.100.1     ! VDSL modem in router mode, /30 to R1
+ip route 0.0.0.0 0.0.0.0 203.0.113.9 track 1
+ip route 0.0.0.0 0.0.0.0 198.51.100.1 250
+! cache downloads ride WAN2 while it&#x27;s healthy; LAN traffic is excluded first
+ip access-list extended CACHE-OUT
+ deny   ip host 10.30.10.20 10.30.0.0 0.0.255.255
+ permit ip host 10.30.10.20 any
+route-map PBR-LAN permit 10
+ match ip address CACHE-OUT
+ set ip next-hop verify-availability 198.51.100.1 1 track 2
+interface Vlan10
+ ip policy route-map PBR-LAN</pre><pre class="term vt-pane" data-v="mikrotik">/interface pppoe-client add name=pppoe-wan2 interface=ether2 user=arena@isp2 password=******** \
+    add-default-route=no use-peer-dns=no disabled=no
+/interface list member add list=WAN interface=pppoe-wan2
+/ip route remove [find comment="temporary, replaced in step 8"]
+/ip route
+add dst-address=1.1.1.1/32 gateway=203.0.113.9 scope=10 comment="probe via WAN1"
+add dst-address=9.9.9.9/32 gateway=pppoe-wan2 scope=10 comment="probe via WAN2"
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment="main: WAN1"
+add dst-address=0.0.0.0/0 gateway=9.9.9.9 target-scope=11 check-gateway=ping distance=2 comment="main: WAN2"
+<span class="cmt"># a second table where the preference is reversed</span>
+/routing table add name=via-wan2 fib
+/ip route
+add dst-address=0.0.0.0/0 gateway=9.9.9.9 target-scope=11 check-gateway=ping distance=1 routing-table=via-wan2
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=2 routing-table=via-wan2
+/routing rule
+add dst-address=10.30.0.0/16 action=lookup-only-in-table table=main comment="LAN stays LAN"
+add src-address=10.30.10.20/32 action=lookup table=via-wan2 comment="cache downloads ride WAN2"</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">The rule order that keeps the cache on the LAN</span>
+    <p>The <code>via-wan2</code> table only has default routes, no connected networks. Without the first rule, when CACHE01 answers a console in VLAN 20, that reply would match the cache's source-address rule, find the default route in <code>via-wan2</code>, and leave for the internet. The <code>dst-address=10.30.0.0/16 → main</code> rule has to come first. The same class of bug shows up in every policy-routing setup that forgets its own LAN. Also: 1.1.1.1 and 9.9.9.9 are now pinned to one WAN each, so never use either as a DNS server. That's why the resolvers are 1.1.1.2 and 1.0.0.2.</p>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">What failover can't save</span>
+    <p>When WAN1 dies, every game in progress drops: the public IP changed, and no routing trick can move a live UDP session to a new address. Connections that were open on WAN1 also keep their old NAT mapping until they time out, which can take minutes. A <code>/tool netwatch</code> on 1.1.1.1 that runs <code>/ip firewall connection remove [find reply-dst-address~"203.0.113.10"]</code> when it goes down makes clients reconnect immediately. Failover keeps the room <em>online</em>; it doesn't keep the match alive.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/ip route print where dst-address=0.0.0.0/0</code>: "main: WAN1" active, "main: WAN2" standby.</li><li>Start a game download on a fresh title. <code>/interface monitor-traffic pppoe-wan2</code> shows the cache pulling it in; WAN1 is quiet.</li><li>Unplug the fibre <em>upstream</em> of the ONT: within ~10–20 s seats browse via WAN2. Plug it back: they return to WAN1.</li><li>A console pings 10.30.10.20 (cache): works, proving the "LAN stays LAN" rule.</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 12</p>
+  <h2 class="section-title">Latency First: The Queue Tree</h2>
+  <p class="section-thesis"><em>Never let a download sit in front of a game packet. Separate the two classes, prioritise the small one, then share each class fairly per seat.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Animated queue tree: small interactive packets in a priority-1 class overtake bulk download packets in a priority-8 class before the shaped WAN link">
+      <style>.gc6-l0{offset-path:path('M30 88 L460 88 L505 123 L745 123');offset-rotate:0deg;animation:gc6mv 3s linear infinite;fill:var(--gotcha);}.gc6-l1{offset-path:path('M30 158 L460 158 L505 123 L745 123');offset-rotate:0deg;animation:gc6mv 10s linear infinite;fill:var(--defender);}@keyframes gc6mv{0%{offset-distance:0%;opacity:0;}4%{opacity:1;}96%{opacity:1;}100%{offset-distance:100%;opacity:0;}}@media (prefers-reduced-motion:reduce){.gc6-l0,.gc6-l1{animation:none;offset-distance:40%;}}</style>
+      <rect class="lf-boxa" x="170" y="22" width="390" height="188" rx="7" style="fill:none;"/><text class="lf-name lf-c" x="365" y="40">R1 queue tree · WAN1 download and upload</text>
+      <text class="lf-mono" x="30" y="76" style="fill:var(--gotcha);font-weight:700;">game · voice · web</text>
+      <rect x="200" y="74" width="250" height="28" rx="4" style="fill:var(--gotcha);fill-opacity:.13;stroke:var(--gotcha);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="114" style="fill:var(--gotcha);">interactive · priority 1 · PCQ per seat</text>
+      <text class="lf-mono" x="30" y="146" style="fill:var(--defender);font-weight:700;">downloads past 5 MB</text>
+      <rect x="200" y="144" width="250" height="28" rx="4" style="fill:var(--defender);fill-opacity:.13;stroke:var(--defender);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="184" style="fill:var(--defender);">bulk · priority 8 · PCQ per seat</text>
+      <rect class="lf-box" x="470" y="78" width="80" height="90" rx="5"/><text class="lf-sm lf-c" x="510" y="118">HTB</text><text class="lf-mono lf-c" x="510" y="132">950M / 190M</text>
+      <line x1="550" y1="123" x2="745" y2="123" style="stroke:var(--rule);stroke-width:10;"/><text class="lf-mono lf-c" x="650" y="108">WAN1 1000/200</text>
+      <text class="lf-cap lf-c" x="380" y="234">Game packets jump the queue even while seat 31 downloads 100 GB. PCQ then splits each class evenly per seat, so one heavy user can't starve the room.</text>
+      <circle class="gc6-l0" r="5" style="animation-delay:0.00s;"/>
+      <circle class="gc6-l0" r="5" style="animation-delay:-1.00s;"/>
+      <circle class="gc6-l0" r="5" style="animation-delay:-2.00s;"/>
+      <rect class="gc6-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:0.00s;"/>
+      <rect class="gc6-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-2.00s;"/>
+      <rect class="gc6-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-4.00s;"/>
+      <rect class="gc6-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-6.00s;"/>
+      <rect class="gc6-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-8.00s;"/>
+    </svg>
+  </div>
+
+  <p>Telling "game" from "download" by port is hopeless: games use hundreds of ports and launchers use plain HTTPS. What reliably separates them is size. A TCP connection that has moved more than 5 MB is a download. Everything else (game UDP, voice chat, browsing, the session client) is interactive. The router marks connections once, marks packets by direction, and the queue tree does the rest:</p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — mangle and queue tree (WAN1)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — NBAR2 classifies by application instead of by size
+class-map match-any GAME
+ match protocol attribute category gaming
+ match protocol attribute category voice-and-video
+class-map match-any BULK
+ match protocol attribute category file-sharing
+policy-map WAN1-CHILD
+ class GAME
+  priority percent 30
+ class BULK
+  bandwidth remaining percent 10
+ class class-default
+  fair-queue
+policy-map WAN1-OUT
+ class class-default
+  shape average 190000000
+  service-policy WAN1-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output WAN1-OUT
+! the same classes, shaped at 950M, go on the LAN-facing interface&#x27;s output for downloads
+! check the category names on your release: show ip nbar attribute category</pre><pre class="term vt-pane" data-v="mikrotik">/ip firewall mangle
+add chain=forward action=mark-connection new-connection-mark=bulk protocol=tcp \
+    connection-bytes=5000000-0 connection-mark=no-mark passthrough=yes comment="past 5 MB = a download"
+add chain=forward action=mark-packet in-interface=ether1 connection-mark=bulk new-packet-mark=dl-bulk passthrough=no
+add chain=forward action=mark-packet in-interface=ether1 new-packet-mark=dl-int passthrough=no
+add chain=forward action=mark-packet out-interface=ether1 connection-mark=bulk new-packet-mark=ul-bulk passthrough=no
+add chain=forward action=mark-packet out-interface=ether1 new-packet-mark=ul-int passthrough=no
+/queue type
+add name=pcq-down kind=pcq pcq-classifier=dst-address pcq-rate=0
+add name=fq kind=fq-codel
+/queue tree
+add name=DOWN parent=global max-limit=950M
+add name=down-int parent=DOWN packet-mark=dl-int priority=1 max-limit=950M queue=pcq-down
+add name=down-bulk parent=DOWN packet-mark=dl-bulk priority=8 max-limit=950M queue=pcq-down
+add name=UP parent=ether1 max-limit=190M
+add name=up-int parent=UP packet-mark=ul-int priority=1 max-limit=190M queue=fq
+add name=up-bulk parent=UP packet-mark=ul-bulk priority=8 max-limit=190M queue=fq</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Three things that silently disable this</span>
+    <p><strong>1. FastTrack.</strong> Fast-tracked packets skip the queue tree. That's why decision 4 left it off. <strong>2. Shaping at 100%.</strong> If <code>max-limit</code> equals the line rate, the queue forms in the ISP's equipment instead of here, and priorities never apply. Shape 5% below. <strong>3. Per-seat fairness on upload.</strong> A queue on ether1 sees packets <em>after</em> masquerade, when every seat has the same source address, so a PCQ keyed on src-address would put the whole room into one bucket. Upload uses fq-codel (fair per flow) instead. Download is fine: the destination address was translated back to the seat before the queue sees it. Priority only works on child queues that have their own <code>max-limit</code>, which is why each one repeats it.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Seat 31: start a large download that the cache doesn't handle (for example a 10 GB test file over HTTPS), so it runs through WAN1.</li><li>Seat 2: in-game ping to an EU server stays within 1–2 ms of its idle value, and a bufferbloat test (download + upload) scores A.</li><li><code>/queue tree print stats</code>: down-bulk is dropping and queuing; down-int is not.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 12</p>
+  <h2 class="section-title">Tournament Mode</h2>
+  <p class="section-thesis"><em>Saturday evening: seats 1–10 need to see each other for LAN play. Sunday morning they must not. One script each way.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 310" role="img" aria-label="Animated tournament mode: normally seat 3 cannot reach seat 7; with tournament mode on, seats 1 to 10 can reach each other but still not seat 23">
+      <style>@keyframes gc7p0{0%,1%{transform:translate(132px,70px);opacity:0;}4%{opacity:1;}24%{transform:translate(276px,70px);opacity:1;}28%,100%{transform:translate(276px,70px);opacity:0;}}@keyframes gc7m0{0%,22%{opacity:0;}24%,96%{opacity:1;}98%,100%{opacity:0;}}.gc7-p0{animation:gc7p0 12s ease-in-out infinite;} .gc7-m0{animation:gc7m0 12s linear infinite;}@keyframes gc7p1{0%,34.3333%{transform:translate(132px,150px);opacity:0;}37.3333%{opacity:1;}57.3333%{transform:translate(612px,150px);opacity:1;}61.3333%,100%{transform:translate(612px,150px);opacity:0;}}@keyframes gc7m1{0%,55.3333%{opacity:0;}57.3333%,96%{opacity:1;}98%,100%{opacity:0;}}.gc7-p1{animation:gc7p1 12s ease-in-out infinite;} .gc7-m1{animation:gc7m1 12s linear infinite;}@keyframes gc7p2{0%,67.6667%{transform:translate(132px,230px);opacity:0;}70.6667%{opacity:1;}90.6667%{transform:translate(276px,230px);opacity:1;}94.6667%,100%{transform:translate(276px,230px);opacity:0;}}@keyframes gc7m2{0%,88.6667%{opacity:0;}90.6667%,96%{opacity:1;}98%,100%{opacity:0;}}.gc7-p2{animation:gc7p2 12s ease-in-out infinite;} .gc7-m2{animation:gc7m2 12s linear infinite;}@media (prefers-reduced-motion:reduce){.gc7-p0,.gc7-p1,.gc7-p2{animation:none;opacity:0;}.gc7-m0,.gc7-m1,.gc7-m2{animation:none;opacity:1;}}</style>
+      <rect class="lf-boxa" x="280" y="24" width="150" height="240" rx="7"/><text class="lf-name lf-c" x="355" y="42">SW-SEATS</text>
+      <text class="lf-cap lf-c" x="355" y="254">one script flips it</text>
+      <rect class="lf-box" x="20" y="50" width="112" height="40" rx="5"/><rect x="20" y="50" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="67">Seat 3</text><text class="lf-mono lf-c" x="78" y="81">normal day</text>
+      <rect class="lf-box" x="620" y="50" width="122" height="40" rx="5"/><rect x="620" y="50" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="67">Seat 7</text><text class="lf-mono lf-c" x="683" y="81">10.30.10.107</text>
+      <text class="lf-mono lf-c" x="355" y="62" style="fill:var(--accent);">ether3 ↛ ether7</text>
+      <line class="lf-dash" x1="132" y1="70" x2="620" y2="70"/>
+      <text class="lf-mono" x="140" y="62">→ LAN game</text>
+      <g class="gc7-m0"><text x="262" y="77" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="62" style="fill:var(--accent);font-weight:700;">✕ isolated: ether3 ↛ ether7</text></g>
+      <rect class="lf-box" x="20" y="130" width="112" height="40" rx="5"/><rect x="20" y="130" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="147">Seat 3</text><text class="lf-mono lf-c" x="78" y="161">tournament ON</text>
+      <rect class="lf-box" x="620" y="130" width="122" height="40" rx="5"/><rect x="620" y="130" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="147">Seat 7</text><text class="lf-mono lf-c" x="683" y="161">10.30.10.107</text>
+      <text class="lf-mono lf-c" x="355" y="142" style="fill:var(--defender);">ether3 → ether7 ✓</text>
+      <line class="lf-link" x1="132" y1="150" x2="620" y2="150"/>
+      <text class="lf-mono" x="140" y="142">→ LAN game</text>
+      <g class="gc7-m1"><text class="lf-cap" x="440" y="142" style="fill:var(--defender);font-weight:700;">✓ override now lists ether1-10</text></g>
+      <rect class="lf-box" x="20" y="210" width="112" height="40" rx="5"/><rect x="20" y="210" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="227">Seat 3</text><text class="lf-mono lf-c" x="78" y="241">tournament ON</text>
+      <rect class="lf-box" x="620" y="210" width="122" height="40" rx="5"/><rect x="620" y="210" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="227">Seat 23</text><text class="lf-mono lf-c" x="683" y="241">10.30.10.123</text>
+      <text class="lf-mono lf-c" x="355" y="222" style="fill:var(--accent);">ether3 ↛ ether23</text>
+      <line class="lf-dash" x1="132" y1="230" x2="620" y2="230"/>
+      <text class="lf-mono" x="140" y="222">→ anything</text>
+      <g class="gc7-m2"><text x="262" y="237" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="222" style="fill:var(--accent);font-weight:700;">✕ seat 23 isn't in the bracket</text></g>
+      <text class="lf-cap lf-c" x="380" y="298">Tournament mode adds the bracket's own ports to each bracket port's override list. Nothing else in the network changes.</text>
+      <circle class="lf-pkt gc7-p0" r="6"/>
+      <circle class="lf-pkt gc7-p1" r="6"/>
+      <circle class="lf-pkt gc7-p2" r="6"/>
+    </svg>
+  </div>
+
+  <p>No VLAN changes, no new subnet, no DHCP changes. The bracket's seats stay in VLAN 10 with their usual addresses, boot server and cache. The only change is the isolation list on their ten switch ports. These scripts live on <strong>SW-SEATS</strong>, where the isolation is:</p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-SEATS — tournament on/off, scheduled</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-SEATS — EEM with cron timers. Because an unprotected port can reach every
+! protected one, the bracket also moves to its own VLAN 70 (with its own SVI on R1).
+event manager applet TOURNAMENT-ON
+ event timer cron cron-entry &quot;0 17 * * 6&quot;
+ action 1.0 cli command &quot;enable&quot;
+ action 2.0 cli command &quot;configure terminal&quot;
+ action 3.0 cli command &quot;interface range GigabitEthernet1/0/1 - 10&quot;
+ action 4.0 cli command &quot;switchport access vlan 70&quot;
+ action 5.0 cli command &quot;no switchport protected&quot;
+ action 6.0 syslog priority warnings msg &quot;TOURNAMENT ON: seats 1-10 in VLAN 70&quot;
+event manager applet TOURNAMENT-OFF
+ event timer cron cron-entry &quot;30 23 * * 6&quot;
+ action 1.0 cli command &quot;enable&quot;
+ action 2.0 cli command &quot;configure terminal&quot;
+ action 3.0 cli command &quot;interface range GigabitEthernet1/0/1 - 10&quot;
+ action 4.0 cli command &quot;switchport access vlan 10&quot;
+ action 5.0 cli command &quot;switchport protected&quot;
+ action 6.0 syslog priority warnings msg &quot;TOURNAMENT OFF: seats 1-10 isolated again&quot;</pre><pre class="term vt-pane" data-v="mikrotik">/system script
+add name=tournament-on source={
+  :local bracket "sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3"
+  :for i from=1 to=10 do={ :set bracket ($bracket . ",ether" . $i) }
+  :for i from=1 to=10 do={
+    /interface ethernet switch port-isolation set [find port=("ether" . $i)] forwarding-override=$bracket
+  }
+  :log warning "TOURNAMENT ON: seats 1-10 can reach each other"
+}
+add name=tournament-off source={
+  :for i from=1 to=10 do={
+    /interface ethernet switch port-isolation set [find port=("ether" . $i)] \
+        forwarding-override=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3
+  }
+  :log warning "TOURNAMENT OFF: seats 1-10 isolated again"
+}
+/system scheduler
+add name=t-on start-date=2026-11-07 start-time=17:00:00 interval=7d on-event=tournament-on
+add name=t-off start-date=2026-11-07 start-time=23:30:00 interval=7d on-event=tournament-off</pre></div>
+
+  <p>For irregular events, the manager runs <code>/system script run tournament-on</code> from the management laptop. The scheduled <code>t-off</code> means a forgotten "off" never leaves the bracket open past Saturday night. Writing to the log at <code>warning</code> level means the state change shows up on the monitoring box (step 12). For more on RouterOS scripting, see <a href="mikrotik-scripting.html">scripting</a>.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Run <code>tournament-on</code>: seat 3 pings seat 7; seat 3 still can't ping seat 23.</li><li>A LAN game hosted on seat 1 is visible in the server browser on seats 2–10 only.</li><li>Run <code>tournament-off</code>: seat 3 → seat 7 fails again. <code>/log print where topics~"warning"</code> shows both changes.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="step-11">15 · Step 11 of 12</p>
+  <h2 class="section-title">Guest &amp; Staff Wi-Fi</h2>
+  <p class="section-thesis"><em>The parents in the lounge get fast-enough Wi-Fi that can't see anything else. The staff get a hidden SSID onto the counter VLAN.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="11">▲ Show step 11 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — CAPsMAN for three cAP ax (RouterOS 7 wifi)</span><span class="cfg-meta">17 lines · this step's additions · click to expand</span></summary><pre class="term">/interface wifi security
+add name=sec-guest authentication-types=wpa2-psk,wpa3-psk passphrase="rotate-me-monthly"
+add name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase="********"
+/interface wifi datapath
+add name=dp-guest bridge=bridge vlan-id=50 client-isolation=yes
+add name=dp-staff bridge=bridge vlan-id=40
+/interface wifi configuration
+add name=cfg-guest ssid=ARENA-Guest security=sec-guest datapath=dp-guest country=Greece
+add name=cfg-staff ssid=ARENA-Staff security=sec-staff datapath=dp-staff country=Greece hide-ssid=yes
+/interface wifi capsman set enabled=yes interfaces=v99-mgmt
+/interface wifi provisioning
+add action=create-dynamic-enabled supported-bands=5ghz-ax master-configuration=cfg-guest slave-configurations=cfg-staff
+add action=create-dynamic-enabled supported-bands=2ghz-ax master-configuration=cfg-guest slave-configurations=cfg-staff
+
+<span class="cmt"># 30 Mb/s for the whole lounge, split evenly per device</span>
+/queue simple add name=guest-wifi target=10.30.50.0/24 max-limit=30M/30M \
+    queue=pcq-upload-default/pcq-download-default</pre></details>
+
+  <p>The <code>bridge=bridge</code> in the datapath refers to each cAP's own local bridge: the APs switch traffic locally onto VLANs 40 and 50 of their trunk, so nothing hairpins through R1. The AP-side bridge setup is the same as in the <a href="mikrotik-capsman.html">CAPsMAN post</a> and the <a href="mikrotik-lab-hotel.html">hotel lab</a>. Hiding the staff SSID is not a security control. It only stops customers' phones from listing it. The password is the control.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Two phones on ARENA-Guest can't ping each other (client isolation), and neither can reach 10.30.10.0/24.</li><li>A speed test on one guest phone peaks near 30 Mb/s; with two phones testing together each gets about half.</li><li>The counter tablet on ARENA-Staff gets 10.30.40.x and opens the NVR.</li></ul>
+  </div>
+
+  <!-- 16 -->
+  <p class="section-num" id="step-12">16 · Step 12 of 12</p>
+  <h2 class="section-title">Hardening, Snooping &amp; Backups</h2>
+  <p class="section-thesis"><em>Close the management plane, stop rogue DHCP on the switches, and make sure a dead router costs 20 minutes, not a weekend.</em></p>
+
+  <div class="term-wrap"><span class="term-label">R1 + both switches — management plane</span><pre class="term">/interface list add name=MGMT
+/interface list member add list=MGMT interface=v99-mgmt
+/ip service disable telnet,ftp,www,api,api-ssl
+/ip service set ssh address=10.30.99.0/24
+/ip service set winbox address=10.30.99.0/24
+/tool mac-server set allowed-interface-list=MGMT
+/tool mac-server mac-winbox set allowed-interface-list=MGMT
+/ip neighbor discovery-settings set discover-interface-list=MGMT
+/user add name=netadmin group=full password=********
+/user disable admin
+/system ntp client set enabled=yes servers=time.cloudflare.com
+/system logging action add name=remote target=remote remote=10.30.99.20
+/system logging add topics=warning action=remote
+/system logging add topics=firewall action=remote
+/system scheduler add name=nightly-export interval=1d start-time=04:00:00 \
+    on-event="/export show-sensitive file=nightly"</pre></div>
+
+  <div class="term-wrap"><span class="term-label">SW-SEATS + SW-FRONT — DHCP snooping</span><pre class="term">/interface bridge set bridge dhcp-snooping=yes
+/interface bridge port set [find interface=sfp-sfpplus1] trusted=yes</pre></div>
+
+  <p>DHCP snooping on the switches drops DHCP offers from anything except the uplink, so a customer's laptop running a DHCP server can't take over the room. The nightly export is collected by the monitoring box over SFTP and kept off-device. Store it encrypted, because <code>show-sensitive</code> includes the PPPoE and Wi-Fi passwords (see <a href="mikrotik-backup.html">backups</a> and <a href="mikrotik-hardening.html">hardening</a>).</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From a seat: Winbox neighbour discovery lists no MikroTik devices, and port 8291 on 10.30.10.1 is closed.</li><li>A small router on a seat port running a DHCP server: no seat takes its lease.</li><li>The next morning the monitoring box has <code>nightly.rsc</code> from all three devices.</li></ul>
+  </div>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">Verify, Then Break It Before Opening Night</h2>
+  <p class="section-thesis"><em>Every drill maps to a requirement. Run them with the room full of test seats, not with one laptop.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody>
+      <tr><td>Opening rush (R1)</td><td>Power on all 40 seats at once. All reach the login screen within ~3 minutes; R1's uplink to SW-SEATS stays near idle.</td></tr>
+      <tr><td>Dirty seat (R1)</td><td>Install a program and save a file on seat 9, reboot: both are gone.</td></tr>
+      <tr><td>ARP poison (R2)</td><td>Run an ARP-spoofing tool on seat 12 against seat 13 and the gateway. Seat 13 never sees it; the gateway's ARP entry for seat 13 doesn't change.</td></tr>
+      <tr><td>Room sweep (R2)</td><td><code>nmap -sn 10.30.10.0/24</code> from a seat finds only .1, .10 and .20.</td></tr>
+      <tr><td>Release day (R4)</td><td>Ten seats install the same 60 GB update: WAN traffic ≈ 60 GB once, the rest is cache hits.</td></tr>
+      <tr><td>Lag under load (R3)</td><td>One seat saturates a download; ten seats play an online match. No in-game ping rise above ~2 ms.</td></tr>
+      <tr><td>Console NAT (R5)</td><td>Every booth tests NAT Type 2; a party chat across two booths works.</td></tr>
+      <tr><td>Fibre cut (R6)</td><td>Pull the fibre upstream of the ONT: the room keeps browsing via WAN2 in ~10–20 s. Matches in progress drop (expected).</td></tr>
+      <tr><td>Tournament (R7)</td><td>Scheduled on/off at the set times; the log shows both; seats outside the bracket are never reachable.</td></tr>
+      <tr><td>Money &amp; cameras (R8)</td><td>From every VLAN except counter and management, 10.30.40.10 and 10.30.60.0/24 are unreachable.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">The Attacker's View</h2>
+  <p class="section-thesis"><em>In a gaming center the attacker pays by the hour and sits next to the victim. Here's what's left for them to try.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Hardware keyloggers.</strong> A USB keylogger between keyboard and PC captures the next customer's game login. The network can't see it. Staff check the back of every seat at closing time, and keyboards with fixed cables plugged into a lockable back panel make it obvious.</li>
+    <li><strong>Booting their own OS.</strong> A live USB on a seat bypasses the diskless image entirely. UEFI admin password, USB boot disabled, Secure Boot on. The network contribution is that even a foreign OS on a seat port is still isolated, still can't serve DHCP, and still only reaches the internet.</li>
+    <li><strong>Attacks on the boot server.</strong> Every seat can reach BOOT01's iSCSI and TFTP ports, and that's unavoidable for diskless. Keep the platform patched, bind its admin UI to VLAN 30 only (staff reach it from the POS), and let iSCSI accept each seat's initiator only for its own overlay.</li>
+    <li><strong>DDoSing a rival.</strong> Players leak each other's IPs through voice chat and peer-to-peer games, and booter services are cheap. That traffic lands on the center's shared WAN IP and lags everyone. Defences: an ISP plan with upstream DDoS filtering, no inbound port-forwards except UPnP on consoles, and WAN2 as an escape hatch.</li>
+    <li><strong>Account and session theft.</strong> Customers forget to log out of Steam. The diskless reset handles it on reboot, and the session software should force a reboot at the end of each paid session, not just a logout.</li>
+  </ul>
+
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Lab It in CHR / GNS3</h2>
+  <p class="section-thesis"><em>No Packet Tracer for RouterOS, but nearly all of this runs on free CHR images.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>This post</th><th>In the lab</th></tr></thead>
+    <tbody>
+      <tr><td>R1 CCR2004</td><td>A CHR with three interfaces (two trunks, two WANs). Everything in steps 4–10 except the radios works the same, including recursive failover. Use two upstream CHRs as "ISPs".</td></tr>
+      <tr><td>SW-SEATS / SW-FRONT</td><td>CHR bridges with VLAN filtering. <strong>No switch chip</strong>, so port isolation doesn't exist. Emulate it with bridge <code>horizon=1</code> on the seat ports (ports with the same horizon value don't forward to each other) and leave the server and uplink ports without a horizon.</td></tr>
+      <tr><td>Seats</td><td>Small Linux VMs (or VPCS) in VLAN 10. Diskless boot can be tested with iPXE + a tiny iSCSI target on a Linux VM.</td></tr>
+      <tr><td>Wi-Fi</td><td>Skip it, or tag a VM's NIC into VLAN 50 to play guest.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 20 -->
+  <p class="section-num" id="sec-20">20</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT and the gaming PCs themselves.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>R1 · CCR2004-16G-2S+</td><td>450 – 550</td></tr>
+      <tr><td>SW-SEATS · CRS354-48G-4S+2Q+</td><td>450 – 550</td></tr>
+      <tr><td>SW-FRONT · CRS328-24P-4S+ (PoE)</td><td>420 – 520</td></tr>
+      <tr><td>3× cAP ax</td><td>300 – 380</td></tr>
+      <tr><td>4× 10G DAC cables</td><td>60 – 100</td></tr>
+      <tr><td>BOOT01 · NVMe server + 10G NIC</td><td>2,500 – 4,500, plus the diskless platform's per-seat licence</td></tr>
+      <tr><td>CACHE01 · 16 TB + 10G NIC</td><td>1,200 – 2,500</td></tr>
+      <tr><td>UPS for the closet</td><td>600 – 900</td></tr>
+      <tr><td>Network + servers total</td><td><strong>≈ 5,900 – 10,000</strong>, plus structured cabling (~50 runs)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gotcha">
+    <span class="callout-label">The PoE you don't need, the UPS you do</span>
+    <p>Gaming PCs don't need PoE, so the seat switch is a plain CRS354. The cameras and APs do, which is why SW-FRONT is the PoE model. The UPS is not optional, though: a 2-second power dip reboots 40 diskless seats at once, which is a full opening-time boot storm in the middle of a tournament. Put R1, both switches and both servers on it.</p>
+  </div>
+
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on Cisco</h2>
+  <p class="section-thesis"><em>Same brief and the same VLANs on Catalyst and a Cat8000-class router. The Cisco tabs on the config blocks above show the key steps side by side; this appendix covers what changes underneath.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Role</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>SW-SEATS (48 + 10G)</td><td>CRS354-48G-4S+2Q+ → Catalyst 9300-48T + C9300-NM-8X</td></tr>
+      <tr><td>SW-FRONT (PoE)</td><td>CRS328-24P-4S+ → Catalyst 9200L-24P-4G</td></tr>
+      <tr><td>R1</td><td>CCR2004-16G-2S+ → C8300-1N1S-6T (NAT + NBAR2 + shaping at 1 Gb/s)</td></tr>
+      <tr><td>Wi-Fi</td><td>3× cAP ax + CAPsMAN → 3× C9115AXI with EWC</td></tr>
+      <tr><td>Indicative total (network only)</td><td>≈ 1,700 – 2,100 → ≈ 15,000 – 20,000 EUR ex VAT</td></tr>
+    </tbody>
+  </table>
+
+  <table class="cheat">
+    <thead><tr><th>Feature</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>Port isolation</td><td><code>forwarding-override</code> lists → <code>switchport protected</code></td></tr>
+      <tr><td>Camera port lock</td><td><code>learn=no</code> + static host → <code>port-security mac-address sticky</code></td></tr>
+      <tr><td>PXE options</td><td><code>next-server</code> / <code>boot-file-name</code> → <code>next-server</code> / <code>bootfile</code> in the DHCP pool</td></tr>
+      <tr><td>UPnP for consoles</td><td>UPnP → <strong>not available</strong>: 1:1 static NAT per booth from a public /28</td></tr>
+      <tr><td>Recursive failover</td><td><code>check-gateway</code> recursive routes → IP SLA + <code>track</code></td></tr>
+      <tr><td>Cache on WAN2</td><td>routing table + rule → PBR with <code>verify-availability</code></td></tr>
+      <tr><td>Latency-first queuing</td><td>connection-bytes marks + queue tree → NBAR2 categories + LLQ under a shaper</td></tr>
+      <tr><td>Tournament mode</td><td>script + scheduler → EEM applets with cron timers</td></tr>
+      <tr><td>DHCP snooping</td><td>bridge <code>dhcp-snooping</code> → <code>ip dhcp snooping</code> (and DAI)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>Classification by application instead of by size.</strong> RouterOS calls any TCP connection past 5 MB "bulk"; Cisco NBAR2 recognises the game and download applications themselves. That's more precise, but it depends on NBAR2 knowing the titles your center runs, and the download direction has to be shaped on the LAN side, because the WAN policy only sees upload. <strong>No UPnP</strong> means open NAT for consoles needs public addresses. <strong>Protected ports aren't override lists:</strong> an unprotected port reaches every protected one, so tournament mode also moves the bracket to its own VLAN.</p><p><strong>Cost is the real difference.</strong> Roughly ten times the network budget for the same result. Cisco makes sense here when the center is part of a chain that already runs Cisco and manages it centrally.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Diskless seats make R1 (clean PCs) a solved problem</strong>, as long as the boot server sits in the seats' Layer 2 domain so the boot storm never reaches the router.</li>
+      <li><strong>Customer-to-customer protection belongs in the switch chip.</strong> Port isolation blocks seat-to-seat at line rate, in hardware, with one subnet and no VLAN sprawl.</li>
+      <li><strong>A LAN cache plus DNS is the biggest bandwidth upgrade per euro</strong>, and blocking DNS bypass keeps it (and its filtering) in the path.</li>
+      <li><strong>Pin games to one WAN.</strong> Use the second for bulk and for failure. Recursive routes catch the upstream faults that a link light misses, and the LAN-first routing rule prevents the classic policy-routing leak.</li>
+      <li><strong>Queue by size, not by port.</strong> Connections past 5 MB are downloads; everything else is interactive. Shape below line rate, keep FastTrack off, and use fq-codel where NAT hides the seats.</li>
+      <li><strong>Tournament mode is a port list, not a redesign.</strong> One scheduled script flips the bracket's isolation and logs that it did.</li>
+      <li><strong>The threat sits at the keyboard.</strong> UPnP only for consoles, snooping on every switch, BIOS locks, and a reboot at the end of every session.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 2 of the <a href="build-index.html"><strong>Build series</strong></a>. Part 1: <a href="build-law-firm.html">the law firm</a>. Next: <a href="build-coffee-shop.html">the coffee shop</a>.</p>
+
+  <div class="cta-card">
+    <h3>Opening or fixing a gaming center?</h3>
+    <p>Lag complaints, seats that get "infected", a slow line on patch day: these are network problems with known fixes. I design and build networks like this one on MikroTik and test them under a full room before opening night.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>

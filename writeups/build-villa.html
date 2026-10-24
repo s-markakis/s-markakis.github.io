@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Holiday Villa Network — S. Markakis</title>
+<meta name="description" content="A rental villa in rural Crete on MikroTik and Starlink, built bottom-up in 10 tested steps: Wi-Fi to the pool and a 60 GHz bridge to the annex, owner and smart home kept away from guests, 4G backup, CAKE for Starlink's changing capacity, a new guest key per booking, and remote management behind CGNAT.">
+<meta property="og:title" content="Build: The Holiday Villa Network — S. Markakis">
+<meta property="og:description" content="A rental villa in rural Crete on MikroTik and Starlink, built bottom-up in 10 tested steps: Wi-Fi to the pool and a 60 GHz bridge to the annex, owner and smart home kept away from guests, 4G backup, CAKE for Starlink's changing capacity, a new guest key per booking, and remote management behind CGNAT.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-villa.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-villa.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-villa.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-villa.html">
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#3a7ca5;--v20:#d9822b;--v30:#8a5bb5;--v40:#a14a4a;--v99:#2f8f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Holiday Villa Network",
+  "description": "A rental villa in rural Crete on MikroTik and Starlink, built bottom-up in 10 tested steps: Wi-Fi from the bedrooms to the pool, a 60 GHz bridge to the guest annex, owner and smart-home devices kept away from guests, a 4G backup, CAKE queuing for Starlink's changing capacity, a new guest Wi-Fi key for every booking, and remote management that works behind CGNAT — with Packet Tracer-style diagrams for every step.",
+  "datePublished": "2026-10-24",
+  "dateModified": "2026-10-24",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-villa.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-villa.png",
+  "keywords": [
+    "mikrotik",
+    "labs",
+    "starlink"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-villa"
+  },
+  "timeRequired": "PT33M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; MikroTik RouterOS 7 + Starlink &nbsp;·&nbsp; Real-World Network &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Build: The<br>Holiday Villa Network</h1>
+  <p class="post-subtitle">A four-bedroom rental villa in the Cretan hills, a pool, a guest annex 40 metres down the garden, no fibre within reach, and an owner who lives abroad. The Wi-Fi is in every review, the guests change every Saturday, and nobody is on site when something breaks. We build it on MikroTik and Starlink in 10 tested steps.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">RouterOS 7</span>
+    <span class="tag">Starlink</span>
+    <span class="tag">Holiday Rental</span>
+    <span class="tag">60 GHz</span>
+    <span class="tag">CAKE</span>
+    <span class="tag">4G Failover</span>
+    <span class="tag">WireGuard</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 520" role="img" aria-label="Interactive topology of the holiday villa network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="330" x2="270" y2="445" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="366.2" cy="344.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="283.8" cy="430.5" r="2.4"/>
+<text class="lft-port lft-c" x="314.0" y="402.0">ether1-4 · PoE</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="330" x2="345" y2="445" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="374.2" cy="349.1" r="2.4"/>
+<circle class="lft-led bx-led" cx="350.8" cy="425.9" r="2.4"/>
+<text class="lft-port lft-c" x="359.0" y="413.0">ether5-8</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="330" x2="420" y2="445" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="386.6" cy="348.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="413.4" cy="426.1" r="2.4"/>
+<text class="lft-port lft-c" x="404.0" y="402.0">ether9-12</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="330" x2="495" y2="445" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="394.1" cy="344.1" r="2.4"/>
+<circle class="lft-led bx-led" cx="480.9" cy="430.9" r="2.4"/>
+<text class="lft-port lft-c" x="449.0" y="413.0">ether13</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="380" y2="330" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="380.0" cy="214.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="380.0" cy="310.0" r="2.4"/>
+<text class="lft-port" x="386.0" y="265.0">sfp+ ⇄ sfp+1 · 10G trunk</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="110" y2="300" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="361.4" cy="201.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="128.6" cy="292.7" r="2.4"/>
+<text class="lft-port lft-c" x="245.0" y="250.0">ether3-4 · PoE</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="230" y2="300" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="363.7" cy="205.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="246.3" cy="288.5" r="2.4"/>
+<text class="lft-port lft-c" x="297.5" y="265.3">ether5 · PoE</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="540" y2="300" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="396.7" cy="205.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="523.3" cy="289.0" r="2.4"/>
+<text class="lft-port lft-c" x="460.0" y="250.0">ether6 · PoE · trunk</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-blink" x1="540" y1="300" x2="690" y2="300" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-c" x="615.0" y="295.0">60 GHz bridge</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="690" y1="300" x2="690" y2="420" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="690.0" cy="320.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="690.0" cy="400.0" r="2.4"/>
+<text class="lft-port lft-e" x="684.0" y="363.0">trunk</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-blink" x1="110" y1="300" x2="110" y2="440" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port" x="116.0" y="373.0">VILLA-Guest</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="290" y2="112" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="365.2" cy="180.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="304.8" cy="125.5" r="2.4"/>
+<text class="lft-port lft-c" x="335.0" y="156.0">ether1 · 2.5G</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="290" y1="112" x2="380" y2="40" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="305.6" cy="99.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="353.5" cy="61.2" r="2.4"/>
+</g>
+<g class="bx-el" data-step="6">
+<line class="bx-blink" x1="380" y1="194" x2="470" y2="112" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="394.8" cy="180.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="455.2" cy="125.5" r="2.4"/>
+<text class="lft-port lft-c" x="425.0" y="156.0">ether2</text>
+</g>
+<g class="bx-el" data-step="6">
+<line class="bx-blink" x1="470" y1="112" x2="380" y2="40" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="454.4" cy="99.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="406.5" cy="61.2" r="2.4"/>
+</g>
+<g class="bx-el" data-step="9">
+<path class="bx-blink" d="M668 88 Q644.4 20 432 40" style="stroke:var(--accent);stroke-width:1.6;fill:none;stroke-dasharray:6,4;"/><text class="lft-port lft-c" x="597.2" y="36" style="fill:var(--accent);">WireGuard (R1 dials out)</text></g>
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="380" cy="40" r="56"/>
+<use href="#lfi-cloud" x="328" y="16" width="104" height="48" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="380" y="45" style="fill:var(--defender);">Internet</text>
+</g>
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="290" cy="112" r="26"/>
+<use href="#lfi-modem" x="273" y="103" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="290" y="133">Starlink</text>
+<text class="lft-chip lft-c" x="290" y="143" style="fill:var(--body);">bypass mode · CGNAT</text>
+</g>
+<g class="bx-el bx-dev" data-step="6">
+<circle class="bx-ring lft-ring" cx="470" cy="112" r="25"/>
+<use href="#lfi-lte" x="456" y="96" width="28" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="470" y="140">4G LtAP</text>
+<text class="lft-chip lft-c" x="470" y="150" style="fill:var(--body);">backup · passthrough</text>
+</g>
+<g class="bx-el bx-dev" data-step="9">
+<circle class="bx-ring lft-ring" cx="668" cy="100" r="25"/>
+<use href="#lfi-server" x="657" y="84" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="668" y="128">Operator hub</text>
+<text class="lft-chip lft-c" x="668" y="138" style="fill:var(--body);">WireGuard · monitoring</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="r1" tabindex="0" role="button" aria-label="Show the configuration of R1 · RB5009UPr">
+<circle class="bx-ring lft-ring" cx="380" cy="194" r="32"/>
+<circle class="bx-sel" cx="380" cy="194" r="28"/>
+<use href="#lfi-router" x="357" y="178" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="411" y="193">R1 · RB5009UPr</text>
+<text class="lft-chip" x="411" y="203" style="fill:var(--body);">PoE-out · CAPsMAN</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="110" cy="300" r="26"/>
+<use href="#lfi-ap" x="93" y="287" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="110" y="325">cAP ax ×2</text>
+<text class="lft-chip lft-c" x="110" y="335" style="fill:var(--body);">house</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="230" cy="300" r="26"/>
+<use href="#lfi-ap" x="213" y="287" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="230" y="325">Pool wAP ax</text>
+<text class="lft-chip lft-c" x="230" y="335" style="fill:var(--body);">outdoor</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="3" data-dev="b1" tabindex="0" role="button" aria-label="Show the configuration of wAP 60G">
+<circle class="bx-ring lft-ring" cx="540" cy="300" r="26"/>
+<circle class="bx-sel" cx="540" cy="300" r="22"/>
+<use href="#lfi-modem" x="523" y="291" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="540" y="321">wAP 60G</text>
+<text class="lft-chip lft-c" x="540" y="331" style="fill:var(--body);">house end</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="3" data-dev="b2" tabindex="0" role="button" aria-label="Show the configuration of wAP 60G">
+<circle class="bx-ring lft-ring" cx="690" cy="300" r="26"/>
+<circle class="bx-sel" cx="690" cy="300" r="22"/>
+<use href="#lfi-modem" x="673" y="291" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="690" y="321">wAP 60G</text>
+<text class="lft-chip lft-c" x="690" y="331" style="fill:var(--body);">annex end · 40 m</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="690" cy="420" r="26"/>
+<use href="#lfi-ap" x="673" y="407" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="690" y="445">Annex cAP ax</text>
+<text class="lft-chip lft-c" x="690" y="455" style="fill:var(--body);">guest suite</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="110" cy="440" r="25"/>
+<use href="#lfi-laptop" x="94" y="428" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="110" y="464">Guests</text>
+<text class="lft-chip lft-c" x="110" y="474" style="fill:var(--v20);">V20</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="sw" tabindex="0" role="button" aria-label="Show the configuration of SW-UTIL">
+<circle class="bx-ring lft-ring" cx="380" cy="330" r="34"/>
+<circle class="bx-sel" cx="380" cy="330" r="30"/>
+<use href="#lfi-l2" x="355" y="319" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="413" y="329">SW-UTIL</text>
+<text class="lft-chip" x="413" y="339" style="fill:var(--body);">CRS328-24P-4S+</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="270" cy="445" r="23"/>
+<use href="#lfi-camera" x="256" y="434" width="28" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="270" y="468">Cameras ×4</text>
+<text class="lft-chip lft-c" x="270" y="478" style="fill:var(--v40);">V40 · exterior</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="345" cy="445" r="21"/>
+<use href="#lfi-iot" x="333" y="433" width="24" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="345" y="469">Pool · alarm · locks</text>
+<text class="lft-chip lft-c" x="345" y="479" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="420" cy="445" r="28"/>
+<use href="#lfi-display" x="401" y="431" width="38" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="420" y="471">TVs ×4</text>
+<text class="lft-chip lft-c" x="420" y="481" style="fill:var(--v20);">V20</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="495" cy="445" r="23"/>
+<use href="#lfi-pc" x="481" y="431" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="495" y="471">Owner office</text>
+<text class="lft-chip lft-c" x="495" y="481" style="fill:var(--v10);">V10</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 10 steps built</text>
+<text class="lft-chip" x="20" y="510">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="10" value="10" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The Utility Switch & Wired Devices", "adds": "SW-UTIL, Cameras ×4, Pool · alarm · locks, TVs ×4, Owner office"}, {"n": 2, "title": "The Router: VLANs, DHCP, DNS", "adds": "R1 · RB5009UPr"}, {"n": 3, "title": "Wi-Fi from the Bedrooms to the Annex", "adds": "cAP ax ×2, Pool wAP ax, wAP 60G, Annex cAP ax, Guests"}, {"n": 4, "title": "Firewall: Guests, Owner, Smart Home", "adds": "policy / services"}, {"n": 5, "title": "Starlink in Bypass Mode", "adds": "Internet, Starlink"}, {"n": 6, "title": "The 4G Backup", "adds": "4G LtAP"}, {"n": 7, "title": "CAKE: Fair and Fast on a Moving Target", "adds": "policy / services"}, {"n": 8, "title": "A New Guest Key for Every Booking", "adds": "policy / services"}, {"n": 9, "title": "Remote Management and Monitoring", "adds": "Operator hub"}, {"n": 10, "title": "Power, Backups & Hardening", "adds": "policy / services"}], "devices": {"sw": "SW-UTIL", "r1": "R1 · RB5009UPr", "b1": "wAP 60G", "b2": "wAP 60G"}, "configs": {"sw": [{"step": 1, "title": "The Utility Switch & Wired Devices", "label": "SW-UTIL — CRS328-24P-4S+", "text": "/system identity set name=SW-UTIL\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"uplink R1 (10G DAC)\"\nadd bridge=bridge interface=ether1 pvid=40 comment=\"camera gate\"          # … ether2-4: driveway, pool x2\nadd bridge=bridge interface=ether5 pvid=30 comment=\"alarm panel\"\nadd bridge=bridge interface=ether6 pvid=30 comment=\"pool controller\"\nadd bridge=bridge interface=ether7 pvid=30 comment=\"irrigation + gate\"\nadd bridge=bridge interface=ether8 pvid=30 comment=\"smart-lock bridge\"\nadd bridge=bridge interface=ether9 pvid=20 comment=\"TV living room\"       # … ether10-12: bedroom TVs\nadd bridge=bridge interface=ether13 pvid=10 comment=\"owner's office\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,20,30,40 tagged=sfp-sfpplus1\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.70.99.11/24 interface=v99-mgmt\n/ip route add gateway=10.70.99.1\n/interface ethernet poe set ether5,ether6,ether7,ether8,ether9,ether10,ether11,ether12,ether13 poe-out=off\n/interface ethernet disable ether14,ether15,ether16,ether17,ether18,ether19,ether20,ether21,ether22,ether23,ether24\n/interface bridge set bridge vlan-filtering=yes"}], "r1": [{"step": 2, "title": "The Router: VLANs, DHCP, DNS", "label": "R1 — RB5009UPr+S+IN · bridge, trunks, VLAN interfaces, DHCP", "text": "/system identity set name=R1\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"SW-UTIL\"\nadd bridge=bridge interface=ether3 pvid=99 comment=\"cAP ax living (trunk)\"\nadd bridge=bridge interface=ether4 pvid=99 comment=\"cAP ax upstairs (trunk)\"\nadd bridge=bridge interface=ether5 pvid=99 comment=\"pool wAP ax (trunk)\"\nadd bridge=bridge interface=ether6 pvid=99 comment=\"wAP 60G house end (trunk to annex)\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,20,30 tagged=bridge,sfp-sfpplus1,ether3,ether4,ether5,ether6\nadd bridge=bridge vlan-ids=40 tagged=bridge,sfp-sfpplus1\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1\n/interface vlan\nadd name=v10-owner interface=bridge vlan-id=10\nadd name=v20-guest interface=bridge vlan-id=20\nadd name=v30-home interface=bridge vlan-id=30\nadd name=v40-cctv interface=bridge vlan-id=40\nadd name=v99-mgmt interface=bridge vlan-id=99\n/ip address\nadd address=10.70.10.1/24 interface=v10-owner\nadd address=10.70.20.1/24 interface=v20-guest\nadd address=10.70.30.1/24 interface=v30-home\nadd address=10.70.40.1/24 interface=v40-cctv\nadd address=10.70.99.1/24 interface=v99-mgmt\n# one pool + server + network per VLAN; guests get short leases\n/ip dhcp-server add name=d-guest interface=v20-guest address-pool=p-guest lease-time=2h\n/ip dhcp-server network add address=10.70.20.0/24 gateway=10.70.20.1 dns-server=10.70.20.1\n# … owner, smart home (reservations), CCTV (reservations), mgmt\n/ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112\n/system ntp client set enabled=yes servers=time.cloudflare.com\n/interface bridge set bridge vlan-filtering=yes"}, {"step": 3, "title": "Wi-Fi from the Bedrooms to the Annex", "label": "R1 — CAPsMAN: guest, owner, and a 2.4 GHz smart-home SSID", "text": "/interface wifi security\nadd name=sec-guest authentication-types=wpa2-psk,wpa3-psk passphrase=\"replaced-at-every-checkout\"\nadd name=sec-owner authentication-types=wpa2-psk,wpa3-psk passphrase=\"********\"\nadd name=sec-home authentication-types=wpa2-psk passphrase=\"********\"\n/interface wifi datapath\nadd name=dp-guest bridge=bridge vlan-id=20\nadd name=dp-owner bridge=bridge vlan-id=10\nadd name=dp-home bridge=bridge vlan-id=30\n/interface wifi configuration\nadd name=cfg-guest ssid=VILLA-Guest security=sec-guest datapath=dp-guest country=Greece\nadd name=cfg-owner ssid=VILLA-Owner security=sec-owner datapath=dp-owner country=Greece hide-ssid=yes\nadd name=cfg-home ssid=VILLA-Home security=sec-home datapath=dp-home country=Greece hide-ssid=yes\n/interface wifi capsman set enabled=yes interfaces=v99-mgmt\n/interface wifi provisioning\nadd action=create-dynamic-enabled supported-bands=5ghz-ax master-configuration=cfg-guest slave-configurations=cfg-owner\nadd action=create-dynamic-enabled supported-bands=2ghz-ax master-configuration=cfg-guest slave-configurations=cfg-owner,cfg-home"}, {"step": 4, "title": "Firewall: Guests, Owner, Smart Home", "label": "R1 — interface lists, input and forward chains", "text": "/interface list\nadd name=LAN\nadd name=WAN\nadd name=MGMT\n/interface list member\nadd list=MGMT interface=v99-mgmt\n# … every v* interface into LAN\n/ip firewall address-list\nadd list=TVS address=10.70.20.31-10.70.20.34\n/ip firewall filter\nadd chain=input action=accept connection-state=established,related,untracked\nadd chain=input action=drop connection-state=invalid\nadd chain=input action=accept protocol=icmp\nadd chain=input action=accept in-interface-list=MGMT\nadd chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67\nadd chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53\nadd chain=input action=drop log=yes log-prefix=IN-DROP\nadd chain=forward action=accept connection-state=established,related,untracked\nadd chain=forward action=drop connection-state=invalid\nadd chain=forward action=accept in-interface=v10-owner out-interface=v30-home comment=\"owner's smart-home apps\"\nadd chain=forward action=accept in-interface=v10-owner out-interface=v40-cctv comment=\"owner views cameras\"\nadd chain=forward action=accept in-interface=v10-owner dst-address-list=TVS comment=\"owner casts to the TVs\"\nadd chain=forward action=accept in-interface=v10-owner out-interface-list=WAN\nadd chain=forward action=accept in-interface=v20-guest out-interface-list=WAN\nadd chain=forward action=accept in-interface=v30-home out-interface-list=WAN\nadd chain=forward action=accept in-interface=v40-cctv out-interface-list=WAN\nadd chain=forward action=accept in-interface-list=MGMT\nadd chain=forward action=drop log=yes log-prefix=FWD-DROP\n# let the owner's phone discover the TVs across VLANs (RouterOS 7.16+)\n/ip dns set mdns-repeat-ifaces=v10-owner,v20-guest"}, {"step": 5, "title": "Starlink in Bypass Mode", "label": "R1 — Starlink on ether1, probe route maintained by the DHCP client", "text": "/interface list member add list=WAN interface=ether1\n/ip route\nadd dst-address=1.1.1.1/32 gateway=100.64.0.1 scope=10 comment=\"probe via starlink\"\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment=\"main: starlink\"\nadd dst-address=192.168.100.1/32 gateway=ether1 comment=\"dish status page\"\n/ip dhcp-client add interface=ether1 add-default-route=no use-peer-dns=no comment=\"Starlink (bypass)\" script={\n  :if ($bound=1) do={\n    /ip route set [find comment=\"probe via starlink\"] gateway=$\"gateway-address\"\n  }\n}\n/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN"}, {"step": 6, "title": "The 4G Backup", "label": "R1 — 4G as distance 2, shaped for guests, closed to uploads", "text": "/ip dhcp-client add interface=ether2 default-route-distance=2 use-peer-dns=no comment=\"4G LtAP (passthrough)\"\n/interface list member add list=WAN interface=ether2\n# cameras and smart-home clouds never use 4G\n/interface list add name=NO4G\n/interface list member\nadd list=NO4G interface=v30-home\nadd list=NO4G interface=v40-cctv\n/ip firewall filter add chain=forward action=reject reject-with=icmp-network-unreachable \\\n    in-interface-list=NO4G out-interface=ether2 place-before=0 comment=\"no camera or IoT uploads on 4G\"\n# guests on 4G: 10 Mb/s down, 3 Mb/s up, shared fairly\n/ip firewall mangle\nadd chain=forward action=mark-packet new-packet-mark=g4-down in-interface=ether2 out-interface=v20-guest passthrough=no\nadd chain=forward action=mark-packet new-packet-mark=g4-up in-interface=v20-guest out-interface=ether2 passthrough=no\n/queue tree\nadd name=guest-4g-down parent=global packet-mark=g4-down max-limit=10M queue=pcq-download-default\nadd name=guest-4g-up parent=global packet-mark=g4-up max-limit=3M queue=pcq-upload-default"}, {"step": 7, "title": "CAKE: Fair and Fast on a Moving Target", "label": "R1 — CAKE on the Starlink link", "text": "/queue type\nadd name=cake-up kind=cake cake-diffserv=diffserv4 cake-nat=yes cake-flowmode=dual-srchost\nadd name=cake-down kind=cake cake-diffserv=diffserv4 cake-flowmode=dual-dsthost\n/ip firewall mangle add chain=forward action=mark-packet new-packet-mark=from-starlink \\\n    in-interface=ether1 passthrough=no\n/queue tree\nadd name=starlink-up parent=ether1 queue=cake-up max-limit=20M\nadd name=starlink-down parent=global packet-mark=from-starlink queue=cake-down max-limit=180M"}, {"step": 8, "title": "A New Guest Key for Every Booking", "label": "R1 — rotate the guest key and send it to the manager", "text": "/tool e-mail set server=smtp.mail.example port=587 tls=starttls user=villa-r1@mail.example password=********\n/system script add name=rotate-guest-psk source={\n  :local key [:rndstr length=14 from=\"abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789\"]\n  /interface wifi security set [find name=sec-guest] passphrase=$key\n  /tool e-mail send to=\"manager@villa.example\" subject=\"VILLA-Guest key for the next booking\" \\\n      body=(\"Network: VILLA-Guest\\nKey: \" . $key . \"\\nPrint it on the welcome card.\")\n  :log warning \"guest Wi-Fi key rotated\"\n}\n/system scheduler add name=checkout-rotate start-date=2026-11-07 start-time=11:00:00 interval=7d \\\n    on-event=rotate-guest-psk"}, {"step": 9, "title": "Remote Management and Monitoring", "label": "R1 — WireGuard to the operator's hub, alerts and remote logs", "text": "/interface wireguard add name=wg-ops listen-port=13231\n/interface wireguard peers add interface=wg-ops comment=\"operator hub\" public-key=\"<hub public key>\" \\\n    endpoint-address=hub.example.net endpoint-port=51820 allowed-address=10.250.0.0/24 persistent-keepalive=25s\n/ip address add address=10.250.0.21/24 interface=wg-ops\n/interface list member add list=MGMT interface=wg-ops\n/system logging action add name=hub target=remote remote=10.250.0.1\n/system logging add topics=warning action=hub\n/tool netwatch add host=1.1.1.1 interval=30s type=simple \\\n    down-script=\":log warning \\\"Starlink path DOWN\\\"\" up-script=\":log warning \\\"Starlink path UP\\\"\""}], "b1": [{"step": 3, "title": "Wi-Fi from the Bedrooms to the Annex", "label": "wAP 60G pair — a transparent bridge for the trunk", "text": "# house end\n/interface w60g set wlan60-1 mode=bridge ssid=villa-annex password=\"********\" frequency=auto disabled=no\n/interface bridge add name=bridge\n/interface bridge port add bridge=bridge interface=ether1\n/interface bridge port add bridge=bridge interface=wlan60-1\n# annex end: same, with mode=station-bridge; its ether1 feeds the annex cAP ax"}], "b2": [{"step": 3, "title": "Wi-Fi from the Bedrooms to the Annex", "label": "wAP 60G pair — a transparent bridge for the trunk", "text": "# house end\n/interface w60g set wlan60-1 mode=bridge ssid=villa-annex password=\"********\" frequency=auto disabled=no\n/interface bridge add name=bridge\n/interface bridge port add bridge=bridge interface=ether1\n/interface bridge port add bridge=bridge interface=wlan60-1\n# annex end: same, with mode=station-bridge; its ether1 feeds the annex cAP ax"}]}}</script>
+</div>
+  </div>
+
+  <div class="thesis-card">
+    <p>This is part 6 of the <a href="build-index.html">Build series</a>, and the one closest to everyday installation work in Crete. Most of the island's rental villas sit where fibre doesn't reach and VDSL tops out at a few Mb/s, so Starlink has become the default. A villa network looks like a home network, but it has a business's problems: paying guests who judge the stay by the Wi-Fi, an owner whose devices and smart home must stay private, and no IT person within an hour's drive.</p>
+    <p>The design leans on three ideas: treat each booking as one trusted group but never trust the <em>next</em> one, manage everything remotely through a tunnel the villa dials out itself, and make every component recover from a power cut without anyone touching it.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="starlink-mikrotik-failover.html">Starlink + MikroTik failover</a> (this post builds on it), <a href="mikrotik-vlans.html">VLANs</a>, <a href="mikrotik-firewall.html">the RouterOS firewall</a></li>
+      <li>The <a href="build-coffee-shop.html">coffee shop build</a> for dial-out WireGuard and the selective-backup pattern</li>
+      <li>RouterOS 7.x (CAKE, the <code>wifi</code> package, <code>:rndstr</code>)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but very typical Cretan villa: rented weekly from May to October, used by the owner's family a few weeks a year, empty in winter.</em></p>
+
+  <p>The main house has a living area, kitchen and four bedrooms on two floors, each bedroom with a smart TV. The <strong>pool and garden</strong> are where guests spend the day, phones in hand. A <strong>guest annex</strong> with its own bedroom sits 40 m down the garden. The owner keeps a <strong>locked office</strong> with a PC and a NAS of family photos. The smart home runs the <strong>alarm, smart locks</strong> (guests get door codes per booking), <strong>pool controller, irrigation and gate</strong>. Four <strong>exterior cameras</strong> cover the gate, driveway and pool area. Internet is <strong>Starlink</strong>; the only alternative is mobile. The installer manages it all from Heraklion.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Wi-Fi everywhere</td><td>Guests review the Wi-Fi by the pool and in the annex, not in the utility room. Indoor APs, an outdoor AP at the pool, and a link to the annex.</td></tr>
+      <tr><td>R2 Owner &amp; smart home private</td><td>Guests must never reach the owner's office, the alarm, the locks or the cameras. The smart home must keep working when guests do strange things on the Wi-Fi.</td></tr>
+      <tr><td>R3 A new key per booking</td><td>Last week's guests shouldn't be able to use the Wi-Fi from the road outside. The guest key changes at every checkout, automatically.</td></tr>
+      <tr><td>R4 Stay online</td><td>Starlink drops in storms or when obstructed. A 4G backup keeps guests online; camera uploads and smart-home clouds wait.</td></tr>
+      <tr><td>R5 Good on a variable link</td><td>Starlink's capacity changes minute by minute. Guests on video calls (remote workers book villas too) need low latency even while someone downloads.</td></tr>
+      <tr><td>R6 Remote management</td><td>Starlink and 4G are both behind carrier NAT. Management must work without any inbound connection.</td></tr>
+      <tr><td>R7 Power cuts</td><td>Rural grid cuts are routine in summer storms. Everything rides through short cuts and comes back by itself after long ones.</td></tr>
+      <tr><td>R8 Guest privacy</td><td>Cameras are exterior only, disclosed in the listing, and unreachable from the guest network. Booking platforms ban indoor cameras outright.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>Each one is a trade-off between what a villa is and what a network textbook assumes.</em></p>
+
+  <h3 class="sub">1 · One booking is one trust group</h3>
+  <p>A café isolates every guest device from every other one. A villa is rented by one family or one group of friends at a time, and they want to cast from their phones to the TVs. So the guest VLAN has <strong>no client isolation</strong>; the TVs sit in it on purpose. The isolation that matters is between <em>bookings</em>, and that's handled by changing the Wi-Fi key at every checkout (step 8).</p>
+
+  <h3 class="sub">2 · Starlink primary, 4G backup</h3>
+  <p>Starlink gives 150–250 Mb/s down here; the 4G signal on the hill gives 20–40. The roles follow the numbers. The backup carries guests (shaped) but refuses camera and smart-home cloud uploads, which would only compete with the guests for a small pipe.</p>
+
+  <h3 class="sub">3 · A 60 GHz bridge instead of a trench</h3>
+  <p>The annex is 40 m away across a garden with a stone wall. Trenching for a cable costs more than the whole network and wrecks the garden. A pair of wAP 60G radios gives a gigabit-class, line-of-sight bridge that carries the VLAN trunk. At 40 m, rain fade is irrelevant; the only enemy is a growing tree, which the annual service visit checks.</p>
+
+  <h3 class="sub">4 · CAKE instead of hand-made priorities</h3>
+  <p>The other Build posts use queue trees with explicit classes. That works when the line rate is fixed. Starlink's isn't, and a villa has no IT person to retune queues. CAKE (a queue discipline built into RouterOS 7) shares bandwidth fairly per host, keeps latency low for small flows, and with its NAT mode it sees the real inside hosts behind masquerade. One queue per direction, set slightly under Starlink's typical evening capacity.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>Five VLANs. A villa doesn't need more; it needs these five to never leak into each other.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>VLAN · subnet</th><th>Who lives here · notes</th></tr></thead>
+    <tbody>
+      <tr><td>10 OWNER · 10.70.10.0/24</td><td>Owner's office PC .10, NAS .11, owner's phones and laptops on hidden SSID VILLA-Owner.</td></tr>
+      <tr><td>20 GUEST · 10.70.20.0/24</td><td>Guest Wi-Fi VILLA-Guest (key rotated per booking) and the four TVs .31–.34 (wired).</td></tr>
+      <tr><td>30 SMART-HOME · 10.70.30.0/24</td><td>Alarm panel .20, pool controller .21, irrigation/gate .22, smart-lock bridge .23. Reservations.</td></tr>
+      <tr><td>40 CCTV · 10.70.40.0/24</td><td>Four exterior cameras .21–.24, recording to the camera vendor's cloud.</td></tr>
+      <tr><td>99 MGMT · 10.70.99.0/24</td><td>R1 .1, SW-UTIL .11, APs .21–.24, 60 GHz radios .31–.32. WireGuard to the operator hub: 10.250.0.0/24.</td></tr>
+      <tr><td>WAN</td><td>ether1: Starlink in bypass mode (DHCP, 100.64.0.0/10 carrier NAT). ether2: 4G LtAP in passthrough (DHCP, carrier NAT).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 300" role="img" aria-label="Site plan of the villa colour-coded by VLAN: the main house with living area, kitchen and bedrooms, the owner's locked office and utility room, the pool and garden, and the guest annex 40 metres away">
+    <text class="lf-name" x="15" y="20">MAIN HOUSE · 2 FLOORS</text><rect x="15" y="28" width="400" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <text class="lf-name" x="425" y="20">OUTSIDE</text><rect x="425" y="28" width="320" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <rect x="25" y="38" width="190" height="90" rx="3" style="fill:var(--v20);fill-opacity:.13;stroke:var(--v20);stroke-width:1.4;"/><text class="lf-sm lf-c" x="120" y="81">Living + kitchen</text><text class="lf-mono lf-c" x="120" y="95">TV · guest Wi-Fi · V20</text>
+    <rect x="225" y="38" width="180" height="90" rx="3" style="fill:var(--v20);fill-opacity:.13;stroke:var(--v20);stroke-width:1.4;"/><text class="lf-sm lf-c" x="315" y="81">Bedrooms 1–4 (upstairs)</text><text class="lf-mono lf-c" x="315" y="95">TVs · guest Wi-Fi · V20</text>
+    <rect x="25" y="138" width="190" height="62" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="120" y="167">Owner's office (locked)</text><text class="lf-mono lf-c" x="120" y="181">V10</text>
+    <rect x="225" y="138" width="180" height="62" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="315" y="167">Utility room</text><text class="lf-mono lf-c" x="315" y="181">R1 · SW-UTIL · UPS · alarm</text>
+    <rect x="25" y="210" width="380" height="60" rx="3" style="fill:var(--v40);fill-opacity:.13;stroke:var(--v40);stroke-width:1.4;"/><text class="lf-sm lf-c" x="215" y="238">Entrance &amp; driveway</text><text class="lf-mono lf-c" x="215" y="252">2 cameras · V40</text>
+    <rect x="435" y="38" width="300" height="110" rx="3" style="fill:var(--v20);fill-opacity:.13;stroke:var(--v20);stroke-width:1.4;"/><text class="lf-sm lf-c" x="585" y="91">Pool &amp; garden</text><text class="lf-mono lf-c" x="585" y="105">wAP ax · pool controller V30 · 2 cameras</text>
+    <rect x="435" y="158" width="140" height="112" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="505" y="212">Irrigation &amp; gate</text><text class="lf-mono lf-c" x="505" y="226">V30</text>
+    <rect x="585" y="158" width="150" height="112" rx="3" style="fill:var(--v20);fill-opacity:.13;stroke:var(--v20);stroke-width:1.4;"/><text class="lf-sm lf-c" x="660" y="212">Guest annex · 40 m</text><text class="lf-mono lf-c" x="660" y="226">60 GHz bridge · cAP · V20</text>
+    <circle cx="120" cy="128" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="120" y="131" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="390" cy="52" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="390" y="55" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="720" cy="50" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="720" y="53" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="720" cy="175" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="720" y="178" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <text class="lf-cap lf-c" x="380" y="296">Starlink sits on the roof with a clear view of the northern sky; the 4G router is mounted where the signal is best, which is rarely the utility room.</text>
+    </svg>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start, columns receive. Default deny. The guest row is short on purpose.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 260" role="img" aria-label="Policy matrix for the villa: which zones may start connections to the owner's devices, the guests, the smart home, the cameras, the router and the internet">
+    <text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM ↓  ·  TO →</text>
+    <text class="lf-sm lf-c" x="222.5" y="38">Owner</text>
+    <text class="lf-sm lf-c" x="317.5" y="38">Guests</text>
+    <text class="lf-sm lf-c" x="412.5" y="38">Smart home</text>
+    <text class="lf-sm lf-c" x="507.5" y="38">Cameras</text>
+    <text class="lf-sm lf-c" x="602.5" y="38">Router</text>
+    <text class="lf-sm lf-c" x="697.5" y="38">Internet</text>
+    <rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="70">Owner · V10</text>
+    <rect x="177" y="54" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="222.5" y="71" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="272" y="54" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="317.5" y="71" style="fill:var(--gotcha);font-weight:700;">◐ cast to TVs</text>
+    <rect x="367" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="412.5" y="71" style="fill:var(--defender);font-weight:700;">✓ apps</text>
+    <rect x="462" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="507.5" y="71" style="fill:var(--defender);font-weight:700;">✓ view</text>
+    <rect x="557" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="71" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="100">Guests · V20</text>
+    <rect x="177" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="84" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="317.5" y="101" style="fill:var(--body);font-weight:700;">— one party</text>
+    <rect x="367" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="84" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="101" style="fill:var(--defender);font-weight:700;">✓ CAKE</text>
+    <rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="130">Smart home · V30</text>
+    <rect x="177" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="114" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="412.5" y="131" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="462" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="114" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="131" style="fill:var(--gotcha);font-weight:700;">◐ clouds · no 4G</text>
+    <rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v40);"/><text class="lf-sm" x="38" y="160">Cameras · V40</text>
+    <rect x="177" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="144" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="507.5" y="161" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="557" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ cloud · no 4G</text>
+    <rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--accent);"/><text class="lf-sm" x="38" y="190">Operator · WireGuard</text>
+    <rect x="177" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="174" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="191" style="fill:var(--gotcha);font-weight:700;">◐ support</text>
+    <rect x="462" y="174" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="507.5" y="191" style="fill:var(--gotcha);font-weight:700;">◐ support</text>
+    <rect x="557" y="174" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="602.5" y="191" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="652" y="174" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="697.5" y="191" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="20" y="220" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="230">allowed</text>
+    <rect x="140" y="220" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="230">limited to the host/port shown</text>
+    <rect x="360" y="220" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="230">denied (default)</text>
+    <rect x="520" y="220" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="230">same zone / n.a.</text>
+    <text class="lf-cap" x="20" y="246">All enforced in R1's forward chain. Guests are one booking at a time, so devices within VLAN 20 may see each other (phones cast to the TVs).</text>
+    </svg>
+  </div>
+
+  <p>Two cells are unusual for this series. <strong>Guests → Guests</strong> is open, because one booking is one group (decision 1). <strong>Owner → Guests</strong> is limited to casting to the TVs, so the owner's family can use them when they stay, without the owner's devices being reachable from the guest side.</p>
+
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+  <table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Wi-Fi everywhere</td><td><a href="#step-3">step 3</a></td><td>two indoor cAP ax, outdoor wAP ax at the pool, 60 GHz bridge + cAP in the annex</td><td>"Walk the property" drill, <a href="#sec-15">section 15</a></td></tr>
+      <tr><td>R2 Owner &amp; smart home private</td><td><a href="#step-3">step 3</a> · <a href="#step-4">step 4</a></td><td>VLANs 10/20/30/40; forward chain; smart home on its own SSID</td><td>"Guest sweep" drill</td></tr>
+      <tr><td>R3 A new key per booking</td><td><a href="#step-8">step 8</a></td><td>rotate-guest-psk script + Saturday scheduler; key never logged</td><td>"Checkout" drill</td></tr>
+      <tr><td>R4 Stay online</td><td><a href="#step-5">step 5</a> · <a href="#step-6">step 6</a></td><td>Starlink bypass + DHCP-script probe route; 4G at distance 2; NO4G list</td><td>"Starlink out" drill</td></tr>
+      <tr><td>R5 Good on a variable link</td><td><a href="#step-7">step 7</a></td><td>CAKE per host with NAT mode, set under evening capacity</td><td>"Busy evening" drill</td></tr>
+      <tr><td>R6 Remote management</td><td><a href="#step-9">step 9</a></td><td>WireGuard dial-out with keepalive; netwatch alerts to the hub</td><td>"Remote care" drill</td></tr>
+      <tr><td>R7 Power cuts</td><td><a href="#step-10">step 10</a></td><td>UPS with auto-restart; nothing depends on boot order</td><td>"Power cut" drill</td></tr>
+      <tr><td>R8 Guest privacy</td><td><a href="#step-1">step 1</a> · <a href="#step-4">step 4</a></td><td>exterior cameras only; V40 unreachable from V20</td><td>"Privacy" drill</td></tr>
+    </tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">Bottom to Top, One Layer at a Time</h2>
+  <p class="section-thesis"><em>Wired devices first, Starlink last but one, remote care at the end. Every step ends with a checkpoint.</em></p>
+  <p>Ten steps: the utility switch, the router, Wi-Fi and the annex link, the firewall, Starlink, the 4G backup, CAKE, per-booking keys, remote management, and power with backups. Configure on site with a laptop on the management VLAN, and use Safe Mode (<kbd>Ctrl</kbd>+<kbd>X</kbd>) for every bridge change. The next time you're on site might be next spring.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 10</p>
+  <h2 class="section-title">The Utility Switch &amp; Wired Devices</h2>
+  <p class="section-thesis"><em>Cameras, the smart-home hubs, the TVs and the owner's office on one PoE switch in the utility room.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">SW-UTIL — CRS328-24P-4S+</span><span class="cfg-meta">20 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=SW-UTIL
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="uplink R1 (10G DAC)"
+add bridge=bridge interface=ether1 pvid=40 comment="camera gate"          <span class="cmt"># … ether2-4: driveway, pool x2</span>
+add bridge=bridge interface=ether5 pvid=30 comment="alarm panel"
+add bridge=bridge interface=ether6 pvid=30 comment="pool controller"
+add bridge=bridge interface=ether7 pvid=30 comment="irrigation + gate"
+add bridge=bridge interface=ether8 pvid=30 comment="smart-lock bridge"
+add bridge=bridge interface=ether9 pvid=20 comment="TV living room"       <span class="cmt"># … ether10-12: bedroom TVs</span>
+add bridge=bridge interface=ether13 pvid=10 comment="owner's office"
+/interface bridge vlan
+add bridge=bridge vlan-ids=10,20,30,40 tagged=sfp-sfpplus1
+add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.70.99.11/24 interface=v99-mgmt
+/ip route add gateway=10.70.99.1
+/interface ethernet poe set ether5,ether6,ether7,ether8,ether9,ether10,ether11,ether12,ether13 poe-out=off
+/interface ethernet disable ether14,ether15,ether16,ether17,ether18,ether19,ether20,ether21,ether22,ether23,ether24
+/interface bridge set bridge vlan-filtering=yes</pre></details>
+
+  <p>PoE stays on for the four camera ports only. The TVs are wired on purpose: streaming 4K to four bedrooms over Wi-Fi would use the airtime guests' phones need. The owner's office cable runs to a locked room, so a guest can't plug into it.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/interface bridge vlan print</code>: 40 on ether1–4, 30 on ether5–8, 20 on ether9–12, 10 on ether13, all tagged on sfp-sfpplus1.</li><li>The four cameras power up; nothing else draws PoE.</li></ul>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 10</p>
+  <h2 class="section-title">The Router: VLANs, DHCP, DNS</h2>
+  <p class="section-thesis"><em>An RB5009 with PoE on every port: it routes, powers the APs, and runs the Wi-Fi controller.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — RB5009UPr+S+IN · bridge, trunks, VLAN interfaces, DHCP</span><span class="cfg-meta">31 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=R1
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="SW-UTIL"
+add bridge=bridge interface=ether3 pvid=99 comment="cAP ax living (trunk)"
+add bridge=bridge interface=ether4 pvid=99 comment="cAP ax upstairs (trunk)"
+add bridge=bridge interface=ether5 pvid=99 comment="pool wAP ax (trunk)"
+add bridge=bridge interface=ether6 pvid=99 comment="wAP 60G house end (trunk to annex)"
+/interface bridge vlan
+add bridge=bridge vlan-ids=10,20,30 tagged=bridge,sfp-sfpplus1,ether3,ether4,ether5,ether6
+add bridge=bridge vlan-ids=40 tagged=bridge,sfp-sfpplus1
+add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
+/interface vlan
+add name=v10-owner interface=bridge vlan-id=10
+add name=v20-guest interface=bridge vlan-id=20
+add name=v30-home interface=bridge vlan-id=30
+add name=v40-cctv interface=bridge vlan-id=40
+add name=v99-mgmt interface=bridge vlan-id=99
+/ip address
+add address=10.70.10.1/24 interface=v10-owner
+add address=10.70.20.1/24 interface=v20-guest
+add address=10.70.30.1/24 interface=v30-home
+add address=10.70.40.1/24 interface=v40-cctv
+add address=10.70.99.1/24 interface=v99-mgmt
+<span class="cmt"># one pool + server + network per VLAN; guests get short leases</span>
+/ip dhcp-server add name=d-guest interface=v20-guest address-pool=p-guest lease-time=2h
+/ip dhcp-server network add address=10.70.20.0/24 gateway=10.70.20.1 dns-server=10.70.20.1
+<span class="cmt"># … owner, smart home (reservations), CCTV (reservations), mgmt</span>
+/ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112
+/system ntp client set enabled=yes servers=time.cloudflare.com
+/interface bridge set bridge vlan-filtering=yes</pre></details>
+
+  <p>The AP ports are trunks: management untagged on VLAN 99 (so CAPsMAN can find the APs), with VLANs 10, 20 and 30 tagged for the SSIDs. The 60 GHz radio gets the same trunk, because it's carrying the annex AP's traffic. DNS upstream is Quad9, not Cloudflare, because 1.1.1.1 becomes the Starlink probe in step 5.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>The TVs get 10.70.20.x, the smart-home hubs and cameras their reserved addresses.</li><li><code>/interface ethernet poe print</code> on R1: the APs and the 60 GHz radio are powered.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 10</p>
+  <h2 class="section-title">Wi-Fi from the Bedrooms to the Annex</h2>
+  <p class="section-thesis"><em>Two indoor APs, one at the pool, one in the annex at the far end of a 60 GHz bridge, all managed from R1.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap"><span class="term-label">wAP 60G pair — a transparent bridge for the trunk</span><pre class="term"><span class="cmt"># house end</span>
+/interface w60g set wlan60-1 mode=bridge ssid=villa-annex password="********" frequency=auto disabled=no
+/interface bridge add name=bridge
+/interface bridge port add bridge=bridge interface=ether1
+/interface bridge port add bridge=bridge interface=wlan60-1
+<span class="cmt"># annex end: same, with mode=station-bridge; its ether1 feeds the annex cAP ax</span></pre></div>
+
+  <p>The 60 GHz radios' bridges don't filter VLANs: they pass the trunk through unchanged, so the annex AP sees exactly what the house APs see. Each radio has a management address in VLAN 99 (a VLAN interface on its bridge), and both show up in the operator's monitoring like any other device.</p>
+
+  <div class="term-wrap"><span class="term-label">R1 — CAPsMAN: guest, owner, and a 2.4 GHz smart-home SSID</span><pre class="term">/interface wifi security
+add name=sec-guest authentication-types=wpa2-psk,wpa3-psk passphrase="replaced-at-every-checkout"
+add name=sec-owner authentication-types=wpa2-psk,wpa3-psk passphrase="********"
+add name=sec-home authentication-types=wpa2-psk passphrase="********"
+/interface wifi datapath
+add name=dp-guest bridge=bridge vlan-id=20
+add name=dp-owner bridge=bridge vlan-id=10
+add name=dp-home bridge=bridge vlan-id=30
+/interface wifi configuration
+add name=cfg-guest ssid=VILLA-Guest security=sec-guest datapath=dp-guest country=Greece
+add name=cfg-owner ssid=VILLA-Owner security=sec-owner datapath=dp-owner country=Greece hide-ssid=yes
+add name=cfg-home ssid=VILLA-Home security=sec-home datapath=dp-home country=Greece hide-ssid=yes
+/interface wifi capsman set enabled=yes interfaces=v99-mgmt
+/interface wifi provisioning
+add action=create-dynamic-enabled supported-bands=5ghz-ax master-configuration=cfg-guest slave-configurations=cfg-owner
+add action=create-dynamic-enabled supported-bands=2ghz-ax master-configuration=cfg-guest slave-configurations=cfg-owner,cfg-home</pre></div>
+
+  <p>The smart-home SSID exists only on 2.4 GHz and is WPA2 only, because that's what thermostats, sensors and the gate opener's Wi-Fi modules support. Keeping them off the guest SSID means a booking's key rotation (step 8) never disconnects the pool pump.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/interface wifi registration-table print</code> shows a phone roaming living room → pool → annex.</li><li>On the 60 GHz radios, <code>/interface w60g monitor wlan60-1</code>: connected, PHY rate in the Gb/s range.</li><li>A phone on VILLA-Guest casts to the living-room TV.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 10</p>
+  <h2 class="section-title">Firewall: Guests, Owner, Smart Home</h2>
+  <p class="section-thesis"><em>Guests reach the internet and the TVs. The owner reaches everything that's theirs. The smart home reaches its clouds and nothing else.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 390" role="img" aria-label="Animated villa firewall: a guest phone casts to a TV on the same VLAN; guest traffic to the owner's office and to the alarm panel, and pool-controller traffic to the owner's office, are dropped">
+      <style>@keyframes vl1p0{0%,1%{transform:translate(132px,70px);opacity:0;}4%{opacity:1;}18%{transform:translate(612px,70px);opacity:1;}22%,100%{transform:translate(612px,70px);opacity:0;}}@keyframes vl1m0{0%,16%{opacity:0;}18%,96%{opacity:1;}98%,100%{opacity:0;}}.vl1-p0{animation:vl1p0 16s ease-in-out infinite;} .vl1-m0{animation:vl1m0 16s linear infinite;}@keyframes vl1p1{0%,26%{transform:translate(132px,150px);opacity:0;}29%{opacity:1;}43%{transform:translate(276px,150px);opacity:1;}47%,100%{transform:translate(276px,150px);opacity:0;}}@keyframes vl1m1{0%,41%{opacity:0;}43%,96%{opacity:1;}98%,100%{opacity:0;}}.vl1-p1{animation:vl1p1 16s ease-in-out infinite;} .vl1-m1{animation:vl1m1 16s linear infinite;}@keyframes vl1p2{0%,51%{transform:translate(132px,230px);opacity:0;}54%{opacity:1;}68%{transform:translate(276px,230px);opacity:1;}72%,100%{transform:translate(276px,230px);opacity:0;}}@keyframes vl1m2{0%,66%{opacity:0;}68%,96%{opacity:1;}98%,100%{opacity:0;}}.vl1-p2{animation:vl1p2 16s ease-in-out infinite;} .vl1-m2{animation:vl1m2 16s linear infinite;}@keyframes vl1p3{0%,76%{transform:translate(132px,310px);opacity:0;}79%{opacity:1;}93%{transform:translate(276px,310px);opacity:1;}97%,100%{transform:translate(276px,310px);opacity:0;}}@keyframes vl1m3{0%,91%{opacity:0;}93%,96%{opacity:1;}98%,100%{opacity:0;}}.vl1-p3{animation:vl1p3 16s ease-in-out infinite;} .vl1-m3{animation:vl1m3 16s linear infinite;}@media (prefers-reduced-motion:reduce){.vl1-p0,.vl1-p1,.vl1-p2,.vl1-p3{animation:none;opacity:0;}.vl1-m0,.vl1-m1,.vl1-m2,.vl1-m3{animation:none;opacity:1;}}</style>
+      <rect class="lf-boxa" x="280" y="24" width="150" height="320" rx="7"/><text class="lf-name lf-c" x="355" y="42">R1 · forward</text>
+      <text class="lf-cap lf-c" x="355" y="334">default deny</text>
+      <rect class="lf-box" x="20" y="50" width="112" height="40" rx="5"/><rect x="20" y="50" width="5" height="40" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="78" y="67">Guest phone</text><text class="lf-mono lf-c" x="78" y="81">10.70.20.57</text>
+      <rect class="lf-box" x="620" y="50" width="122" height="40" rx="5"/><rect x="620" y="50" width="5" height="40" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="683" y="67">Living-room TV</text><text class="lf-mono lf-c" x="683" y="81">10.70.20.31</text>
+      <text class="lf-mono lf-c" x="355" y="62" style="fill:var(--defender);">v20 ↔ v20: L2, no R1</text>
+      <line class="lf-link" x1="132" y1="70" x2="620" y2="70"/>
+      <text class="lf-mono" x="140" y="62">→ cast</text>
+      <g class="vl1-m0"><text class="lf-cap" x="440" y="62" style="fill:var(--defender);font-weight:700;">✓ same VLAN: casting works</text></g>
+      <rect class="lf-box" x="20" y="130" width="112" height="40" rx="5"/><rect x="20" y="130" width="5" height="40" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="78" y="147">Guest phone</text><text class="lf-mono lf-c" x="78" y="161">10.70.20.57</text>
+      <rect class="lf-box" x="620" y="130" width="122" height="40" rx="5"/><rect x="620" y="130" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="147">Owner office</text><text class="lf-mono lf-c" x="683" y="161">10.70.10.10</text>
+      <text class="lf-mono lf-c" x="355" y="142" style="fill:var(--accent);">v20 → v10</text>
+      <line class="lf-dash" x1="132" y1="150" x2="620" y2="150"/>
+      <text class="lf-mono" x="140" y="142">→ any</text>
+      <g class="vl1-m1"><text x="262" y="157" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="142" style="fill:var(--accent);font-weight:700;">✕ V20 → V10: no rule</text></g>
+      <rect class="lf-box" x="20" y="210" width="112" height="40" rx="5"/><rect x="20" y="210" width="5" height="40" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="78" y="227">Guest laptop</text><text class="lf-mono lf-c" x="78" y="241">10.70.20.58</text>
+      <rect class="lf-box" x="620" y="210" width="122" height="40" rx="5"/><rect x="620" y="210" width="5" height="40" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="683" y="227">Alarm panel</text><text class="lf-mono lf-c" x="683" y="241">10.70.30.20</text>
+      <text class="lf-mono lf-c" x="355" y="222" style="fill:var(--accent);">v20 → v30</text>
+      <line class="lf-dash" x1="132" y1="230" x2="620" y2="230"/>
+      <text class="lf-mono" x="140" y="222">→ any</text>
+      <g class="vl1-m2"><text x="262" y="237" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="222" style="fill:var(--accent);font-weight:700;">✕ V20 → smart home: no rule</text></g>
+      <rect class="lf-box" x="20" y="290" width="112" height="40" rx="5"/><rect x="20" y="290" width="5" height="40" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="78" y="307">Pool controller</text><text class="lf-mono lf-c" x="78" y="321">10.70.30.21</text>
+      <rect class="lf-box" x="620" y="290" width="122" height="40" rx="5"/><rect x="620" y="290" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="307">Owner office</text><text class="lf-mono lf-c" x="683" y="321">10.70.10.10</text>
+      <text class="lf-mono lf-c" x="355" y="302" style="fill:var(--accent);">v30 → v10</text>
+      <line class="lf-dash" x1="132" y1="310" x2="620" y2="310"/>
+      <text class="lf-mono" x="140" y="302">→ any</text>
+      <g class="vl1-m3"><text x="262" y="317" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="302" style="fill:var(--accent);font-weight:700;">✕ IoT → LAN: dropped</text></g>
+      <text class="lf-cap lf-c" x="380" y="378">Guests can cast to the villa's TVs and reach the internet. They can't reach the owner's devices, the alarm, the locks or the cameras.</text>
+      <circle class="lf-pkt vl1-p0" r="6"/>
+      <circle class="lf-pkt vl1-p1" r="6"/>
+      <circle class="lf-pkt vl1-p2" r="6"/>
+      <circle class="lf-pkt vl1-p3" r="6"/>
+    </svg>
+  </div>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — interface lists, input and forward chains</span><span class="cfg-meta">30 lines · this step's additions · click to expand</span></summary><pre class="term">/interface list
+add name=LAN
+add name=WAN
+add name=MGMT
+/interface list member
+add list=MGMT interface=v99-mgmt
+<span class="cmt"># … every v* interface into LAN</span>
+/ip firewall address-list
+add list=TVS address=10.70.20.31-10.70.20.34
+/ip firewall filter
+add chain=input action=accept connection-state=established,related,untracked
+add chain=input action=drop connection-state=invalid
+add chain=input action=accept protocol=icmp
+add chain=input action=accept in-interface-list=MGMT
+add chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67
+add chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53
+add chain=input action=drop log=yes log-prefix=IN-DROP
+add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+add chain=forward action=accept in-interface=v10-owner out-interface=v30-home comment="owner's smart-home apps"
+add chain=forward action=accept in-interface=v10-owner out-interface=v40-cctv comment="owner views cameras"
+add chain=forward action=accept in-interface=v10-owner dst-address-list=TVS comment="owner casts to the TVs"
+add chain=forward action=accept in-interface=v10-owner out-interface-list=WAN
+add chain=forward action=accept in-interface=v20-guest out-interface-list=WAN
+add chain=forward action=accept in-interface=v30-home out-interface-list=WAN
+add chain=forward action=accept in-interface=v40-cctv out-interface-list=WAN
+add chain=forward action=accept in-interface-list=MGMT
+add chain=forward action=drop log=yes log-prefix=FWD-DROP
+<span class="cmt"># let the owner's phone discover the TVs across VLANs (RouterOS 7.16+)</span>
+/ip dns set mdns-repeat-ifaces=v10-owner,v20-guest</pre></details>
+
+  <div class="callout gotcha">
+    <span class="callout-label">mDNS repeating goes both ways</span>
+    <p>Repeating mDNS between the owner and guest VLANs means guests' phones can also <em>see</em> the names of the owner's devices that advertise themselves (a NAS, a printer). They still can't connect, because there's no rule from VLAN 20 to VLAN 10, but the names leak. If that bothers the owner, leave the repeater off and let the owner cast from a device that joins VILLA-Guest during family stays.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From VILLA-Guest, a scan of 10.70.0.0/16 finds only the gateway and the TVs.</li><li>The owner's phone controls the alarm app, views the cameras, and casts to a TV.</li><li>From the smart-home SSID, nothing in 10.70.10.0/24 answers.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 10</p>
+  <h2 class="section-title">Starlink in Bypass Mode</h2>
+  <p class="section-thesis"><em>The Starlink router steps aside, R1 gets the carrier-NAT address directly, and a DHCP script keeps the failover probe pointed at the right gateway.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap"><span class="term-label">R1 — Starlink on ether1, probe route maintained by the DHCP client</span><pre class="term">/interface list member add list=WAN interface=ether1
+/ip route
+add dst-address=1.1.1.1/32 gateway=100.64.0.1 scope=10 comment="probe via starlink"
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment="main: starlink"
+add dst-address=192.168.100.1/32 gateway=ether1 comment="dish status page"
+/ip dhcp-client add interface=ether1 add-default-route=no use-peer-dns=no comment="Starlink (bypass)" script={
+  :if ($bound=1) do={
+    /ip route set [find comment="probe via starlink"] gateway=$"gateway-address"
+  }
+}
+/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN</pre></div>
+
+  <p>In bypass mode the Starlink router only powers the dish and hands its DHCP lease straight to R1. Starlink's gateway address can change after a reconnect, so the probe route can't be static. The DHCP client's script rewrites it at every lease. That's the same technique as in the <a href="starlink-mikrotik-failover.html">Starlink failover post</a>, which covers it in more depth. The extra route to 192.168.100.1 keeps the dish's status page reachable from the owner's and operator's devices, which is the quickest way to see obstruction and outage history remotely.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Carrier NAT and IPv6</span>
+    <p>Starlink residential addresses are in 100.64.0.0/10: carrier-grade NAT, no inbound connections, ever. Nothing in this design needs inbound (step 9 dials out). Starlink also hands out IPv6 prefixes; this post keeps the villa IPv4-only for simplicity. If you add IPv6, remember that every firewall rule above needs an IPv6 twin, or guests on IPv6 bypass the matrix entirely (see <a href="mikrotik-ipv6.html">IPv6 on RouterOS</a>).</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/ip dhcp-client print</code>: bound, 100.64.x.x; <code>/ip route print where comment~"probe"</code> shows the same gateway.</li><li>Guests browse; a speed test on VILLA-Guest gives Starlink-class numbers.</li><li>From the owner's laptop, http://192.168.100.1 shows the dish's status.</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 10</p>
+  <h2 class="section-title">The 4G Backup</h2>
+  <p class="section-thesis"><em>When Starlink is out, guests stay online at a slower speed. Cameras and the smart home's clouds wait.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="6">▲ Show step 6 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated failover from Starlink to 4G, with guests shaped and camera and smart-home uploads refused on the backup link">
+      <style>@keyframes vl2up{0%,44%{opacity:1;}48%,96%{opacity:0;}100%{opacity:1;}}
+@keyframes vl2dn{0%,44%{opacity:0;}48%,96%{opacity:1;}100%{opacity:0;}}
+@keyframes vl2f{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}38%{offset-distance:100%;opacity:1;}41%,100%{offset-distance:100%;opacity:0;}} @keyframes vl2b{0%,53%{offset-distance:0%;opacity:0;}55%{opacity:1;}90%{offset-distance:100%;opacity:1;}93%,100%{offset-distance:100%;opacity:0;}}
+@keyframes vl2p{0%{offset-distance:0%;opacity:1;}85%{offset-distance:100%;opacity:1;}100%{offset-distance:100%;opacity:0;}}
+.vl2-up{animation:vl2up 12s linear infinite;} .vl2-dn{animation:vl2dn 12s linear infinite;}
+.vl2-pf{offset-path:path('M130 120 L200 120 L350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:vl2f 12s ease-in-out infinite;}
+.vl2-pb{offset-path:path('M130 120 L200 120 L350 135 L420 182 L530 182 L612 142');offset-rotate:0deg;animation:vl2b 12s ease-in-out infinite;}
+.vl2-pr{offset-path:path('M350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:vl2p 1.5s linear infinite;fill:var(--gotcha);}
+.vl2-px{offset-path:path('M350 105 L420 58 L530 58 L568 78');offset-rotate:0deg;animation:vl2p 1.5s linear infinite;fill:var(--gotcha);}
+@media (prefers-reduced-motion:reduce){.vl2-up{animation:none;opacity:0;}.vl2-dn{animation:none;opacity:1;}.vl2-pf,.vl2-pr,.vl2-px{animation:none;opacity:0;}.vl2-pb{animation:none;offset-distance:75%;opacity:1;}}</style>
+      <rect class="lf-box" x="20" y="95" width="110" height="50" rx="5"/><text class="lf-sm lf-c" x="75" y="117">Villa LAN</text><text class="lf-mono lf-c" x="75" y="131">10.70.0.0/16</text>
+      <rect class="lf-boxa" x="200" y="90" width="150" height="60" rx="5"/><text class="lf-sm lf-c" x="275" y="117">R1</text><text class="lf-mono lf-c" x="275" y="131">recursive + DHCP script</text>
+      <line class="lf-link" x1="130" y1="120" x2="200" y2="120"/>
+      <rect class="lf-box" x="420" y="40" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="55">Starlink</text><text class="lf-mono lf-c" x="475" y="69">ether1 · distance 1</text>
+      <rect class="lf-box" x="420" y="164" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="179">4G LtAP</text><text class="lf-mono lf-c" x="475" y="193">ether2 · distance 2</text>
+      <ellipse class="lf-boxd" cx="675" cy="120" rx="68" ry="42"/><text class="lf-name lf-c" x="675" y="116" style="fill:var(--defender);">Internet</text><text class="lf-mono lf-c" x="675" y="131" style="fill:var(--defender);">probe 1.1.1.1</text>
+      <line class="lf-dash" x1="350" y1="135" x2="420" y2="182"/><line class="lf-dash" x1="530" y1="182" x2="612" y2="142"/>
+      <g class="vl2-up"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--defender);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--defender);font-weight:700;">Starlink up: everyone online at full speed</text><circle class="vl2-pr" r="3.5"/></g>
+      <g class="vl2-dn"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:6,4;"/><text x="562" y="85" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><path d="M350 135 L420 182 M530 182 L612 142" style="stroke:var(--gotcha);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--accent);font-weight:700;">Starlink out (storm, obstruction, outage): guests continue on 4G at 10 Mb/s, cameras and smart-home uploads are refused</text><circle class="vl2-px" r="3.5"/></g>
+      <text class="lf-cap lf-c" x="380" y="258">Brief obstructions of a few seconds don't trigger failover; only an outage that outlasts two probe intervals does.</text>
+      <circle class="lf-pkt vl2-pf" r="6"/><circle class="lf-pkt vl2-pb" r="6"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — 4G as distance 2, shaped for guests, closed to uploads</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — ISR 1100 with built-in LTE: the LTE interface is its own zone,
+! and only the guest and owner zones get a pair to it (cameras and smart home don&#x27;t)
+zone security LTE
+interface Cellular0/2/0
+ zone-member security LTE
+zone-pair security ZP-GUEST-LTE source GUEST destination LTE
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OWNER-LTE source OWNER destination LTE
+ service-policy type inspect PM-OUT
+! guests on LTE: police 10 Mb/s in an output policy on Cellular0/2/0</pre><pre class="term vt-pane" data-v="mikrotik">/ip dhcp-client add interface=ether2 default-route-distance=2 use-peer-dns=no comment="4G LtAP (passthrough)"
+/interface list member add list=WAN interface=ether2
+<span class="cmt"># cameras and smart-home clouds never use 4G</span>
+/interface list add name=NO4G
+/interface list member
+add list=NO4G interface=v30-home
+add list=NO4G interface=v40-cctv
+/ip firewall filter add chain=forward action=reject reject-with=icmp-network-unreachable \
+    in-interface-list=NO4G out-interface=ether2 place-before=0 comment="no camera or IoT uploads on 4G"
+<span class="cmt"># guests on 4G: 10 Mb/s down, 3 Mb/s up, shared fairly</span>
+/ip firewall mangle
+add chain=forward action=mark-packet new-packet-mark=g4-down in-interface=ether2 out-interface=v20-guest passthrough=no
+add chain=forward action=mark-packet new-packet-mark=g4-up in-interface=v20-guest out-interface=ether2 passthrough=no
+/queue tree
+add name=guest-4g-down parent=global packet-mark=g4-down max-limit=10M queue=pcq-download-default
+add name=guest-4g-up parent=global packet-mark=g4-up max-limit=3M queue=pcq-upload-default</pre></div>
+
+  <p>Unlike the <a href="build-coffee-shop.html">coffee shop</a>, guests aren't cut off on the backup. They paid for a stay with Wi-Fi, and an evening without it is a bad review. They get a fair, slower share; the cameras' continuous cloud uploads, which would eat a 4G plan in a day, are the ones refused. The alarm panel has its own built-in cellular path for alarm calls, so it doesn't depend on this.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Unplug the Starlink cable from ether1 (or stow the dish from the app): within ~20 s guests browse via 4G at ≤10 Mb/s.</li><li>During the outage, the camera app shows the cameras offline in the cloud; locally they keep recording to their SD cards.</li><li>Starlink back: guests return to full speed within a minute.</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 10</p>
+  <h2 class="section-title">CAKE: Fair and Fast on a Moving Target</h2>
+  <p class="section-thesis"><em>One queue per direction that keeps video calls smooth while someone downloads, without anyone tuning classes.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Animated CAKE queuing on the Starlink uplink: latency-sensitive packets pass first while downloads share the rest fairly per host">
+      <style>.vl3-l0{offset-path:path('M30 88 L460 88 L505 123 L745 123');offset-rotate:0deg;animation:vl3mv 3s linear infinite;fill:var(--gotcha);}.vl3-l1{offset-path:path('M30 158 L460 158 L505 123 L745 123');offset-rotate:0deg;animation:vl3mv 10s linear infinite;fill:var(--defender);}@keyframes vl3mv{0%{offset-distance:0%;opacity:0;}4%{opacity:1;}96%{opacity:1;}100%{offset-distance:100%;opacity:0;}}@media (prefers-reduced-motion:reduce){.vl3-l0,.vl3-l1{animation:none;offset-distance:40%;}}</style>
+      <rect class="lf-boxa" x="170" y="22" width="390" height="188" rx="7" style="fill:none;"/><text class="lf-name lf-c" x="365" y="40">R1 · CAKE on the Starlink link</text>
+      <text class="lf-mono" x="30" y="76" style="fill:var(--gotcha);font-weight:700;">video calls · gaming</text>
+      <rect x="200" y="74" width="250" height="28" rx="4" style="fill:var(--gotcha);fill-opacity:.13;stroke:var(--gotcha);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="114" style="fill:var(--gotcha);">CAKE voice/video tins first</text>
+      <text class="lf-mono" x="30" y="146" style="fill:var(--defender);font-weight:700;">streaming · downloads</text>
+      <rect x="200" y="144" width="250" height="28" rx="4" style="fill:var(--defender);fill-opacity:.13;stroke:var(--defender);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="184" style="fill:var(--defender);">fair per host · per flow</text>
+      <rect class="lf-box" x="470" y="78" width="80" height="90" rx="5"/><text class="lf-sm lf-c" x="510" y="118">CAKE</text><text class="lf-mono lf-c" x="510" y="132">180M / 20M</text>
+      <line x1="550" y1="123" x2="745" y2="123" style="stroke:var(--rule);stroke-width:10;"/><text class="lf-mono lf-c" x="650" y="108">Starlink (varies)</text>
+      <text class="lf-cap lf-c" x="380" y="234">One guest downloading a game and another on a video call: CAKE gives each host a fair share and keeps the call's packets moving.</text>
+      <circle class="vl3-l0" r="5" style="animation-delay:0.00s;"/>
+      <circle class="vl3-l0" r="5" style="animation-delay:-1.00s;"/>
+      <circle class="vl3-l0" r="5" style="animation-delay:-2.00s;"/>
+      <rect class="vl3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:0.00s;"/>
+      <rect class="vl3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-2.00s;"/>
+      <rect class="vl3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-4.00s;"/>
+      <rect class="vl3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-6.00s;"/>
+      <rect class="vl3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-8.00s;"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — CAKE on the Starlink link</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — no CAKE on IOS: a shaper with fair-queue gives per-FLOW fairness,
+! not per-host fairness behind NAT. Set it just under typical evening capacity.
+policy-map STARLINK-CHILD
+ class class-default
+  fair-queue
+policy-map STARLINK-OUT
+ class class-default
+  shape average 20000000
+  service-policy STARLINK-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output STARLINK-OUT</pre><pre class="term vt-pane" data-v="mikrotik">/queue type
+add name=cake-up kind=cake cake-diffserv=diffserv4 cake-nat=yes cake-flowmode=dual-srchost
+add name=cake-down kind=cake cake-diffserv=diffserv4 cake-flowmode=dual-dsthost
+/ip firewall mangle add chain=forward action=mark-packet new-packet-mark=from-starlink \
+    in-interface=ether1 passthrough=no
+/queue tree
+add name=starlink-up parent=ether1 queue=cake-up max-limit=20M
+add name=starlink-down parent=global packet-mark=from-starlink queue=cake-down max-limit=180M</pre></div>
+
+  <p><code>dual-srchost</code> / <code>dual-dsthost</code> make CAKE fair per <em>host</em> first and per flow second. One guest's twenty download streams don't beat another guest's single video call. <code>cake-nat=yes</code> on the upload side is the important flag: by the time a packet reaches ether1 it has been masqueraded to Starlink's address, and NAT mode lets CAKE look up the original inside host anyway. That's the problem the gaming center had to work around with fq-codel. On the download side, the queue sees the inside address already, because un-NAT happens before routing.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Setting a limit on a link that keeps changing</span>
+    <p>CAKE only controls latency if the bottleneck is in R1, which means the <code>max-limit</code> must be below what Starlink delivers. Too high, and the queue builds in Starlink's equipment where CAKE can't manage it. Too low, and you throw capacity away. Look at the Starlink app's speed history for typical evening throughput (the busiest time), and set roughly 85–90% of that. Revisit it at the annual service visit; capacity in an area changes as satellites and users are added. As elsewhere in this series, no FastTrack: fast-tracked packets would skip CAKE.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>One laptop runs a large download; a second runs a video call and a bufferbloat test. The call stays clear and the test grades A or B.</li><li><code>/queue tree print stats</code>: drops on starlink-down while the download runs.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 10</p>
+  <h2 class="section-title">A New Guest Key for Every Booking</h2>
+  <p class="section-thesis"><em>At checkout, the old Wi-Fi key stops working and the manager gets the new one. No one has to remember to do it.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 322" role="img" aria-label="Animated guest key rotation: on checkout day a scheduled script generates a new random guest Wi-Fi key, the access points drop the previous guests' devices, and the property manager receives the new key">
+      <style>.vl4-arw{stroke:var(--mid);stroke-width:1.4;fill:none;} .vl4-rad{stroke:var(--defender);stroke-width:1.6;fill:none;}@keyframes vl4r0{0%,4%{opacity:0;}6%,94%{opacity:1;}96%,100%{opacity:0;}}.vl4-r0{animation:vl4r0 14s linear infinite;}@keyframes vl4r1{0%,21%{opacity:0;}23%,94%{opacity:1;}96%,100%{opacity:0;}}.vl4-r1{animation:vl4r1 14s linear infinite;}@keyframes vl4r2{0%,38%{opacity:0;}40%,94%{opacity:1;}96%,100%{opacity:0;}}.vl4-r2{animation:vl4r2 14s linear infinite;}@keyframes vl4r3{0%,55%{opacity:0;}57%,94%{opacity:1;}96%,100%{opacity:0;}}.vl4-r3{animation:vl4r3 14s linear infinite;}@keyframes vl4r4{0%,72%{opacity:0;}74%,94%{opacity:1;}96%,100%{opacity:0;}}.vl4-r4{animation:vl4r4 14s linear infinite;}@keyframes vl4un{0%,88%{opacity:1;}91%,96%{opacity:0;}100%{opacity:1;}}@keyframes vl4au{0%,89%{opacity:0;}91%,96%{opacity:1;}98%,100%{opacity:0;}}.vl4-un{animation:vl4un 14s linear infinite;} .vl4-au{animation:vl4au 14s linear infinite;}@media (prefers-reduced-motion:reduce){.vl4-r0,.vl4-r1,.vl4-r2,.vl4-r3,.vl4-r4{animation:none;opacity:1;}.vl4-un{animation:none;opacity:0;}.vl4-au{animation:none;opacity:1;}}</style>
+      <defs><marker id="vl4ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--mid);"/></marker></defs>
+      <rect class="lf-box" x="50" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="130" y="32">Scheduler</text><text class="lf-mono lf-c" x="130" y="46">Saturday 11:00</text>
+      <line class="lf-dash" x1="130" y1="56" x2="130" y2="232"/>
+      <rect class="lf-boxa" x="300" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="380" y="32">R1</text><text class="lf-mono lf-c" x="380" y="46">script rotate-guest-psk</text>
+      <line class="lf-dash" x1="380" y1="56" x2="380" y2="232"/>
+      <rect class="lf-boxd" x="550" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="630" y="32">Property manager</text><text class="lf-mono lf-c" x="630" y="46">e-mail</text>
+      <line class="lf-dash" x1="630" y1="56" x2="630" y2="232"/>
+      <g class="vl4-r0"><line class="vl4-arw" x1="134" y1="92" x2="376" y2="92" marker-end="url(#vl4ar)"/><text class="lf-cap lf-c" x="255" y="87">checkout day: run rotate-guest-psk</text></g>
+      <g class="vl4-r1"><text class="lf-cap lf-c" x="380" y="120" style="fill:var(--defender);font-weight:700;">:rndstr → new 14-character key</text></g>
+      <g class="vl4-r2"><text class="lf-cap lf-c" x="380" y="148" style="fill:var(--defender);font-weight:700;">APs re-provisioned: old devices drop</text></g>
+      <g class="vl4-r3"><line class="vl4-rad" x1="384" y1="176" x2="626" y2="176" marker-end="url(#vl4ar)"/><text class="lf-cap lf-c" x="505" y="171">new key for the next booking</text></g>
+      <g class="vl4-r4"><text class="lf-cap lf-c" x="630" y="204" style="fill:var(--defender);font-weight:700;">welcome card + TV screen updated</text></g>
+      <rect class="lf-box" x="250" y="248" width="260" height="30" rx="15"/><text class="lf-sm lf-c vl4-au" x="380" y="267" style="fill:var(--defender);">NEW KEY · NEW GUESTS</text><text class="lf-sm lf-c vl4-un" x="380" y="267" style="fill:var(--accent);">LAST BOOKING'S KEY</text>
+      <text class="lf-cap lf-c" x="380" y="312">Last week's guests can't sit in the driveway on this week's Wi-Fi, and nobody has to remember to change anything.</text>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — rotate the guest key and send it to the manager</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Cisco has no on-box random key + e-mail. The usual pattern is a small scheduled
+! script on the operator&#x27;s hub that generates the key and pushes one line to the
+! wireless controller (over SSH or RESTCONF), then mails the manager:
+wlan VILLA-Guest 1 VILLA-Guest
+ security wpa akm psk set-key ascii 0 &lt;new-14-character-key&gt;
+! changing the key re-keys the WLAN and disconnects the previous guests&#x27; devices</pre><pre class="term vt-pane" data-v="mikrotik">/tool e-mail set server=smtp.mail.example port=587 tls=starttls user=villa-r1@mail.example password=********
+/system script add name=rotate-guest-psk source={
+  :local key [:rndstr length=14 from="abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"]
+  /interface wifi security set [find name=sec-guest] passphrase=$key
+  /tool e-mail send to="manager@villa.example" subject="VILLA-Guest key for the next booking" \
+      body=("Network: VILLA-Guest\nKey: " . $key . "\nPrint it on the welcome card.")
+  :log warning "guest Wi-Fi key rotated"
+}
+/system scheduler add name=checkout-rotate start-date=2026-11-07 start-time=11:00:00 interval=7d \
+    on-event=rotate-guest-psk</pre></div>
+
+  <p>Weekly Saturday-to-Saturday rentals make the schedule trivial. For bookings with other dates, the manager asks the operator to run the script, or a booking-system webhook triggers it through the management tunnel. The character set leaves out look-alikes (0/O, 1/l/I), so the key can be typed from a printed card. The log line records <em>that</em> the key changed, never the key itself.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">What changing the key does to devices still connected</span>
+    <p>Changing the security profile makes CAPsMAN re-provision the APs, and every guest device reconnects with the new key or not at all. That's the point at checkout, but it also means: don't run it while guests are still there, and make sure the TVs are wired (they are), so they don't need the new key typed in every week. The smart-home devices sit on their own SSID with its own key, so the rotation never touches them.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Run <code>/system script run rotate-guest-psk</code>: a phone on the old key disconnects and can't rejoin; the manager's mailbox has the new key; the log shows "rotated" without the key.</li><li>The smart-home devices on VILLA-Home stay connected throughout.</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 10</p>
+  <h2 class="section-title">Remote Management and Monitoring</h2>
+  <p class="section-thesis"><em>The villa calls the operator, not the other way round. Then it reports when Starlink drops.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="9">▲ Show step 9 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap"><span class="term-label">R1 — WireGuard to the operator's hub, alerts and remote logs</span><pre class="term">/interface wireguard add name=wg-ops listen-port=13231
+/interface wireguard peers add interface=wg-ops comment="operator hub" public-key="&lt;hub public key&gt;" \
+    endpoint-address=hub.example.net endpoint-port=51820 allowed-address=10.250.0.0/24 persistent-keepalive=25s
+/ip address add address=10.250.0.21/24 interface=wg-ops
+/interface list member add list=MGMT interface=wg-ops
+/system logging action add name=hub target=remote remote=10.250.0.1
+/system logging add topics=warning action=hub
+/tool netwatch add host=1.1.1.1 interval=30s type=simple \
+    down-script=":log warning \"Starlink path DOWN\"" up-script=":log warning \"Starlink path UP\""</pre></div>
+
+  <p>Both of the villa's internet paths are behind carrier NAT, so only an outgoing tunnel works, exactly as in the <a href="build-coffee-shop.html">coffee shop</a>. With the keepalive, the tunnel survives a switch to 4G and reconnects by itself. Warning-level log lines (Starlink up/down, key rotations, firewall drops if you want them) go to the hub, so the operator sees an outage before the guests write about it. For metrics and dashboards across many villas, see <a href="mikrotik-observability.html">observability</a>.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From the hub: SSH to 10.250.0.21 works on Starlink and, with Starlink unplugged, on 4G.</li><li>Unplug Starlink for a minute: "Starlink path DOWN" and "UP" arrive at the hub's log.</li><li>From the hub, the dish status page (via R1) and the APs' management addresses are reachable.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 10</p>
+  <h2 class="section-title">Power, Backups &amp; Hardening</h2>
+  <p class="section-thesis"><em>Summer storms cut the power. The network should ride through short cuts and come back by itself after long ones.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>What and why</th></tr></thead>
+    <tbody>
+      <tr><td>UPS</td><td>A 1,000 VA line-interactive UPS carries Starlink (~50–75 W), R1 with its PoE APs, SW-UTIL and the 4G router (~150 W total) for about 45 minutes. Set it to <strong>restart loads automatically</strong> when power returns.</td></tr>
+      <tr><td>Boot order</td><td>No order needed: R1 waits for the DHCP leases, the DHCP script fixes the probe route, the tunnel dials out by itself. Test it by pulling the plug on the whole closet.</td></tr>
+      <tr><td>Surge</td><td>Outdoor cables (pool AP, cameras, dish) are the lightning path into the house. Use outdoor-rated cable and surge protectors at the building entry.</td></tr>
+      <tr><td>Config backups</td><td>Nightly <code>/export</code> uploaded to the hub over the tunnel with <code>/tool fetch</code>, as in the coffee shop. A replacement RB5009 is one import away.</td></tr>
+      <tr><td>Hardening</td><td>Management services only from the MGMT list (VLAN 99 + the tunnel), MAC-Winbox and neighbour discovery limited to MGMT, the default admin account disabled, DHCP snooping on SW-UTIL with the uplink trusted (see <a href="mikrotik-hardening.html">hardening</a>).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Switch off the closet's mains: everything stays up on the UPS. Switch the UPS off too, then restore power: within ~5 minutes guests are online and the hub sees the tunnel again, with nobody on site.</li><li>The next morning, the hub has last night's export from R1, SW-UTIL and both 60 GHz radios.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="sec-15">15</p>
+  <h2 class="section-title">Verify Before the First Guests Arrive</h2>
+  <p class="section-thesis"><em>Run these at handover, write the results in the villa's documentation, and repeat the power and failover drills before every season.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody>
+      <tr><td>Walk the property (R1)</td><td>A phone on a video call walks from a bedroom to the pool to the annex without dropping.</td></tr>
+      <tr><td>Guest sweep (R2)</td><td>From VILLA-Guest, a scan finds only the gateway and the TVs. The alarm, locks, cameras and owner's office don't answer.</td></tr>
+      <tr><td>Checkout (R3)</td><td>The Saturday rotation disconnects the old key and delivers the new one; smart-home devices stay up.</td></tr>
+      <tr><td>Starlink out (R4)</td><td>Guests continue on 4G at ≤10 Mb/s; cameras' cloud uploads stop; the hub logs DOWN and UP.</td></tr>
+      <tr><td>Busy evening (R5)</td><td>A large download plus a video call: the call stays clear.</td></tr>
+      <tr><td>Remote care (R6)</td><td>The operator reaches R1 through the tunnel over Starlink and over 4G.</td></tr>
+      <tr><td>Power cut (R7)</td><td>Short cut: nothing drops. Full cut and restore: back online without anyone on site.</td></tr>
+      <tr><td>Privacy (R8)</td><td>No camera covers an indoor or bathroom area; the camera VLAN is unreachable from guests.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 16 -->
+  <p class="section-num" id="sec-16">16</p>
+  <h2 class="section-title">Residual Risk</h2>
+  <p class="section-thesis"><em>What the network can't do on its own, and what covers each gap.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Guests on the guest VLAN can see each other.</strong> That's deliberate (one booking, one group). If the villa is ever let room by room to separate parties, turn on client isolation and put each TV on its own small VLAN, or the design's main assumption is gone.</li>
+    <li><strong>Smart locks and the alarm depend on their vendors' clouds.</strong> The network keeps guests away from them; the vendors' account security (owner's MFA, per-booking door codes that expire) is what protects the door.</li>
+    <li><strong>The smart TVs remember things.</strong> Guests log into streaming apps on them. A "sign out of all apps" step in the changeover checklist (or the TV's guest mode, where available) matters as much as the Wi-Fi key.</li>
+    <li><strong>The owner's office cable.</strong> It's in a locked room for a reason. If the owner ever moves the PC to a shared space, that port should move to the guest VLAN.</li>
+    <li><strong>One operator, many villas.</strong> The hub's keys open every property it manages. Protect it accordingly: MFA, a dedicated machine, and a separate WireGuard key per villa so one can be revoked alone.</li>
+  </ul>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">Lab It in CHR / GNS3</h2>
+  <p class="section-thesis"><em>The routing, failover, queues and scripts run on CHR. Starlink, radios and PoE don't.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>This post</th><th>In the lab</th></tr></thead>
+    <tbody>
+      <tr><td>R1</td><td>A CHR with two WAN interfaces fed by two "ISP" CHRs that hand out 100.64.x addresses by DHCP. Change the gateway on the first ISP to test the DHCP script.</td></tr>
+      <tr><td>SW-UTIL, 60 GHz bridge</td><td>CHR bridges; a plain virtual link stands in for the 60 GHz pair.</td></tr>
+      <tr><td>Key rotation</td><td>Point <code>/tool e-mail</code> at a test SMTP server (MailHog or similar) and check what arrives.</td></tr>
+      <tr><td>Wi-Fi</td><td>Skip it, or tag VMs into VLANs 10, 20 and 30.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT. Starlink hardware and subscription are separate.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>R1 · RB5009UPr+S+IN (PoE out)</td><td>260 – 320</td></tr>
+      <tr><td>SW-UTIL · CRS328-24P-4S+ + DAC</td><td>440 – 560</td></tr>
+      <tr><td>2× cAP ax (house) + 1× cAP ax (annex)</td><td>300 – 380</td></tr>
+      <tr><td>wAP ax (pool, outdoor)</td><td>130 – 160</td></tr>
+      <tr><td>2× wAP 60G (annex bridge)</td><td>180 – 260</td></tr>
+      <tr><td>4G backup · LtAP-class LTE router</td><td>120 – 200, plus a data SIM</td></tr>
+      <tr><td>UPS 1,000 VA + outdoor surge protection</td><td>250 – 400</td></tr>
+      <tr><td>Network total</td><td><strong>≈ 1,700 – 2,300</strong>, plus cabling and the Starlink kit</td></tr>
+    </tbody>
+  </table>
+
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on Cisco</h2>
+  <p class="section-thesis"><em>Same villa and VLANs on Cisco's small-branch line. The Cisco tabs on the config blocks above show where it differs; this appendix covers the rest.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Role</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>R1 + 4G</td><td>RB5009UPr + LtAP → ISR 1100 with built-in LTE</td></tr>
+      <tr><td>SW-UTIL (PoE)</td><td>CRS328-24P-4S+ → Catalyst 1000-24FP</td></tr>
+      <tr><td>Wi-Fi</td><td>cAP ax / wAP ax + CAPsMAN → Catalyst indoor and outdoor APs with the embedded controller</td></tr>
+      <tr><td>Annex link</td><td>wAP 60G pair → a third-party 60 GHz bridge, or Cisco industrial wireless backhaul</td></tr>
+      <tr><td>Indicative total</td><td>≈ 1,700 – 2,300 → ≈ 6,000 – 9,000 EUR ex VAT</td></tr>
+    </tbody>
+  </table>
+
+  <table class="cheat">
+    <thead><tr><th>Feature</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>Starlink failover</td><td>DHCP-client script + recursive routes → <code>ip address dhcp</code>, IP SLA + track</td></tr>
+      <tr><td>Backup only for some zones</td><td>NO4G reject rule → LTE in its own zone with pairs for guests and owner only</td></tr>
+      <tr><td>Fair sharing</td><td>CAKE (per host, NAT-aware) → fair-queue under a shaper (per flow)</td></tr>
+      <tr><td>Per-booking key</td><td>on-box <code>:rndstr</code> + e-mail → script on the operator's hub pushing the key to the controller</td></tr>
+      <tr><td>Remote management</td><td>WireGuard dial-out → FlexVPN client to the hub</td></tr>
+      <tr><td>mDNS for casting</td><td><code>mdns-repeat-ifaces</code> → Service Discovery Gateway</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>Two things get worse on Cisco here.</strong> There is no CAKE, so fairness is per flow rather than per host, and one guest with many downloads can still crowd out a video call. And the per-booking key needs an off-box script, because the router can't generate and send it by itself. <strong>One thing gets simpler:</strong> the ISR has LTE built in.</p><p>For a single villa, MikroTik is the better fit. Cisco makes sense when a rental company already runs Cisco across many properties.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>One booking is one trust group.</strong> Let guests cast to the TVs, and isolate bookings from each other by rotating the key at every checkout.</li>
+      <li><strong>Keep the owner, the smart home and the cameras in their own VLANs</strong>, each reaching only what it needs, and keep the smart home on its own SSID so key rotations never touch it.</li>
+      <li><strong>Starlink in bypass mode plus a DHCP script</strong> gives proper recursive failover even though the gateway changes.</li>
+      <li><strong>On the backup line, shape guests and refuse uploads.</strong> Paying guests keep a working connection; camera clouds wait.</li>
+      <li><strong>CAKE suits links that change.</strong> Per-host fairness with NAT awareness, set just under typical evening capacity.</li>
+      <li><strong>Remote care dials out, and power cuts are a test case.</strong> Everything must come back without a visit.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 6 of the <a href="build-index.html"><strong>Build series</strong></a>. Earlier: <a href="build-law-firm.html">the law firm</a>, <a href="build-gaming-center.html">the gaming center</a>, <a href="build-coffee-shop.html">the coffee shop</a>, <a href="build-supermarket.html">the supermarket</a>, <a href="build-clinic.html">the medical clinic</a>. Next: <a href="build-event.html">the festival</a>.</p>
+
+  <div class="cta-card">
+    <h3>Renting out a villa in Crete?</h3>
+    <p>I install Starlink and build villa networks like this one across Crete: Wi-Fi that reaches the pool and the annex, guest keys that change by themselves, and remote care so problems get fixed before your guests notice.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/starlink.html">Starlink installation in Crete →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>

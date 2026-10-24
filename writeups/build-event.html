@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Festival Network — S. Markakis</title>
+<meta name="description" content="A three-day outdoor festival on MikroTik, built bottom-up in 10 tested steps: a NOC tent, 60 GHz links to the gates and stages, offline-capable ticket scanners, public Wi-Fi sized for thousands of phones, two Starlinks and 5G assigned by routing tables, a dedicated stream line, and a clean teardown.">
+<meta property="og:title" content="Build: The Festival Network — S. Markakis">
+<meta property="og:description" content="A three-day outdoor festival on MikroTik, built bottom-up in 10 tested steps: a NOC tent, 60 GHz links to the gates and stages, offline-capable ticket scanners, public Wi-Fi sized for thousands of phones, two Starlinks and 5G assigned by routing tables, a dedicated stream line, and a clean teardown.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-event.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-event.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-event.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-event.html">
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#3a7ca5;--v20:#4f8f4c;--v25:#c08020;--v30:#8a5bb5;--v40:#2f8f8f;--v50:#d9822b;--v99:#6f7f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Festival Network",
+  "description": "A three-day outdoor festival network on MikroTik, built bottom-up in 10 tested steps: a NOC tent, 60 GHz links to the gates and stages, ticket scanners that keep working when a link drops, a public Wi-Fi sized for thousands of phones, two Starlinks and 5G with policy routing, a dedicated line for the live stream, and a teardown that leaves no secrets behind — with Packet Tracer-style diagrams for every step.",
+  "datePublished": "2026-10-24",
+  "dateModified": "2026-10-24",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-event.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-event.png",
+  "keywords": [
+    "mikrotik",
+    "labs",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-event"
+  },
+  "timeRequired": "PT34M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; MikroTik RouterOS 7 &nbsp;·&nbsp; Temporary Network &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Build: The<br>Festival Network</h1>
+  <p class="post-subtitle">An olive grove outside Chania, three days, 3,000 people a day, two stages, a food court with twenty vendors, and not a single cable in the ground. Everything arrives in cases on Monday, goes live on Thursday, and is gone by Sunday night. We build it on MikroTik in 10 tested steps, from the NOC tent outwards to two Starlinks and a 5G line, and finish with a teardown that leaves no passwords behind.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">RouterOS 7</span>
+    <span class="tag">Events</span>
+    <span class="tag">60 GHz</span>
+    <span class="tag">High-Density Wi-Fi</span>
+    <span class="tag">Starlink</span>
+    <span class="tag">Policy Routing</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 590" role="img" aria-label="Interactive topology of the festival network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="214" x2="380" y2="300" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="380.0" cy="234.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="380.0" cy="280.0" r="2.4"/>
+<text class="lft-port" x="386.0" y="260.0">sfp+1 · 10G</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-blink" x1="380" y1="300" x2="110" y2="400" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-c" x="245.0" y="347.0">60 GHz · 180 m</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="380" y1="300" x2="380" y2="400" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="380.0" cy="320.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="380.0" cy="380.0" r="2.4"/>
+<text class="lft-port" x="386.0" y="333.0">armoured fibre · 90 m</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-blink" x1="380" y1="300" x2="640" y2="400" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-c" x="510.0" y="347.0">60 GHz · 240 m</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-blink" x1="110" y1="400" x2="50" y2="510" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="110" y1="400" x2="140" y2="510" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="115.3" cy="419.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="134.7" cy="490.7" r="2.4"/>
+<text class="lft-port lft-c" x="126.5" y="463.5">ether1-2</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="400" x2="255" y2="510" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="365.0" cy="413.2" r="2.4"/>
+<circle class="lft-led bx-led" cx="270.0" cy="496.8" r="2.4"/>
+<text class="lft-port lft-c" x="311.2" y="463.5">ether1-10 + Wi-Fi</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="400" x2="345" y2="510" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="373.9" cy="419.1" r="2.4"/>
+<circle class="lft-led bx-led" cx="351.1" cy="490.9" r="2.4"/>
+<text class="lft-port lft-c" x="360.8" y="474.5">ether11-14</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-blink" x1="380" y1="400" x2="420" y2="510" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="640" y1="400" x2="520" y2="510" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="625.3" cy="413.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="534.7" cy="496.5" r="2.4"/>
+<text class="lft-port lft-c" x="574.0" y="463.5">ether1</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="640" y1="400" x2="610" y2="510" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="634.7" cy="419.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="615.3" cy="490.7" r="2.4"/>
+<text class="lft-port lft-c" x="623.5" y="474.5">ether2-5</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="640" y1="400" x2="705" y2="510" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="650.2" cy="417.2" r="2.4"/>
+<circle class="lft-led bx-led" cx="694.8" cy="492.8" r="2.4"/>
+<text class="lft-port lft-c" x="675.8" y="463.5">ether6-7</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="380" y1="214" x2="230" y2="112" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="363.5" cy="202.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="246.5" cy="123.2" r="2.4"/>
+<text class="lft-port lft-c" x="305.0" y="166.0">ether1</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="230" y1="112" x2="380" y2="40" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="248.0" cy="103.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="349.3" cy="54.7" r="2.4"/>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="380" y1="214" x2="380" y2="120" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="380.0" cy="194.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="380.0" cy="140.0" r="2.4"/>
+<text class="lft-port" x="386.0" y="170.0">ether2</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="380" y1="120" x2="380" y2="40" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="380.0" cy="100.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="380.0" cy="74.0" r="2.4"/>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-blink" x1="380" y1="214" x2="540" y2="112" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="396.9" cy="203.2" r="2.4"/>
+<circle class="lft-led bx-led" cx="523.1" cy="122.8" r="2.4"/>
+<text class="lft-port lft-c" x="460.0" y="166.0">ether3</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-blink" x1="540" y1="112" x2="380" y2="40" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="521.8" cy="103.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="411.0" cy="54.0" r="2.4"/>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="380" cy="40" r="56"/>
+<use href="#lfi-cloud" x="328" y="16" width="104" height="48" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="380" y="45" style="fill:var(--defender);">Internet</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="230" cy="112" r="26"/>
+<use href="#lfi-modem" x="213" y="103" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="230" y="133">Starlink A</text>
+<text class="lft-chip lft-c" x="230" y="143" style="fill:var(--body);">critical + public</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="380" cy="120" r="26"/>
+<use href="#lfi-modem" x="363" y="111" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name" x="405" y="119">Starlink B</text>
+<text class="lft-chip" x="405" y="129" style="fill:var(--body);">live stream only</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="540" cy="112" r="25"/>
+<use href="#lfi-lte" x="526" y="96" width="28" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="540" y="140">5G router</text>
+<text class="lft-chip lft-c" x="540" y="150" style="fill:var(--body);">backup for critical</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="r1" tabindex="0" role="button" aria-label="Show the configuration of R1 · CCR2004">
+<circle class="bx-ring lft-ring" cx="380" cy="214" r="32"/>
+<circle class="bx-sel" cx="380" cy="214" r="28"/>
+<use href="#lfi-router" x="357" y="198" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="411" y="213">R1 · CCR2004</text>
+<text class="lft-chip" x="411" y="223" style="fill:var(--body);">NOC tent</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="noc" tabindex="0" role="button" aria-label="Show the configuration of NOC-SW">
+<circle class="bx-ring lft-ring" cx="380" cy="300" r="34"/>
+<circle class="bx-sel" cx="380" cy="300" r="30"/>
+<use href="#lfi-l2" x="355" y="289" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="413" y="299">NOC-SW</text>
+<text class="lft-chip" x="413" y="309" style="fill:var(--body);">CRS326-24S+2Q+</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="gate" tabindex="0" role="button" aria-label="Show the configuration of GATE-SW">
+<circle class="bx-ring lft-ring" cx="110" cy="400" r="34"/>
+<circle class="bx-sel" cx="110" cy="400" r="30"/>
+<use href="#lfi-l2" x="85" y="389" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="143" y="399">GATE-SW</text>
+<text class="lft-chip" x="143" y="409" style="fill:var(--body);">netPower 16P</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="food" tabindex="0" role="button" aria-label="Show the configuration of FOOD-SW">
+<circle class="bx-ring lft-ring" cx="380" cy="400" r="34"/>
+<circle class="bx-sel" cx="380" cy="400" r="30"/>
+<use href="#lfi-l2" x="355" y="389" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="413" y="399">FOOD-SW</text>
+<text class="lft-chip" x="413" y="409" style="fill:var(--body);">netPower 16P</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="stage" tabindex="0" role="button" aria-label="Show the configuration of STAGE-SW">
+<circle class="bx-ring lft-ring" cx="640" cy="400" r="34"/>
+<circle class="bx-sel" cx="640" cy="400" r="30"/>
+<use href="#lfi-l2" x="615" y="389" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-e" x="607" y="399">STAGE-SW</text>
+<text class="lft-chip lft-e" x="607" y="409" style="fill:var(--body);">netPower 16P</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="50" cy="510" r="23"/>
+<use href="#lfi-scanner" x="38" y="496" width="24" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="50" y="536">Ticket scanners ×12</text>
+<text class="lft-chip lft-c" x="50" y="546" style="fill:var(--v20);">V20</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="140" cy="510" r="26"/>
+<use href="#lfi-ap" x="123" y="497" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="140" y="535">Gate APs ×2</text>
+<text class="lft-chip lft-c" x="140" y="545" style="fill:var(--body);">EVT-SCAN</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="255" cy="510" r="34"/>
+<use href="#lfi-pos" x="227" y="495" width="32" height="30" style="color:var(--mid);"/><use href="#lfi-pinpad" x="259" y="498" width="20" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="255" y="536">Vendor POS ×20</text>
+<text class="lft-chip lft-c" x="255" y="546" style="fill:var(--v25);">V25</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="345" cy="510" r="26"/>
+<use href="#lfi-ap" x="328" y="497" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="345" y="535">Public APs ×6</text>
+<text class="lft-chip lft-c" x="345" y="545" style="fill:var(--v50);">V50 · /21</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="420" cy="510" r="24"/>
+<use href="#lfi-tablet" x="408" y="495" width="24" height="30" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="420" y="537">Staff · first aid</text>
+<text class="lft-chip lft-c" x="420" y="547" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="520" cy="510" r="25"/>
+<use href="#lfi-server" x="509" y="494" width="22" height="32" style="color:var(--v30);"/>
+<text class="lft-name lft-c" x="520" y="538">Stream encoder</text>
+<text class="lft-chip lft-c" x="520" y="548" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="610" cy="510" r="25"/>
+<use href="#lfi-laptop" x="594" y="498" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="610" y="534">Press tent</text>
+<text class="lft-chip lft-c" x="610" y="544" style="fill:var(--v40);">V40</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="705" cy="510" r="26"/>
+<use href="#lfi-ap" x="688" y="497" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="705" y="535">Stage APs ×2</text>
+<text class="lft-chip lft-c" x="705" y="545" style="fill:var(--body);">staff · press</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 10 steps built</text>
+<text class="lft-chip" x="20" y="580">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="10" value="10" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The NOC: Router, Core Switch, Templates", "adds": "R1 · CCR2004, NOC-SW"}, {"n": 2, "title": "Backhaul: Radios, Fibre, Zone Switches", "adds": "GATE-SW, FOOD-SW, STAGE-SW"}, {"n": 3, "title": "Zone Devices & Access Points", "adds": "Ticket scanners ×12, Gate APs ×2, Vendor POS ×20, Public APs ×6, Staff · first aid, Stream encoder, Press tent, Stage APs ×2"}, {"n": 4, "title": "Addressing a Crowd", "adds": "policy / services"}, {"n": 5, "title": "Wi-Fi by Zone, and Scanners That Work Offline", "adds": "policy / services"}, {"n": 6, "title": "Firewall: Zones That Don't Talk", "adds": "policy / services"}, {"n": 7, "title": "Three Lines, Three Jobs", "adds": "Internet, Starlink A, Starlink B, 5G router"}, {"n": 8, "title": "Keeping the Crowd in Its Lane", "adds": "policy / services"}, {"n": 9, "title": "The NOC: Seeing Problems First", "adds": "policy / services"}, {"n": 10, "title": "Teardown: Leave Nothing Behind", "adds": "policy / services"}], "devices": {"gate": "GATE-SW", "r1": "R1 · CCR2004", "noc": "NOC-SW", "food": "FOOD-SW", "stage": "STAGE-SW"}, "configs": {"gate": [{"step": 1, "title": "The NOC: Router, Core Switch, Templates", "label": "Generated node config — the per-node values come first, the shared body follows", "text": "{\n:local name \"GATE-SW\"\n:local mgmt \"10.80.99.11/24\"\n:local trunkPort \"ether16\"\n:local vlans \"10,20\"\n/system identity set name=$name\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port add bridge=bridge interface=$trunkPort frame-types=admit-only-vlan-tagged comment=\"backhaul\"\n/interface bridge vlan add bridge=bridge vlan-ids=$vlans tagged=($trunkPort . \",ether1,ether2\")\n/interface bridge vlan add bridge=bridge vlan-ids=99 tagged=(\"bridge,\" . $trunkPort)\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=$mgmt interface=v99-mgmt\n/ip route add gateway=10.80.99.1\n/system ntp client set enabled=yes servers=10.80.99.1\n/system logging action add name=noc target=remote remote=10.80.99.5\n/system logging add topics=warning action=noc\n/interface bridge set bridge vlan-filtering=yes\n}"}, {"step": 10, "title": "Teardown: Leave Nothing Behind", "label": "Every node — keep the lessons, then return to the staging config", "text": "# on R1, before anything is unplugged\n/log print file=festival-r1-log\n/export file=festival-r1-final\n# copy both files off to the NOC laptop, then on every node:\n/system reset-configuration no-defaults=yes skip-backup=yes run-after-reset=flash/staging.rsc"}], "r1": [{"step": 1, "title": "The NOC: Router, Core Switch, Templates", "label": "R1 — CCR2004 · trunk to the NOC switch, VLAN interfaces", "text": "/system identity set name=R1\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged\n/interface bridge vlan add bridge=bridge vlan-ids=10,20,25,30,40,50,99 tagged=bridge,sfp-sfpplus1\n/interface vlan\nadd name=v10-staff interface=bridge vlan-id=10\nadd name=v20-ticket interface=bridge vlan-id=20\nadd name=v25-pay interface=bridge vlan-id=25\nadd name=v30-prod interface=bridge vlan-id=30\nadd name=v40-press interface=bridge vlan-id=40\nadd name=v50-public interface=bridge vlan-id=50\nadd name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.80.99.1/24 interface=v99-mgmt\n# … .1 on each /24; the public /21 in step 4\n/system ntp server set enabled=yes\n/interface bridge set bridge vlan-filtering=yes"}, {"step": 4, "title": "Addressing a Crowd", "label": "R1 — DHCP and DNS sized for thousands of phones", "text": "/ip address add address=10.80.48.1/21 interface=v50-public\n/ip pool add name=p-public ranges=10.80.48.10-10.80.55.250\n/ip dhcp-server add name=d-public interface=v50-public address-pool=p-public lease-time=15m\n/ip dhcp-server network add address=10.80.48.0/21 gateway=10.80.48.1 dns-server=10.80.48.1\n# critical zones: small pools, reservations for every scanner and known till\n/ip dhcp-server add name=d-ticket interface=v20-ticket address-pool=p-ticket lease-time=12h\n/ip dhcp-server lease add server=d-ticket mac-address=00:24:2B:00:00:01 address=10.80.20.41 comment=\"scanner G-A-01\"\n# … the other zones the same way\n/ip dns set allow-remote-requests=yes servers=208.67.222.222,208.67.220.220 cache-size=8192KiB \\\n    max-concurrent-queries=500"}, {"step": 5, "title": "Wi-Fi by Zone, and Scanners That Work Offline", "label": "R1 — CAPsMAN: SSIDs per zone, matched by AP name", "text": "/interface wifi datapath\nadd name=dp-scan bridge=bridge vlan-id=20\nadd name=dp-pay bridge=bridge vlan-id=25\nadd name=dp-staff bridge=bridge vlan-id=10\nadd name=dp-press bridge=bridge vlan-id=40\nadd name=dp-public bridge=bridge vlan-id=50 client-isolation=yes\n/interface wifi configuration\nadd name=cfg-scan ssid=EVT-SCAN security=sec-scan datapath=dp-scan country=Greece hide-ssid=yes\nadd name=cfg-pay ssid=EVT-PAY security=sec-pay datapath=dp-pay country=Greece hide-ssid=yes\nadd name=cfg-staff ssid=EVT-STAFF security=sec-staff datapath=dp-staff country=Greece hide-ssid=yes\nadd name=cfg-press ssid=FESTIVAL-Press security=sec-press datapath=dp-press country=Greece\nadd name=cfg-public ssid=FESTIVAL-Free datapath=dp-public country=Greece channel.width=20mhz\n/interface wifi provisioning\nadd action=create-dynamic-enabled identity-regexp=\"^GATE-AP\" master-configuration=cfg-scan slave-configurations=cfg-staff\nadd action=create-dynamic-enabled identity-regexp=\"^FOOD-AP\" master-configuration=cfg-public slave-configurations=cfg-pay,cfg-staff\nadd action=create-dynamic-enabled identity-regexp=\"^STAGE-AP\" master-configuration=cfg-press slave-configurations=cfg-staff"}, {"step": 6, "title": "Firewall: Zones That Don't Talk", "label": "R1 — address lists and the forward chain", "text": "/ip firewall address-list\nadd list=TICKET-API address=api.tickets.example comment=\"from the ticketing company\"\nadd list=PRESS-RX address=10.80.40.50 comment=\"feed receiver in the press tent\"\n/ip firewall filter\nadd chain=input action=accept connection-state=established,related,untracked\nadd chain=input action=drop connection-state=invalid\nadd chain=input action=accept protocol=icmp\nadd chain=input action=accept in-interface=v99-mgmt\nadd chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67,123\nadd chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53\nadd chain=input action=drop\nadd chain=forward action=accept connection-state=established,related,untracked\nadd chain=forward action=drop connection-state=invalid\nadd chain=forward action=accept in-interface=v20-ticket dst-address-list=TICKET-API protocol=tcp dst-port=443\nadd chain=forward action=accept in-interface=v25-pay out-interface-list=WAN protocol=tcp dst-port=443 \\\n    comment=\"vendors bring their own terminals and acquirers: HTTPS out, nothing else\"\nadd chain=forward action=accept in-interface=v30-prod dst-address-list=PRESS-RX protocol=udp dst-port=9000 \\\n    comment=\"program feed to the press tent (SRT)\"\nadd chain=forward action=accept in-interface=v30-prod out-interface-list=WAN\nadd chain=forward action=accept in-interface=v10-staff out-interface-list=WAN\nadd chain=forward action=accept in-interface=v40-press out-interface-list=WAN\nadd chain=forward action=accept in-interface=v50-public out-interface-list=WAN\nadd chain=forward action=accept in-interface=v99-mgmt\nadd chain=forward action=drop log=yes log-prefix=FWD-DROP"}, {"step": 7, "title": "Three Lines, Three Jobs", "label": "R1 — WAN interfaces, probe routes kept current by DHCP scripts", "text": "/interface list member\nadd list=WAN interface=ether1\nadd list=WAN interface=ether2\nadd list=WAN interface=ether3\n/ip route\nadd dst-address=1.1.1.1/32 gateway=100.64.0.1 scope=10 comment=\"probe A\"\nadd dst-address=9.9.9.9/32 gateway=100.64.0.1 scope=10 comment=\"probe B\"\n/ip dhcp-client\nadd interface=ether1 add-default-route=no use-peer-dns=no comment=\"Starlink A\" \\\n    script={ :if ($bound=1) do={ /ip route set [find comment=\"probe A\"] gateway=$\"gateway-address\" } }\nadd interface=ether2 add-default-route=no use-peer-dns=no comment=\"Starlink B\" \\\n    script={ :if ($bound=1) do={ /ip route set [find comment=\"probe B\"] gateway=$\"gateway-address\" } }\nadd interface=ether3 add-default-route=no use-peer-dns=no comment=\"5G\" \\\n    script={ :if ($bound=1) do={ /ip route set [find comment=\"crit via 5G\"] gateway=$\"gateway-address\" } }\n/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN"}, {"step": 7, "title": "Three Lines, Three Jobs", "label": "R1 — one table per job, and rules that pick the table", "text": "/routing table\nadd name=crit fib\nadd name=prod fib\n/ip route\n# main (public, press): Starlink A only\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1\n# crit (staff, scanners, tills): Starlink A, then 5G\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 routing-table=crit\nadd dst-address=0.0.0.0/0 gateway=100.64.0.1 distance=2 routing-table=crit comment=\"crit via 5G\"\n# prod (live stream): Starlink B, then Starlink A\nadd dst-address=0.0.0.0/0 gateway=9.9.9.9 target-scope=11 check-gateway=ping distance=1 routing-table=prod\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=2 routing-table=prod\n/routing rule\nadd dst-address=10.80.0.0/16 action=lookup-only-in-table table=main comment=\"site stays on site\"\nadd src-address=10.80.10.0/24 action=lookup table=crit\nadd src-address=10.80.20.0/24 action=lookup table=crit\nadd src-address=10.80.25.0/24 action=lookup table=crit\nadd src-address=10.80.30.0/24 action=lookup table=prod"}, {"step": 8, "title": "Keeping the Crowd in Its Lane", "label": "R1 — one simple queue, per-phone limits inside it", "text": "/queue type\nadd name=pcq-pub-down kind=pcq pcq-classifier=dst-address pcq-rate=2M\nadd name=pcq-pub-up kind=pcq pcq-classifier=src-address pcq-rate=1M\n/queue simple add name=public target=10.80.48.0/21 max-limit=8M/60M queue=pcq-pub-up/pcq-pub-down"}, {"step": 9, "title": "The NOC: Seeing Problems First", "label": "R1 — a watch per zone and per line, logged to the NOC laptop", "text": "/tool netwatch\nadd host=10.80.99.11 interval=10s comment=\"GATE-SW\" \\\n    down-script=\":log warning \\\"ZONE GATES DOWN\\\"\" up-script=\":log warning \\\"ZONE GATES UP\\\"\"\nadd host=10.80.99.12 interval=10s comment=\"FOOD-SW\" \\\n    down-script=\":log warning \\\"ZONE FOOD DOWN\\\"\" up-script=\":log warning \\\"ZONE FOOD UP\\\"\"\nadd host=10.80.99.13 interval=10s comment=\"STAGE-SW\" \\\n    down-script=\":log warning \\\"ZONE STAGE DOWN\\\"\" up-script=\":log warning \\\"ZONE STAGE UP\\\"\"\nadd host=1.1.1.1 interval=15s down-script=\":log warning \\\"STARLINK A DOWN\\\"\" up-script=\":log warning \\\"STARLINK A UP\\\"\"\nadd host=9.9.9.9 interval=15s down-script=\":log warning \\\"STARLINK B DOWN\\\"\" up-script=\":log warning \\\"STARLINK B UP\\\"\"\n/system logging action add name=noc target=remote remote=10.80.99.5\n/system logging add topics=warning action=noc"}, {"step": 10, "title": "Teardown: Leave Nothing Behind", "label": "Every node — keep the lessons, then return to the staging config", "text": "# on R1, before anything is unplugged\n/log print file=festival-r1-log\n/export file=festival-r1-final\n# copy both files off to the NOC laptop, then on every node:\n/system reset-configuration no-defaults=yes skip-backup=yes run-after-reset=flash/staging.rsc"}], "noc": [{"step": 10, "title": "Teardown: Leave Nothing Behind", "label": "Every node — keep the lessons, then return to the staging config", "text": "# on R1, before anything is unplugged\n/log print file=festival-r1-log\n/export file=festival-r1-final\n# copy both files off to the NOC laptop, then on every node:\n/system reset-configuration no-defaults=yes skip-backup=yes run-after-reset=flash/staging.rsc"}], "food": [{"step": 10, "title": "Teardown: Leave Nothing Behind", "label": "Every node — keep the lessons, then return to the staging config", "text": "# on R1, before anything is unplugged\n/log print file=festival-r1-log\n/export file=festival-r1-final\n# copy both files off to the NOC laptop, then on every node:\n/system reset-configuration no-defaults=yes skip-backup=yes run-after-reset=flash/staging.rsc"}], "stage": [{"step": 10, "title": "Teardown: Leave Nothing Behind", "label": "Every node — keep the lessons, then return to the staging config", "text": "# on R1, before anything is unplugged\n/log print file=festival-r1-log\n/export file=festival-r1-final\n# copy both files off to the NOC laptop, then on every node:\n/system reset-configuration no-defaults=yes skip-backup=yes run-after-reset=flash/staging.rsc"}]}}</script>
+</div>
+  </div>
+
+  <div class="thesis-card">
+    <p>This is part 7 of the <a href="build-index.html">Build series</a>, and the first network that's designed to be thrown away. Every other Build assumes a building, cable runs and years of service. A festival has a field, a generator and four days. That changes what "good design" means: everything is pre-built and tested in the workshop, every link is a radio or a single armoured fibre, every node runs on generator power with a battery to ride through switchovers, and the most important feature of the network is that the gates keep scanning tickets even when it fails.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>The <a href="build-gaming-center.html">gaming center</a> (policy routing, recursive failover) and the <a href="build-villa.html">villa</a> (Starlink in bypass mode, 60 GHz)</li>
+      <li><a href="mikrotik-capsman.html">CAPsMAN</a>, <a href="mikrotik-routing-rules.html">routing rules</a>, <a href="mikrotik-qos.html">QoS</a></li>
+      <li>RouterOS 7.x on every node</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but realistic mid-sized festival. The organiser's only firm requirement: "the gates and the bars can't stop".</em></p>
+
+  <p>Attendees enter through <strong>two gates</strong> where <strong>12 handheld scanners</strong> check QR tickets against the ticketing company's cloud. The <strong>food court</strong> has 20 vendors with card terminals and tablet tills, and a charging area where people actually sit down with their phones. The <strong>main stage</strong> streams a live feed, and a <strong>press tent</strong> has wired desks for journalists. Staff, security and first aid use tablets. There's no fixed infrastructure: power comes from generators, and the site is 300 m across with olive trees in every line of sight.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Gates never stop</td><td>A queue of 2,000 people at opening time can't wait for a network. Scanners validate online but keep working offline, and the gates' link is the most protected in the design.</td></tr>
+      <tr><td>R2 Bars never stop</td><td>Twenty tills taking cards. Payments are isolated, prioritised, and fail over to 5G.</td></tr>
+      <tr><td>R3 The stream never stutters</td><td>A live stream needs steady upload. It gets its own Starlink, not a share of one.</td></tr>
+      <tr><td>R4 Public Wi-Fi where it matters</td><td>Free Wi-Fi in the food court and charging area only, 2 Mb/s per phone, isolated, sized for well over a thousand devices at once.</td></tr>
+      <tr><td>R5 Build in a day, tear down in hours</td><td>Every node is pre-configured and labelled in the workshop; installation is mounting and plugging in.</td></tr>
+      <tr><td>R6 Survive the field</td><td>Generators switch over, trucks park in radio paths, dust and heat. Every node rides through power blips; every zone has its own link.</td></tr>
+      <tr><td>R7 See everything from one tent</td><td>A small team runs the network from the NOC. They need to know which zone is unhappy before someone radios it in.</td></tr>
+      <tr><td>R8 Leave nothing behind</td><td>Vendor Wi-Fi keys and payment details must not survive on gear that goes to the next event.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>Each one would be wrong in a permanent building and is right in a field.</em></p>
+
+  <h3 class="sub">1 · A star of radio links from the NOC</h3>
+  <p>Each zone (gates, food court, stage) has one link back to the NOC tent: 60 GHz radios where there's line of sight over the trees, an armoured fibre to the food court because it's close and carries the most users. A star, not a chain, means a failed link takes out one zone, and the NOC sees exactly which one. 60 GHz is chosen because it's fast, ignores the 5 GHz Wi-Fi congestion, and works fine at festival distances in dry summer weather. Every link is surveyed on Monday and re-aimed if a stage truck ends up in the path.</p>
+
+  <h3 class="sub">2 · Wi-Fi only where it pays off</h3>
+  <p>Covering 3,000 people across an open field with Wi-Fi would mean dozens of APs fighting for airtime. Instead, the public SSID exists only where people sit still (the food court and charging area), and phones elsewhere use mobile data. That keeps the public network to a handful of APs that can be properly planned for density.</p>
+
+  <h3 class="sub">3 · Three lines, three jobs</h3>
+  <p>Two Starlinks and one 5G line, each with a role. <strong>Starlink A</strong> carries the critical zones and the (shaped) public. <strong>Starlink B</strong> belongs to the live stream alone. <strong>5G</strong> is the backup for the critical zones only. Routing tables, not firewall rules, decide which line each zone may use, so "the public never touches 5G" is simply true: their table has no route there.</p>
+
+  <h3 class="sub">4 · Configuration is generated, not typed</h3>
+  <p>Ten nodes configured by hand in a tent is ten chances for a typo at 07:00 on opening day. Every node's config is generated from one template in the workshop, tested on the bench as a complete network, labelled, and packed. On site, nobody types a config.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>Small subnets for things you count, one big subnet for the crowd. The public /21 breaks the "third octet = VLAN" rule on purpose.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>VLAN · subnet</th><th>Who lives here · notes</th></tr></thead>
+    <tbody>
+      <tr><td>10 STAFF · 10.80.10.0/24</td><td>Organiser, security, first aid tablets. Critical line.</td></tr>
+      <tr><td>20 TICKETING · 10.80.20.0/24</td><td>12 scanners (reservations), gate supervisors' laptops. Critical line.</td></tr>
+      <tr><td>25 PAYMENTS · 10.80.25.0/24</td><td>Vendor terminals and tills (wired where possible, SSID EVT-PAY otherwise). Critical line.</td></tr>
+      <tr><td>30 PRODUCTION · 10.80.30.0/24</td><td>Stream encoder .10, stage LAN. Starlink B only.</td></tr>
+      <tr><td>40 PRESS · 10.80.40.0/24</td><td>Press-tent desks and press Wi-Fi.</td></tr>
+      <tr><td>50 PUBLIC · <strong>10.80.48.0/21</strong></td><td>Food court and charging area. 2,000+ addresses, 15-minute leases, client isolation.</td></tr>
+      <tr><td>99 MGMT · 10.80.99.0/24</td><td>R1 .1, NOC-SW .2, zone switches .11–.13, radios .21–.26, APs .31+.</td></tr>
+      <tr><td>WAN</td><td>ether1 Starlink A, ether2 Starlink B (both bypass mode, CGNAT), ether3 5G (passthrough).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 300" role="img" aria-label="Site plan of the festival colour-coded by VLAN: the gates with ticket scanners, the food court with vendor tills and public Wi-Fi, the main stage with production and the press tent, and the NOC tent">
+    <text class="lf-name" x="15" y="20">FESTIVAL SITE · OLIVE GROVE</text><rect x="15" y="28" width="730" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <rect x="25" y="38" width="150" height="110" rx="3" style="fill:var(--v20);fill-opacity:.13;stroke:var(--v20);stroke-width:1.4;"/><text class="lf-sm lf-c" x="100" y="91">Gates A + B</text><text class="lf-mono lf-c" x="100" y="105">12 scanners · V20</text>
+    <rect x="185" y="38" width="300" height="110" rx="3" style="fill:var(--v50);fill-opacity:.13;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-sm lf-c" x="335" y="91">Food court &amp; charging area</text><text class="lf-mono lf-c" x="335" y="105">20 vendor tills V25 · public Wi-Fi V50</text>
+    <rect x="495" y="38" width="240" height="110" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="615" y="91">Main stage</text><text class="lf-mono lf-c" x="615" y="105">production V30 · stream encoder</text>
+    <rect x="25" y="158" width="150" height="112" rx="3" style="fill:var(--v99);fill-opacity:.13;stroke:var(--v99);stroke-width:1.4;"/><text class="lf-sm lf-c" x="100" y="212">NOC tent</text><text class="lf-mono lf-c" x="100" y="226">R1 · switch · WANs</text>
+    <rect x="185" y="158" width="150" height="112" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="260" y="212">First aid · security</text><text class="lf-mono lf-c" x="260" y="226">staff tablets · V10</text>
+    <rect x="345" y="158" width="140" height="112" rx="3" style="fill:var(--rule);fill-opacity:.13;stroke:var(--rule);stroke-width:1.4;"/><text class="lf-sm lf-c" x="415" y="212">Camping area</text><text class="lf-mono lf-c" x="415" y="226">no Wi-Fi on purpose</text>
+    <rect x="495" y="158" width="240" height="112" rx="3" style="fill:var(--v40);fill-opacity:.13;stroke:var(--v40);stroke-width:1.4;"/><text class="lf-sm lf-c" x="615" y="212">Press tent</text><text class="lf-mono lf-c" x="615" y="226">wired desks + stage feed · V40</text>
+    <circle cx="170" cy="45" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="170" y="48" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="300" cy="140" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="300" y="143" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="470" cy="140" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="470" y="143" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="520" cy="45" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="520" y="48" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="720" cy="160" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="720" y="163" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <text class="lf-cap lf-c" x="380" y="296">Wi-Fi goes where it earns its keep: gates, food court, stage and press. The camping area gets mobile coverage, not a network.</text>
+    </svg>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start, columns receive. Default deny. Who may talk to whom is the firewall; which line they use is routing.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 320" role="img" aria-label="Policy matrix for the festival: which zones may start connections to ticketing, payments, production, press, the NOC and the internet">
+    <text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM ↓  ·  TO →</text>
+    <text class="lf-sm lf-c" x="222.5" y="38">Ticketing</text>
+    <text class="lf-sm lf-c" x="317.5" y="38">Payments</text>
+    <text class="lf-sm lf-c" x="412.5" y="38">Production</text>
+    <text class="lf-sm lf-c" x="507.5" y="38">Press</text>
+    <text class="lf-sm lf-c" x="602.5" y="38">NOC</text>
+    <text class="lf-sm lf-c" x="697.5" y="38">Internet</text>
+    <rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="70">Staff · V10</text>
+    <rect x="177" y="54" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="222.5" y="71" style="fill:var(--gotcha);font-weight:700;">◐ scanner mgmt</text>
+    <rect x="272" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="71" style="fill:var(--defender);font-weight:700;">✓ critical</text>
+    <rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="100">Ticketing · V20</text>
+    <rect x="177" y="84" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="222.5" y="101" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="272" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="84" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="101" style="fill:var(--gotcha);font-weight:700;">◐ ticket cloud</text>
+    <rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v25);"/><text class="lf-sm" x="38" y="130">Payments · V25</text>
+    <rect x="177" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="114" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="317.5" y="131" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="367" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="114" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="131" style="fill:var(--gotcha);font-weight:700;">◐ 443 out only</text>
+    <rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="160">Production · V30</text>
+    <rect x="177" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="144" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="412.5" y="161" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="462" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="507.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ press feed</text>
+    <rect x="557" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ own line</text>
+    <rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--v40);"/><text class="lf-sm" x="38" y="190">Press · V40</text>
+    <rect x="177" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="174" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="507.5" y="191" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="557" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="174" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="191" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="20" y="211" width="10" height="10" rx="2" style="fill:var(--v50);"/><text class="lf-sm" x="38" y="220">Public · V50</text>
+    <rect x="177" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="204" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="221" style="fill:var(--defender);font-weight:700;">✓ 2 Mb/s</text>
+    <rect x="20" y="241" width="10" height="10" rx="2" style="fill:var(--v99);"/><text class="lf-sm" x="38" y="250">NOC · V99</text>
+    <rect x="177" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="222.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="272" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="317.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="367" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="412.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="462" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="507.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="557" y="234" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="602.5" y="251" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="652" y="234" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="251" style="fill:var(--gotcha);font-weight:700;">◐ updates</text>
+    <rect x="20" y="280" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="290">allowed</text>
+    <rect x="140" y="280" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="290">limited to the host/port shown</text>
+    <rect x="360" y="280" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="290">denied (default)</text>
+    <rect x="520" y="280" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="290">same zone / n.a.</text>
+    <text class="lf-cap" x="20" y="306">All enforced in R1's forward chain. Which internet line each zone uses is decided by routing tables, not by the firewall (step 7).</text>
+    </svg>
+  </div>
+
+  <p>The <strong>Production → Press</strong> cell is the one exception to "zones don't talk": journalists receive a program feed from the encoder, pushed by the encoder to a receiver in the press tent. The press can't connect to the encoder itself, so nobody in the tent can change the live stream's settings.</p>
+
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+  <table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Gates never stop</td><td><a href="#step-2">step 2</a> · <a href="#step-5">step 5</a></td><td>own 60 GHz link to the gates; scanners with an offline ticket list</td><td>"Gate link cut" drill, <a href="#sec-15">section 15</a></td></tr>
+      <tr><td>R2 Bars never stop</td><td><a href="#step-6">step 6</a> · <a href="#step-7">step 7</a></td><td>payments VLAN HTTPS-out only; crit table falls back to 5G</td><td>"Starlink A stowed" drill</td></tr>
+      <tr><td>R3 The stream never stutters</td><td><a href="#step-7">step 7</a></td><td>prod table: Starlink B first, A second</td><td>"Stream under load" drill</td></tr>
+      <tr><td>R4 Public Wi-Fi where it matters</td><td><a href="#step-4">step 4</a> · <a href="#step-5">step 5</a> · <a href="#step-8">step 8</a></td><td>/21 with 15-min leases; public SSID in the food court only; 2 Mb/s per phone, 60/8 total</td><td>"Crowd simulation" drill</td></tr>
+      <tr><td>R5 Build in a day</td><td><a href="#step-1">step 1</a></td><td>generated per-node configs, tested on the bench</td><td>Every .rsc imports cleanly on a reset device</td></tr>
+      <tr><td>R6 Survive the field</td><td><a href="#step-2">step 2</a></td><td>star backhaul; battery per node</td><td>"Generator switchover" drill</td></tr>
+      <tr><td>R7 See everything from one tent</td><td><a href="#step-9">step 9</a></td><td>netwatch per zone and per line, warnings to the NOC laptop</td><td>"NOC view" drill</td></tr>
+      <tr><td>R8 Leave nothing behind</td><td><a href="#step-10">step 10</a></td><td>final export + log kept; reset to staging config</td><td>Teardown checkpoint</td></tr>
+    </tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">From the NOC Tent Outwards</h2>
+  <p class="section-thesis"><em>Steps 1–5 happen twice: first on a workbench in the workshop, then in the field. Every checkpoint is run in both places.</em></p>
+  <p>Ten steps: the NOC, the backhaul links, the zone devices, addressing, Wi-Fi, the firewall, the three internet lines, public limits, monitoring, and teardown. The order is the same bottom-up order as the other Build posts, but with a twist: the whole network is first assembled on one table, with a spare Starlink and a 5G router as the WAN, and run for a day with test devices before anything goes into a case.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 10</p>
+  <h2 class="section-title">The NOC: Router, Core Switch, Templates</h2>
+  <p class="section-thesis"><em>One router and one SFP switch in the NOC tent. Every node in the field gets its config from the same template.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">Generated node config — the per-node values come first, the shared body follows</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>&#123;# the same idea on Cisco: a Jinja2 template rendered per node (Ansible or a short script) #&#125;
+hostname &#123;&#123; name &#125;&#125;
+&#123;% for v in vlans %&#125;vlan &#123;&#123; v &#125;&#125;
+&#123;% endfor %&#125;vlan 99
+interface &#123;&#123; trunk &#125;&#125;
+ description backhaul
+ switchport mode trunk
+ switchport trunk allowed vlan &#123;&#123; vlans | join(&#x27;,&#x27;) &#125;&#125;,99
+interface Vlan99
+ ip address &#123;&#123; mgmt_ip &#125;&#125; 255.255.255.0
+ip default-gateway 10.80.99.1
+ntp server 10.80.99.1
+logging host 10.80.99.5</pre><pre class="term vt-pane" data-v="mikrotik">{
+:local name "GATE-SW"
+:local mgmt "10.80.99.11/24"
+:local trunkPort "ether16"
+:local vlans "10,20"
+/system identity set name=$name
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port add bridge=bridge interface=$trunkPort frame-types=admit-only-vlan-tagged comment="backhaul"
+/interface bridge vlan add bridge=bridge vlan-ids=$vlans tagged=($trunkPort . ",ether1,ether2")
+/interface bridge vlan add bridge=bridge vlan-ids=99 tagged=("bridge," . $trunkPort)
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=$mgmt interface=v99-mgmt
+/ip route add gateway=10.80.99.1
+/system ntp client set enabled=yes servers=10.80.99.1
+/system logging action add name=noc target=remote remote=10.80.99.5
+/system logging add topics=warning action=noc
+/interface bridge set bridge vlan-filtering=yes
+}</pre></div>
+
+  <p>A ten-line generator (any scripting language) fills in the first block from a node table: name, management address, trunk port, VLANs. It writes one <code>.rsc</code> per node, and each node is reset and imports its file on the bench. The braces matter: RouterOS runs an imported file line by line, and <code>:local</code> variables only survive across lines inside a block.</p>
+
+  <div class="term-wrap"><span class="term-label">R1 — CCR2004 · trunk to the NOC switch, VLAN interfaces</span><pre class="term">/system identity set name=R1
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged
+/interface bridge vlan add bridge=bridge vlan-ids=10,20,25,30,40,50,99 tagged=bridge,sfp-sfpplus1
+/interface vlan
+add name=v10-staff interface=bridge vlan-id=10
+add name=v20-ticket interface=bridge vlan-id=20
+add name=v25-pay interface=bridge vlan-id=25
+add name=v30-prod interface=bridge vlan-id=30
+add name=v40-press interface=bridge vlan-id=40
+add name=v50-public interface=bridge vlan-id=50
+add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.80.99.1/24 interface=v99-mgmt
+<span class="cmt"># … .1 on each /24; the public /21 in step 4</span>
+/system ntp server set enabled=yes
+/interface bridge set bridge vlan-filtering=yes</pre></div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: on the bench, then in the tent</span>
+    <ul class="prereqs-list"><li>R1 and NOC-SW reach each other on VLAN 99; the NOC laptop (on an SFP copper module in NOC-SW, VLAN 99) reaches both.</li><li>Every generated <code>.rsc</code> imports on a reset device without errors (<code>/import file=gate-sw.rsc verbose=yes</code>).</li></ul>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 10</p>
+  <h2 class="section-title">Backhaul: Radios, Fibre, Zone Switches</h2>
+  <p class="section-thesis"><em>Three zones, three links back to the NOC. A link failure costs one zone, never the site.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated backhaul: traffic from the gates and the stage crosses 60 GHz radio links to the NOC tent and leaves through the internet line chosen for it">
+      <style>@keyframes ev1h0{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}24.5333%{offset-distance:100%;opacity:1;}27.5333%,100%{offset-distance:100%;opacity:0;}}.ev1-h0{offset-path:path('M95 63 L380 139');offset-rotate:0deg;animation:ev1h0 12.5s ease-in-out infinite;}@keyframes ev1h1{0%,31.6667%{offset-distance:0%;opacity:0;}33.6667%{opacity:1;}55.2%{offset-distance:100%;opacity:1;}58.2%,100%{offset-distance:100%;opacity:0;}}.ev1-h1{offset-path:path('M95 213 L380 139');offset-rotate:0deg;animation:ev1h1 12.5s ease-in-out infinite;}@keyframes ev1h2{0%,62.3333%{offset-distance:0%;opacity:0;}64.3333%{opacity:1;}85.8667%{offset-distance:100%;opacity:1;}88.8667%,100%{offset-distance:100%;opacity:0;}}.ev1-h2{offset-path:path('M380 139 L665 139');offset-rotate:0deg;animation:ev1h2 12.5s ease-in-out infinite;}@media (prefers-reduced-motion:reduce){.ev1-h0,.ev1-h1,.ev1-h2{animation:none;opacity:0;}}</style>
+      <line class="lf-link" x1="95" y1="63" x2="380" y2="139"/>
+      <text class="lf-cap lf-c" x="237.5" y="93">1 · scans over 60 GHz</text>
+      <line class="lf-link" x1="95" y1="213" x2="380" y2="139"/>
+      <text class="lf-cap lf-c" x="237.5" y="168">2 · press + staff over 60 GHz</text>
+      <line class="lf-link" x1="380" y1="139" x2="665" y2="139"/>
+      <text class="lf-cap lf-c" x="522.5" y="131">3 · out via the right line</text>
+      <rect class="lf-box" x="20" y="40" width="150" height="46" rx="5"/><text class="lf-sm lf-c" x="95" y="60">GATE-SW</text><text class="lf-mono lf-c" x="95" y="74">gates A + B</text>
+      <rect class="lf-box" x="20" y="190" width="150" height="46" rx="5"/><text class="lf-sm lf-c" x="95" y="210">STAGE-SW</text><text class="lf-mono lf-c" x="95" y="224">stage · press</text>
+      <rect class="lf-boxa" x="300" y="112" width="160" height="54" rx="5"/><text class="lf-sm lf-c" x="380" y="136">NOC-SW → R1</text><text class="lf-mono lf-c" x="380" y="150">NOC tent</text>
+      <rect class="lf-boxd" x="590" y="112" width="150" height="54" rx="5"/><text class="lf-sm lf-c" x="665" y="136">Internet</text><text class="lf-mono lf-c" x="665" y="150">2× Starlink + 5G</text>
+      <text class="lf-cap lf-c" x="380" y="260">Every zone is one radio hop (or one fibre) from the NOC, so a failed link affects one zone, and the NOC can see which.</text>
+      <circle class="lf-pkt ev1-h0" r="6"/>
+      <circle class="lf-pkt ev1-h1" r="6"/>
+      <circle class="lf-pkt ev1-h2" r="6"/>
+    </svg>
+  </div>
+
+  <table class="cheat">
+    <thead><tr><th>Link</th><th>Hardware · notes</th></tr></thead>
+    <tbody>
+      <tr><td>NOC → gates (180 m)</td><td>wAP 60G pair on 3 m masts, aimed over the olive canopy. Transparent bridge for the trunk (as in the <a href="build-villa.html">villa</a>). Survey on Monday, re-check after the stage trucks arrive.</td></tr>
+      <tr><td>NOC → food court (90 m)</td><td>Armoured outdoor fibre, buried 10 cm or run along a fence, SFP+ at both ends. The busiest zone gets the link that can't be blocked by a truck.</td></tr>
+      <tr><td>NOC → stage (240 m)</td><td>wAP 60G pair. A spare pair and two 5 GHz point-to-point radios are in the NOC case as a quick replacement if a 60 GHz path gets blocked for good.</td></tr>
+      <tr><td>Zone switches</td><td>netPower 16P: outdoor, 16 PoE-out gigabit ports and SFP+, mounted in a ventilated box at the foot of each mast. Each powers its APs and the radio.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gotcha">
+    <span class="callout-label">60 GHz and a field full of people</span>
+    <p>A 60 GHz beam is narrow, and anything solid in it (a truck, a tent roof, a crowd standing on a ridge) blocks it. Mount the radios high, aim over the trees and people rather than through them, and plan the mast positions with the production manager, who knows where the trucks will park. Rain at these distances is a non-issue; dust on the radomes is wiped off every morning.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: on the bench, then in the field</span>
+    <ul class="prereqs-list"><li><code>/interface w60g monitor wlan60-1</code> on each radio: connected, rate in the Gb/s range, signal stable over ten minutes.</li><li>NOC-SW sees all three zone switches on VLAN 99; a 1 GB copy from the NOC laptop to each zone switch's neighbour runs at near line rate.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 10</p>
+  <h2 class="section-title">Zone Devices &amp; Access Points</h2>
+  <p class="section-thesis"><em>Gate APs for the scanners, food-court APs for tills and the public, stage APs for staff and press, plus the wired devices in each zone.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <table class="cheat">
+    <thead><tr><th>Zone switch</th><th>Ports</th></tr></thead>
+    <tbody>
+      <tr><td>GATE-SW</td><td>ether1–2: gate APs (trunk: mgmt untagged, 10 + 20 tagged) · ether16: radio</td></tr>
+      <tr><td>FOOD-SW</td><td>ether1–10: vendor tills that have Ethernet (VLAN 25) · ether11–14: public/pay APs (trunk: 10, 25, 50) · sfp-sfpplus1: fibre</td></tr>
+      <tr><td>STAGE-SW</td><td>ether1: stream encoder (VLAN 30) · ether2–5: press desks (VLAN 40) · ether6–7: stage APs (trunk: 10, 40) · ether16: radio</td></tr>
+    </tbody>
+  </table>
+
+  <p>Six public APs serve the food court and charging area. That's planned for ~1,200 concurrent phones (about 200 per AP), which is the practical ceiling for a Wi-Fi 6 AP with small channels and low per-device rates. More APs in the same area wouldn't add capacity; they'd add interference. The APs are mounted 3–4 m up on the food-court poles, pointing down at the crowd, at reduced transmit power, so each covers a small area.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: on the bench, then in the field</span>
+    <ul class="prereqs-list"><li>Every AP appears in CAPsMAN's remote-cap list with its zone name (GATE-AP-1, FOOD-AP-3 …).</li><li>A test till on FOOD-SW ether3 gets link; the encoder on STAGE-SW ether1 gets link.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 10</p>
+  <h2 class="section-title">Addressing a Crowd</h2>
+  <p class="section-thesis"><em>The public VLAN gets a /21 and 15-minute leases. Everything else is small and boring.</em></p>
+
+  <div class="term-wrap"><span class="term-label">R1 — DHCP and DNS sized for thousands of phones</span><pre class="term">/ip address add address=10.80.48.1/21 interface=v50-public
+/ip pool add name=p-public ranges=10.80.48.10-10.80.55.250
+/ip dhcp-server add name=d-public interface=v50-public address-pool=p-public lease-time=15m
+/ip dhcp-server network add address=10.80.48.0/21 gateway=10.80.48.1 dns-server=10.80.48.1
+<span class="cmt"># critical zones: small pools, reservations for every scanner and known till</span>
+/ip dhcp-server add name=d-ticket interface=v20-ticket address-pool=p-ticket lease-time=12h
+/ip dhcp-server lease add server=d-ticket mac-address=00:24:2B:00:00:01 address=10.80.20.41 comment="scanner G-A-01"
+<span class="cmt"># … the other zones the same way</span>
+/ip dns set allow-remote-requests=yes servers=208.67.222.222,208.67.220.220 cache-size=8192KiB \
+    max-concurrent-queries=500</pre></div>
+
+  <p>The arithmetic: about 3,000 people a day, perhaps a third of them on the public Wi-Fi at some point, and phones that come and go every few minutes. With 2-hour leases, a busy afternoon would leave hundreds of addresses held by phones that left long ago. Fifteen-minute leases recycle them. A /21 (about 2,000 addresses) gives headroom on top. DNS gets a bigger cache and more concurrent queries, because thousands of phones all looking up the same few apps is exactly what a cache is for. The resolvers aren't 1.1.1.1 or 9.9.9.9, because those become the probe addresses in step 7.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: on the bench, then in the field</span>
+    <ul class="prereqs-list"><li>A DHCP load tester (or 50 VMs) on VLAN 50 all get leases within seconds; <code>/ip dhcp-server lease print count-only where server=d-public</code> matches.</li><li>Each scanner gets its reserved address.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 10</p>
+  <h2 class="section-title">Wi-Fi by Zone, and Scanners That Work Offline</h2>
+  <p class="section-thesis"><em>CAPsMAN gives each zone's APs only the SSIDs that zone needs. The scanners' offline mode covers what the network can't.</em></p>
+
+  <div class="term-wrap"><span class="term-label">R1 — CAPsMAN: SSIDs per zone, matched by AP name</span><pre class="term">/interface wifi datapath
+add name=dp-scan bridge=bridge vlan-id=20
+add name=dp-pay bridge=bridge vlan-id=25
+add name=dp-staff bridge=bridge vlan-id=10
+add name=dp-press bridge=bridge vlan-id=40
+add name=dp-public bridge=bridge vlan-id=50 client-isolation=yes
+/interface wifi configuration
+add name=cfg-scan ssid=EVT-SCAN security=sec-scan datapath=dp-scan country=Greece hide-ssid=yes
+add name=cfg-pay ssid=EVT-PAY security=sec-pay datapath=dp-pay country=Greece hide-ssid=yes
+add name=cfg-staff ssid=EVT-STAFF security=sec-staff datapath=dp-staff country=Greece hide-ssid=yes
+add name=cfg-press ssid=FESTIVAL-Press security=sec-press datapath=dp-press country=Greece
+add name=cfg-public ssid=FESTIVAL-Free datapath=dp-public country=Greece channel.width=20mhz
+/interface wifi provisioning
+add action=create-dynamic-enabled identity-regexp="^GATE-AP" master-configuration=cfg-scan slave-configurations=cfg-staff
+add action=create-dynamic-enabled identity-regexp="^FOOD-AP" master-configuration=cfg-public slave-configurations=cfg-pay,cfg-staff
+add action=create-dynamic-enabled identity-regexp="^STAGE-AP" master-configuration=cfg-press slave-configurations=cfg-staff</pre></div>
+
+  <p>Public Wi-Fi uses 20 MHz channels: in a dense crowd, more non-overlapping channels beat wider ones. The scanners' SSID only exists at the gates, so a scanner carried off to the bar doesn't wander onto a weak signal and slow down the line. Vendors who brought Wi-Fi-only tills join EVT-PAY with a key handed out at check-in. Wired tills are preferred and get the FOOD-SW ports.</p>
+
+  <p>No backhaul is perfect for four days. The scanners handle that themselves: they download the ticket list before the gates open, validate online when they can, and fall back to the local list when they can't.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 350" role="img" aria-label="Animated offline scanning: scanners validate tickets online, switch to a downloaded ticket list when the radio link to the NOC drops, and upload their offline scans when it returns">
+      <style>.ev2-arw{stroke:var(--mid);stroke-width:1.4;fill:none;} .ev2-rad{stroke:var(--defender);stroke-width:1.6;fill:none;}@keyframes ev2r0{0%,4%{opacity:0;}6%,94%{opacity:1;}96%,100%{opacity:0;}}.ev2-r0{animation:ev2r0 16s linear infinite;}@keyframes ev2r1{0%,18.1667%{opacity:0;}20.1667%,94%{opacity:1;}96%,100%{opacity:0;}}.ev2-r1{animation:ev2r1 16s linear infinite;}@keyframes ev2r2{0%,32.3333%{opacity:0;}34.3333%,94%{opacity:1;}96%,100%{opacity:0;}}.ev2-r2{animation:ev2r2 16s linear infinite;}@keyframes ev2r3{0%,46.5%{opacity:0;}48.5%,94%{opacity:1;}96%,100%{opacity:0;}}.ev2-r3{animation:ev2r3 16s linear infinite;}@keyframes ev2r4{0%,60.6667%{opacity:0;}62.6667%,94%{opacity:1;}96%,100%{opacity:0;}}.ev2-r4{animation:ev2r4 16s linear infinite;}@keyframes ev2r5{0%,74.8333%{opacity:0;}76.8333%,94%{opacity:1;}96%,100%{opacity:0;}}.ev2-r5{animation:ev2r5 16s linear infinite;}@keyframes ev2un{0%,88%{opacity:1;}91%,96%{opacity:0;}100%{opacity:1;}}@keyframes ev2au{0%,89%{opacity:0;}91%,96%{opacity:1;}98%,100%{opacity:0;}}.ev2-un{animation:ev2un 16s linear infinite;} .ev2-au{animation:ev2au 16s linear infinite;}@media (prefers-reduced-motion:reduce){.ev2-r0,.ev2-r1,.ev2-r2,.ev2-r3,.ev2-r4,.ev2-r5{animation:none;opacity:1;}.ev2-un{animation:none;opacity:0;}.ev2-au{animation:none;opacity:1;}}</style>
+      <defs><marker id="ev2ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--mid);"/></marker></defs>
+      <rect class="lf-box" x="50" y="14" width="160" height="42" rx="5"/><rect x="50" y="14" width="5" height="42" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="132" y="32">Ticket scanner</text><text class="lf-mono lf-c" x="132" y="46">gate A · lane 3</text>
+      <line class="lf-dash" x1="130" y1="56" x2="130" y2="260"/>
+      <rect class="lf-boxa" x="300" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="380" y="32">Gate radio link</text><text class="lf-mono lf-c" x="380" y="46">60 GHz</text>
+      <line class="lf-dash" x1="380" y1="56" x2="380" y2="260"/>
+      <rect class="lf-boxd" x="550" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="630" y="32">Ticket cloud</text><text class="lf-mono lf-c" x="630" y="46">validation API</text>
+      <line class="lf-dash" x1="630" y1="56" x2="630" y2="260"/>
+      <g class="ev2-r0"><line class="ev2-arw" x1="134" y1="92" x2="626" y2="92" marker-end="url(#ev2ar)"/><text class="lf-cap lf-c" x="380" y="87">16:00 gates open: scan → validate online</text></g>
+      <g class="ev2-r1"><line class="ev2-rad" x1="626" y1="120" x2="134" y2="120" marker-end="url(#ev2ar)"/><text class="lf-cap lf-c" x="380" y="115">valid · mark used</text></g>
+      <g class="ev2-r2"><text class="lf-cap lf-c" x="380" y="148" style="fill:var(--defender);font-weight:700;">16:40 link drops (truck parked in the path)</text></g>
+      <g class="ev2-r3"><text class="lf-cap lf-c" x="130" y="176" style="fill:var(--defender);font-weight:700;">scanner switches to its offline list</text></g>
+      <g class="ev2-r4"><text class="lf-cap lf-c" x="380" y="204" style="fill:var(--defender);font-weight:700;">16:52 link back</text></g>
+      <g class="ev2-r5"><line class="ev2-rad" x1="134" y1="232" x2="626" y2="232" marker-end="url(#ev2ar)"/><text class="lf-cap lf-c" x="380" y="227" style="fill:var(--defender);font-weight:700;">upload 312 offline scans · resolve duplicates</text></g>
+      <rect class="lf-box" x="250" y="276" width="260" height="30" rx="15"/><text class="lf-sm lf-c ev2-au" x="380" y="295" style="fill:var(--defender);">SYNCED AFTER OUTAGE</text><text class="lf-sm lf-c ev2-un" x="380" y="295" style="fill:var(--accent);">ONLINE VALIDATION</text>
+      <text class="lf-cap lf-c" x="380" y="340">The network makes outages rare and short. The scanners' offline mode makes them harmless. You need both.</text>
+    </svg>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: on the bench, then in the field</span>
+    <ul class="prereqs-list"><li>Walk the site with a phone: FESTIVAL-Free only in the food court; EVT-SCAN only at the gates.</li><li>At gate A, unplug the 60 GHz radio for five minutes during a test scan run: scanning continues; after reconnection the scanners upload their offline scans and the ticketing dashboard shows them.</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 10</p>
+  <h2 class="section-title">Firewall: Zones That Don't Talk</h2>
+  <p class="section-thesis"><em>Every zone reaches its own cloud. The only zone-to-zone flow is the press feed, and it goes one way.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 390" role="img" aria-label="Animated festival firewall: a vendor till reaches its acquirer over HTTPS and a scanner its ticket API; a public phone is blocked from the tills and a press laptop from the encoder's admin interface">
+      <style>@keyframes ev3p0{0%,1%{transform:translate(132px,70px);opacity:0;}4%{opacity:1;}18%{transform:translate(612px,70px);opacity:1;}22%,100%{transform:translate(612px,70px);opacity:0;}}@keyframes ev3m0{0%,16%{opacity:0;}18%,96%{opacity:1;}98%,100%{opacity:0;}}.ev3-p0{animation:ev3p0 16s ease-in-out infinite;} .ev3-m0{animation:ev3m0 16s linear infinite;}@keyframes ev3p1{0%,26%{transform:translate(132px,150px);opacity:0;}29%{opacity:1;}43%{transform:translate(276px,150px);opacity:1;}47%,100%{transform:translate(276px,150px);opacity:0;}}@keyframes ev3m1{0%,41%{opacity:0;}43%,96%{opacity:1;}98%,100%{opacity:0;}}.ev3-p1{animation:ev3p1 16s ease-in-out infinite;} .ev3-m1{animation:ev3m1 16s linear infinite;}@keyframes ev3p2{0%,51%{transform:translate(132px,230px);opacity:0;}54%{opacity:1;}68%{transform:translate(276px,230px);opacity:1;}72%,100%{transform:translate(276px,230px);opacity:0;}}@keyframes ev3m2{0%,66%{opacity:0;}68%,96%{opacity:1;}98%,100%{opacity:0;}}.ev3-p2{animation:ev3p2 16s ease-in-out infinite;} .ev3-m2{animation:ev3m2 16s linear infinite;}@keyframes ev3p3{0%,76%{transform:translate(132px,310px);opacity:0;}79%{opacity:1;}93%{transform:translate(612px,310px);opacity:1;}97%,100%{transform:translate(612px,310px);opacity:0;}}@keyframes ev3m3{0%,91%{opacity:0;}93%,96%{opacity:1;}98%,100%{opacity:0;}}.ev3-p3{animation:ev3p3 16s ease-in-out infinite;} .ev3-m3{animation:ev3m3 16s linear infinite;}@media (prefers-reduced-motion:reduce){.ev3-p0,.ev3-p1,.ev3-p2,.ev3-p3{animation:none;opacity:0;}.ev3-m0,.ev3-m1,.ev3-m2,.ev3-m3{animation:none;opacity:1;}}</style>
+      <rect class="lf-boxa" x="280" y="24" width="150" height="320" rx="7"/><text class="lf-name lf-c" x="355" y="42">R1 · forward</text>
+      <text class="lf-cap lf-c" x="355" y="334">default deny</text>
+      <rect class="lf-box" x="20" y="50" width="112" height="40" rx="5"/><rect x="20" y="50" width="5" height="40" style="fill:var(--v25);"/><text class="lf-sm lf-c" x="78" y="67">Vendor POS 7</text><text class="lf-mono lf-c" x="78" y="81">10.80.25.17</text>
+      <rect class="lf-boxd" x="620" y="50" width="122" height="40" rx="5"/><text class="lf-sm lf-c" x="681" y="67">Acquirer</text><text class="lf-mono lf-c" x="681" y="81">vendor's own</text>
+      <text class="lf-mono lf-c" x="355" y="62" style="fill:var(--defender);">v25 → WAN:443 ✓</text>
+      <line class="lf-link" x1="132" y1="70" x2="620" y2="70"/>
+      <text class="lf-mono" x="140" y="62">→ tcp/443</text>
+      <g class="ev3-m0"><text class="lf-cap" x="440" y="62" style="fill:var(--defender);font-weight:700;">✓ payments: 443 out only</text></g>
+      <rect class="lf-box" x="20" y="130" width="112" height="40" rx="5"/><rect x="20" y="130" width="5" height="40" style="fill:var(--v50);"/><text class="lf-sm lf-c" x="78" y="147">Public phone</text><text class="lf-mono lf-c" x="78" y="161">10.80.49.120</text>
+      <rect class="lf-box" x="620" y="130" width="122" height="40" rx="5"/><rect x="620" y="130" width="5" height="40" style="fill:var(--v25);"/><text class="lf-sm lf-c" x="683" y="147">Vendor POS 7</text><text class="lf-mono lf-c" x="683" y="161">10.80.25.17</text>
+      <text class="lf-mono lf-c" x="355" y="142" style="fill:var(--accent);">v50 → v25: none</text>
+      <line class="lf-dash" x1="132" y1="150" x2="620" y2="150"/>
+      <text class="lf-mono" x="140" y="142">→ scan / any</text>
+      <g class="ev3-m1"><text x="262" y="157" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="142" style="fill:var(--accent);font-weight:700;">✕ V50 → anything inside</text></g>
+      <rect class="lf-box" x="20" y="210" width="112" height="40" rx="5"/><rect x="20" y="210" width="5" height="40" style="fill:var(--v40);"/><text class="lf-sm lf-c" x="78" y="227">Press laptop</text><text class="lf-mono lf-c" x="78" y="241">10.80.40.31</text>
+      <rect class="lf-box" x="620" y="210" width="122" height="40" rx="5"/><rect x="620" y="210" width="5" height="40" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="683" y="227">Stream encoder</text><text class="lf-mono lf-c" x="683" y="241">10.80.30.10</text>
+      <text class="lf-mono lf-c" x="355" y="222" style="fill:var(--accent);">v40 → v30: feed only</text>
+      <line class="lf-dash" x1="132" y1="230" x2="620" y2="230"/>
+      <text class="lf-mono" x="140" y="222">→ admin UI</text>
+      <g class="ev3-m2"><text x="262" y="237" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="222" style="fill:var(--accent);font-weight:700;">✕ press: feed only, no UI</text></g>
+      <rect class="lf-box" x="20" y="290" width="112" height="40" rx="5"/><rect x="20" y="290" width="5" height="40" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="78" y="307">Ticket scanner</text><text class="lf-mono lf-c" x="78" y="321">10.80.20.43</text>
+      <rect class="lf-boxd" x="620" y="290" width="122" height="40" rx="5"/><text class="lf-sm lf-c" x="681" y="307">Ticket cloud</text><text class="lf-mono lf-c" x="681" y="321">tickets.example</text>
+      <text class="lf-mono lf-c" x="355" y="302" style="fill:var(--defender);">v20 → ticket API ✓</text>
+      <line class="lf-link" x1="132" y1="310" x2="620" y2="310"/>
+      <text class="lf-mono" x="140" y="302">→ tcp/443</text>
+      <g class="ev3-m3"><text class="lf-cap" x="440" y="302" style="fill:var(--defender);font-weight:700;">✓ scanners → ticket API only</text></g>
+      <text class="lf-cap lf-c" x="380" y="378">Scanners reach their ticket API, tills reach HTTPS out, and three thousand phones on the public Wi-Fi reach the internet and nothing else.</text>
+      <circle class="lf-pkt ev3-p0" r="6"/>
+      <circle class="lf-pkt ev3-p1" r="6"/>
+      <circle class="lf-pkt ev3-p2" r="6"/>
+      <circle class="lf-pkt ev3-p3" r="6"/>
+    </svg>
+  </div>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — address lists and the forward chain</span><span class="cfg-meta">24 lines · this step's additions · click to expand</span></summary><pre class="term">/ip firewall address-list
+add list=TICKET-API address=api.tickets.example comment="from the ticketing company"
+add list=PRESS-RX address=10.80.40.50 comment="feed receiver in the press tent"
+/ip firewall filter
+add chain=input action=accept connection-state=established,related,untracked
+add chain=input action=drop connection-state=invalid
+add chain=input action=accept protocol=icmp
+add chain=input action=accept in-interface=v99-mgmt
+add chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67,123
+add chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53
+add chain=input action=drop
+add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+add chain=forward action=accept in-interface=v20-ticket dst-address-list=TICKET-API protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v25-pay out-interface-list=WAN protocol=tcp dst-port=443 \
+    comment="vendors bring their own terminals and acquirers: HTTPS out, nothing else"
+add chain=forward action=accept in-interface=v30-prod dst-address-list=PRESS-RX protocol=udp dst-port=9000 \
+    comment="program feed to the press tent (SRT)"
+add chain=forward action=accept in-interface=v30-prod out-interface-list=WAN
+add chain=forward action=accept in-interface=v10-staff out-interface-list=WAN
+add chain=forward action=accept in-interface=v40-press out-interface-list=WAN
+add chain=forward action=accept in-interface=v50-public out-interface-list=WAN
+add chain=forward action=accept in-interface=v99-mgmt
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></details>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Twenty vendors, twenty acquirers</span>
+    <p>In the <a href="build-coffee-shop.html">coffee shop</a>, the payment VLAN could only reach one acquirer's host names. At a festival, every vendor arrives with their own terminal from their own bank, and nobody has the full list of host names until Thursday morning. So the payment VLAN gets HTTPS out to anything, and DNS from R1, but nothing inbound and nothing inside the site. That still keeps every till away from three thousand phones, which is the risk that actually matters here.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: on the bench, then in the field</span>
+    <ul class="prereqs-list"><li>A test till completes a card payment; a scanner validates a test ticket online.</li><li>From FESTIVAL-Free, nothing in 10.80.0.0/16 answers except the gateway; the log shows the attempts.</li><li>The press receiver plays the stage feed; a press laptop can't open the encoder's web UI.</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 10</p>
+  <h2 class="section-title">Three Lines, Three Jobs</h2>
+  <p class="section-thesis"><em>Routing tables decide which line each zone may use. Failover happens inside each table.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated failover for the critical zones from Starlink A to 5G while the public loses service and the live stream keeps its own Starlink">
+      <style>@keyframes ev4up{0%,44%{opacity:1;}48%,96%{opacity:0;}100%{opacity:1;}}
+@keyframes ev4dn{0%,44%{opacity:0;}48%,96%{opacity:1;}100%{opacity:0;}}
+@keyframes ev4f{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}38%{offset-distance:100%;opacity:1;}41%,100%{offset-distance:100%;opacity:0;}} @keyframes ev4b{0%,53%{offset-distance:0%;opacity:0;}55%{opacity:1;}90%{offset-distance:100%;opacity:1;}93%,100%{offset-distance:100%;opacity:0;}}
+@keyframes ev4p{0%{offset-distance:0%;opacity:1;}85%{offset-distance:100%;opacity:1;}100%{offset-distance:100%;opacity:0;}}
+.ev4-up{animation:ev4up 12s linear infinite;} .ev4-dn{animation:ev4dn 12s linear infinite;}
+.ev4-pf{offset-path:path('M130 120 L200 120 L350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:ev4f 12s ease-in-out infinite;}
+.ev4-pb{offset-path:path('M130 120 L200 120 L350 135 L420 182 L530 182 L612 142');offset-rotate:0deg;animation:ev4b 12s ease-in-out infinite;}
+.ev4-pr{offset-path:path('M350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:ev4p 1.5s linear infinite;fill:var(--gotcha);}
+.ev4-px{offset-path:path('M350 105 L420 58 L530 58 L568 78');offset-rotate:0deg;animation:ev4p 1.5s linear infinite;fill:var(--gotcha);}
+@media (prefers-reduced-motion:reduce){.ev4-up{animation:none;opacity:0;}.ev4-dn{animation:none;opacity:1;}.ev4-pf,.ev4-pr,.ev4-px{animation:none;opacity:0;}.ev4-pb{animation:none;offset-distance:75%;opacity:1;}}</style>
+      <rect class="lf-box" x="20" y="95" width="110" height="50" rx="5"/><text class="lf-sm lf-c" x="75" y="117">Critical zones</text><text class="lf-mono lf-c" x="75" y="131">V10 · V20 · V25</text>
+      <rect class="lf-boxa" x="200" y="90" width="150" height="60" rx="5"/><text class="lf-sm lf-c" x="275" y="117">R1</text><text class="lf-mono lf-c" x="275" y="131">table crit</text>
+      <line class="lf-link" x1="130" y1="120" x2="200" y2="120"/>
+      <rect class="lf-box" x="420" y="40" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="55">Starlink A</text><text class="lf-mono lf-c" x="475" y="69">ether1 · distance 1</text>
+      <rect class="lf-box" x="420" y="164" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="179">5G router</text><text class="lf-mono lf-c" x="475" y="193">ether3 · distance 2</text>
+      <ellipse class="lf-boxd" cx="675" cy="120" rx="68" ry="42"/><text class="lf-name lf-c" x="675" y="116" style="fill:var(--defender);">Internet</text><text class="lf-mono lf-c" x="675" y="131" style="fill:var(--defender);">probe 1.1.1.1</text>
+      <line class="lf-dash" x1="350" y1="135" x2="420" y2="182"/><line class="lf-dash" x1="530" y1="182" x2="612" y2="142"/>
+      <g class="ev4-up"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--defender);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--defender);font-weight:700;">Starlink A up: scanners, tills and staff use it (the public shares it, shaped)</text><circle class="ev4-pr" r="3.5"/></g>
+      <g class="ev4-dn"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:6,4;"/><text x="562" y="85" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><path d="M350 135 L420 182 M530 182 L612 142" style="stroke:var(--gotcha);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--accent);font-weight:700;">Starlink A down: table crit falls back to 5G; public and press wait for A; the stream stays on Starlink B</text><circle class="ev4-px" r="3.5"/></g>
+      <text class="lf-cap lf-c" x="380" y="258">Three lines, three jobs. Losing one changes who's affected, never whether the gates can scan.</text>
+      <circle class="lf-pkt ev4-pf" r="6"/><circle class="lf-pkt ev4-pb" r="6"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap"><span class="term-label">R1 — WAN interfaces, probe routes kept current by DHCP scripts</span><pre class="term">/interface list member
+add list=WAN interface=ether1
+add list=WAN interface=ether2
+add list=WAN interface=ether3
+/ip route
+add dst-address=1.1.1.1/32 gateway=100.64.0.1 scope=10 comment="probe A"
+add dst-address=9.9.9.9/32 gateway=100.64.0.1 scope=10 comment="probe B"
+/ip dhcp-client
+add interface=ether1 add-default-route=no use-peer-dns=no comment="Starlink A" \
+    script={ :if ($bound=1) do={ /ip route set [find comment="probe A"] gateway=$"gateway-address" } }
+add interface=ether2 add-default-route=no use-peer-dns=no comment="Starlink B" \
+    script={ :if ($bound=1) do={ /ip route set [find comment="probe B"] gateway=$"gateway-address" } }
+add interface=ether3 add-default-route=no use-peer-dns=no comment="5G" \
+    script={ :if ($bound=1) do={ /ip route set [find comment="crit via 5G"] gateway=$"gateway-address" } }
+/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN</pre></div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — one table per job, and rules that pick the table</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — C8300: policy routing with tracked next hops instead of routing tables.
+! IOS PBR needs fixed next hops, so each Starlink keeps its own router (not bypass mode)
+! and hands R1 a stable LAN address: A = 192.168.1.1, B = 192.168.2.1, 5G = 192.168.8.1.
+route-map PBR-ZONES permit 10
+ match ip address CRIT-SRC                     ! staff, scanners, tills
+ set ip next-hop verify-availability 192.168.1.1 1 track 1
+ set ip next-hop verify-availability 192.168.8.1 2 track 3
+route-map PBR-ZONES permit 20
+ match ip address PROD-SRC                     ! the stream
+ set ip next-hop verify-availability 192.168.2.1 1 track 2
+ set ip next-hop verify-availability 192.168.1.1 2 track 1
+route-map PBR-ZONES permit 30
+ match ip address PUBLIC-SRC                   ! public and press
+ set ip next-hop verify-availability 192.168.1.1 1 track 1
+ set interface Null0                           ! A down: no other line for them
+interface GigabitEthernet0/0/2.900
+ ip policy route-map PBR-ZONES</pre><pre class="term vt-pane" data-v="mikrotik">/routing table
+add name=crit fib
+add name=prod fib
+/ip route
+<span class="cmt"># main (public, press): Starlink A only</span>
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1
+<span class="cmt"># crit (staff, scanners, tills): Starlink A, then 5G</span>
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 routing-table=crit
+add dst-address=0.0.0.0/0 gateway=100.64.0.1 distance=2 routing-table=crit comment="crit via 5G"
+<span class="cmt"># prod (live stream): Starlink B, then Starlink A</span>
+add dst-address=0.0.0.0/0 gateway=9.9.9.9 target-scope=11 check-gateway=ping distance=1 routing-table=prod
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=2 routing-table=prod
+/routing rule
+add dst-address=10.80.0.0/16 action=lookup-only-in-table table=main comment="site stays on site"
+add src-address=10.80.10.0/24 action=lookup table=crit
+add src-address=10.80.20.0/24 action=lookup table=crit
+add src-address=10.80.25.0/24 action=lookup table=crit
+add src-address=10.80.30.0/24 action=lookup table=prod</pre></div>
+
+  <p>Read it by zone. The public and press use the main table: Starlink A, and nothing else. If A fails they lose internet until it returns. That's the deliberate price of keeping B for the stream and 5G for the gates and tills: no route in that table points at either. The critical zones fall back from Starlink A to 5G and never compete with the stream. The stream has Starlink B to itself and borrows Starlink A only if B dies. The first rule is the lesson from the <a href="build-gaming-center.html">gaming center</a>: without it, traffic between zones would be looked up in tables that only know default routes, and leave the site.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: on the bench, then in the field</span>
+    <ul class="prereqs-list"><li><code>/routing rule print</code> and <code>/ip route print where routing-table=crit</code>: as above, with the probe gateways filled in by the DHCP scripts.</li><li>Stow Starlink A from its app: scanners and tills continue via 5G within ~20 s; the public and press lose internet (shown on a test phone); the stream keeps running on B.</li><li>Stow Starlink B instead: the stream moves to A; nothing else notices.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 10</p>
+  <h2 class="section-title">Keeping the Crowd in Its Lane</h2>
+  <p class="section-thesis"><em>2 Mb/s per phone and 60 Mb/s for the whole public network. The critical zones are never shaped.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Animated queuing on Starlink A: scanner, till and staff packets pass freely while public Wi-Fi traffic is limited per phone and in total">
+      <style>.ev5-l0{offset-path:path('M30 88 L460 88 L505 123 L745 123');offset-rotate:0deg;animation:ev5mv 3s linear infinite;fill:var(--gotcha);}.ev5-l1{offset-path:path('M30 158 L460 158 L505 123 L745 123');offset-rotate:0deg;animation:ev5mv 10s linear infinite;fill:var(--defender);}@keyframes ev5mv{0%{offset-distance:0%;opacity:0;}4%{opacity:1;}96%{opacity:1;}100%{offset-distance:100%;opacity:0;}}@media (prefers-reduced-motion:reduce){.ev5-l0,.ev5-l1{animation:none;offset-distance:40%;}}</style>
+      <rect class="lf-boxa" x="170" y="22" width="390" height="188" rx="7" style="fill:none;"/><text class="lf-name lf-c" x="365" y="40">R1 · Starlink A</text>
+      <text class="lf-mono" x="30" y="76" style="fill:var(--gotcha);font-weight:700;">scanners · tills · staff</text>
+      <rect x="200" y="74" width="250" height="28" rx="4" style="fill:var(--gotcha);fill-opacity:.13;stroke:var(--gotcha);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="114" style="fill:var(--gotcha);">unshaped · always headroom</text>
+      <text class="lf-mono" x="30" y="146" style="fill:var(--defender);font-weight:700;">public: 2 Mb/s each</text>
+      <rect x="200" y="144" width="250" height="28" rx="4" style="fill:var(--defender);fill-opacity:.13;stroke:var(--defender);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="184" style="fill:var(--defender);">PCQ per phone · 60M total</text>
+      <rect class="lf-box" x="470" y="78" width="80" height="90" rx="5"/><text class="lf-sm lf-c" x="510" y="118">cap</text><text class="lf-mono lf-c" x="510" y="132">60M / 8M</text>
+      <line x1="550" y1="123" x2="745" y2="123" style="stroke:var(--rule);stroke-width:10;"/><text class="lf-mono lf-c" x="650" y="108">Starlink A (varies)</text>
+      <text class="lf-cap lf-c" x="380" y="234">A thousand phones in the food court can't slow a card payment two metres away: the public is capped per phone and in total.</text>
+      <circle class="ev5-l0" r="5" style="animation-delay:0.00s;"/>
+      <circle class="ev5-l0" r="5" style="animation-delay:-1.00s;"/>
+      <circle class="ev5-l0" r="5" style="animation-delay:-2.00s;"/>
+      <rect class="ev5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:0.00s;"/>
+      <rect class="ev5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-2.00s;"/>
+      <rect class="ev5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-4.00s;"/>
+      <rect class="ev5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-6.00s;"/>
+      <rect class="ev5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-8.00s;"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — one simple queue, per-phone limits inside it</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — the total cap is a policer on the public subinterface;
+! the 2 Mb/s per phone moves to the wireless controller (per-client rate limit)
+policy-map PUBLIC-CAP
+ class class-default
+  police cir 60000000
+interface GigabitEthernet0/0/2.50
+ service-policy output PUBLIC-CAP</pre><pre class="term vt-pane" data-v="mikrotik">/queue type
+add name=pcq-pub-down kind=pcq pcq-classifier=dst-address pcq-rate=2M
+add name=pcq-pub-up kind=pcq pcq-classifier=src-address pcq-rate=1M
+/queue simple add name=public target=10.80.48.0/21 max-limit=8M/60M queue=pcq-pub-up/pcq-pub-down</pre></div>
+
+  <p>2 Mb/s is enough for messaging, maps and social media, which is what a festival crowd wants; it's not enough to stream video, which is the point. The 60/8 Mb/s cap leaves most of Starlink A for the critical zones, which are tiny in volume but need their packets to go through immediately. With the critical zones unshaped and the public capped well below the line rate, the queue never forms where it would hurt a payment.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: on the bench, then in the field</span>
+    <ul class="prereqs-list"><li>Saturday evening, food court full: <code>/queue simple print stats where name=public</code> shows the cap working, and a test card payment completes in its usual time.</li><li>A single phone's speed test tops out at about 2 Mb/s.</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 10</p>
+  <h2 class="section-title">The NOC: Seeing Problems First</h2>
+  <p class="section-thesis"><em>Know which zone is unhappy before the radio call comes in.</em></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — a watch per zone and per line, logged to the NOC laptop</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — IP SLA per zone switch, EEM turns state changes into syslog warnings
+ip sla 11
+ icmp-echo 10.80.99.11
+ frequency 10
+ip sla schedule 11 life forever start-time now
+track 11 ip sla 11 reachability
+event manager applet ZONE-GATES
+ event track 11 state any
+ action 1.0 syslog priority warnings msg &quot;ZONE GATES changed state&quot;
+! … the same for FOOD-SW (.12), STAGE-SW (.13) and each internet line
+logging host 10.80.99.5</pre><pre class="term vt-pane" data-v="mikrotik">/tool netwatch
+add host=10.80.99.11 interval=10s comment="GATE-SW" \
+    down-script=":log warning \"ZONE GATES DOWN\"" up-script=":log warning \"ZONE GATES UP\""
+add host=10.80.99.12 interval=10s comment="FOOD-SW" \
+    down-script=":log warning \"ZONE FOOD DOWN\"" up-script=":log warning \"ZONE FOOD UP\""
+add host=10.80.99.13 interval=10s comment="STAGE-SW" \
+    down-script=":log warning \"ZONE STAGE DOWN\"" up-script=":log warning \"ZONE STAGE UP\""
+add host=1.1.1.1 interval=15s down-script=":log warning \"STARLINK A DOWN\"" up-script=":log warning \"STARLINK A UP\""
+add host=9.9.9.9 interval=15s down-script=":log warning \"STARLINK B DOWN\"" up-script=":log warning \"STARLINK B UP\""
+/system logging action add name=noc target=remote remote=10.80.99.5
+/system logging add topics=warning action=noc</pre></div>
+
+  <p>The NOC laptop runs a syslog view and a network map (The Dude, MikroTik's free monitoring tool, or any SNMP dashboard) on a big screen. Three numbers tell you most of what's happening: the status of the five watches, the count of public DHCP leases (a proxy for how full the food court is), and the 60 GHz links' signal levels. When the gate link goes down, the NOC knows before the gate supervisor reaches for the radio, and the scanners are already working offline.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: on the bench, then in the field</span>
+    <ul class="prereqs-list"><li>Unplug each radio in turn: the matching "ZONE … DOWN/UP" lines appear on the NOC screen within ~20 s.</li><li>The map shows every node green before gates open on day one.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 10</p>
+  <h2 class="section-title">Teardown: Leave Nothing Behind</h2>
+  <p class="section-thesis"><em>Sunday night the field goes back to being a field, and the gear goes back into cases without this festival's secrets on it.</em></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">Every node — keep the lessons, then return to the staging config</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! every node — keep the evidence, then return to the staging config
+show logging | redirect flash:festival-log.txt
+copy running-config flash:festival-final.cfg
+! copy both files to the NOC laptop, then:
+configure replace flash:staging.cfg force
+write memory</pre><pre class="term vt-pane" data-v="mikrotik"><span class="cmt"># on R1, before anything is unplugged</span>
+/log print file=festival-r1-log
+/export file=festival-r1-final
+<span class="cmt"># copy both files off to the NOC laptop, then on every node:</span>
+/system reset-configuration no-defaults=yes skip-backup=yes run-after-reset=flash/staging.rsc</pre></div>
+
+  <p>The final export and the log are the raw material for the post-event review: which link dropped and when, peak public leases, how long Starlink A was out, how many offline scans were uploaded. They're stored with the organiser's documentation. Then every node is reset to its <strong>staging</strong> config, a minimal file with only a management address, so the Wi-Fi keys, vendor credentials and the organiser's network design don't travel to the next event. Labelled cables go back into labelled bags, and the case inventory is checked against Monday's list before the truck leaves.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: before the truck leaves</span>
+    <ul class="prereqs-list"><li>Every node answers only on its staging management address; <code>/interface wifi security print</code> on R1 is empty.</li><li>The final export and log are on the NOC laptop and in the organiser's folder.</li><li>Inventory: every radio, switch, AP, SFP, mast and battery is back in its case.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="sec-15">15</p>
+  <h2 class="section-title">The Dress Rehearsal</h2>
+  <p class="section-thesis"><em>Wednesday afternoon, with the crew as the crowd: break everything once before 3,000 people arrive.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody>
+      <tr><td>Gate link cut (R1)</td><td>Unplug the gate radio during a scan run: scanning continues offline; after reconnection all scans sync.</td></tr>
+      <tr><td>Starlink A stowed (R2)</td><td>Tills and scanners continue via 5G in ~20 s; the public and press drop (expected); the stream continues.</td></tr>
+      <tr><td>Stream under load (R3)</td><td>Saturate Starlink A from test phones: the stream's bitrate on B doesn't move.</td></tr>
+      <tr><td>Crowd simulation (R4)</td><td>A DHCP load tester plus every crew phone on FESTIVAL-Free: leases issued, per-phone cap at ~2 Mb/s, a card payment unaffected.</td></tr>
+      <tr><td>Generator switchover (R6)</td><td>Switch the generators over: every node rides through on its battery; no zone drops.</td></tr>
+      <tr><td>NOC view (R7)</td><td>Each simulated failure shows on the NOC screen before anyone radios it in.</td></tr>
+      <tr><td>Isolation (all)</td><td>From the public SSID, nothing on site answers; from the press tent, the encoder's UI doesn't load.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 16 -->
+  <p class="section-num" id="sec-16">16</p>
+  <h2 class="section-title">Residual Risk</h2>
+  <p class="section-thesis"><em>What a temporary network can't fully control, and what covers each gap.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Lookalike public SSIDs.</strong> Anyone can broadcast "FESTIVAL-Free" from a phone. Signage with the real network name helps a little; the real protection is that nothing sensitive ever uses the public network.</li>
+    <li><strong>Vendor terminals you've never seen before.</strong> The network can't vouch for twenty unknown devices. It keeps each one away from everything except the internet, and the payment terminals' own certification covers the rest.</li>
+    <li><strong>Physical access in an open field.</strong> Zone boxes sit at the foot of masts in public areas. Lockable enclosures, cable guards, and unused switch ports disabled in the template.</li>
+    <li><strong>Weather and heat.</strong> Equipment in sealed boxes in July sun overheats. Ventilated, shaded enclosures and a midday temperature check are part of the daily routine.</li>
+    <li><strong>Crew credentials.</strong> Staff tablets and the NOC laptop hold keys to everything. They stay with named crew members and are wiped at teardown like the rest.</li>
+  </ul>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">Lab It in CHR / GNS3</h2>
+  <p class="section-thesis"><em>The routing tables, failover, queues, netwatch and the generated configs all run on CHR.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>This post</th><th>In the lab</th></tr></thead>
+    <tbody>
+      <tr><td>R1 and three WANs</td><td>A CHR with three upstream "ISP" CHRs that hand out 100.64.x addresses by DHCP. Change a gateway or block 1.1.1.1 on one to test the scripts and tables.</td></tr>
+      <tr><td>Zones and backhaul</td><td>CHR bridges for NOC-SW and the zone switches; virtual links instead of radios. Disconnect a link to test netwatch.</td></tr>
+      <tr><td>Generated configs</td><td>Import each node's <code>.rsc</code> into a fresh CHR: the best test that the template has no typos.</td></tr>
+      <tr><td>Crowd</td><td>A DHCP load tester (dhcperf, or many small containers) on VLAN 50.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT. This kit is reused at every event; Starlink service plans are monthly.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>R1 · CCR2004-16G-2S+</td><td>450 – 550</td></tr>
+      <tr><td>NOC-SW · CRS326-24S+2Q+ + SFP modules</td><td>550 – 750</td></tr>
+      <tr><td>3× netPower 16P (zone switches)</td><td>900 – 1,200</td></tr>
+      <tr><td>2× wAP 60G pairs + 1 spare pair</td><td>540 – 780</td></tr>
+      <tr><td>100 m armoured fibre + SFP+ optics</td><td>200 – 350</td></tr>
+      <tr><td>~12× outdoor wAP ax</td><td>1,600 – 2,000</td></tr>
+      <tr><td>2× Starlink kits + 5G router</td><td>Starlink hardware per current offer, plus 300 – 450 for the 5G router; service plans monthly</td></tr>
+      <tr><td>Battery/UPS per node (×5), masts, tripods, enclosures, cases</td><td>1,800 – 3,000</td></tr>
+      <tr><td>Reusable kit total (excl. Starlink)</td><td><strong>≈ 6,300 – 9,100</strong></td></tr>
+    </tbody>
+  </table>
+
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on Cisco</h2>
+  <p class="section-thesis"><em>Same festival, same zones and lines, on Cisco gear (more often rented than bought for an event). The Cisco tabs on the config blocks above show the key differences.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Role</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>R1</td><td>CCR2004-16G-2S+ → C8300-1N1S-6T</td></tr>
+      <tr><td>NOC-SW</td><td>CRS326-24S+2Q+ → Catalyst 9300 with an SFP+ module</td></tr>
+      <tr><td>Zone switches (outdoor)</td><td>netPower 16P → rugged Catalyst IE switches in ventilated enclosures</td></tr>
+      <tr><td>60 GHz links</td><td>wAP 60G pairs → third-party 60 GHz bridges or Cisco industrial wireless backhaul</td></tr>
+      <tr><td>Wi-Fi</td><td>outdoor wAP ax + CAPsMAN → outdoor Catalyst APs with a controller</td></tr>
+      <tr><td>Reusable kit (excl. Starlink)</td><td>≈ 6,300 – 9,100 → ≈ 30,000 – 45,000 EUR ex VAT, usually rented</td></tr>
+    </tbody>
+  </table>
+
+  <table class="cheat">
+    <thead><tr><th>Feature</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>Generated configs</td><td>.rsc with a variables block → Jinja2 templates</td></tr>
+      <tr><td>Lines per zone</td><td>routing tables + rules → PBR with tracked next hops</td></tr>
+      <tr><td>Starlink</td><td>bypass mode, DHCP gateways → Starlink routers kept, fixed next hops for PBR</td></tr>
+      <tr><td>Public limits</td><td>PCQ simple queue → total policer on the router + per-client limit on the controller</td></tr>
+      <tr><td>Zone and line watches</td><td>netwatch → IP SLA + EEM syslog</td></tr>
+      <tr><td>Teardown</td><td><code>reset-configuration run-after-reset</code> → <code>configure replace</code> to the staging config</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>Policy routing wants fixed next hops.</strong> MikroTik routing tables work happily with gateways learned by DHCP and updated by a script; IOS PBR needs addresses it can track. So on Cisco each Starlink keeps its own router, adding a double-NAT that nothing on this network minds. <strong>Per-phone limits move to the Wi-Fi controller</strong>, which is the more natural place anyway. Everything else translates directly.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Build it twice.</strong> Assemble and test the whole network on a bench; in the field, only mount and plug in. Generated configs mean nobody types one at 07:00.</li>
+      <li><strong>Star backhaul from the NOC.</strong> One link per zone means one failure costs one zone, and the NOC can see which.</li>
+      <li><strong>Put Wi-Fi where people stay put.</strong> A small, dense public network in the food court beats thin coverage of a whole field.</li>
+      <li><strong>Size the crowd's network on purpose.</strong> A /21, 15-minute leases, a bigger DNS cache, and a hard per-phone limit.</li>
+      <li><strong>Let routing tables assign the lines.</strong> Critical zones fall back to 5G, the stream owns its Starlink, and the public has no route to anything else, so there's nothing to filter.</li>
+      <li><strong>Design for the failures you can't prevent.</strong> Offline-capable scanners make a dropped gate link a non-event.</li>
+      <li><strong>Leave nothing behind.</strong> Export the lessons, then reset every node to its staging config before it goes back in the case.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 7 of the <a href="build-index.html"><strong>Build series</strong></a>. Earlier: <a href="build-law-firm.html">the law firm</a>, <a href="build-gaming-center.html">the gaming center</a>, <a href="build-coffee-shop.html">the coffee shop</a>, <a href="build-supermarket.html">the supermarket</a>, <a href="build-clinic.html">the medical clinic</a>, <a href="build-villa.html">the holiday villa</a>. Next: <a href="build-esports-arena.html">the esports arena</a>.</p>
+
+  <div class="cta-card">
+    <h3>Running an event in Crete?</h3>
+    <p>Festivals, conferences, weddings and sports events: I plan and run temporary networks like this one, with Starlink, radio links and Wi-Fi where your guests are, and the payments and gates protected first.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Coffee Shop Network — S. Markakis</title>
+<meta name="description" content="A coffee shop on MikroTik, built bottom-up in 11 tested steps: sealed payment VLAN, click-through guest portal with per-device limits, 4G backup only the tills may use, mDNS for the music system, and WireGuard that dials out through CGNAT.">
+<meta property="og:title" content="Build: The Coffee Shop Network — S. Markakis">
+<meta property="og:description" content="A coffee shop on MikroTik, built bottom-up in 11 tested steps: sealed payment VLAN, click-through guest portal with per-device limits, 4G backup only the tills may use, mDNS for the music system, and WireGuard that dials out through CGNAT.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-coffee-shop.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-coffee-shop.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-coffee-shop.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-coffee-shop.html">
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#3a7ca5;--v20:#4f8f4c;--v25:#c08020;--v30:#8a5bb5;--v40:#a14a4a;--v50:#d9822b;--v99:#2f8f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Coffee Shop Network",
+  "description": "A 40-seat coffee shop on MikroTik, built bottom-up in 11 tested steps: card terminals isolated to shrink PCI scope, a click-through captive portal with per-guest limits, a 4G backup only the tills may use, mDNS for the music system, and WireGuard that dials out so it's manageable even behind CGNAT — with Packet Tracer-style diagrams for every step.",
+  "datePublished": "2026-10-24",
+  "dateModified": "2026-10-24",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-coffee-shop.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-coffee-shop.png",
+  "keywords": [
+    "mikrotik",
+    "labs",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-coffee-shop"
+  },
+  "timeRequired": "PT38M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; MikroTik RouterOS 7 &nbsp;·&nbsp; Real-World Network &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Build: The<br>Coffee Shop Network</h1>
+  <p class="post-subtitle">Forty seats, a patio, two tablets running the till, two card terminals and a queue out of the door at 08:30. The network has to stay out of the way. We build it on a single MikroTik router plus one PoE switch in 11 tested steps: card terminals walled off to shrink PCI scope, a click-through guest portal with per-device limits, a 4G backup that only the tills may use, mDNS so the staff tablet finds the music system, and remote management that dials out so it works even behind 4G CGNAT.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">RouterOS 7</span>
+    <span class="tag">Coffee Shop</span>
+    <span class="tag">PCI Scope</span>
+    <span class="tag">Hotspot</span>
+    <span class="tag">4G Failover</span>
+    <span class="tag">mDNS</span>
+    <span class="tag">WireGuard</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 520" role="img" aria-label="Interactive topology of the coffee shop network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="270" y1="320" x2="110" y2="445" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="254.2" cy="332.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="125.8" cy="432.7" r="2.4"/>
+<text class="lft-port lft-c" x="174.0" y="398.0">ether1-2</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="270" y1="320" x2="190" y2="445" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="259.2" cy="336.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="200.8" cy="428.2" r="2.4"/>
+<text class="lft-port lft-c" x="222.0" y="409.0">ether3</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="270" y1="320" x2="270" y2="445" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="270.0" cy="340.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="270.0" cy="425.0" r="2.4"/>
+<text class="lft-port" x="276.0" y="398.0">ether4</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="270" y1="320" x2="350" y2="445" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="280.8" cy="336.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="339.2" cy="428.2" r="2.4"/>
+<text class="lft-port lft-c" x="318.0" y="409.0">ether5</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="270" y1="320" x2="430" y2="445" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="285.8" cy="332.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="414.2" cy="432.7" r="2.4"/>
+<text class="lft-port lft-c" x="366.0" y="398.0">ether6-8 · PoE</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="270" y2="320" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="366.8" cy="209.1" r="2.4"/>
+<circle class="lft-led bx-led" cx="283.2" cy="304.9" r="2.4"/>
+<text class="lft-port lft-c" x="325.0" y="260.0">ether2 ⇄ sfp1 · trunk</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="480" y2="300" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="393.7" cy="208.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="466.3" cy="285.5" r="2.4"/>
+<text class="lft-port lft-c" x="430.0" y="250.0">ether4</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="620" y2="300" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="398.3" cy="202.1" r="2.4"/>
+<circle class="lft-led bx-led" cx="601.7" cy="291.9" r="2.4"/>
+<text class="lft-port lft-c" x="500.0" y="244.0">ether3 · trunk</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-blink" x1="380" y1="194" x2="170" y2="215" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-c" x="275.0" y="201.5">CAFE-POS</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-blink" x1="620" y1="300" x2="650" y2="440" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-c" x="635.0" y="373.0">CAFE-Guest</text>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-line" pathLength="100" x1="380" y1="194" x2="290" y2="112" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="365.2" cy="180.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="304.8" cy="125.5" r="2.4"/>
+<text class="lft-port lft-c" x="335.0" y="156.0">ether1 · PPPoE</text>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-line" pathLength="100" x1="290" y1="112" x2="380" y2="40" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="305.6" cy="99.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="353.5" cy="61.2" r="2.4"/>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-blink" x1="380" y1="194" x2="470" y2="112" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="394.8" cy="180.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="455.2" cy="125.5" r="2.4"/>
+<text class="lft-port lft-c" x="425.0" y="156.0">ether5</text>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-blink" x1="470" y1="112" x2="380" y2="40" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="454.4" cy="99.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="406.5" cy="61.2" r="2.4"/>
+</g>
+<g class="bx-el" data-step="10">
+<path class="bx-blink" d="M92 92 Q115.6 20 328 40" style="stroke:var(--accent);stroke-width:1.6;fill:none;stroke-dasharray:6,4;"/><text class="lft-port lft-c" x="162.8" y="37" style="fill:var(--accent);">WireGuard (R1 dials out)</text></g>
+<g class="bx-el bx-dev" data-step="8">
+<circle class="bx-ring lft-ring" cx="380" cy="40" r="56"/>
+<use href="#lfi-cloud" x="328" y="16" width="104" height="48" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="380" y="45" style="fill:var(--defender);">Internet</text>
+</g>
+<g class="bx-el bx-dev" data-step="8">
+<circle class="bx-ring lft-ring" cx="290" cy="112" r="26"/>
+<use href="#lfi-modem" x="273" y="103" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="290" y="133">Fibre ONT</text>
+<text class="lft-chip lft-c" x="290" y="143" style="fill:var(--body);">300/50</text>
+</g>
+<g class="bx-el bx-dev" data-step="8">
+<circle class="bx-ring lft-ring" cx="470" cy="112" r="25"/>
+<use href="#lfi-lte" x="456" y="96" width="28" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="470" y="140">4G backup</text>
+<text class="lft-chip lft-c" x="470" y="150" style="fill:var(--body);">LtAP · passthrough</text>
+</g>
+<g class="bx-el bx-dev" data-step="10">
+<circle class="bx-ring lft-ring" cx="92" cy="104" r="25"/>
+<use href="#lfi-laptop" x="76" y="92" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="92" y="128">IT contractor</text>
+<text class="lft-chip lft-c" x="92" y="138" style="fill:var(--body);">WireGuard hub</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="r1" tabindex="0" role="button" aria-label="Show the configuration of R1 · hAP ax³">
+<circle class="bx-ring lft-ring" cx="380" cy="194" r="32"/>
+<circle class="bx-sel" cx="380" cy="194" r="28"/>
+<use href="#lfi-router" x="357" y="178" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="411" y="193">R1 · hAP ax³</text>
+<text class="lft-chip" x="411" y="203" style="fill:var(--body);">router · Wi-Fi · CAPsMAN</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="170" cy="215" r="24"/>
+<use href="#lfi-tablet" x="158" y="200" width="24" height="30" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="170" y="242">POS tablets ×2 + KDS</text>
+<text class="lft-chip lft-c" x="170" y="252" style="fill:var(--v20);">V20 · Wi-Fi</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="480" cy="300" r="23"/>
+<use href="#lfi-pc" x="466" y="286" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="480" y="326">Office PC</text>
+<text class="lft-chip lft-c" x="480" y="336" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="620" cy="300" r="26"/>
+<use href="#lfi-ap" x="603" y="287" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name" x="645" y="299">Patio wAP ax</text>
+<text class="lft-chip" x="645" y="309" style="fill:var(--body);">outdoor · CAPsMAN</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="650" cy="440" r="25"/>
+<use href="#lfi-laptop" x="634" y="428" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="650" y="464">Guests</text>
+<text class="lft-chip lft-c" x="650" y="474" style="fill:var(--v50);">V50 · hotspot</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="sw" tabindex="0" role="button" aria-label="Show the configuration of SW-COUNTER">
+<circle class="bx-ring lft-ring" cx="270" cy="320" r="34"/>
+<circle class="bx-sel" cx="270" cy="320" r="30"/>
+<use href="#lfi-l2" x="245" y="309" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="303" y="319">SW-COUNTER</text>
+<text class="lft-chip" x="303" y="329" style="fill:var(--body);">CRS112-8P-4S (PoE)</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="110" cy="445" r="23"/>
+<use href="#lfi-pinpad" x="100" y="431" width="20" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="110" y="471">Card terminals ×2</text>
+<text class="lft-chip lft-c" x="110" y="481" style="fill:var(--v25);">V25</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="190" cy="445" r="24"/>
+<use href="#lfi-printer" x="175" y="432" width="30" height="26" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="190" y="470">Receipt printer</text>
+<text class="lft-chip lft-c" x="190" y="480" style="fill:var(--v20);">V20</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="270" cy="445" r="21"/>
+<use href="#lfi-speaker" x="258" y="433" width="24" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="270" y="469">Music streamer</text>
+<text class="lft-chip lft-c" x="270" y="479" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="350" cy="445" r="28"/>
+<use href="#lfi-display" x="331" y="431" width="38" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="350" y="471">Menu screen</text>
+<text class="lft-chip lft-c" x="350" y="481" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="430" cy="445" r="23"/>
+<use href="#lfi-camera" x="416" y="434" width="28" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="430" y="468">Cameras ×3</text>
+<text class="lft-chip lft-c" x="430" y="478" style="fill:var(--v40);">V40 · cloud NVR</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 11 steps built</text>
+<text class="lft-chip" x="20" y="510">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="11" value="11" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The Counter Switch & Wired Devices", "adds": "SW-COUNTER, Card terminals ×2, Receipt printer, Music streamer, Menu screen, Cameras ×3"}, {"n": 2, "title": "The Router: VLANs, DHCP, DNS", "adds": "R1 · hAP ax³, Office PC"}, {"n": 3, "title": "Wi-Fi: Inside and the Patio", "adds": "POS tablets ×2 + KDS, Patio wAP ax, Guests"}, {"n": 4, "title": "Seal the Payment VLAN", "adds": "policy / services"}, {"n": 5, "title": "The Rest of the Firewall", "adds": "policy / services"}, {"n": 6, "title": "The Guest Portal", "adds": "policy / services"}, {"n": 7, "title": "Guest Limits: The Tills Come First", "adds": "policy / services"}, {"n": 8, "title": "Internet: Fibre, 4G, and Who May Use the Backup", "adds": "Internet, Fibre ONT, 4G backup"}, {"n": 9, "title": "Music & Menu: mDNS Across VLANs", "adds": "policy / services"}, {"n": 10, "title": "Remote Management That Survives CGNAT", "adds": "IT contractor"}, {"n": 11, "title": "Hardening & Off-Site Backups", "adds": "policy / services"}], "devices": {"sw": "SW-COUNTER", "r1": "R1 · hAP ax³"}, "configs": {"sw": [{"step": 1, "title": "The Counter Switch & Wired Devices", "label": "SW-COUNTER — CRS112-8P-4S", "text": "/system identity set name=SW-COUNTER\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=sfp1 frame-types=admit-only-vlan-tagged comment=\"R1 via S-RJ01 copper module\"\nadd bridge=bridge interface=ether1 pvid=25 comment=\"card terminal 1\"\nadd bridge=bridge interface=ether2 pvid=25 comment=\"card terminal 2\"\nadd bridge=bridge interface=ether3 pvid=20 comment=\"receipt printer\"\nadd bridge=bridge interface=ether4 pvid=30 comment=\"music streamer\"\nadd bridge=bridge interface=ether5 pvid=30 comment=\"menu screen\"\nadd bridge=bridge interface=ether6 pvid=40 comment=\"camera 1 (PoE)\"\nadd bridge=bridge interface=ether7 pvid=40 comment=\"camera 2 (PoE)\"\nadd bridge=bridge interface=ether8 pvid=40 comment=\"camera 3 (PoE)\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=20,25,30,40 tagged=sfp1\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp1\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.40.99.11/24 interface=v99-mgmt\n/ip route add gateway=10.40.99.1\n/interface ethernet poe set ether1,ether2,ether3,ether4,ether5 poe-out=off   # only the cameras take power\n/interface ethernet disable sfp2,sfp3,sfp4\n/interface bridge set bridge vlan-filtering=yes"}, {"step": 11, "title": "Hardening & Off-Site Backups", "label": "R1 (and the switch) — management plane and nightly backup", "text": "/ip service disable telnet,ftp,www,api,api-ssl\n/ip service set ssh address=10.40.99.0/24,10.250.0.0/24\n/ip service set winbox address=10.40.99.0/24,10.250.0.0/24\n/tool mac-server set allowed-interface-list=MGMT\n/tool mac-server mac-winbox set allowed-interface-list=MGMT\n/ip neighbor discovery-settings set discover-interface-list=MGMT\n/user add name=netadmin group=full password=********\n/user disable admin\n/system ntp client set enabled=yes servers=time.cloudflare.com\n/system scheduler add name=nightly interval=1d start-time=03:30:00 on-event={\n  /export show-sensitive file=nightly\n  :delay 5s\n  /tool fetch upload=yes url=\"sftp://10.250.0.1/backups/cafe-r1.rsc\" src-path=nightly.rsc \\\n      user=backup password=********\n}\n# on SW-COUNTER: only the uplink may answer DHCP\n/interface bridge set bridge dhcp-snooping=yes\n/interface bridge port set [find interface=sfp1] trusted=yes"}], "r1": [{"step": 2, "title": "The Router: VLANs, DHCP, DNS", "label": "R1 — hAP ax³ · bridge, trunks, VLAN interfaces", "text": "/system identity set name=R1\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment=\"SW-COUNTER trunk\"\nadd bridge=bridge interface=ether3 pvid=99 comment=\"patio wAP trunk (mgmt untagged)\"\nadd bridge=bridge interface=ether4 pvid=10 comment=\"office PC\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10 tagged=bridge,ether3\nadd bridge=bridge vlan-ids=20 tagged=bridge,ether2,ether3\nadd bridge=bridge vlan-ids=25,30,40 tagged=bridge,ether2\nadd bridge=bridge vlan-ids=50 tagged=bridge,ether3\nadd bridge=bridge vlan-ids=99 tagged=bridge,ether2\n/interface vlan\nadd name=v10-office interface=bridge vlan-id=10\nadd name=v20-pos interface=bridge vlan-id=20\nadd name=v25-pay interface=bridge vlan-id=25\nadd name=v30-iot interface=bridge vlan-id=30\nadd name=v40-cctv interface=bridge vlan-id=40\nadd name=v50-guest interface=bridge vlan-id=50\nadd name=v99-mgmt interface=bridge vlan-id=99\n/ip address\nadd address=10.40.10.1/24 interface=v10-office\nadd address=10.40.20.1/24 interface=v20-pos\nadd address=10.40.25.1/24 interface=v25-pay\nadd address=10.40.30.1/24 interface=v30-iot\nadd address=10.40.40.1/24 interface=v40-cctv\nadd address=10.40.50.1/24 interface=v50-guest\nadd address=10.40.99.1/24 interface=v99-mgmt"}, {"step": 2, "title": "The Router: VLANs, DHCP, DNS", "label": "R1 — DHCP and DNS (one pool + server + network per VLAN)", "text": "/ip pool\nadd name=p-pos ranges=10.40.20.50-10.40.20.99\nadd name=p-guest ranges=10.40.50.20-10.40.50.250\n# … p-office, p-iot, p-cctv the same way\n/ip dhcp-server\nadd name=d-pos interface=v20-pos address-pool=p-pos lease-time=1d\nadd name=d-pay interface=v25-pay address-pool=static-only lease-time=1d   # reservations only\nadd name=d-guest interface=v50-guest address-pool=p-guest lease-time=30m\n/ip dhcp-server network\nadd address=10.40.20.0/24 gateway=10.40.20.1 dns-server=10.40.20.1\nadd address=10.40.25.0/24 gateway=10.40.25.1 dns-server=10.40.25.1\nadd address=10.40.50.0/24 gateway=10.40.50.1 dns-server=10.40.50.1\n/ip dhcp-server lease\nadd server=d-pay mac-address=00:0B:4F:00:00:11 address=10.40.25.11 comment=\"card terminal 1\"\nadd server=d-pay mac-address=00:0B:4F:00:00:12 address=10.40.25.12 comment=\"card terminal 2\"\n/ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112\n/interface bridge set bridge vlan-filtering=yes"}, {"step": 3, "title": "Wi-Fi: Inside and the Patio", "label": "R1 — local radios + CAPsMAN for the patio wAP", "text": "/interface wifi security\nadd name=sec-pos authentication-types=wpa3-psk passphrase=\"********\"\nadd name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase=\"********\"\n/interface wifi datapath\nadd name=dp-guest bridge=bridge vlan-id=50 client-isolation=yes\nadd name=dp-pos bridge=bridge vlan-id=20\nadd name=dp-staff bridge=bridge vlan-id=10\n/interface wifi configuration\nadd name=cfg-guest ssid=CAFE-Guest datapath=dp-guest country=Greece\nadd name=cfg-pos ssid=CAFE-POS security=sec-pos datapath=dp-pos country=Greece hide-ssid=yes\nadd name=cfg-staff ssid=CAFE-Staff security=sec-staff datapath=dp-staff country=Greece\n# the router's own radios: guest on the master, POS and staff as virtual APs\n/interface wifi set [find default-name=wifi1] configuration=cfg-guest disabled=no\n/interface wifi add name=wifi1-pos master-interface=wifi1 configuration=cfg-pos disabled=no\n/interface wifi add name=wifi1-staff master-interface=wifi1 configuration=cfg-staff disabled=no\n# … the same three on wifi2 (2.4 GHz)\n# the patio wAP is provisioned over its untagged management VLAN\n/interface wifi capsman set enabled=yes interfaces=v99-mgmt\n/interface wifi provisioning add action=create-dynamic-enabled \\\n    master-configuration=cfg-guest slave-configurations=cfg-pos,cfg-staff"}, {"step": 4, "title": "Seal the Payment VLAN", "label": "R1 — payment VLAN rules (first in the forward chain)", "text": "/ip firewall address-list\nadd list=ACQUIRER address=pay.acquirer.example comment=\"from the acquirer's integration guide\"\nadd list=ACQUIRER address=tms.acquirer.example comment=\"terminal management + updates\"\n/ip firewall filter\nadd chain=forward action=accept connection-state=established,related,untracked\nadd chain=forward action=drop connection-state=invalid\nadd chain=forward action=accept in-interface=v25-pay dst-address-list=ACQUIRER protocol=tcp dst-port=443 \\\n    comment=\"terminals -> acquirer only\"\nadd chain=forward action=drop in-interface=v25-pay log=yes log-prefix=PAY-OUT comment=\"terminals -> anything else\"\nadd chain=forward action=drop out-interface=v25-pay log=yes log-prefix=PAY-IN comment=\"nothing starts a connection into payments\""}, {"step": 5, "title": "The Rest of the Firewall", "label": "R1 — interface lists, input chain, the rest of forward", "text": "/interface list\nadd name=WAN\nadd name=LAN\nadd name=MGMT\n/interface list member\nadd list=MGMT interface=v99-mgmt\nadd list=LAN interface=v10-office\n# … v20-pos, v25-pay, v30-iot, v40-cctv, v50-guest, v99-mgmt into LAN as well\n/ip firewall filter\nadd chain=input action=accept connection-state=established,related,untracked\nadd chain=input action=drop connection-state=invalid\nadd chain=input action=accept protocol=icmp\nadd chain=input action=accept in-interface-list=MGMT\nadd chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67\nadd chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53\nadd chain=input action=drop log=yes log-prefix=IN-DROP\n# forward, after the payment rules from step 4\nadd chain=forward action=accept in-interface=v20-pos out-interface-list=WAN\nadd chain=forward action=accept in-interface=v10-office out-interface-list=WAN\nadd chain=forward action=accept in-interface=v30-iot out-interface-list=WAN\nadd chain=forward action=accept in-interface=v40-cctv out-interface-list=WAN\nadd chain=forward action=accept in-interface=v50-guest out-interface-list=WAN\nadd chain=forward action=accept in-interface=v10-office out-interface=v40-cctv protocol=tcp dst-port=443,554 \\\n    comment=\"owner views cameras on site\"\nadd chain=forward action=accept in-interface-list=MGMT\nadd chain=forward action=drop log=yes log-prefix=FWD-DROP"}, {"step": 6, "title": "The Guest Portal", "label": "R1 — hotspot on the guest VLAN, click-through (\"trial\") login", "text": "/ip hotspot user profile\nadd name=guest rate-limit=5M/5M idle-timeout=15m shared-users=1\n/ip hotspot profile\nadd name=hs-cafe hotspot-address=10.40.50.1 dns-name=wifi.cafe.local html-directory=hotspot-cafe \\\n    login-by=trial trial-uptime-limit=2h trial-uptime-reset=1d trial-user-profile=guest\n/ip hotspot add name=hs-guest interface=v50-guest address-pool=p-guest profile=hs-cafe disabled=no\n/ip hotspot walled-garden add dst-host=menu.cafe.example comment=\"our own menu site works before login\""}, {"step": 7, "title": "Guest Limits: The Tills Come First", "label": "R1 — total guest cap with a queue tree (on top of the hotspot's per-device queues)", "text": "/ip firewall mangle\nadd chain=forward action=mark-packet in-interface=v50-guest new-packet-mark=guest-up passthrough=no\nadd chain=forward action=mark-packet out-interface=v50-guest new-packet-mark=guest-down passthrough=no\n/queue tree\nadd name=guest-down parent=global packet-mark=guest-down max-limit=180M queue=pcq-download-default\nadd name=guest-up parent=global packet-mark=guest-up max-limit=30M queue=pcq-upload-default"}, {"step": 8, "title": "Internet: Fibre, 4G, and Who May Use the Backup", "label": "R1 — PPPoE fibre, 4G passthrough, recursive failover, NAT", "text": "/interface pppoe-client add name=pppoe-fibre interface=ether1 user=cafe@isp password=******** \\\n    add-default-route=no use-peer-dns=no disabled=no\n/ip dhcp-client add interface=ether5 default-route-distance=2 use-peer-dns=no comment=\"4G (LtAP passthrough)\"\n/interface list member\nadd list=WAN interface=pppoe-fibre\nadd list=WAN interface=ether5\n/ip route\nadd dst-address=1.1.1.1/32 gateway=pppoe-fibre scope=10 comment=\"probe via fibre\"\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment=\"main: fibre\"\n/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN"}, {"step": 8, "title": "Internet: Fibre, 4G, and Who May Use the Backup", "label": "R1 — the expensive line is for the tills", "text": "/interface list add name=NO4G\n/interface list member\nadd list=NO4G interface=v30-iot\nadd list=NO4G interface=v40-cctv\nadd list=NO4G interface=v50-guest\n/ip firewall filter add chain=forward action=reject reject-with=icmp-network-unreachable \\\n    in-interface-list=NO4G out-interface=ether5 place-before=0 comment=\"guests, cameras, IoT never use 4G\""}, {"step": 9, "title": "Music & Menu: mDNS Across VLANs", "label": "R1 — mDNS repeater (RouterOS 7.16+) and the matching forward rules", "text": "/ip dns set mdns-repeat-ifaces=v20-pos,v30-iot,v10-office\n/ip firewall address-list\nadd list=MUSIC address=10.40.30.20\nadd list=MENU address=10.40.30.21\n/ip firewall filter\nadd chain=forward action=accept in-interface=v20-pos dst-address-list=MUSIC \\\n    place-before=[find log-prefix=FWD-DROP] comment=\"tablets control the music\"\nadd chain=forward action=accept in-interface=v10-office dst-address-list=MUSIC \\\n    place-before=[find log-prefix=FWD-DROP] comment=\"owner's laptop controls the music\"\nadd chain=forward action=accept in-interface=v20-pos dst-address-list=MENU protocol=tcp dst-port=443 \\\n    place-before=[find log-prefix=FWD-DROP] comment=\"tablets update the menu screen\"\nadd chain=forward action=accept src-address-list=MUSIC out-interface=v20-pos protocol=tcp dst-port=3400-3401 \\\n    place-before=[find log-prefix=FWD-DROP] comment=\"speaker -> app events (vendor-specific)\""}, {"step": 10, "title": "Remote Management That Survives CGNAT", "label": "R1 — WireGuard client to the contractor's hub", "text": "/interface wireguard add name=wg-it listen-port=13231\n/interface wireguard peers add interface=wg-it comment=\"IT hub\" public-key=\"<hub public key>\" \\\n    endpoint-address=hub.example.net endpoint-port=51820 allowed-address=10.250.0.0/24 persistent-keepalive=25s\n/ip address add address=10.250.0.14/24 interface=wg-it\n/interface list member add list=MGMT interface=wg-it"}, {"step": 11, "title": "Hardening & Off-Site Backups", "label": "R1 (and the switch) — management plane and nightly backup", "text": "/ip service disable telnet,ftp,www,api,api-ssl\n/ip service set ssh address=10.40.99.0/24,10.250.0.0/24\n/ip service set winbox address=10.40.99.0/24,10.250.0.0/24\n/tool mac-server set allowed-interface-list=MGMT\n/tool mac-server mac-winbox set allowed-interface-list=MGMT\n/ip neighbor discovery-settings set discover-interface-list=MGMT\n/user add name=netadmin group=full password=********\n/user disable admin\n/system ntp client set enabled=yes servers=time.cloudflare.com\n/system scheduler add name=nightly interval=1d start-time=03:30:00 on-event={\n  /export show-sensitive file=nightly\n  :delay 5s\n  /tool fetch upload=yes url=\"sftp://10.250.0.1/backups/cafe-r1.rsc\" src-path=nightly.rsc \\\n      user=backup password=********\n}\n# on SW-COUNTER: only the uplink may answer DHCP\n/interface bridge set bridge dhcp-snooping=yes\n/interface bridge port set [find interface=sfp1] trusted=yes"}]}}</script>
+</div>
+  </div>
+
+  <div class="thesis-card">
+    <p>This is part 3 of the <a href="build-index.html">Build series</a>, and the smallest network in it. That makes it the most common one: almost every café, bakery and small restaurant has these same devices on one flat network, usually the ISP's router with the guest Wi-Fi password on the counter and the card terminal plugged in next to the music box.</p>
+    <p>The design challenge is proportion. The business can't justify enterprise gear or an IT person, but it handles card payments, hosts strangers on its Wi-Fi and loses money every minute the till is offline. One router and one switch, configured carefully, cover all of it.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-vlans.html">VLANs on RouterOS</a> and <a href="mikrotik-firewall.html">the RouterOS firewall</a></li>
+      <li><a href="mikrotik-hotspot.html">Hotspot</a> for step 6, <a href="mikrotik-wireguard.html">WireGuard</a> for step 10, <a href="starlink-mikrotik-failover.html">failover</a> for step 8</li>
+      <li>RouterOS 7.16 or later (the mDNS repeater in step 9 needs it)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but typical specialty coffee shop: busy mornings, laptop workers all afternoon, an owner who's never on site at closing.</em></p>
+
+  <p>The café seats 40 inside and 16 on the patio. Orders go through <strong>two tablets running a cloud POS</strong>, a <strong>kitchen display</strong> tablet at the espresso bar, and a networked <strong>receipt printer</strong>. Payments go through <strong>two standalone card terminals</strong>, paired with the acquirer over the internet. There's a <strong>music streamer</strong> controlled from the tablets, a <strong>menu screen</strong>, an espresso machine that reports telemetry to its maker, <strong>three cameras</strong> recording to a cloud NVR, and an office PC for the owner's accounts. Guests want Wi-Fi, and the laptop crowd wants it all afternoon.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Payments</td><td>Card terminals handle cardholder data. Isolating them so nothing else can reach them, and they reach only their acquirer, keeps the rest of the network out of PCI DSS scope (subject to the segmentation being tested).</td></tr>
+      <tr><td>R2 Guest Wi-Fi</td><td>Guests accept terms of use before going online, and sessions expire. One guest can't use more than their share.</td></tr>
+      <tr><td>R3 Tills first</td><td>A patio full of video calls must never slow down an order or a payment. Guests get at most 60% of the line.</td></tr>
+      <tr><td>R4 Outages</td><td>The fibre goes down a few times a year. Tills and card terminals continue on 4G; guests, camera uploads and IoT don't, because they would eat the data plan in an hour.</td></tr>
+      <tr><td>R5 Music &amp; menu</td><td>Staff control the music and the menu screen from the POS tablets, even though those devices are on different VLANs.</td></tr>
+      <tr><td>R6 Staff turnover</td><td>Baristas change every season. The POS Wi-Fi password never goes on a personal phone, and the guest network can't reach anything that matters anyway.</td></tr>
+      <tr><td>R7 Remote care</td><td>Managed remotely by an IT contractor, including during a 4G outage behind carrier NAT. No inbound ports open on the router.</td></tr>
+      <tr><td>R8 Budget</td><td>Network hardware under €1,000. Cabling is quoted separately.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>Small doesn't mean simple. Each of these takes something away to make the result easier to run.</em></p>
+
+  <h3 class="sub">1 · The router is also the main access point</h3>
+  <p>A hAP ax³ routes, firewalls, runs the hotspot and CAPsMAN, and its own Wi-Fi 6 radio covers the inside. A single outdoor wAP ax covers the patio. There's no controller box and no second indoor AP, so the whole network is two configs plus a switch. The trade-off is that the router sits in the back office where the radio isn't ideal; a 40-seat room is small enough that this is fine. A bigger venue would move the radio out to ceiling APs.</p>
+
+  <h3 class="sub">2 · Standalone card terminals, in their own VLAN</h3>
+  <p>Card terminals that integrate with the till over the LAN (the "ECR" protocol) need a rule from the POS tablets into the payment network. That rule pulls the tablets into PCI scope. Terminals paired with the acquirer through the cloud need <strong>nothing</strong> from the LAN, so their VLAN can be completely sealed: out to the acquirer, nothing in. The cashier types the amount twice (or the POS pushes it via the cloud), and the network stays simple.</p>
+
+  <h3 class="sub">3 · A selective backup, not a slow one</h3>
+  <p>The usual dual-WAN design throttles everything on the backup. This one refuses whole zones on it: guests, cameras and IoT are rejected on the 4G interface, so the tills keep the full 4G bandwidth and a 20 GB plan lasts days, not hours. Guests see "no internet" during an outage. That's honest, and it keeps the business running.</p>
+
+  <h3 class="sub">4 · Management dials out</h3>
+  <p>A remote-management VPN that listens on the router fails exactly when it's needed: on 4G, the router sits behind carrier-grade NAT and can't receive connections. So R1 is a WireGuard <em>client</em> of the contractor's hub, with a keepalive. It works on fibre, on 4G and behind any NAT, and there's no open port on the router's WAN.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>Seven small VLANs on one router. Each exists because a different set of rules applies to it.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>VLAN · subnet</th><th>Who lives here · notes</th></tr></thead>
+    <tbody>
+      <tr><td>10 OFFICE · 10.40.10.0/24</td><td>Owner's PC .10 (wired), owner's laptop on CAFE-Staff.</td></tr>
+      <tr><td>20 POS · 10.40.20.0/24</td><td>POS tablets .21–.22, kitchen display .23, receipt printer .30. Hidden SSID CAFE-POS.</td></tr>
+      <tr><td>25 PAYMENT · 10.40.25.0/24</td><td>Card terminals .11–.12. Wired only. Out to the acquirer, nothing in.</td></tr>
+      <tr><td>30 IOT · 10.40.30.0/24</td><td>Music streamer .20, menu screen .21, espresso machine .22.</td></tr>
+      <tr><td>40 CCTV · 10.40.40.0/24</td><td>Three cameras .21–.23, uploading to a cloud NVR.</td></tr>
+      <tr><td>50 GUEST · 10.40.50.0/24</td><td>Hotspot. Open SSID CAFE-Guest, portal with terms, 2-hour sessions.</td></tr>
+      <tr><td>99 MGMT · 10.40.99.0/24</td><td>R1 .1, switch .11, patio wAP .21. Plus WireGuard 10.250.0.14 towards the IT hub.</td></tr>
+      <tr><td>WAN · fibre + 4G</td><td>ether1: fibre ONT (PPPoE, as most Greek FTTH lines are). ether5: 4G in passthrough mode (DHCP, carrier NAT).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 300" role="img" aria-label="Floor plan of the coffee shop colour-coded by VLAN: counter with the tills and card terminals, seating and window bar with guest Wi-Fi, the patio, the back office with the network gear, and the prep area">
+    <text class="lf-name" x="15" y="20">INSIDE</text><rect x="15" y="28" width="520" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <text class="lf-name" x="545" y="20">PATIO</text><rect x="545" y="28" width="200" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <rect x="25" y="38" width="230" height="80" rx="3" style="fill:var(--v20);fill-opacity:.13;stroke:var(--v20);stroke-width:1.4;"/><text class="lf-sm lf-c" x="140" y="76">Counter</text><text class="lf-mono lf-c" x="140" y="90">POS tablets · printer · card V25</text>
+    <rect x="265" y="38" width="260" height="80" rx="3" style="fill:var(--v50);fill-opacity:.13;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-sm lf-c" x="395" y="76">Window bar · 12 seats</text><text class="lf-mono lf-c" x="395" y="90">guest Wi-Fi · V50</text>
+    <rect x="25" y="128" width="340" height="80" rx="3" style="fill:var(--v50);fill-opacity:.13;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-sm lf-c" x="195" y="166">Tables · 28 seats</text><text class="lf-mono lf-c" x="195" y="180">guest Wi-Fi · menu screen V30</text>
+    <rect x="375" y="128" width="150" height="80" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="450" y="166">Prep &amp; espresso</text><text class="lf-mono lf-c" x="450" y="180">KDS V20 · machine V30</text>
+    <rect x="25" y="218" width="230" height="52" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="140" y="242">Back office</text><text class="lf-mono lf-c" x="140" y="256">R1 · switch · LtAP · office PC</text>
+    <rect x="265" y="218" width="260" height="52" rx="3" style="fill:var(--v40);fill-opacity:.13;stroke:var(--v40);stroke-width:1.4;"/><text class="lf-sm lf-c" x="395" y="242">Entrance</text><text class="lf-mono lf-c" x="395" y="256">3 cameras · V40</text>
+    <rect x="555" y="38" width="180" height="232" rx="3" style="fill:var(--v50);fill-opacity:.13;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-sm lf-c" x="645" y="152">Patio · 16 seats</text><text class="lf-mono lf-c" x="645" y="166">outdoor wAP · V50</text>
+    <circle cx="255" cy="40" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="255" y="43" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="640" cy="150" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="640" y="153" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <text class="lf-cap lf-c" x="380" y="296">One AP inside (the router's own radio) and one outdoor wAP for the patio. Everything with a cable runs to the counter switch or the router.</text>
+    </svg>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start, columns receive. Default deny. In a network this small every cell is one or two firewall lines.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 320" role="img" aria-label="Policy matrix for the coffee shop: which zones may start connections to the tills, the payment terminals, the music and menu screen, the cameras, the router, and the internet">
+    <text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM ↓  ·  TO →</text>
+    <text class="lf-sm lf-c" x="222.5" y="38">POS · KDS</text>
+    <text class="lf-sm lf-c" x="317.5" y="38">Payment</text>
+    <text class="lf-sm lf-c" x="412.5" y="38">Music · menu</text>
+    <text class="lf-sm lf-c" x="507.5" y="38">Cameras</text>
+    <text class="lf-sm lf-c" x="602.5" y="38">Router</text>
+    <text class="lf-sm lf-c" x="697.5" y="38">Internet</text>
+    <rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="70">Office · V10</text>
+    <rect x="177" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="54" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="71" style="fill:var(--gotcha);font-weight:700;">◐ app</text>
+    <rect x="462" y="54" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="507.5" y="71" style="fill:var(--gotcha);font-weight:700;">◐ view</text>
+    <rect x="557" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="71" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="100">POS · V20</text>
+    <rect x="177" y="84" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="222.5" y="101" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="272" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="84" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="101" style="fill:var(--gotcha);font-weight:700;">◐ app (mDNS)</text>
+    <rect x="462" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="84" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="101" style="fill:var(--defender);font-weight:700;">✓ + 4G</text>
+    <rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v25);"/><text class="lf-sm" x="38" y="130">Payment · V25</text>
+    <rect x="177" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="114" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="317.5" y="131" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="367" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="114" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="131" style="fill:var(--gotcha);font-weight:700;">◐ acquirer + 4G</text>
+    <rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="160">IoT · V30</text>
+    <rect x="177" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="222.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ events</text>
+    <rect x="272" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="144" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="412.5" y="161" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="462" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ no 4G</text>
+    <rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--v40);"/><text class="lf-sm" x="38" y="190">Cameras · V40</text>
+    <rect x="177" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="174" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="507.5" y="191" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="557" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="174" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="191" style="fill:var(--gotcha);font-weight:700;">◐ cloud · no 4G</text>
+    <rect x="20" y="211" width="10" height="10" rx="2" style="fill:var(--v50);"/><text class="lf-sm" x="38" y="220">Guest · V50</text>
+    <rect x="177" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="204" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="602.5" y="221" style="fill:var(--gotcha);font-weight:700;">◐ portal</text>
+    <rect x="652" y="204" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="221" style="fill:var(--gotcha);font-weight:700;">◐ 5M · no 4G</text>
+    <rect x="20" y="241" width="10" height="10" rx="2" style="fill:var(--accent);"/><text class="lf-sm" x="38" y="250">IT · WireGuard</text>
+    <rect x="177" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="222.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="272" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="412.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="462" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="507.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="557" y="234" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="602.5" y="251" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="652" y="234" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="697.5" y="251" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="20" y="280" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="290">allowed</text>
+    <rect x="140" y="280" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="290">limited to the host/port shown</text>
+    <rect x="360" y="280" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="290">denied (default)</text>
+    <rect x="520" y="280" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="290">same zone / n.a.</text>
+    <text class="lf-cap" x="20" y="306">All enforced in R1's forward chain (plus the hotspot for guests). “No 4G” means the rule rejects that zone on the backup interface.</text>
+    </svg>
+  </div>
+
+  <p>Notice the Payment row and column: the card terminals reach exactly one destination and nothing reaches them. That empty column is the PCI argument. The <strong>"no 4G"</strong> cells are new compared with the other Build posts: they don't stop a zone from using the internet, only from using the expensive backup line.</p>
+
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+  <table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Payments</td><td><a href="#step-2">step 2</a> · <a href="#step-4">step 4</a></td><td>static-only DHCP on V25; ACQUIRER host-name list; V25 out-only and in-drop rules</td><td>"Payment seal" drill, <a href="#sec-16">section 16</a></td></tr>
+      <tr><td>R2 Guest Wi-Fi</td><td><a href="#step-3">step 3</a> · <a href="#step-6">step 6</a></td><td>open SSID with client isolation; hotspot trial login, 2 h sessions</td><td>"Guest portal" drill</td></tr>
+      <tr><td>R3 Tills first</td><td><a href="#step-7">step 7</a></td><td>5 Mb/s per device from the hotspot; 180/30 total cap in a queue tree</td><td>"Busy patio" drill</td></tr>
+      <tr><td>R4 Outages</td><td><a href="#step-8">step 8</a></td><td>recursive failover to 4G; NO4G list rejected on ether5</td><td>"Fibre cut" drill</td></tr>
+      <tr><td>R5 Music &amp; menu</td><td><a href="#step-9">step 9</a></td><td>mDNS repeat v20↔v30; speaker callback port only</td><td>"Music" drill</td></tr>
+      <tr><td>R6 Staff turnover</td><td><a href="#step-3">step 3</a></td><td>WPA3-only hidden CAFE-POS, key set by the manager</td><td>"Ex-employee" drill</td></tr>
+      <tr><td>R7 Remote care</td><td><a href="#step-10">step 10</a></td><td>WireGuard dial-out with keepalive; no WAN ports open</td><td>"Remote care" drill</td></tr>
+      <tr><td>R8 Budget</td><td><a href="#sec-19">section 19</a></td><td>hAP ax³ + CRS112 + wAP ax + LtAP</td><td>Bill of materials total</td></tr>
+    </tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">Bottom to Top, One Layer at a Time</h2>
+  <p class="section-thesis"><em>Counter devices first, internet last. Each step ends with a checkpoint.</em></p>
+  <p>Eleven steps: the counter switch, the router, Wi-Fi, payment isolation, the rest of the firewall, the guest portal, guest limits, internet with 4G backup, mDNS, remote management and hardening. Use Safe Mode (<kbd>Ctrl</kbd>+<kbd>X</kbd>) for every bridge change on a remote device.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 11</p>
+  <h2 class="section-title">The Counter Switch &amp; Wired Devices</h2>
+  <p class="section-thesis"><em>Everything with a cable plugs into one 8-port PoE switch under the counter. Each port goes straight into its VLAN.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">SW-COUNTER — CRS112-8P-4S</span><span class="cfg-meta">21 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=SW-COUNTER
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=sfp1 frame-types=admit-only-vlan-tagged comment="R1 via S-RJ01 copper module"
+add bridge=bridge interface=ether1 pvid=25 comment="card terminal 1"
+add bridge=bridge interface=ether2 pvid=25 comment="card terminal 2"
+add bridge=bridge interface=ether3 pvid=20 comment="receipt printer"
+add bridge=bridge interface=ether4 pvid=30 comment="music streamer"
+add bridge=bridge interface=ether5 pvid=30 comment="menu screen"
+add bridge=bridge interface=ether6 pvid=40 comment="camera 1 (PoE)"
+add bridge=bridge interface=ether7 pvid=40 comment="camera 2 (PoE)"
+add bridge=bridge interface=ether8 pvid=40 comment="camera 3 (PoE)"
+/interface bridge vlan
+add bridge=bridge vlan-ids=20,25,30,40 tagged=sfp1
+add bridge=bridge vlan-ids=99 tagged=bridge,sfp1
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.40.99.11/24 interface=v99-mgmt
+/ip route add gateway=10.40.99.1
+/interface ethernet poe set ether1,ether2,ether3,ether4,ether5 poe-out=off   <span class="cmt"># only the cameras take power</span>
+/interface ethernet disable sfp2,sfp3,sfp4
+/interface bridge set bridge vlan-filtering=yes</pre></details>
+
+  <p>The eight copper ports are all in use, so the uplink to the router uses an SFP port with a 1G copper module (S-RJ01). PoE output is switched off on every port that doesn't power a camera. Passive PoE into a card terminal's Ethernet port is a classic way to kill one.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/interface bridge vlan print</code>: 25 on ether1–2, 20 on ether3, 30 on ether4–5, 40 on ether6–8, all tagged on sfp1.</li><li>The three cameras power up; <code>/interface ethernet poe print</code> shows power only on ether6–8.</li></ul>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 11</p>
+  <h2 class="section-title">The Router: VLANs, DHCP, DNS</h2>
+  <p class="section-thesis"><em>The hAP ax³ becomes the gateway for seven small networks. No internet yet.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — hAP ax³ · bridge, trunks, VLAN interfaces</span><span class="cfg-meta">28 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=R1
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment="SW-COUNTER trunk"
+add bridge=bridge interface=ether3 pvid=99 comment="patio wAP trunk (mgmt untagged)"
+add bridge=bridge interface=ether4 pvid=10 comment="office PC"
+/interface bridge vlan
+add bridge=bridge vlan-ids=10 tagged=bridge,ether3
+add bridge=bridge vlan-ids=20 tagged=bridge,ether2,ether3
+add bridge=bridge vlan-ids=25,30,40 tagged=bridge,ether2
+add bridge=bridge vlan-ids=50 tagged=bridge,ether3
+add bridge=bridge vlan-ids=99 tagged=bridge,ether2
+/interface vlan
+add name=v10-office interface=bridge vlan-id=10
+add name=v20-pos interface=bridge vlan-id=20
+add name=v25-pay interface=bridge vlan-id=25
+add name=v30-iot interface=bridge vlan-id=30
+add name=v40-cctv interface=bridge vlan-id=40
+add name=v50-guest interface=bridge vlan-id=50
+add name=v99-mgmt interface=bridge vlan-id=99
+/ip address
+add address=10.40.10.1/24 interface=v10-office
+add address=10.40.20.1/24 interface=v20-pos
+add address=10.40.25.1/24 interface=v25-pay
+add address=10.40.30.1/24 interface=v30-iot
+add address=10.40.40.1/24 interface=v40-cctv
+add address=10.40.50.1/24 interface=v50-guest
+add address=10.40.99.1/24 interface=v99-mgmt</pre></details>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — DHCP and DNS (one pool + server + network per VLAN)</span><span class="cfg-meta">17 lines · this step's additions · click to expand</span></summary><pre class="term">/ip pool
+add name=p-pos ranges=10.40.20.50-10.40.20.99
+add name=p-guest ranges=10.40.50.20-10.40.50.250
+<span class="cmt"># … p-office, p-iot, p-cctv the same way</span>
+/ip dhcp-server
+add name=d-pos interface=v20-pos address-pool=p-pos lease-time=1d
+add name=d-pay interface=v25-pay address-pool=static-only lease-time=1d   <span class="cmt"># reservations only</span>
+add name=d-guest interface=v50-guest address-pool=p-guest lease-time=30m
+/ip dhcp-server network
+add address=10.40.20.0/24 gateway=10.40.20.1 dns-server=10.40.20.1
+add address=10.40.25.0/24 gateway=10.40.25.1 dns-server=10.40.25.1
+add address=10.40.50.0/24 gateway=10.40.50.1 dns-server=10.40.50.1
+/ip dhcp-server lease
+add server=d-pay mac-address=00:0B:4F:00:00:11 address=10.40.25.11 comment="card terminal 1"
+add server=d-pay mac-address=00:0B:4F:00:00:12 address=10.40.25.12 comment="card terminal 2"
+/ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112
+/interface bridge set bridge vlan-filtering=yes</pre></details>
+
+  <p>The payment VLAN has no pool at all (<code>static-only</code>): only the two known terminals get an address, so an unknown device on a payment port gets nothing. The guest lease is 30 minutes: phones come and go all day, and a long lease would exhaust the pool by lunchtime. Every device that the firewall treats individually (card terminals, music, menu screen, printer) gets a reservation, so its address never changes under a rule.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>The card terminals get 10.40.25.11 and .12; the printer, music streamer and cameras get addresses in their VLANs.</li><li>The office PC gets 10.40.10.x and can ping 10.40.30.20 (no firewall yet; step 5 closes it).</li><li>From R1, <code>ping 10.40.99.11</code> reaches the switch.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 11</p>
+  <h2 class="section-title">Wi-Fi: Inside and the Patio</h2>
+  <p class="section-thesis"><em>Three SSIDs on two radios. One is open for guests, one is hidden for the tills, one is for the owner.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — local radios + CAPsMAN for the patio wAP</span><span class="cfg-meta">20 lines · this step's additions · click to expand</span></summary><pre class="term">/interface wifi security
+add name=sec-pos authentication-types=wpa3-psk passphrase="********"
+add name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase="********"
+/interface wifi datapath
+add name=dp-guest bridge=bridge vlan-id=50 client-isolation=yes
+add name=dp-pos bridge=bridge vlan-id=20
+add name=dp-staff bridge=bridge vlan-id=10
+/interface wifi configuration
+add name=cfg-guest ssid=CAFE-Guest datapath=dp-guest country=Greece
+add name=cfg-pos ssid=CAFE-POS security=sec-pos datapath=dp-pos country=Greece hide-ssid=yes
+add name=cfg-staff ssid=CAFE-Staff security=sec-staff datapath=dp-staff country=Greece
+<span class="cmt"># the router's own radios: guest on the master, POS and staff as virtual APs</span>
+/interface wifi set [find default-name=wifi1] configuration=cfg-guest disabled=no
+/interface wifi add name=wifi1-pos master-interface=wifi1 configuration=cfg-pos disabled=no
+/interface wifi add name=wifi1-staff master-interface=wifi1 configuration=cfg-staff disabled=no
+<span class="cmt"># … the same three on wifi2 (2.4 GHz)</span>
+<span class="cmt"># the patio wAP is provisioned over its untagged management VLAN</span>
+/interface wifi capsman set enabled=yes interfaces=v99-mgmt
+/interface wifi provisioning add action=create-dynamic-enabled \
+    master-configuration=cfg-guest slave-configurations=cfg-pos,cfg-staff</pre></details>
+
+  <p>CAFE-POS uses WPA3 only: the iPads support it, and a staff member who learns the password can't easily join it from an old phone. Hiding the SSID isn't security; it only stops it from appearing in guests' lists. The real control is that the password is set on the tablets by the manager and never told to staff. Rotate it whenever someone with a manager role leaves. The guest SSID is open. The portal in step 6 adds terms of use, not encryption. Modern guest traffic is HTTPS anyway, and client isolation stops guests from reaching each other.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/interface wifi registration-table print</code>: the POS tablets on wifi1-pos, a test phone on wifi1 (guest).</li><li>On the patio, the phone roams to the wAP (it shows up under the cap interface in the registration table).</li><li>Two guest phones can't ping each other.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 11</p>
+  <h2 class="section-title">Seal the Payment VLAN</h2>
+  <p class="section-thesis"><em>The most important ten lines in the network: the terminals reach their acquirer, and nothing reaches them.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 390" role="img" aria-label="Animated payment isolation: the card terminal reaches only its acquirer; guest, POS and terminal-to-office traffic are dropped by R1">
+      <style>@keyframes cs1p0{0%,1%{transform:translate(132px,70px);opacity:0;}4%{opacity:1;}18%{transform:translate(612px,70px);opacity:1;}22%,100%{transform:translate(612px,70px);opacity:0;}}@keyframes cs1m0{0%,16%{opacity:0;}18%,96%{opacity:1;}98%,100%{opacity:0;}}.cs1-p0{animation:cs1p0 16s ease-in-out infinite;} .cs1-m0{animation:cs1m0 16s linear infinite;}@keyframes cs1p1{0%,26%{transform:translate(132px,150px);opacity:0;}29%{opacity:1;}43%{transform:translate(276px,150px);opacity:1;}47%,100%{transform:translate(276px,150px);opacity:0;}}@keyframes cs1m1{0%,41%{opacity:0;}43%,96%{opacity:1;}98%,100%{opacity:0;}}.cs1-p1{animation:cs1p1 16s ease-in-out infinite;} .cs1-m1{animation:cs1m1 16s linear infinite;}@keyframes cs1p2{0%,51%{transform:translate(132px,230px);opacity:0;}54%{opacity:1;}68%{transform:translate(276px,230px);opacity:1;}72%,100%{transform:translate(276px,230px);opacity:0;}}@keyframes cs1m2{0%,66%{opacity:0;}68%,96%{opacity:1;}98%,100%{opacity:0;}}.cs1-p2{animation:cs1p2 16s ease-in-out infinite;} .cs1-m2{animation:cs1m2 16s linear infinite;}@keyframes cs1p3{0%,76%{transform:translate(132px,310px);opacity:0;}79%{opacity:1;}93%{transform:translate(276px,310px);opacity:1;}97%,100%{transform:translate(276px,310px);opacity:0;}}@keyframes cs1m3{0%,91%{opacity:0;}93%,96%{opacity:1;}98%,100%{opacity:0;}}.cs1-p3{animation:cs1p3 16s ease-in-out infinite;} .cs1-m3{animation:cs1m3 16s linear infinite;}@media (prefers-reduced-motion:reduce){.cs1-p0,.cs1-p1,.cs1-p2,.cs1-p3{animation:none;opacity:0;}.cs1-m0,.cs1-m1,.cs1-m2,.cs1-m3{animation:none;opacity:1;}}</style>
+      <rect class="lf-boxa" x="280" y="24" width="150" height="320" rx="7"/><text class="lf-name lf-c" x="355" y="42">R1 · forward</text>
+      <text class="lf-cap lf-c" x="355" y="334">payment VLAN</text>
+      <rect class="lf-box" x="20" y="50" width="112" height="40" rx="5"/><rect x="20" y="50" width="5" height="40" style="fill:var(--v25);"/><text class="lf-sm lf-c" x="78" y="67">Card terminal 1</text><text class="lf-mono lf-c" x="78" y="81">10.40.25.11</text>
+      <rect class="lf-boxd" x="620" y="50" width="122" height="40" rx="5"/><text class="lf-sm lf-c" x="681" y="67">Acquirer</text><text class="lf-mono lf-c" x="681" y="81">pay.acquirer.example</text>
+      <text class="lf-mono lf-c" x="355" y="62" style="fill:var(--defender);">v25 → acquirer ✓</text>
+      <line class="lf-link" x1="132" y1="70" x2="620" y2="70"/>
+      <text class="lf-mono" x="140" y="62">→ tcp/443</text>
+      <g class="cs1-m0"><text class="lf-cap" x="440" y="62" style="fill:var(--defender);font-weight:700;">✓ acquirer FQDN only</text></g>
+      <rect class="lf-box" x="20" y="130" width="112" height="40" rx="5"/><rect x="20" y="130" width="5" height="40" style="fill:var(--v50);"/><text class="lf-sm lf-c" x="78" y="147">Guest phone</text><text class="lf-mono lf-c" x="78" y="161">10.40.50.37</text>
+      <rect class="lf-box" x="620" y="130" width="122" height="40" rx="5"/><rect x="620" y="130" width="5" height="40" style="fill:var(--v25);"/><text class="lf-sm lf-c" x="683" y="147">Card terminal 1</text><text class="lf-mono lf-c" x="683" y="161">10.40.25.11</text>
+      <text class="lf-mono lf-c" x="355" y="142" style="fill:var(--accent);">v50 → v25</text>
+      <line class="lf-dash" x1="132" y1="150" x2="620" y2="150"/>
+      <text class="lf-mono" x="140" y="142">→ scan / any</text>
+      <g class="cs1-m1"><text x="262" y="157" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="142" style="fill:var(--accent);font-weight:700;">✕ no rule into V25</text></g>
+      <rect class="lf-box" x="20" y="210" width="112" height="40" rx="5"/><rect x="20" y="210" width="5" height="40" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="78" y="227">POS tablet</text><text class="lf-mono lf-c" x="78" y="241">10.40.20.21</text>
+      <rect class="lf-box" x="620" y="210" width="122" height="40" rx="5"/><rect x="620" y="210" width="5" height="40" style="fill:var(--v25);"/><text class="lf-sm lf-c" x="683" y="227">Card terminal 1</text><text class="lf-mono lf-c" x="683" y="241">10.40.25.11</text>
+      <text class="lf-mono lf-c" x="355" y="222" style="fill:var(--accent);">v20 → v25</text>
+      <line class="lf-dash" x1="132" y1="230" x2="620" y2="230"/>
+      <text class="lf-mono" x="140" y="222">→ any</text>
+      <g class="cs1-m2"><text x="262" y="237" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="222" style="fill:var(--accent);font-weight:700;">✕ standalone: nothing to allow</text></g>
+      <rect class="lf-box" x="20" y="290" width="112" height="40" rx="5"/><rect x="20" y="290" width="5" height="40" style="fill:var(--v25);"/><text class="lf-sm lf-c" x="78" y="307">Card terminal 1</text><text class="lf-mono lf-c" x="78" y="321">10.40.25.11</text>
+      <rect class="lf-box" x="620" y="290" width="122" height="40" rx="5"/><rect x="620" y="290" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="307">Office PC</text><text class="lf-mono lf-c" x="683" y="321">10.40.10.10</text>
+      <text class="lf-mono lf-c" x="355" y="302" style="fill:var(--accent);">v25 → v10</text>
+      <line class="lf-dash" x1="132" y1="310" x2="620" y2="310"/>
+      <text class="lf-mono" x="140" y="302">→ any</text>
+      <g class="cs1-m3"><text x="262" y="317" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="302" style="fill:var(--accent);font-weight:700;">✕ V25 → LAN dropped</text></g>
+      <text class="lf-cap lf-c" x="380" y="378">The card terminals can reach their acquirer and nothing else, and nothing can reach them. That's what keeps the rest of the network out of PCI scope.</text>
+      <circle class="lf-pkt cs1-p0" r="6"/>
+      <circle class="lf-pkt cs1-p1" r="6"/>
+      <circle class="lf-pkt cs1-p2" r="6"/>
+      <circle class="lf-pkt cs1-p3" r="6"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — payment VLAN rules (first in the forward chain)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — C1121X: IOS ACLs can&#x27;t match host names, so the acquirer&#x27;s
+! published address ranges go into an object-group
+object-group network ACQUIRER
+ 198.51.100.0 255.255.255.0
+ip access-list extended V25-IN
+ permit udp 10.40.25.0 0.0.0.255 host 10.40.25.1 eq domain
+ permit tcp 10.40.25.0 0.0.0.255 object-group ACQUIRER eq 443
+ deny   ip any any log
+ip access-list extended V25-OUT
+ permit tcp any 10.40.25.0 0.0.0.255 established
+ deny   ip any any log                          ! nothing starts a connection into payments
+interface Vlan25
+ ip access-group V25-IN in
+ ip access-group V25-OUT out</pre><pre class="term vt-pane" data-v="mikrotik">/ip firewall address-list
+add list=ACQUIRER address=pay.acquirer.example comment="from the acquirer's integration guide"
+add list=ACQUIRER address=tms.acquirer.example comment="terminal management + updates"
+/ip firewall filter
+add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+add chain=forward action=accept in-interface=v25-pay dst-address-list=ACQUIRER protocol=tcp dst-port=443 \
+    comment="terminals -&gt; acquirer only"
+add chain=forward action=drop in-interface=v25-pay log=yes log-prefix=PAY-OUT comment="terminals -&gt; anything else"
+add chain=forward action=drop out-interface=v25-pay log=yes log-prefix=PAY-IN comment="nothing starts a connection into payments"</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Host names in address lists</span>
+    <p>RouterOS resolves a host name in an address list and keeps the dynamic IP entries up to date, re-resolving as the DNS TTL expires. That's exactly right for acquirers that publish host names rather than IP ranges. But it means the firewall depends on R1's own DNS: if a terminal works at opening and fails at noon, look at <code>/ip firewall address-list print where list=ACQUIRER</code>. A CDN-fronted acquirer may have rotated to an address R1 hasn't resolved yet. Ask the acquirer for their published IP ranges if they have them.</p>
+  </div>
+
+  <div class="callout didnt-work">
+    <span class="callout-label">What this does and doesn't do for PCI DSS</span>
+    <p>Segmentation can take systems out of PCI DSS scope, but only if it actually works, and that has to be tested (the drills in section 16 are a start, and the acquirer's questionnaire will ask). If your terminals integrate with the POS over the LAN, add exactly that one port from the tablets' reserved addresses and accept that the tablets are now in scope. None of this replaces the terminal vendor's own security; it limits what a compromised guest phone or espresso machine could ever reach.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>After step 8 brings the internet: a test transaction on each terminal succeeds.</li><li>Now: from the office PC and from a guest phone, <code>ping 10.40.25.11</code> fails, and <code>/log print where message~"PAY-IN"</code> shows it.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 11</p>
+  <h2 class="section-title">The Rest of the Firewall</h2>
+  <p class="section-thesis"><em>Protect the router, then the matrix, then a logged drop.</em></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 — interface lists, input chain, the rest of forward</span><span class="cfg-meta">26 lines · this step's additions · click to expand</span></summary><pre class="term">/interface list
+add name=WAN
+add name=LAN
+add name=MGMT
+/interface list member
+add list=MGMT interface=v99-mgmt
+add list=LAN interface=v10-office
+<span class="cmt"># … v20-pos, v25-pay, v30-iot, v40-cctv, v50-guest, v99-mgmt into LAN as well</span>
+/ip firewall filter
+add chain=input action=accept connection-state=established,related,untracked
+add chain=input action=drop connection-state=invalid
+add chain=input action=accept protocol=icmp
+add chain=input action=accept in-interface-list=MGMT
+add chain=input action=accept in-interface-list=LAN protocol=udp dst-port=53,67
+add chain=input action=accept in-interface-list=LAN protocol=tcp dst-port=53
+add chain=input action=drop log=yes log-prefix=IN-DROP
+<span class="cmt"># forward, after the payment rules from step 4</span>
+add chain=forward action=accept in-interface=v20-pos out-interface-list=WAN
+add chain=forward action=accept in-interface=v10-office out-interface-list=WAN
+add chain=forward action=accept in-interface=v30-iot out-interface-list=WAN
+add chain=forward action=accept in-interface=v40-cctv out-interface-list=WAN
+add chain=forward action=accept in-interface=v50-guest out-interface-list=WAN
+add chain=forward action=accept in-interface=v10-office out-interface=v40-cctv protocol=tcp dst-port=443,554 \
+    comment="owner views cameras on site"
+add chain=forward action=accept in-interface-list=MGMT
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></details>
+
+  <p>The WAN list stays empty until step 8, so nothing reaches the internet yet. There's deliberately no FastTrack rule: the hAP ax³ easily handles a 300 Mb/s line with queues, and FastTrack would bypass the guest limits in step 7.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Office PC → 10.40.30.20 (music) now fails; office PC → camera web UI works.</li><li>From a guest phone, Winbox/SSH to 10.40.50.1 are closed.</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 11</p>
+  <h2 class="section-title">The Guest Portal</h2>
+  <p class="section-thesis"><em>Click to accept the terms, get two hours. No accounts, no passwords, no SMS.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 350" role="img" aria-label="Animated captive portal: a guest phone joins, its captive-portal probe is intercepted by the RouterOS hotspot, the guest accepts the terms, and a time-limited, rate-limited session starts">
+      <style>.cs2-arw{stroke:var(--mid);stroke-width:1.4;fill:none;} .cs2-rad{stroke:var(--defender);stroke-width:1.6;fill:none;}@keyframes cs2r0{0%,4%{opacity:0;}6%,94%{opacity:1;}96%,100%{opacity:0;}}.cs2-r0{animation:cs2r0 16s linear infinite;}@keyframes cs2r1{0%,18.1667%{opacity:0;}20.1667%,94%{opacity:1;}96%,100%{opacity:0;}}.cs2-r1{animation:cs2r1 16s linear infinite;}@keyframes cs2r2{0%,32.3333%{opacity:0;}34.3333%,94%{opacity:1;}96%,100%{opacity:0;}}.cs2-r2{animation:cs2r2 16s linear infinite;}@keyframes cs2r3{0%,46.5%{opacity:0;}48.5%,94%{opacity:1;}96%,100%{opacity:0;}}.cs2-r3{animation:cs2r3 16s linear infinite;}@keyframes cs2r4{0%,60.6667%{opacity:0;}62.6667%,94%{opacity:1;}96%,100%{opacity:0;}}.cs2-r4{animation:cs2r4 16s linear infinite;}@keyframes cs2r5{0%,74.8333%{opacity:0;}76.8333%,94%{opacity:1;}96%,100%{opacity:0;}}.cs2-r5{animation:cs2r5 16s linear infinite;}@keyframes cs2un{0%,88%{opacity:1;}91%,96%{opacity:0;}100%{opacity:1;}}@keyframes cs2au{0%,89%{opacity:0;}91%,96%{opacity:1;}98%,100%{opacity:0;}}.cs2-un{animation:cs2un 16s linear infinite;} .cs2-au{animation:cs2au 16s linear infinite;}@media (prefers-reduced-motion:reduce){.cs2-r0,.cs2-r1,.cs2-r2,.cs2-r3,.cs2-r4,.cs2-r5{animation:none;opacity:1;}.cs2-un{animation:none;opacity:0;}.cs2-au{animation:none;opacity:1;}}</style>
+      <defs><marker id="cs2ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--mid);"/></marker></defs>
+      <rect class="lf-box" x="50" y="14" width="160" height="42" rx="5"/><rect x="50" y="14" width="5" height="42" style="fill:var(--v50);"/><text class="lf-sm lf-c" x="132" y="32">Guest phone</text><text class="lf-mono lf-c" x="132" y="46">CAFE-Guest</text>
+      <line class="lf-dash" x1="130" y1="56" x2="130" y2="260"/>
+      <rect class="lf-boxa" x="300" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="380" y="32">R1 · hotspot</text><text class="lf-mono lf-c" x="380" y="46">v50-guest</text>
+      <line class="lf-dash" x1="380" y1="56" x2="380" y2="260"/>
+      <rect class="lf-boxd" x="550" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="630" y="32">Internet</text><text class="lf-mono lf-c" x="630" y="46"></text>
+      <line class="lf-dash" x1="630" y1="56" x2="630" y2="260"/>
+      <g class="cs2-r0"><line class="cs2-arw" x1="134" y1="92" x2="376" y2="92" marker-end="url(#cs2ar)"/><text class="lf-cap lf-c" x="255" y="87">DHCP + DNS: 10.40.50.37</text></g>
+      <g class="cs2-r1"><line class="cs2-arw" x1="134" y1="120" x2="626" y2="120" marker-end="url(#cs2ar)"/><text class="lf-cap lf-c" x="380" y="115">captive check: GET http://captive.apple.com</text></g>
+      <g class="cs2-r2"><line class="cs2-rad" x1="376" y1="148" x2="134" y2="148" marker-end="url(#cs2ar)"/><text class="lf-cap lf-c" x="255" y="143">intercepted → 302 to wifi.cafe.local/login</text></g>
+      <g class="cs2-r3"><line class="cs2-arw" x1="134" y1="176" x2="376" y2="176" marker-end="url(#cs2ar)"/><text class="lf-cap lf-c" x="255" y="171">tick “I accept the terms” (trial login)</text></g>
+      <g class="cs2-r4"><text class="lf-cap lf-c" x="380" y="204" style="fill:var(--defender);font-weight:700;">user created · 5M/5M · 2 h · idle 15 min</text></g>
+      <g class="cs2-r5"><line class="cs2-arw" x1="134" y1="232" x2="626" y2="232" marker-end="url(#cs2ar)" marker-start="url(#cs2ar)" style="stroke-dasharray:3,3;"/><text class="lf-cap lf-c" x="380" y="227">browsing, shaped per device</text></g>
+      <rect class="lf-box" x="250" y="276" width="260" height="30" rx="15"/><text class="lf-sm lf-c cs2-au" x="380" y="295" style="fill:var(--defender);">ONLINE · 2 H LEFT</text><text class="lf-sm lf-c cs2-un" x="380" y="295" style="fill:var(--accent);">NOT LOGGED IN</text>
+      <text class="lf-cap lf-c" x="380" y="340">Phones detect the portal by themselves and pop up the login page, because the OS probe is plain HTTP.</text>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — hotspot on the guest VLAN, click-through ("trial") login</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Embedded wireless controller (Catalyst 9800/EWC syntax): web consent instead of a router hotspot
+parameter-map type webauth CONSENT
+ type consent
+wlan CAFE-Guest 3 CAFE-Guest
+ no security wpa
+ no security wpa wpa2
+ no security wpa akm dot1x
+ security web-auth
+ security web-auth parameter-map CONSENT
+ no shutdown
+wireless profile policy GUEST
+ vlan 50
+ session-timeout 7200
+ idle-timeout 900
+ no shutdown
+! per-client 5 Mb/s: a QoS policy applied per client on the GUEST policy profile</pre><pre class="term vt-pane" data-v="mikrotik">/ip hotspot user profile
+add name=guest rate-limit=5M/5M idle-timeout=15m shared-users=1
+/ip hotspot profile
+add name=hs-cafe hotspot-address=10.40.50.1 dns-name=wifi.cafe.local html-directory=hotspot-cafe \
+    login-by=trial trial-uptime-limit=2h trial-uptime-reset=1d trial-user-profile=guest
+/ip hotspot add name=hs-guest interface=v50-guest address-pool=p-guest profile=hs-cafe disabled=no
+/ip hotspot walled-garden add dst-host=menu.cafe.example comment="our own menu site works before login"</pre></div>
+
+  <p><code>hotspot-cafe/login.html</code> is a copy of the default login page with the terms of use and a checkbox; its "Connect" button points at the trial-login link (<code>$(link-login-only)?dst=$(link-orig-esc)&amp;username=T-$(mac-esc)</code>). The hotspot adds its own dynamic rules to the top of the filter and NAT tables (shown with a <code>D</code> flag). Leave them alone; they're what intercepts unauthenticated traffic. For more, see the <a href="mikrotik-hotspot.html">hotspot post</a>.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Random MACs and HTTPS</span>
+    <p>Phones use a random MAC address <em>per network</em>, which is stable for a given SSID. Trial limits still work per device, unless the guest taps "forget network", which gives them a new MAC and a fresh two hours. Accept that; it's a coffee shop, not a bank. And if a guest opens an HTTPS site before logging in, the browser shows a certificate warning, because the hotspot can't impersonate that site. The OS's own captive-portal check uses plain HTTP and opens the login page automatically, so in practice guests rarely see the warning.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>A fresh phone joins CAFE-Guest; the login page pops up by itself (after step 8 provides internet).</li><li><code>/ip hotspot active print</code> shows it with the <code>guest</code> profile; <code>/queue simple print dynamic</code> shows its 5M/5M queue.</li><li>Two hours later (or set the limit to 2 minutes for the test), it's logged out and can't log in again until tomorrow.</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 11</p>
+  <h2 class="section-title">Guest Limits: The Tills Come First</h2>
+  <p class="section-thesis"><em>Each guest device gets 5 Mb/s from the hotspot. All guests together get at most 60% of the line. Nothing else is shaped at all.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Animated queuing: till and payment packets pass freely while guest packets are limited per device and capped in total">
+      <style>.cs3-l0{offset-path:path('M30 88 L460 88 L505 123 L745 123');offset-rotate:0deg;animation:cs3mv 3s linear infinite;fill:var(--gotcha);}.cs3-l1{offset-path:path('M30 158 L460 158 L505 123 L745 123');offset-rotate:0deg;animation:cs3mv 10s linear infinite;fill:var(--defender);}@keyframes cs3mv{0%{offset-distance:0%;opacity:0;}4%{opacity:1;}96%{opacity:1;}100%{offset-distance:100%;opacity:0;}}@media (prefers-reduced-motion:reduce){.cs3-l0,.cs3-l1{animation:none;offset-distance:40%;}}</style>
+      <rect class="lf-boxa" x="170" y="22" width="390" height="188" rx="7" style="fill:none;"/><text class="lf-name lf-c" x="365" y="40">R1 · hotspot queues + guest cap</text>
+      <text class="lf-mono" x="30" y="76" style="fill:var(--gotcha);font-weight:700;">POS · card · staff</text>
+      <rect x="200" y="74" width="250" height="28" rx="4" style="fill:var(--gotcha);fill-opacity:.13;stroke:var(--gotcha);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="114" style="fill:var(--gotcha);">never shaped · always has headroom</text>
+      <text class="lf-mono" x="30" y="146" style="fill:var(--defender);font-weight:700;">guests (5 Mb/s each)</text>
+      <rect x="200" y="144" width="250" height="28" rx="4" style="fill:var(--defender);fill-opacity:.13;stroke:var(--defender);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="184" style="fill:var(--defender);">5 Mb/s per device · 60% cap in total</text>
+      <rect class="lf-box" x="470" y="78" width="80" height="90" rx="5"/><text class="lf-sm lf-c" x="510" y="118">guest cap</text><text class="lf-mono lf-c" x="510" y="132">180M / 30M</text>
+      <line x1="550" y1="123" x2="745" y2="123" style="stroke:var(--rule);stroke-width:10;"/><text class="lf-mono lf-c" x="650" y="108">fibre 300/50</text>
+      <text class="lf-cap lf-c" x="380" y="234">Guests share 60% of the line at most, each device at most 5 Mb/s. The tills always have the rest, even when the whole patio is streaming.</text>
+      <circle class="cs3-l0" r="5" style="animation-delay:0.00s;"/>
+      <circle class="cs3-l0" r="5" style="animation-delay:-1.00s;"/>
+      <circle class="cs3-l0" r="5" style="animation-delay:-2.00s;"/>
+      <rect class="cs3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:0.00s;"/>
+      <rect class="cs3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-2.00s;"/>
+      <rect class="cs3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-4.00s;"/>
+      <rect class="cs3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-6.00s;"/>
+      <rect class="cs3-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-8.00s;"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap"><span class="term-label">R1 — total guest cap with a queue tree (on top of the hotspot's per-device queues)</span><pre class="term">/ip firewall mangle
+add chain=forward action=mark-packet in-interface=v50-guest new-packet-mark=guest-up passthrough=no
+add chain=forward action=mark-packet out-interface=v50-guest new-packet-mark=guest-down passthrough=no
+/queue tree
+add name=guest-down parent=global packet-mark=guest-down max-limit=180M queue=pcq-download-default
+add name=guest-up parent=global packet-mark=guest-up max-limit=30M queue=pcq-upload-default</pre></div>
+
+  <p>Why a queue tree for the total and not one more simple queue? The hotspot creates a dynamic simple queue per device, and a packet only goes through the <em>first</em> simple queue that matches it. A "total" simple queue would either catch everything (bypassing the per-device limits) or nothing, depending on where it lands in the list. A queue tree is processed independently of simple queues, so each guest packet passes through both: its own 5 Mb/s queue and the shared 180/30 cap.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Four guest phones running speed tests together: each tops out near 5 Mb/s.</li><li>With 40 simulated guests saturating the line (a load generator on the guest VLAN), a POS tablet's card-payment test completes in its normal time, and <code>/queue tree print stats</code> shows guest-down dropping.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 11</p>
+  <h2 class="section-title">Internet: Fibre, 4G, and Who May Use the Backup</h2>
+  <p class="section-thesis"><em>Fibre is primary and probed. The 4G line takes over automatically, but only for the tills, the terminals and the office.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="8">▲ Show step 8 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated failover from fibre to 4G, with guest, camera and IoT traffic refused on the backup link">
+      <style>@keyframes cs4up{0%,44%{opacity:1;}48%,96%{opacity:0;}100%{opacity:1;}}
+@keyframes cs4dn{0%,44%{opacity:0;}48%,96%{opacity:1;}100%{opacity:0;}}
+@keyframes cs4f{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}38%{offset-distance:100%;opacity:1;}41%,100%{offset-distance:100%;opacity:0;}} @keyframes cs4b{0%,53%{offset-distance:0%;opacity:0;}55%{opacity:1;}90%{offset-distance:100%;opacity:1;}93%,100%{offset-distance:100%;opacity:0;}}
+@keyframes cs4p{0%{offset-distance:0%;opacity:1;}85%{offset-distance:100%;opacity:1;}100%{offset-distance:100%;opacity:0;}}
+.cs4-up{animation:cs4up 12s linear infinite;} .cs4-dn{animation:cs4dn 12s linear infinite;}
+.cs4-pf{offset-path:path('M130 120 L200 120 L350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:cs4f 12s ease-in-out infinite;}
+.cs4-pb{offset-path:path('M130 120 L200 120 L350 135 L420 182 L530 182 L612 142');offset-rotate:0deg;animation:cs4b 12s ease-in-out infinite;}
+.cs4-pr{offset-path:path('M350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:cs4p 1.5s linear infinite;fill:var(--gotcha);}
+.cs4-px{offset-path:path('M350 105 L420 58 L530 58 L568 78');offset-rotate:0deg;animation:cs4p 1.5s linear infinite;fill:var(--gotcha);}
+@media (prefers-reduced-motion:reduce){.cs4-up{animation:none;opacity:0;}.cs4-dn{animation:none;opacity:1;}.cs4-pf,.cs4-pr,.cs4-px{animation:none;opacity:0;}.cs4-pb{animation:none;offset-distance:75%;opacity:1;}}</style>
+      <rect class="lf-box" x="20" y="95" width="110" height="50" rx="5"/><text class="lf-sm lf-c" x="75" y="117">LAN</text><text class="lf-mono lf-c" x="75" y="131">10.40.0.0/16</text>
+      <rect class="lf-boxa" x="200" y="90" width="150" height="60" rx="5"/><text class="lf-sm lf-c" x="275" y="117">R1</text><text class="lf-mono lf-c" x="275" y="131">recursive + DHCP dist 2</text>
+      <line class="lf-link" x1="130" y1="120" x2="200" y2="120"/>
+      <rect class="lf-box" x="420" y="40" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="55">Fibre ONT</text><text class="lf-mono lf-c" x="475" y="69">ether1 · recursive</text>
+      <rect class="lf-box" x="420" y="164" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="179">4G LtAP</text><text class="lf-mono lf-c" x="475" y="193">ether5 · distance 2</text>
+      <ellipse class="lf-boxd" cx="675" cy="120" rx="68" ry="42"/><text class="lf-name lf-c" x="675" y="116" style="fill:var(--defender);">Internet</text><text class="lf-mono lf-c" x="675" y="131" style="fill:var(--defender);">probe 1.1.1.1</text>
+      <line class="lf-dash" x1="350" y1="135" x2="420" y2="182"/><line class="lf-dash" x1="530" y1="182" x2="612" y2="142"/>
+      <g class="cs4-up"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--defender);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--defender);font-weight:700;">Fibre up: probes via the ONT answer, everyone is online</text><circle class="cs4-pr" r="3.5"/></g>
+      <g class="cs4-dn"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:6,4;"/><text x="562" y="85" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><path d="M350 135 L420 182 M530 182 L612 142" style="stroke:var(--gotcha);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--accent);font-weight:700;">Fibre down: tills, card terminals and staff move to 4G; guests, cameras and IoT are rejected on ether5</text><circle class="cs4-px" r="3.5"/></g>
+      <text class="lf-cap lf-c" x="380" y="258">The 4G plan has a data cap. Rejecting the heavy users on the backup is what makes it last through a long outage.</text>
+      <circle class="lf-pkt cs4-pf" r="6"/><circle class="lf-pkt cs4-pb" r="6"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — PPPoE fibre, 4G passthrough, recursive failover, NAT</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — PPPoE dialer, built-in LTE, IP SLA instead of recursive routes
+interface GigabitEthernet0/0/0
+ pppoe-client dial-pool-number 1
+interface Dialer1
+ ip address negotiated
+ encapsulation ppp
+ dialer pool 1
+ ppp chap hostname cafe@isp
+ ppp chap password 0 ********
+ ip mtu 1492
+ ip tcp adjust-mss 1452
+ ip nat outside
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface Dialer1
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ip route 1.1.1.1 255.255.255.255 Dialer1
+ip route 0.0.0.0 0.0.0.0 Dialer1 track 1
+ip route 0.0.0.0 0.0.0.0 Cellular0/1/0 250</pre><pre class="term vt-pane" data-v="mikrotik">/interface pppoe-client add name=pppoe-fibre interface=ether1 user=cafe@isp password=******** \
+    add-default-route=no use-peer-dns=no disabled=no
+/ip dhcp-client add interface=ether5 default-route-distance=2 use-peer-dns=no comment="4G (LtAP passthrough)"
+/interface list member
+add list=WAN interface=pppoe-fibre
+add list=WAN interface=ether5
+/ip route
+add dst-address=1.1.1.1/32 gateway=pppoe-fibre scope=10 comment="probe via fibre"
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment="main: fibre"
+/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN</pre></div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — the expensive line is for the tills</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — the LTE interface gets its own zone; only the tills and payments get a pair to it
+zone security LTE
+interface Cellular0/1/0
+ zone-member security LTE
+zone-pair security ZP-POS-LTE source POS destination LTE
+ service-policy type inspect PM-OUT
+zone-pair security ZP-PAY-LTE source PAY destination LTE
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OFFICE-LTE source OFFICE destination LTE
+ service-policy type inspect PM-OUT
+! no GUEST, IOT or CCTV → LTE pairs: those zones have no path to 4G at all</pre><pre class="term vt-pane" data-v="mikrotik">/interface list add name=NO4G
+/interface list member
+add list=NO4G interface=v30-iot
+add list=NO4G interface=v40-cctv
+add list=NO4G interface=v50-guest
+/ip firewall filter add chain=forward action=reject reject-with=icmp-network-unreachable \
+    in-interface-list=NO4G out-interface=ether5 place-before=0 comment="guests, cameras, IoT never use 4G"</pre></div>
+
+  <p>The LtAP runs in <strong>passthrough</strong> mode: it hands its carrier address straight to R1 by DHCP, so R1 sees the 4G link as a plain Ethernet WAN with a DHCP default route at distance 2. The reject rule sits at the very top of the forward chain, above the established/related accept. That way even a connection that was established on fibre is cut the moment its packets start leaving via 4G, so a camera's long-running cloud upload can't keep going over 4G.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Reject, don't drop, on the backup</span>
+    <p>With <code>drop</code>, a guest's phone waits for timeouts and keeps retrying, and some apps retry very aggressively. With <code>reject</code> and "network unreachable", the phone learns immediately that there's no internet and shows it. Also note that 1.1.1.1 is now pinned to the fibre as the probe target, which is why R1's own DNS uses Quad9 (step 2) and not Cloudflare.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Card terminals pass a test transaction; the guest portal pops up on a new phone; the cloud NVR shows live video.</li><li>Unplug the fibre: within ~15–20 s the POS tablets and terminals work again (via 4G). A guest phone reports "no internet", the camera uploads stop, and the counter on the NO4G reject rule rises (<code>/ip firewall filter print stats</code>).</li><li>Plug the fibre back: everything returns to fibre and guests come back online.</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 11</p>
+  <h2 class="section-title">Music &amp; Menu: mDNS Across VLANs</h2>
+  <p class="section-thesis"><em>The music app finds speakers by multicast, and multicast doesn't cross a router. RouterOS can repeat it, and the firewall still decides who gets to connect.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 350" role="img" aria-label="Animated mDNS repeating: the music app's discovery query is repeated from the POS VLAN into the IoT VLAN, the speaker answers, and the app connects through an explicit firewall rule">
+      <style>.cs5-arw{stroke:var(--mid);stroke-width:1.4;fill:none;} .cs5-rad{stroke:var(--defender);stroke-width:1.6;fill:none;}@keyframes cs5r0{0%,4%{opacity:0;}6%,94%{opacity:1;}96%,100%{opacity:0;}}.cs5-r0{animation:cs5r0 16s linear infinite;}@keyframes cs5r1{0%,18.1667%{opacity:0;}20.1667%,94%{opacity:1;}96%,100%{opacity:0;}}.cs5-r1{animation:cs5r1 16s linear infinite;}@keyframes cs5r2{0%,32.3333%{opacity:0;}34.3333%,94%{opacity:1;}96%,100%{opacity:0;}}.cs5-r2{animation:cs5r2 16s linear infinite;}@keyframes cs5r3{0%,46.5%{opacity:0;}48.5%,94%{opacity:1;}96%,100%{opacity:0;}}.cs5-r3{animation:cs5r3 16s linear infinite;}@keyframes cs5r4{0%,60.6667%{opacity:0;}62.6667%,94%{opacity:1;}96%,100%{opacity:0;}}.cs5-r4{animation:cs5r4 16s linear infinite;}@keyframes cs5r5{0%,74.8333%{opacity:0;}76.8333%,94%{opacity:1;}96%,100%{opacity:0;}}.cs5-r5{animation:cs5r5 16s linear infinite;}@keyframes cs5un{0%,88%{opacity:1;}91%,96%{opacity:0;}100%{opacity:1;}}@keyframes cs5au{0%,89%{opacity:0;}91%,96%{opacity:1;}98%,100%{opacity:0;}}.cs5-un{animation:cs5un 16s linear infinite;} .cs5-au{animation:cs5au 16s linear infinite;}@media (prefers-reduced-motion:reduce){.cs5-r0,.cs5-r1,.cs5-r2,.cs5-r3,.cs5-r4,.cs5-r5{animation:none;opacity:1;}.cs5-un{animation:none;opacity:0;}.cs5-au{animation:none;opacity:1;}}</style>
+      <defs><marker id="cs5ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--mid);"/></marker></defs>
+      <rect class="lf-box" x="50" y="14" width="160" height="42" rx="5"/><rect x="50" y="14" width="5" height="42" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="132" y="32">POS tablet</text><text class="lf-mono lf-c" x="132" y="46">V20 · music app</text>
+      <line class="lf-dash" x1="130" y1="56" x2="130" y2="260"/>
+      <rect class="lf-boxa" x="300" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="380" y="32">R1</text><text class="lf-mono lf-c" x="380" y="46">mDNS repeater</text>
+      <line class="lf-dash" x1="380" y1="56" x2="380" y2="260"/>
+      <rect class="lf-box" x="550" y="14" width="160" height="42" rx="5"/><rect x="550" y="14" width="5" height="42" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="632" y="32">Music streamer</text><text class="lf-mono lf-c" x="632" y="46">V30</text>
+      <line class="lf-dash" x1="630" y1="56" x2="630" y2="260"/>
+      <g class="cs5-r0"><line class="cs5-arw" x1="134" y1="92" x2="376" y2="92" marker-end="url(#cs5ar)"/><text class="lf-cap lf-c" x="255" y="87">mDNS: any speakers here?</text></g>
+      <g class="cs5-r1"><line class="cs5-rad" x1="384" y1="120" x2="626" y2="120" marker-end="url(#cs5ar)"/><text class="lf-cap lf-c" x="505" y="115">query repeated into V30</text></g>
+      <g class="cs5-r2"><line class="cs5-arw" x1="626" y1="148" x2="384" y2="148" marker-end="url(#cs5ar)"/><text class="lf-cap lf-c" x="505" y="143">answer: “Counter” at 10.40.30.20</text></g>
+      <g class="cs5-r3"><line class="cs5-rad" x1="376" y1="176" x2="134" y2="176" marker-end="url(#cs5ar)"/><text class="lf-cap lf-c" x="255" y="171">answer repeated into V20</text></g>
+      <g class="cs5-r4"><line class="cs5-rad" x1="134" y1="204" x2="626" y2="204" marker-end="url(#cs5ar)"/><text class="lf-cap lf-c" x="380" y="199" style="fill:var(--defender);font-weight:700;">app → speaker (forward rule allows)</text></g>
+      <g class="cs5-r5"><text class="lf-cap lf-c" x="630" y="232" style="fill:var(--defender);font-weight:700;">speaker → anything else: dropped</text></g>
+      <rect class="lf-box" x="250" y="276" width="260" height="30" rx="15"/><text class="lf-sm lf-c cs5-au" x="380" y="295" style="fill:var(--defender);">PLAYING ON “COUNTER”</text><text class="lf-sm lf-c cs5-un" x="380" y="295" style="fill:var(--accent);">NO SPEAKERS FOUND</text>
+      <text class="lf-cap lf-c" x="380" y="340">Repeating discovery doesn't open the firewall. It only lets the app find the speaker; the forward rules still decide who may connect.</text>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — mDNS repeater (RouterOS 7.16+) and the matching forward rules</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — IOS-XE Service Discovery Gateway: learn the speaker on V30, announce it on V20
+mdns-sd gateway
+interface Vlan30
+ mdns-sd gateway
+interface Vlan20
+ mdns-sd gateway
+! filter by service type for your music system (service-list / service-policy);
+! the syntax differs between releases, check the SDG guide for yours</pre><pre class="term vt-pane" data-v="mikrotik">/ip dns set mdns-repeat-ifaces=v20-pos,v30-iot,v10-office
+/ip firewall address-list
+add list=MUSIC address=10.40.30.20
+add list=MENU address=10.40.30.21
+/ip firewall filter
+add chain=forward action=accept in-interface=v20-pos dst-address-list=MUSIC \
+    place-before=[find log-prefix=FWD-DROP] comment="tablets control the music"
+add chain=forward action=accept in-interface=v10-office dst-address-list=MUSIC \
+    place-before=[find log-prefix=FWD-DROP] comment="owner's laptop controls the music"
+add chain=forward action=accept in-interface=v20-pos dst-address-list=MENU protocol=tcp dst-port=443 \
+    place-before=[find log-prefix=FWD-DROP] comment="tablets update the menu screen"
+add chain=forward action=accept src-address-list=MUSIC out-interface=v20-pos protocol=tcp dst-port=3400-3401 \
+    place-before=[find log-prefix=FWD-DROP] comment="speaker -&gt; app events (vendor-specific)"</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">The callback port is vendor-specific</span>
+    <p>Discovery is only half of it. Several music systems also open connections from the speaker back to the app to push "now playing" updates. Without that rule, the app finds the speaker and plays, but its controls freeze after a minute. Port 3400 is one vendor's choice. Check your system's documented ports and allow only those, only from the speaker's reserved address. Never allow the whole IoT VLAN into the POS VLAN.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>On a POS tablet, the music app lists the "Counter" speaker and controls it; volume changes stay in sync after five minutes.</li><li>From the IoT VLAN (a laptop on ether4 temporarily), 10.40.20.21 is unreachable except the speaker's callback port.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 11</p>
+  <h2 class="section-title">Remote Management That Survives CGNAT</h2>
+  <p class="section-thesis"><em>R1 calls home. The IT contractor's hub never needs to reach the café; the café keeps the tunnel open from its side.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="10">▲ Show step 10 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — WireGuard client to the contractor's hub</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — FlexVPN client: the router dials out to the contractor&#x27;s hub, NAT-T through any CGNAT
+crypto ikev2 profile TO-HUB
+ match identity remote fqdn hub.example.net
+ identity local fqdn cafe-r1.example.net
+ authentication local rsa-sig
+ authentication remote rsa-sig
+ pki trustpoint IT-CA
+ dpd 10 3 periodic
+crypto ipsec profile TO-HUB-IPSEC
+ set ikev2-profile TO-HUB
+crypto ikev2 client flexvpn HUB
+ peer 1 fqdn hub.example.net dynamic
+ client connect Tunnel1
+interface Tunnel1
+ ip address negotiated
+ tunnel source Dialer1
+ tunnel destination dynamic
+ tunnel protection ipsec profile TO-HUB-IPSEC</pre><pre class="term vt-pane" data-v="mikrotik">/interface wireguard add name=wg-it listen-port=13231
+/interface wireguard peers add interface=wg-it comment="IT hub" public-key="&lt;hub public key&gt;" \
+    endpoint-address=hub.example.net endpoint-port=51820 allowed-address=10.250.0.0/24 persistent-keepalive=25s
+/ip address add address=10.250.0.14/24 interface=wg-it
+/interface list member add list=MGMT interface=wg-it</pre></div>
+
+  <p>There's no input rule for UDP 13231: R1 starts the tunnel, so the hub's replies arrive as an established connection. The keepalive every 25 seconds holds the NAT mapping open, whether that NAT belongs to the fibre ISP's router or to the mobile carrier. Because <code>wg-it</code> is in the MGMT list, the contractor reaches the router, the switch and the patio wAP. The owner doesn't need a VPN at all: the cameras' cloud NVR app and the cloud POS dashboards already work from anywhere. For the hub side and key handling, see the <a href="mikrotik-wireguard.html">WireGuard post</a>.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>/interface wireguard peers print</code>: a recent "last handshake" on both fibre and (with the fibre unplugged) 4G.</li><li>From the hub: <code>ssh netadmin@10.250.0.14</code> works on both.</li><li>An external port scan of the café's public IP finds nothing open.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="step-11">15 · Step 11 of 11</p>
+  <h2 class="section-title">Hardening &amp; Off-Site Backups</h2>
+  <p class="section-thesis"><em>Management only from the MGMT list, no default accounts, and a config copy that lives somewhere else.</em></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1 (and the switch) — management plane and nightly backup</span><span class="cfg-meta">18 lines · this step's additions · click to expand</span></summary><pre class="term">/ip service disable telnet,ftp,www,api,api-ssl
+/ip service set ssh address=10.40.99.0/24,10.250.0.0/24
+/ip service set winbox address=10.40.99.0/24,10.250.0.0/24
+/tool mac-server set allowed-interface-list=MGMT
+/tool mac-server mac-winbox set allowed-interface-list=MGMT
+/ip neighbor discovery-settings set discover-interface-list=MGMT
+/user add name=netadmin group=full password=********
+/user disable admin
+/system ntp client set enabled=yes servers=time.cloudflare.com
+/system scheduler add name=nightly interval=1d start-time=03:30:00 on-event={
+  /export show-sensitive file=nightly
+  :delay 5s
+  /tool fetch upload=yes url="sftp://10.250.0.1/backups/cafe-r1.rsc" src-path=nightly.rsc \
+      user=backup password=********
+}
+<span class="cmt"># on SW-COUNTER: only the uplink may answer DHCP</span>
+/interface bridge set bridge dhcp-snooping=yes
+/interface bridge port set [find interface=sfp1] trusted=yes</pre></details>
+
+  <p>The nightly export goes through the WireGuard tunnel to the contractor's hub, so a dead router is replaced by a spare hAP and one import, not by an afternoon of reconfiguring. <code>show-sensitive</code> includes the Wi-Fi and PPPoE passwords, so the hub stores those files encrypted (see <a href="mikrotik-backup.html">backups</a> and <a href="mikrotik-hardening.html">hardening</a>).</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From a guest phone and from the POS VLAN: no Winbox discovery, no SSH.</li><li>The next morning <code>cafe-r1.rsc</code> is on the hub with today's date.</li><li>Import it on a spare hAP ax³ in the lab: it comes up as an identical R1.</li></ul>
+  </div>
+
+  <!-- 16 -->
+  <p class="section-num" id="sec-16">16</p>
+  <h2 class="section-title">Verify, Then Break It Before Opening</h2>
+  <p class="section-thesis"><em>Run these on a quiet afternoon. The results go into the PCI questionnaire, so write them down.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody>
+      <tr><td>Payment seal (R1)</td><td>From every other VLAN, including guest Wi-Fi: <code>nmap -Pn 10.40.25.0/24</code> finds nothing. From the terminals' VLAN (a laptop on ether1, temporarily): only the acquirer's hosts on 443 answer.</td></tr>
+      <tr><td>Guest portal (R2)</td><td>A new phone gets the portal automatically; it can't reach 10.40.0.0/16 before or after login.</td></tr>
+      <tr><td>Busy patio (R3)</td><td>Saturate the guest network; a card payment and a POS order complete in normal time.</td></tr>
+      <tr><td>Fibre cut (R4)</td><td>Tills and terminals continue on 4G within ~15–20 s. Guests, cameras and the espresso machine are refused. Watch the 4G data counter for 30 minutes: only tens of MB.</td></tr>
+      <tr><td>Music (R5)</td><td>The POS tablet controls the music; the speaker can't reach anything except its callback port on the tablets.</td></tr>
+      <tr><td>Ex-employee (R6)</td><td>A phone with the old staff password: can't join CAFE-POS (different password, WPA3 only).</td></tr>
+      <tr><td>Remote care (R7)</td><td>On 4G only, the contractor still reaches R1 through WireGuard. No port is open on the WAN.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">The Attacker's View</h2>
+  <p class="section-thesis"><em>Who would attack a café? Mostly opportunists: someone at a table with a laptop, or someone who walks in to swap a card terminal.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>The evil twin.</strong> Anyone can broadcast "CAFE-Guest" from a laptop and catch guests whose phones join it. The network can't prevent that; it's the reason an open guest SSID must never be the way staff devices get online, and why the POS uses a WPA3 network with a password.</li>
+    <li><strong>Terminal swap or skimmer overlay.</strong> The real card-fraud risk in hospitality is physical. Record the terminals' serial numbers, check the tamper seals at opening, and notice when a terminal's MAC changes: the DHCP reservation means a swapped device gets no address and the till stops taking cards, which is noisy on purpose.</li>
+    <li><strong>A cable under the counter.</strong> The counter switch is within reach of a customer leaning over. Every port has a fixed purpose, and the payment ports only lead to the acquirer anyway. Disable anything unused, and consider locking the switch in the back office with only the terminal cables running out.</li>
+    <li><strong>The espresso machine.</strong> Connected appliances get old firmware and few updates. In VLAN 30 it can reach its maker's cloud and nothing local except the speaker rules, which is the worst a compromised machine can do here.</li>
+    <li><strong>A laptop hogging or attacking the guest network.</strong> Client isolation stops guest-to-guest attacks; the per-device queue stops one laptop from eating the bandwidth; the 2-hour session limit stops a "free office" from running all day on one login.</li>
+  </ul>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">Lab It in CHR / GNS3</h2>
+  <p class="section-thesis"><em>Everything except the radios runs on a free CHR, including the hotspot.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>This post</th><th>In the lab</th></tr></thead>
+    <tbody>
+      <tr><td>R1 hAP ax³</td><td>A CHR with ether1 (PPPoE to an "ISP" CHR acting as PPPoE server), ether2 trunk, ether5 (DHCP from a second "4G" CHR). Hotspot, queues, failover, mDNS repeat and WireGuard all work.</td></tr>
+      <tr><td>SW-COUNTER</td><td>A CHR bridge with VLAN filtering. No PoE, otherwise the same.</td></tr>
+      <tr><td>Wi-Fi</td><td>Replace each SSID with a VM NIC on its VLAN; a browser VM on VLAN 50 tests the hotspot portal.</td></tr>
+      <tr><td>IT hub</td><td>Any Linux VM with WireGuard, reachable from both "ISPs".</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>R1 · hAP ax³</td><td>140 – 170</td></tr>
+      <tr><td>SW-COUNTER · CRS112-8P-4S + S-RJ01</td><td>230 – 290</td></tr>
+      <tr><td>Patio · wAP ax</td><td>130 – 160</td></tr>
+      <tr><td>4G backup · LtAP-class LTE router</td><td>120 – 200, plus a 20 GB business SIM (~15–25/month)</td></tr>
+      <tr><td>Small UPS (router, switch, LtAP)</td><td>120 – 180</td></tr>
+      <tr><td>Network hardware total</td><td><strong>≈ 740 – 1,000</strong>, plus ~10 cable runs</td></tr>
+    </tbody>
+  </table>
+
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on Cisco</h2>
+  <p class="section-thesis"><em>Same brief, same VLANs, on Cisco's small-branch line. The Cisco tabs on the config blocks above show the key steps side by side; this appendix covers what changes underneath.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Role</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>R1 + 4G + indoor Wi-Fi</td><td>hAP ax³ + LtAP → one C1121X-8PLTEPWE (router, LTE and Wi-Fi in one box)</td></tr>
+      <tr><td>SW-COUNTER (PoE)</td><td>CRS112-8P-4S → Catalyst 1000-8P-2G-L</td></tr>
+      <tr><td>Patio AP</td><td>wAP ax → an outdoor Catalyst AP joined to the embedded controller</td></tr>
+      <tr><td>Indicative total</td><td>≈ 740 – 1,000 → ≈ 3,000 – 4,500 EUR ex VAT</td></tr>
+    </tbody>
+  </table>
+
+  <table class="cheat">
+    <thead><tr><th>Feature</th><th>This post → Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>Payment allowlist</td><td>address list with host names → <code>object-group network</code> with the acquirer's IP ranges</td></tr>
+      <tr><td>Guest portal</td><td>RouterOS hotspot on the router → web-consent WLAN on the wireless controller</td></tr>
+      <tr><td>Per-guest limit</td><td>hotspot user profile → per-client QoS on the policy profile</td></tr>
+      <tr><td>Fibre</td><td><code>pppoe-client</code> → PPPoE <code>Dialer</code> interface</td></tr>
+      <tr><td>Failover</td><td>recursive routes → IP SLA + track</td></tr>
+      <tr><td>Backup for tills only</td><td>reject on ether5 → LTE in its own zone with pairs only from POS/PAY/OFFICE</td></tr>
+      <tr><td>mDNS across VLANs</td><td><code>mdns-repeat-ifaces</code> → Service Discovery Gateway</td></tr>
+      <tr><td>Remote management</td><td>WireGuard client → FlexVPN client with <code>tunnel destination dynamic</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>Host names become address ranges.</strong> The payment allowlist is the one place where Cisco is less convenient: IOS ACLs match addresses, so you need the acquirer's published ranges and must update them when the acquirer changes provider. <strong>The portal moves to the Wi-Fi controller</strong>, which is actually the more natural place for it. <strong>One box</strong> replaces three, at about four times the price, with a support contract behind it.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Seal the payment VLAN first.</strong> Out to the acquirer's host names, nothing in, and test it. That empty column in the matrix is the PCI argument.</li>
+      <li><strong>Standalone terminals keep the network simpler</strong> than LAN-integrated ones, because nothing local needs a path into payments.</li>
+      <li><strong>A click-through hotspot with per-device queues</strong> covers terms of use, fairness and session limits in a few lines. A queue tree, not another simple queue, caps the total.</li>
+      <li><strong>Make the backup selective.</strong> Reject guests, cameras and IoT on 4G, at the top of the chain, so the tills keep working and the data plan survives.</li>
+      <li><strong>mDNS repeating finds devices; the firewall still decides who may connect.</strong> Allow the vendor's callback port from one address, not VLAN to VLAN.</li>
+      <li><strong>Let the router dial out for management.</strong> It works behind CGNAT, and there's nothing to attack on the WAN.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 3 of the <a href="build-index.html"><strong>Build series</strong></a>. Earlier: <a href="build-law-firm.html">the law firm</a>, <a href="build-gaming-center.html">the gaming center</a>. Next: <a href="build-supermarket.html">the supermarket</a>.</p>
+
+  <div class="cta-card">
+    <h3>Running a café on the ISP's router?</h3>
+    <p>Most small hospitality networks are one flat network with the card terminal next to the guest Wi-Fi. I set up networks like this one in a day, with the payment isolation tested and documented for your acquirer.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Supermarket Network — S. Markakis</title>
+<meta name="description" content="A single-store supermarket on Cisco, built bottom-up in 12 tested steps: PCI-segmented lanes that only talk to head office, IoT and refrigeration on their own networks, CCTV on its own switch, an IKEv2 tunnel to HQ, tunnel-only LTE backup and time-boxed vendor access.">
+<meta property="og:title" content="Build: The Supermarket Network — S. Markakis">
+<meta property="og:description" content="A single-store supermarket on Cisco, built bottom-up in 12 tested steps: PCI-segmented lanes that only talk to head office, IoT and refrigeration on their own networks, CCTV on its own switch, an IKEv2 tunnel to HQ, tunnel-only LTE backup and time-boxed vendor access.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-supermarket.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-supermarket.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-supermarket.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-supermarket.html">
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#b0453a;--v20:#3a7ca5;--v30:#4f8f4c;--v40:#8a5bb5;--v45:#2f8f8f;--v50:#d9822b;--v60:#c08020;--v99:#6f7f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Supermarket Network",
+  "description": "A single-store supermarket on Cisco, built bottom-up in 12 tested steps: PCI-segmented checkout lanes that only talk to head office, warehouse handhelds, shelf labels, scales and refrigeration on their own networks, CCTV on its own switch, an IKEv2 tunnel to HQ, LTE backup reserved for the tills, and time-boxed vendor access — with Packet Tracer-style diagrams for every step.",
+  "datePublished": "2026-10-24",
+  "dateModified": "2026-10-24",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-supermarket.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-supermarket.png",
+  "keywords": [
+    "cisco",
+    "labs",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-supermarket"
+  },
+  "timeRequired": "PT45M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; Cisco IOS-XE &nbsp;·&nbsp; Real-World Network &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Build: The<br>Supermarket Network</h1>
+  <p class="post-subtitle">One store in a regional chain: eight staffed lanes, four self-checkouts, a warehouse full of handheld scanners, shelf labels and deli scales that change price overnight, cold rooms that must never warm up, and 24 cameras. The tills talk to head office and nowhere else. We build it on Cisco from the lanes up in 12 tested steps, ending with an IKEv2 tunnel to HQ, an LTE backup reserved for what keeps the store trading, and a refrigeration vendor who can only get in on Tuesday mornings.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">Cisco IOS-XE</span>
+    <span class="tag">Retail</span>
+    <span class="tag">PCI DSS</span>
+    <span class="tag">IKEv2 VTI</span>
+    <span class="tag">ZBF</span>
+    <span class="tag">LTE Backup</span>
+    <span class="tag">Packet Tracer</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 590" role="img" aria-label="Interactive topology of the supermarket network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="185" y1="410" x2="120" y2="530" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="175.5" cy="427.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="129.5" cy="512.4" r="2.4"/>
+<text class="lft-port lft-c" x="146.0" y="485.0">Gi1/0/1-16</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="185" y1="410" x2="200" y2="530" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="187.5" cy="429.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="197.5" cy="510.2" r="2.4"/>
+<text class="lft-port" x="200.0" y="496.0">Gi1/0/17-20</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="185" y1="410" x2="275" y2="530" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="197.0" cy="426.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="263.0" cy="514.0" r="2.4"/>
+<text class="lft-port lft-c" x="239.0" y="485.0">Gi1/0/21</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="490" y1="410" x2="375" y2="530" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="476.2" cy="424.4" r="2.4"/>
+<circle class="lft-led bx-led" cx="388.8" cy="515.6" r="2.4"/>
+<text class="lft-port lft-c" x="421.0" y="485.0">Gi1/0/1-4</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="490" y1="410" x2="445" y2="530" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="483.0" cy="428.7" r="2.4"/>
+<circle class="lft-led bx-led" cx="452.0" cy="511.3" r="2.4"/>
+<text class="lft-port lft-c" x="463.0" y="496.0">Gi1/0/5-8</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="490" y1="410" x2="515" y2="530" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="494.1" cy="429.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="510.9" cy="510.4" r="2.4"/>
+<text class="lft-port lft-c" x="505.0" y="485.0">Gi1/0/9-14</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="490" y1="410" x2="580" y2="530" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="502.0" cy="426.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="568.0" cy="514.0" r="2.4"/>
+<text class="lft-port lft-c" x="544.0" y="496.0">Gi1/0/15</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="490" y1="410" x2="645" y2="530" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="505.8" cy="422.2" r="2.4"/>
+<circle class="lft-led bx-led" cx="629.2" cy="517.8" r="2.4"/>
+<text class="lft-port lft-c" x="583.0" y="485.0">Gi1/0/16</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="120" y1="250" x2="60" y2="335" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="108.5" cy="266.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="71.5" cy="318.7" r="2.4"/>
+<text class="lft-port lft-c" x="90.0" y="295.5">Gi1/0/1-24</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="120" y1="250" x2="150" y2="335" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="126.7" cy="268.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="143.3" cy="316.1" r="2.4"/>
+<text class="lft-port lft-c" x="136.5" y="307.8">Gi1/0/48</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="328.4" y1="292.0" x2="183.4" y2="408.0" style="stroke:var(--defender);stroke-width:1.8;"/>
+<line class="bx-line" pathLength="100" x1="331.6" y1="296.0" x2="186.6" y2="412.0" style="stroke:var(--defender);stroke-width:1.8;"/>
+<circle class="lft-led bx-led" cx="314.4" cy="306.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="200.6" cy="397.5" r="2.4"/>
+<text class="lft-port lft-c" x="257.5" y="355.0">Po1</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="328.5" y1="296.1" x2="488.5" y2="412.1" style="stroke:var(--defender);stroke-width:1.8;"/>
+<line class="bx-line" pathLength="100" x1="331.5" y1="291.9" x2="491.5" y2="407.9" style="stroke:var(--defender);stroke-width:1.8;"/>
+<circle class="lft-led bx-led" cx="346.2" cy="305.7" r="2.4"/>
+<circle class="lft-led bx-led" cx="473.8" cy="398.3" r="2.4"/>
+<text class="lft-port lft-c" x="410.0" y="355.0">Po2</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="330.5" y1="291.5" x2="120.5" y2="247.5" style="stroke:var(--defender);stroke-width:1.8;"/>
+<line class="bx-line" pathLength="100" x1="329.5" y1="296.5" x2="119.5" y2="252.5" style="stroke:var(--defender);stroke-width:1.8;"/>
+<circle class="lft-led bx-led" cx="310.4" cy="289.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="139.6" cy="254.1" r="2.4"/>
+<text class="lft-port lft-c" x="225.0" y="275.0">Po3 · V60 only</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="185" y1="410" x2="45" y2="410" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="165.0" cy="410.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="65.0" cy="410.0" r="2.4"/>
+<text class="lft-port lft-c" x="115.0" y="406.0">Gi1/0/23-24</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="490" y1="410" x2="715" y2="410" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="510.0" cy="410.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="695.0" cy="410.0" r="2.4"/>
+<text class="lft-port lft-c" x="602.5" y="406.0">Gi1/0/21-24</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-blink" x1="45" y1="410" x2="45" y2="530" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port" x="51.0" y="473.0">MARKET-Guest</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-blink" x1="715" y1="410" x2="715" y2="530" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-e" x="709.0" y="473.0">MKT-SCAN · FT</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="330" y1="294" x2="330" y2="194" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="330.0" cy="274.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="330.0" cy="214.0" r="2.4"/>
+<text class="lft-port" x="336.0" y="247.0">Gi1/0/1 ⇄ Gi0/0/2 · trunk V50+V900</text>
+</g>
+<g class="bx-el" data-step="9">
+<path class="bx-blink" d="M600 40 Q578.2 20 382 40" style="stroke:var(--accent);stroke-width:1.6;fill:none;stroke-dasharray:6,4;"/><text class="lft-port lft-c" x="534.6" y="24" style="fill:var(--accent);">IKEv2 tunnel to HQ</text></g>
+<g class="bx-el" data-step="8">
+<line class="bx-line" pathLength="100" x1="330" y1="194" x2="230" y2="112" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="314.5" cy="181.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="245.5" cy="124.7" r="2.4"/>
+<text class="lft-port lft-c" x="280.0" y="156.0">Gi0/0/0</text>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-line" pathLength="100" x1="230" y1="112" x2="330" y2="40" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="246.2" cy="100.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="302.4" cy="59.9" r="2.4"/>
+</g>
+<g class="bx-el" data-step="10">
+<line class="bx-blink" x1="330" y1="194" x2="430" y2="112" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="345.5" cy="181.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="414.5" cy="124.7" r="2.4"/>
+<text class="lft-port lft-c" x="380.0" y="156.0">Cellular0/2/0</text>
+</g>
+<g class="bx-el" data-step="10">
+<line class="bx-blink" x1="430" y1="112" x2="330" y2="40" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<circle class="lft-led bx-led" cx="413.8" cy="100.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="357.6" cy="59.9" r="2.4"/>
+</g>
+<g class="bx-el bx-dev" data-step="8">
+<circle class="bx-ring lft-ring" cx="330" cy="40" r="56"/>
+<use href="#lfi-cloud" x="278" y="16" width="104" height="48" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="330" y="45" style="fill:var(--defender);">Internet</text>
+</g>
+<g class="bx-el bx-dev" data-step="9">
+<circle class="bx-ring lft-ring" cx="600" cy="52" r="25"/>
+<use href="#lfi-server" x="589" y="36" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="600" y="80">HQ data center</text>
+<text class="lft-chip lft-c" x="600" y="90" style="fill:var(--body);">POS · ERP · ESL mgr</text>
+</g>
+<g class="bx-el bx-dev" data-step="8">
+<circle class="bx-ring lft-ring" cx="230" cy="112" r="26"/>
+<use href="#lfi-modem" x="213" y="103" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="230" y="133">Fibre ONT</text>
+<text class="lft-chip lft-c" x="230" y="143" style="fill:var(--body);">200/100 · static</text>
+</g>
+<g class="bx-el bx-dev" data-step="10">
+<circle class="bx-ring lft-ring" cx="430" cy="112" r="25"/>
+<use href="#lfi-lte" x="416" y="96" width="28" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="430" y="140">LTE pluggable</text>
+<text class="lft-chip lft-c" x="430" y="150" style="fill:var(--body);">Cellular0/2/0</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="7" data-dev="r1" tabindex="0" role="button" aria-label="Show the configuration of R1-EDGE">
+<circle class="bx-ring lft-ring" cx="330" cy="194" r="32"/>
+<circle class="bx-sel" cx="330" cy="194" r="28"/>
+<use href="#lfi-router" x="307" y="178" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="361" y="193">R1-EDGE</text>
+<text class="lft-chip" x="361" y="203" style="fill:var(--body);">C8200L-1N-4T</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="4" data-dev="core" tabindex="0" role="button" aria-label="Show the configuration of CORE">
+<circle class="bx-ring lft-ring" cx="330" cy="294" r="28"/>
+<circle class="bx-sel" cx="330" cy="294" r="24"/>
+<use href="#lfi-l3" x="311" y="275" width="38" height="38" style="color:var(--defender);"/>
+<text class="lft-name" x="357" y="293">CORE</text>
+<text class="lft-chip" x="357" y="303" style="fill:var(--body);">C9200-24T · L3</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="3" data-dev="swc" tabindex="0" role="button" aria-label="Show the configuration of SW-CCTV">
+<circle class="bx-ring lft-ring" cx="120" cy="250" r="34"/>
+<circle class="bx-sel" cx="120" cy="250" r="30"/>
+<use href="#lfi-l2" x="95" y="239" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="120" y="223">SW-CCTV</text>
+<text class="lft-chip lft-c" x="120" y="233" style="fill:var(--body);">C9200L-48P-4G</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="60" cy="335" r="23"/>
+<use href="#lfi-camera" x="46" y="324" width="28" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="60" y="358">Cameras ×24</text>
+<text class="lft-chip lft-c" x="60" y="368" style="fill:var(--v60);">V60</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="150" cy="335" r="25"/>
+<use href="#lfi-server" x="139" y="319" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="150" y="363">NVR</text>
+<text class="lft-chip lft-c" x="150" y="373" style="fill:var(--v60);">V60</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="accf" tabindex="0" role="button" aria-label="Show the configuration of ACC-FRONT">
+<circle class="bx-ring lft-ring" cx="185" cy="410" r="34"/>
+<circle class="bx-sel" cx="185" cy="410" r="30"/>
+<use href="#lfi-l2" x="160" y="399" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="218" y="409">ACC-FRONT</text>
+<text class="lft-chip" x="218" y="419" style="fill:var(--body);">C9200L-24P-4G</text>
+</g>
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="45" cy="410" r="26"/>
+<use href="#lfi-ap" x="28" y="397" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="45" y="435">APs ×2 (floor)</text>
+<text class="lft-chip lft-c" x="45" y="445" style="fill:var(--body);">9115AXI</text>
+</g>
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="45" cy="530" r="25"/>
+<use href="#lfi-laptop" x="29" y="518" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="45" y="554">Shoppers</text>
+<text class="lft-chip lft-c" x="45" y="564" style="fill:var(--v50);">V50</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="120" cy="530" r="34"/>
+<use href="#lfi-pos" x="92" y="515" width="32" height="30" style="color:var(--mid);"/><use href="#lfi-pinpad" x="124" y="518" width="20" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="120" y="556">Lanes 1–8</text>
+<text class="lft-chip lft-c" x="120" y="566" style="fill:var(--v10);">POS + PIN pad · V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="200" cy="530" r="25"/>
+<use href="#lfi-pos" x="184" y="515" width="32" height="30" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="200" y="557">Self-checkout ×4</text>
+<text class="lft-chip lft-c" x="200" y="567" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="275" cy="530" r="28"/>
+<use href="#lfi-display" x="256" y="516" width="38" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="275" y="556">Signage</text>
+<text class="lft-chip lft-c" x="275" y="566" style="fill:var(--v40);">V40</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="accb" tabindex="0" role="button" aria-label="Show the configuration of ACC-BACK">
+<circle class="bx-ring lft-ring" cx="490" cy="410" r="34"/>
+<circle class="bx-sel" cx="490" cy="410" r="30"/>
+<use href="#lfi-l2" x="465" y="399" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-e" x="457" y="409">ACC-BACK</text>
+<text class="lft-chip lft-e" x="457" y="419" style="fill:var(--body);">C9200L-24P-4G</text>
+</g>
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="715" cy="410" r="26"/>
+<use href="#lfi-ap" x="698" y="397" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="715" y="435">APs ×4 (back)</text>
+<text class="lft-chip lft-c" x="715" y="445" style="fill:var(--body);">9115AXI</text>
+</g>
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="715" cy="530" r="23"/>
+<use href="#lfi-scanner" x="703" y="516" width="24" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="715" y="556">Handhelds</text>
+<text class="lft-chip lft-c" x="715" y="566" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="375" cy="530" r="23"/>
+<use href="#lfi-pc" x="361" y="516" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="375" y="556">Office</text>
+<text class="lft-chip lft-c" x="375" y="566" style="fill:var(--v20);">V20</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="445" cy="530" r="24"/>
+<use href="#lfi-scale" x="430" y="518" width="30" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="445" y="554">Deli scales</text>
+<text class="lft-chip lft-c" x="445" y="564" style="fill:var(--v40);">V40</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="515" cy="530" r="21"/>
+<use href="#lfi-iot" x="503" y="518" width="24" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="515" y="554">ESL base ×6</text>
+<text class="lft-chip lft-c" x="515" y="564" style="fill:var(--v40);">V40</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="580" cy="530" r="21"/>
+<use href="#lfi-iot" x="568" y="518" width="24" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="580" y="554">Refrigeration</text>
+<text class="lft-chip lft-c" x="580" y="564" style="fill:var(--v45);">V45</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="645" cy="530" r="21"/>
+<use href="#lfi-speaker" x="633" y="518" width="24" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="645" y="554">PA · music</text>
+<text class="lft-chip lft-c" x="645" y="564" style="fill:var(--v40);">V40</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 12 steps built</text>
+<text class="lft-chip" x="20" y="580">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="12" value="12" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The Lanes: Front-of-Store Access", "adds": "ACC-FRONT, Lanes 1–8, Self-checkout ×4, Signage"}, {"n": 2, "title": "Back of Store: Office, Scales, Labels, Cold Rooms", "adds": "ACC-BACK, Office, Deli scales, ESL base ×6, Refrigeration, PA · music"}, {"n": 3, "title": "The CCTV Switch", "adds": "SW-CCTV, Cameras ×24, NVR"}, {"n": 4, "title": "The Core: Uplinks, SVIs & DHCP", "adds": "CORE"}, {"n": 5, "title": "Wi-Fi: Handhelds That Roam, Guests Who Don't Matter", "adds": "APs ×2 (floor), Shoppers, APs ×4 (back), Handhelds"}, {"n": 6, "title": "PCI Segmentation on the Core", "adds": "policy / services"}, {"n": 7, "title": "The Edge Router, Inside Only", "adds": "R1-EDGE"}, {"n": 8, "title": "Fibre, NAT & the Zone Firewall", "adds": "Internet, Fibre ONT"}, {"n": 9, "title": "The Tunnel to Head Office", "adds": "HQ data center"}, {"n": 10, "title": "LTE Backup: Tunnel Only", "adds": "LTE pluggable"}, {"n": 11, "title": "The Refrigeration Vendor's Window", "adds": "policy / services"}, {"n": 12, "title": "QoS, Time & Logs", "adds": "policy / services"}], "devices": {"accf": "ACC-FRONT", "accb": "ACC-BACK", "swc": "SW-CCTV", "core": "CORE", "r1": "R1-EDGE"}, "configs": {"accf": [{"step": 1, "title": "The Lanes: Front-of-Store Access", "label": "ACC-FRONT — C9200L-24P-4G · VLANs and lane ports", "text": "hostname ACC-FRONT\nvtp mode transparent\nspanning-tree mode rapid-pvst\nvlan 10\n name CDE\nvlan 20\n name OFFICE\nvlan 30\n name HANDHELD\nvlan 40\n name STORE-IOT\nvlan 45\n name REFRIG\nvlan 50\n name GUEST\nvlan 60\n name CCTV\nvlan 99\n name MGMT\nvlan 666\n name PARKING\n!\n! lanes: one POS and one PIN pad per lane, each pinned to its own MAC\ninterface range GigabitEthernet1/0/1 - 16\n description LANE POS / PIN PAD\n switchport mode access\n switchport access vlan 10\n switchport port-security maximum 1\n switchport port-security mac-address sticky\n switchport port-security violation shutdown\n switchport port-security\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface range GigabitEthernet1/0/17 - 20\n description SELF-CHECKOUT\n switchport mode access\n switchport access vlan 10\n switchport port-security maximum 1\n switchport port-security mac-address sticky\n switchport port-security\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface GigabitEthernet1/0/21\n description SIGNAGE\n switchport mode access\n switchport access vlan 40\n spanning-tree portfast\ninterface range GigabitEthernet1/0/22 , GigabitEthernet1/0/23 - 24\n switchport access vlan 666\n shutdown                                    ! Gi1/0/23-24 become AP trunks in step 5\n!\nno errdisable recovery cause psecure-violation   ! a swapped PIN pad stays down until a person looks"}, {"step": 5, "title": "Wi-Fi: Handhelds That Roam, Guests Who Don't Matter", "label": "ACC-FRONT Gi1/0/23-24 and ACC-BACK Gi1/0/21-24 — AP trunks", "text": "interface range GigabitEthernet1/0/21 - 24      ! ACC-BACK; on ACC-FRONT the range is Gi1/0/23 - 24\n description AP (FlexConnect local switching)\n switchport mode trunk\n switchport trunk native vlan 99\n switchport trunk allowed vlan 30,50,99\n switchport nonegotiate\n spanning-tree portfast trunk\n no shutdown"}, {"step": 12, "title": "QoS, Time & Logs", "label": "All devices — time and logging (PCI DSS requirement 10)", "text": "service timestamps log datetime msec localtime show-timezone\nntp server 172.16.0.123\nlogging host 172.16.50.5\nlogging trap informational\nlogin on-failure log\nlogin on-success log\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys"}], "accb": [{"step": 2, "title": "Back of Store: Office, Scales, Labels, Cold Rooms", "label": "ACC-BACK — C9200L-24P-4G", "text": "hostname ACC-BACK\n! (same VLAN database as ACC-FRONT)\ninterface range GigabitEthernet1/0/1 - 4\n description OFFICE\n switchport mode access\n switchport access vlan 20\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface range GigabitEthernet1/0/5 - 8\n description DELI / BAKERY / BUTCHER SCALES\n switchport mode access\n switchport access vlan 40\n spanning-tree portfast\ninterface range GigabitEthernet1/0/9 - 14\n description ESL BASE STATIONS (PoE)\n switchport mode access\n switchport access vlan 40\n spanning-tree portfast\ninterface GigabitEthernet1/0/15\n description REFRIGERATION CONTROLLER\n switchport mode access\n switchport access vlan 45\n switchport port-security mac-address sticky\n switchport port-security\n spanning-tree portfast\ninterface GigabitEthernet1/0/16\n description PA / MUSIC\n switchport mode access\n switchport access vlan 40\n spanning-tree portfast"}, {"step": 5, "title": "Wi-Fi: Handhelds That Roam, Guests Who Don't Matter", "label": "ACC-FRONT Gi1/0/23-24 and ACC-BACK Gi1/0/21-24 — AP trunks", "text": "interface range GigabitEthernet1/0/21 - 24      ! ACC-BACK; on ACC-FRONT the range is Gi1/0/23 - 24\n description AP (FlexConnect local switching)\n switchport mode trunk\n switchport trunk native vlan 99\n switchport trunk allowed vlan 30,50,99\n switchport nonegotiate\n spanning-tree portfast trunk\n no shutdown"}, {"step": 12, "title": "QoS, Time & Logs", "label": "All devices — time and logging (PCI DSS requirement 10)", "text": "service timestamps log datetime msec localtime show-timezone\nntp server 172.16.0.123\nlogging host 172.16.50.5\nlogging trap informational\nlogin on-failure log\nlogin on-success log\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys"}], "swc": [{"step": 3, "title": "The CCTV Switch", "label": "SW-CCTV — C9200L-48P-4G", "text": "hostname SW-CCTV\nvlan 60\n name CCTV\nvlan 99\n name MGMT\ninterface range GigabitEthernet1/0/1 - 24\n description CAMERA\n switchport mode access\n switchport access vlan 60\n switchport port-security mac-address sticky\n switchport port-security\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface GigabitEthernet1/0/48\n description NVR\n switchport mode access\n switchport access vlan 60\n spanning-tree portfast\ninterface range GigabitEthernet1/0/25 - 47\n shutdown"}, {"step": 12, "title": "QoS, Time & Logs", "label": "All devices — time and logging (PCI DSS requirement 10)", "text": "service timestamps log datetime msec localtime show-timezone\nntp server 172.16.0.123\nlogging host 172.16.50.5\nlogging trap informational\nlogin on-failure log\nlogin on-success log\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys"}], "core": [{"step": 4, "title": "The Core: Uplinks, SVIs & DHCP", "label": "CORE — C9200-24T · port-channels and SVIs", "text": "hostname CORE\nvtp mode transparent\nspanning-tree mode rapid-pvst\nspanning-tree vlan 1-4094 priority 4096\nip routing\n! (same VLAN database, plus vlan 900 TRANSIT)\ninterface range GigabitEthernet1/1/1 - 2\n channel-group 1 mode active\ninterface range GigabitEthernet1/1/3 - 4\n channel-group 2 mode active\ninterface range GigabitEthernet1/0/23 - 24\n channel-group 3 mode active\ninterface range Port-channel1 - 2\n switchport mode trunk\n switchport trunk native vlan 666\n switchport trunk allowed vlan 10,20,30,40,45,50,99\n switchport nonegotiate\ninterface Port-channel3\n description SW-CCTV: cameras and management only\n switchport mode trunk\n switchport trunk native vlan 666\n switchport trunk allowed vlan 60,99\n switchport nonegotiate\n!\ninterface Vlan10\n description CDE\n ip address 10.50.10.1 255.255.255.0\n no ip redirects\n no ip proxy-arp\n! Vlan20, 30, 40, 45, 60, 99: same shape, own subnet\n! no \"interface Vlan50\": guests are routed by R1 only (step 7)\n!\nip dhcp excluded-address 10.50.20.1 10.50.20.49\nip dhcp pool OFFICE\n network 10.50.20.0 255.255.255.0\n default-router 10.50.20.1\n dns-server 172.16.0.53\nip dhcp pool HANDHELD\n network 10.50.30.0 255.255.255.0\n default-router 10.50.30.1\n dns-server 172.16.0.53\n lease 0 12\n! STORE-IOT: reservations per MAC (client-identifier), same pattern"}, {"step": 6, "title": "PCI Segmentation on the Core", "label": "CORE — SVI ACLs (inbound)", "text": "ip access-list extended V10-IN\n remark CDE: lanes and SCOs reach HQ and nothing else\n 10 permit icmp 10.50.10.0 0.0.0.255 host 10.50.10.1\n 20 permit ip 10.50.10.0 0.0.0.255 172.16.0.0 0.0.255.255\n 30 deny   ip any any log\n!\nip access-list extended V20-IN\n remark OFFICE: HQ, store-IoT admin, NVR viewing, internet. Never the CDE.\n 10 permit udp any any eq bootps\n 15 permit icmp any host 10.50.20.1\n 20 deny   ip any 10.50.10.0 0.0.0.255 log\n 30 permit ip 10.50.20.0 0.0.0.255 172.16.0.0 0.0.255.255\n 40 permit tcp 10.50.20.0 0.0.0.255 10.50.40.0 0.0.0.255 eq 443\n 50 permit tcp 10.50.20.0 0.0.0.255 host 10.50.60.10 eq 443\n 60 deny   ip any 10.0.0.0 0.255.255.255 log\n 70 deny   ip any 172.16.0.0 0.15.255.255\n 80 deny   ip any 192.168.0.0 0.0.255.255\n 90 permit ip 10.50.20.0 0.0.0.255 any\n!\nip access-list extended V30-IN\n remark HANDHELD: the warehouse system at HQ, nothing else\n 10 permit udp any any eq bootps\n 20 permit udp 10.50.30.0 0.0.0.255 host 172.16.0.53 eq domain\n 30 permit tcp 10.50.30.0 0.0.0.255 host 172.16.30.15 eq 443\n 40 deny   ip any any log\n!\nip access-list extended V40-IN\n remark STORE-IOT: their managers at HQ, replies to the office, vendor clouds\n 10 permit udp any any eq bootps\n 20 permit ip 10.50.40.0 0.0.0.255 172.16.40.0 0.0.0.255\n 30 permit tcp 10.50.40.0 0.0.0.255 10.50.20.0 0.0.0.255 established\n 40 deny   ip any 10.0.0.0 0.255.255.255 log\n 50 deny   ip any 172.16.0.0 0.15.255.255\n 60 deny   ip any 192.168.0.0 0.0.255.255\n 70 permit tcp 10.50.40.0 0.0.0.255 any eq 443\n!\nip access-list extended V45-IN\n remark REFRIG: alarms to HQ BMS, replies to the vendor jump host\n 10 permit tcp host 10.50.45.10 host 172.16.45.20 eq 443\n 20 permit tcp host 10.50.45.10 host 172.16.5.10 established\n 30 deny   ip any any log\n!\nip access-list extended V60-IN\n remark CCTV: the NVR answers viewers, nothing else\n 10 permit tcp host 10.50.60.10 eq 443 10.50.20.0 0.0.0.255 established\n 20 permit tcp host 10.50.60.10 eq 443 172.16.0.0 0.0.255.255 established\n 30 deny   ip any any log\n!\ninterface Vlan10\n ip access-group V10-IN in\n! … V20-IN to V60-IN on their SVIs the same way"}, {"step": 7, "title": "The Edge Router, Inside Only", "label": "CORE — uplink to R1 and the guest backstop", "text": "interface GigabitEthernet1/0/1\n description R1-EDGE Gi0/0/2\n switchport mode trunk\n switchport trunk native vlan 666\n switchport trunk allowed vlan 50,900\n switchport nonegotiate\nip access-list extended V900-IN\n 10 deny   ip 10.50.50.0 0.0.0.255 any log\n 20 permit ip any any\ninterface Vlan900\n ip address 10.50.255.2 255.255.255.248\n ip access-group V900-IN in\nip route 0.0.0.0 0.0.0.0 10.50.255.1"}, {"step": 12, "title": "QoS, Time & Logs", "label": "All devices — time and logging (PCI DSS requirement 10)", "text": "service timestamps log datetime msec localtime show-timezone\nntp server 172.16.0.123\nlogging host 172.16.50.5\nlogging trap informational\nlogin on-failure log\nlogin on-success log\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys"}], "r1": [{"step": 7, "title": "The Edge Router, Inside Only", "label": "R1-EDGE — C8200L-1N-4T · LAN side", "text": "hostname R1-EDGE\ninterface GigabitEthernet0/0/2\n description CORE Gi1/0/1 (trunk: 50, 900)\n no ip address\ninterface GigabitEthernet0/0/2.900\n encapsulation dot1Q 900\n ip address 10.50.255.1 255.255.255.248\ninterface GigabitEthernet0/0/2.50\n encapsulation dot1Q 50\n ip address 10.50.50.1 255.255.255.0\n!\nip dhcp excluded-address 10.50.50.1 10.50.50.9\nip dhcp pool GUEST\n network 10.50.50.0 255.255.255.0\n default-router 10.50.50.1\n dns-server 9.9.9.9 149.112.112.112\n lease 0 2\npolicy-map GUEST-LIMIT\n class class-default\n  police cir 20000000\ninterface GigabitEthernet0/0/2.50\n service-policy input GUEST-LIMIT\n service-policy output GUEST-LIMIT\n!\nip route 10.50.0.0 255.255.0.0 10.50.255.2"}, {"step": 8, "title": "Fibre, NAT & the Zone Firewall", "label": "R1-EDGE — WAN, NAT and zones", "text": "interface GigabitEthernet0/0/0\n description FIBRE (static 203.0.113.42/29)\n ip address 203.0.113.42 255.255.255.248\n ip nat outside\n no cdp enable\nip route 0.0.0.0 0.0.0.0 203.0.113.41\n!\nip access-list standard NAT-SRC\n permit 10.50.20.0 0.0.0.255\n permit 10.50.40.0 0.0.0.255\n permit 10.50.50.0 0.0.0.255\nip nat inside source list NAT-SRC interface GigabitEthernet0/0/0 overload\ninterface GigabitEthernet0/0/2.900\n ip nat inside\ninterface GigabitEthernet0/0/2.50\n ip nat inside\n!\nzone security INSIDE\nzone security GUEST\nzone security OUTSIDE\nzone security HQ\nip access-list extended INSIDE-TO-INET\n remark Office and store-IoT HTTPS only. The CDE, handhelds, refrigeration and CCTV are absent on purpose.\n permit ip 10.50.20.0 0.0.0.255 any\n permit tcp 10.50.40.0 0.0.0.255 any eq 443\nclass-map type inspect match-all CM-INET\n match access-group name INSIDE-TO-INET\nclass-map type inspect match-any CM-ANY\n match protocol tcp\n match protocol udp\n match protocol icmp\npolicy-map type inspect PM-IN-OUT\n class type inspect CM-INET\n  inspect\n class class-default\n  drop log\npolicy-map type inspect PM-GST-OUT\n class type inspect CM-ANY\n  inspect\n class class-default\n  drop\nzone-pair security ZP-IN-OUT source INSIDE destination OUTSIDE\n service-policy type inspect PM-IN-OUT\nzone-pair security ZP-GST-OUT source GUEST destination OUTSIDE\n service-policy type inspect PM-GST-OUT\ninterface GigabitEthernet0/0/2.900\n zone-member security INSIDE\ninterface GigabitEthernet0/0/2.50\n zone-member security GUEST\ninterface GigabitEthernet0/0/0\n zone-member security OUTSIDE"}, {"step": 9, "title": "The Tunnel to Head Office", "label": "R1-EDGE — IKEv2 static VTI to HQ", "text": "crypto ikev2 proposal P-HQ\n encryption aes-gcm-256\n prf sha384\n group 19\ncrypto ikev2 policy POL-HQ\n proposal P-HQ\ncrypto ikev2 profile PR-HQ\n match identity remote address 198.51.100.20 255.255.255.255\n identity local fqdn store-142.market.example\n authentication local rsa-sig\n authentication remote rsa-sig\n pki trustpoint CHAIN-CA\n dpd 10 3 periodic\ncrypto ipsec transform-set TS-GCM esp-gcm 256\n mode tunnel\ncrypto ipsec profile IP-HQ\n set transform-set TS-GCM\n set ikev2-profile PR-HQ\n!\ninterface Tunnel0\n description HQ primary (over fibre)\n ip address 10.255.142.2 255.255.255.252\n ip mtu 1400\n ip tcp adjust-mss 1360\n tunnel source GigabitEthernet0/0/0\n tunnel mode ipsec ipv4\n tunnel destination 198.51.100.20\n tunnel protection ipsec profile IP-HQ\n zone-member security HQ\nip route 172.16.0.0 255.255.0.0 Tunnel0\nip route 198.51.100.20 255.255.255.255 203.0.113.41         ! HQ head-end 1 only via fibre\nip route 198.51.100.20 255.255.255.255 Null0 250"}, {"step": 9, "title": "The Tunnel to Head Office", "label": "R1-EDGE — what may cross the tunnel, in each direction", "text": "ip access-list extended STORE-TO-HQ\n permit ip 10.50.10.0 0.0.0.255 172.16.0.0 0.0.255.255\n permit ip 10.50.20.0 0.0.0.255 172.16.0.0 0.0.255.255\n permit ip 10.50.30.0 0.0.0.255 172.16.0.0 0.0.255.255\n permit ip 10.50.40.0 0.0.0.255 172.16.40.0 0.0.0.255\n permit tcp host 10.50.45.10 host 172.16.45.20 eq 443\nip access-list extended HQ-TO-STORE\n remark HQ is not trusted blindly\n permit tcp 172.16.10.0 0.0.0.255 10.50.10.0 0.0.0.255 eq 443       ! POS management\n permit tcp 172.16.10.0 0.0.0.255 10.50.10.0 0.0.0.255 eq 22\n permit tcp 172.16.40.0 0.0.0.255 10.50.40.0 0.0.0.255              ! price push to scales/ESL\n permit tcp 172.16.20.0 0.0.0.255 10.50.20.0 0.0.0.255 eq 3389     ! IT support\n permit tcp 172.16.60.0 0.0.0.255 host 10.50.60.10 eq 443          ! security viewing\nclass-map type inspect match-all CM-TO-HQ\n match access-group name STORE-TO-HQ\nclass-map type inspect match-all CM-FROM-HQ\n match access-group name HQ-TO-STORE\npolicy-map type inspect PM-IN-HQ\n class type inspect CM-TO-HQ\n  inspect\n class class-default\n  drop log\npolicy-map type inspect PM-HQ-IN\n class type inspect CM-FROM-HQ\n  inspect\n class class-default\n  drop log\nzone-pair security ZP-IN-HQ source INSIDE destination HQ\n service-policy type inspect PM-IN-HQ\nzone-pair security ZP-HQ-IN source HQ destination INSIDE\n service-policy type inspect PM-HQ-IN\n!\n! the router itself: IKE + ESP in, and replies to its own probes (step 10)\nip access-list extended TO-SELF\n permit udp any any eq isakmp\n permit udp any any eq non500-isakmp\n permit esp any any\n permit icmp any any echo-reply\nclass-map type inspect match-any CM-SELF\n match access-group name TO-SELF\npolicy-map type inspect PM-OUT-SELF\n class type inspect CM-SELF\n  pass\n class class-default\n  drop\nzone-pair security ZP-OUT-SELF source OUTSIDE destination self\n service-policy type inspect PM-OUT-SELF"}, {"step": 10, "title": "LTE Backup: Tunnel Only", "label": "R1-EDGE — probe, tracked default, LTE zone, standby tunnel", "text": "ip sla 1\n icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0\n frequency 5\nip sla schedule 1 life forever start-time now\ntrack 1 ip sla 1 reachability\n delay down 10 up 60\nip route 1.1.1.1 255.255.255.255 203.0.113.41\nip route 1.1.1.1 255.255.255.255 Null0 250\nno ip route 0.0.0.0 0.0.0.0 203.0.113.41\nip route 0.0.0.0 0.0.0.0 203.0.113.41 track 1\n!\ninterface Cellular0/2/0\n description LTE backup (carrier profile configured on the module)\n ip address negotiated\n zone-member security LTE\nzone security LTE\nzone-pair security ZP-LTE-SELF source LTE destination self\n service-policy type inspect PM-OUT-SELF\nip route 198.51.100.21 255.255.255.255 Cellular0/2/0         ! HQ head-end 2 only via LTE\n!\ninterface Tunnel1\n description HQ backup (over LTE)\n ip address 10.255.142.6 255.255.255.252\n ip mtu 1400\n ip tcp adjust-mss 1360\n tunnel source Cellular0/2/0\n tunnel mode ipsec ipv4\n tunnel destination 198.51.100.21\n tunnel protection ipsec profile IP-HQ-LTE\n zone-member security HQ\nip route 172.16.0.0 255.255.0.0 Tunnel1 250"}, {"step": 11, "title": "The Refrigeration Vendor's Window", "label": "R1-EDGE — time-boxed, audited vendor access from HQ's jump host", "text": "time-range VENDOR-REFRIG\n periodic Tuesday 9:00 to 12:00\nip access-list extended HQ-VENDOR\n permit tcp host 172.16.5.10 host 10.50.45.10 eq 443 time-range VENDOR-REFRIG\nparameter-map type inspect PMAP-AUDIT\n audit-trail on\nclass-map type inspect match-all CM-VENDOR\n match access-group name HQ-VENDOR\npolicy-map type inspect PM-HQ-IN\n class type inspect CM-VENDOR\n  inspect PMAP-AUDIT\n class type inspect CM-FROM-HQ\n  inspect\n class class-default\n  drop log"}, {"step": 12, "title": "QoS, Time & Logs", "label": "R1-EDGE — classify before encryption, shape the fibre upload", "text": "interface Tunnel0\n qos pre-classify\ninterface Tunnel1\n qos pre-classify\nip access-list extended CRITICAL\n permit ip 10.50.10.0 0.0.0.255 172.16.0.0 0.0.255.255\n permit ip 10.50.30.0 0.0.0.255 172.16.0.0 0.0.255.255\nclass-map match-any CRIT\n match access-group name CRITICAL\npolicy-map WAN-CHILD\n class CRIT\n  bandwidth percent 30\n class class-default\n  fair-queue\npolicy-map WAN-OUT\n class class-default\n  shape average 95000000\n  service-policy WAN-CHILD\ninterface GigabitEthernet0/0/0\n service-policy output WAN-OUT"}, {"step": 12, "title": "QoS, Time & Logs", "label": "All devices — time and logging (PCI DSS requirement 10)", "text": "service timestamps log datetime msec localtime show-timezone\nntp server 172.16.0.123\nlogging host 172.16.50.5\nlogging trap informational\nlogin on-failure log\nlogin on-success log\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys"}]}}</script>
+</div>
+  </div>
+
+  <div class="thesis-card">
+    <p>This is part 4 of the <a href="build-index.html">Build series</a>, and the first one that's part of something bigger: the store is a branch of a chain. The POS backend, ERP, price management and security operations all live at head office. The store's network has to do two things well: keep its own zones apart, and give each zone exactly the path to HQ it needs.</p>
+    <p>Retail is also where payment-card rules bite hardest. With dozens of payment devices in one building, every zone that can reach a till is in PCI DSS scope. The design aim is that almost nothing can.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>The <a href="build-law-firm.html">law firm build</a>: this post reuses its core/edge pattern (SVI ACLs on the core, guest terminated on the edge, zone firewall)</li>
+      <li><a href="cisco-site-to-site-vpn.html">Site-to-site VPN</a>, <a href="cisco-zbf.html">zone-based firewall</a>, <a href="cisco-ipsla-failover.html">IP SLA failover</a></li>
+      <li>IOS-XE 17.x; the lane, back-of-store and core steps run in Packet Tracer (section 19)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but typical 1,500 m² neighbourhood supermarket, store number 142 in a chain of 60.</em></p>
+
+  <p>The store has <strong>8 staffed lanes</strong>, each with a POS terminal and an IP PIN pad, plus <strong>4 self-checkouts</strong>. The sales floor uses <strong>electronic shelf labels</strong> driven by 6 radio base stations, the deli, bakery and butcher have <strong>networked scales</strong>, and screens at the entrance show offers. The warehouse uses <strong>Wi-Fi handheld scanners</strong> for receiving and stock counts. The <strong>cold rooms and display fridges</strong> are monitored by a refrigeration controller that the refrigeration contractor services remotely. There are <strong>24 cameras</strong>, a PA and music system, a small office, and customer Wi-Fi. Head office runs the POS backend, payment gateway, ERP, warehouse management and price systems in its data center, reached over the internet.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Payment scope</td><td>PCI DSS: the lanes and self-checkouts form the cardholder data environment (CDE). They reach HQ's POS and payment systems and nothing else; nothing in the store reaches them.</td></tr>
+      <tr><td>R2 Keep trading</td><td>A store that can't take cards loses thousands an hour. Lanes and handhelds must survive a fibre cut (LTE backup), and the LTE line carries nothing else.</td></tr>
+      <tr><td>R3 HQ is the only way out for the CDE</td><td>The tills never browse; payments go through HQ's gateway. Store-to-HQ traffic is encrypted end to end.</td></tr>
+      <tr><td>R4 Prices change overnight</td><td>HQ pushes the next day's prices to scales and shelf labels between 02:00 and 05:00. That path has to exist, in that direction only.</td></tr>
+      <tr><td>R5 Food safety</td><td>Refrigeration alarms reach HQ's monitoring 24/7. The contractor gets in only in agreed windows, from one known host, and every session is logged.</td></tr>
+      <tr><td>R6 Warehouse roaming</td><td>Handhelds move between 4 APs while scanning a pallet; roams must be fast enough that the scanning app doesn't time out.</td></tr>
+      <tr><td>R7 CCTV</td><td>24 cameras at up to 4 Mb/s each stay off every other switch, and off the WAN except for HQ security viewing.</td></tr>
+      <tr><td>R8 Chain-wide sameness</td><td>Sixty stores, one design. Addresses, VLAN numbers and configs are templates where only the store number changes.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>Most of these come from the store being one of sixty.</em></p>
+
+  <h3 class="sub">1 · The CDE has no internet route at all</h3>
+  <p>The lanes don't need "internet with a filter"; they need HQ. So the CDE's ACL on the core permits only HQ's address space, and the zone firewall on the edge has no INSIDE→OUTSIDE class for the CDE subnet. A compromised till can't phone home to anyone but head office. Proving that, which a PCI assessor will ask for, is a two-line check rather than a review of an internet filter.</p>
+
+  <h3 class="sub">2 · CCTV gets its own switch</h3>
+  <p>Twenty-four cameras would fill an access switch's ports, PoE budget and uplink. A dedicated C9200L-48P with an uplink that carries <em>only</em> VLAN 60 keeps camera traffic and any compromised camera physically away from the lanes, and lets the camera installer work on that switch without touching anything else.</p>
+
+  <h3 class="sub">3 · A route-based tunnel to HQ</h3>
+  <p>A static virtual tunnel interface (IKEv2 + IPsec, tunnel mode) makes HQ look like a routed next hop: <code>ip route 172.16.0.0 255.255.0.0 Tunnel0</code>. That is easier to template across 60 stores than crypto maps, plays well with QoS, and allows a second tunnel over LTE with a floating route. The tunnel is also its own firewall zone, so "what may HQ reach in the store" is a zone-pair policy.</p>
+
+  <h3 class="sub">4 · The LTE line is tunnel-only</h3>
+  <p>During a fibre outage, the store doesn't need the internet. It needs HQ. The LTE interface is in its own zone that allows nothing but the backup tunnel's IKE and ESP. The office, guests and signage simply wait, so the LTE data plan stays small and there's nothing to filter.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>10.50.x.0/24 is store 142's block (a chain would use 10.&lt;store&gt;.x or a /16 per region). VLAN IDs are identical in every store.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>VLAN · subnet</th><th>Who lives here · gateway · DHCP</th></tr></thead>
+    <tbody>
+      <tr><td>10 CDE · 10.50.10.0/24</td><td>Lane POS .11–.18, PIN pads .21–.28, SCOs .31–.34. Static, from HQ's build. GW .1 on CORE.</td></tr>
+      <tr><td>20 OFFICE · 10.50.20.0/24</td><td>Office PCs, manager laptops. DHCP on CORE.</td></tr>
+      <tr><td>30 HANDHELD · 10.50.30.0/24</td><td>Warehouse and shop-floor scanners on Wi-Fi. DHCP on CORE.</td></tr>
+      <tr><td>40 STORE-IOT · 10.50.40.0/24</td><td>Scales .41–.44, ESL base stations .51–.56, signage .61, PA .71. DHCP reservations.</td></tr>
+      <tr><td>45 REFRIG · 10.50.45.0/24</td><td>Refrigeration controller .10. Static.</td></tr>
+      <tr><td>50 GUEST · 10.50.50.0/24</td><td>Shoppers' Wi-Fi. <strong>L2 only on the core</strong>, GW and DHCP on R1.</td></tr>
+      <tr><td>60 CCTV · 10.50.60.0/24</td><td>NVR .10, cameras .101–.124. Static.</td></tr>
+      <tr><td>99 MGMT · 10.50.99.0/24</td><td>Switches, APs (EWC), UPS. CORE .1, ACC-FRONT .11, ACC-BACK .12, SW-CCTV .13.</td></tr>
+      <tr><td>900 TRANSIT · 10.50.255.0/29</td><td>R1 .1 ↔ CORE .2.</td></tr>
+      <tr><td>HQ · 172.16.0.0/16</td><td>POS backend 172.16.10.20, WMS 172.16.30.15, ESL/scale managers 172.16.40.0/24, BMS 172.16.45.20, syslog 172.16.50.5, vendor jump host 172.16.5.10.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 300" role="img" aria-label="Floor plan of the supermarket colour-coded by VLAN: entrance and checkout zone with lanes and self-checkouts, the sales floor with shelf labels, deli and bakery scales, the office and comms room, the warehouse and the cold rooms">
+    <text class="lf-name" x="15" y="20">SALES AREA</text><rect x="15" y="28" width="500" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <text class="lf-name" x="525" y="20">BACK OF STORE</text><rect x="525" y="28" width="220" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <rect x="25" y="38" width="150" height="100" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="100" y="86">Checkout zone</text><text class="lf-mono lf-c" x="100" y="100">8 lanes · 4 SCO · V10</text>
+    <rect x="185" y="38" width="320" height="60" rx="3" style="fill:var(--v40);fill-opacity:.13;stroke:var(--v40);stroke-width:1.4;"/><text class="lf-sm lf-c" x="345" y="66">Entrance</text><text class="lf-mono lf-c" x="345" y="80">signage V40 · cameras V60</text>
+    <rect x="185" y="108" width="320" height="112" rx="3" style="fill:var(--v40);fill-opacity:.13;stroke:var(--v40);stroke-width:1.4;"/><text class="lf-sm lf-c" x="345" y="162">Sales floor · 14 aisles</text><text class="lf-mono lf-c" x="345" y="176">shelf labels via 6 ESL bases · V40</text>
+    <rect x="25" y="148" width="150" height="72" rx="3" style="fill:var(--v50);fill-opacity:.13;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-sm lf-c" x="100" y="182">Customer area</text><text class="lf-mono lf-c" x="100" y="196">guest Wi-Fi · V50</text>
+    <rect x="25" y="230" width="480" height="40" rx="3" style="fill:var(--v40);fill-opacity:.13;stroke:var(--v40);stroke-width:1.4;"/><text class="lf-sm lf-c" x="265" y="248">Deli · bakery · butcher</text><text class="lf-mono lf-c" x="265" y="262">networked scales · V40</text>
+    <rect x="535" y="38" width="200" height="50" rx="3" style="fill:var(--v20);fill-opacity:.13;stroke:var(--v20);stroke-width:1.4;"/><text class="lf-sm lf-c" x="635" y="61">Office + comms room</text><text class="lf-mono lf-c" x="635" y="75">V20 · R1 · core · NVR</text>
+    <rect x="535" y="98" width="200" height="100" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="635" y="146">Warehouse &amp; receiving</text><text class="lf-mono lf-c" x="635" y="160">handhelds · V30 · 4 APs</text>
+    <rect x="535" y="208" width="200" height="62" rx="3" style="fill:var(--v45);fill-opacity:.13;stroke:var(--v45);stroke-width:1.4;"/><text class="lf-sm lf-c" x="635" y="237">Cold rooms</text><text class="lf-mono lf-c" x="635" y="251">refrigeration controller · V45</text>
+    <circle cx="170" cy="45" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="170" y="48" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="505" cy="215" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="505" y="218" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="560" cy="150" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="560" y="153" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="720" cy="150" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="720" y="153" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <text class="lf-cap lf-c" x="380" y="296">Cameras cover every lane, the entrance, the warehouse doors and the cold rooms. All of them feed their own switch, which only connects to the core in VLAN 60.</text>
+    </svg>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start, columns receive. Default deny. Two columns are new compared with a standalone business: HQ via the tunnel, and HQ as a source.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 350" role="img" aria-label="Policy matrix for the supermarket: which zones may start connections to the lanes, head office over the VPN, the office, the store IoT, CCTV, and the internet">
+    <text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM ↓  ·  TO →</text>
+    <text class="lf-sm lf-c" x="222.5" y="38">Lanes · SCO</text>
+    <text class="lf-sm lf-c" x="317.5" y="38">HQ via VPN</text>
+    <text class="lf-sm lf-c" x="412.5" y="38">Office</text>
+    <text class="lf-sm lf-c" x="507.5" y="38">Store IoT</text>
+    <text class="lf-sm lf-c" x="602.5" y="38">CCTV</text>
+    <text class="lf-sm lf-c" x="697.5" y="38">Internet</text>
+    <rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="70">Lanes · V10 (CDE)</text>
+    <rect x="177" y="54" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="222.5" y="71" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="272" y="54" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="317.5" y="71" style="fill:var(--gotcha);font-weight:700;">◐ POS + pay</text>
+    <rect x="367" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="697.5" y="71" style="fill:var(--accent);font-weight:700;">✕ HQ only</text>
+    <rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="100">Office · V20</text>
+    <rect x="177" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="84" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="317.5" y="101" style="fill:var(--defender);font-weight:700;">✓ ERP</text>
+    <rect x="367" y="84" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="412.5" y="101" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="462" y="84" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="507.5" y="101" style="fill:var(--gotcha);font-weight:700;">◐ admin UIs</text>
+    <rect x="557" y="84" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="602.5" y="101" style="fill:var(--gotcha);font-weight:700;">◐ NVR view</text>
+    <rect x="652" y="84" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="101" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="130">Handhelds · V30</text>
+    <rect x="177" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="114" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="317.5" y="131" style="fill:var(--gotcha);font-weight:700;">◐ WMS</text>
+    <rect x="367" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="697.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v40);"/><text class="lf-sm" x="38" y="160">Store IoT · V40</text>
+    <rect x="177" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="317.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ ESL/scale</text>
+    <rect x="367" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="144" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="507.5" y="161" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="557" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ vendor</text>
+    <rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--v45);"/><text class="lf-sm" x="38" y="190">Refrig · V45</text>
+    <rect x="177" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="174" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="317.5" y="191" style="fill:var(--gotcha);font-weight:700;">◐ alarms</text>
+    <rect x="367" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="697.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="20" y="211" width="10" height="10" rx="2" style="fill:var(--v50);"/><text class="lf-sm" x="38" y="220">Guest · V50</text>
+    <rect x="177" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="204" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="221" style="fill:var(--defender);font-weight:700;">✓ 20 Mb/s</text>
+    <rect x="20" y="241" width="10" height="10" rx="2" style="fill:var(--v60);"/><text class="lf-sm" x="38" y="250">CCTV · V60</text>
+    <rect x="177" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="234" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="317.5" y="251" style="fill:var(--gotcha);font-weight:700;">◐ HQ viewing</text>
+    <rect x="367" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="234" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="602.5" y="251" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="652" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="697.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="20" y="271" width="10" height="10" rx="2" style="fill:var(--accent);"/><text class="lf-sm" x="38" y="280">HQ · tunnel</text>
+    <rect x="177" y="264" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="222.5" y="281" style="fill:var(--gotcha);font-weight:700;">◐ POS mgmt</text>
+    <rect x="272" y="264" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="317.5" y="281" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="367" y="264" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="281" style="fill:var(--gotcha);font-weight:700;">◐ support</text>
+    <rect x="462" y="264" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="507.5" y="281" style="fill:var(--gotcha);font-weight:700;">◐ price push</text>
+    <rect x="557" y="264" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="602.5" y="281" style="fill:var(--gotcha);font-weight:700;">◐ viewing</text>
+    <rect x="652" y="264" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="697.5" y="281" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="20" y="310" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="320">allowed</text>
+    <rect x="140" y="310" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="320">limited to the host/port shown</text>
+    <rect x="360" y="310" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="320">denied (default)</text>
+    <rect x="520" y="310" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="320">same zone / n.a.</text>
+    <text class="lf-cap" x="20" y="336">Core SVI ACLs enforce the inside cells; R1's zone firewall enforces the tunnel and internet columns. The CDE row has no internet cell at all.</text>
+    </svg>
+  </div>
+
+  <p>Two rows deserve a second look. The <strong>CDE row</strong> has exactly one allowed cell, and it's "HQ". The <strong>HQ row</strong> is not "trusted, allow all": head office reaches the lanes only for POS management, the IoT only to push prices, and the refrigeration only through the vendor window in step 11. A compromise at head office shouldn't automatically become a compromise of every store.</p>
+
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+  <table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Payment scope</td><td><a href="#step-1">step 1</a> · <a href="#step-6">step 6</a> · <a href="#step-8">step 8</a></td><td>sticky MAC + no errdisable recovery; V10-IN permits only 172.16.0.0/16; no CDE class in INSIDE-TO-INET</td><td>"CDE seal" and "Device swap" drills, <a href="#sec-17">section 17</a></td></tr>
+      <tr><td>R2 Keep trading</td><td><a href="#step-10">step 10</a></td><td>IP SLA on the fibre; Tunnel1 over LTE always up; floating route to HQ; LTE zone with self-zone only</td><td>"Fibre cut" drill</td></tr>
+      <tr><td>R3 HQ is the only way out</td><td><a href="#step-6">step 6</a> · <a href="#step-8">step 8</a> · <a href="#step-9">step 9</a></td><td>V10-IN, NAT-SRC without the CDE, STORE-TO-HQ class</td><td>"CDE egress" drill</td></tr>
+      <tr><td>R4 Prices change overnight</td><td><a href="#step-9">step 9</a></td><td>HQ-TO-STORE permits 172.16.40.0/24 → 10.50.40.0/24</td><td>"Overnight prices" drill</td></tr>
+      <tr><td>R5 Food safety</td><td><a href="#step-11">step 11</a></td><td>time-range VENDOR-REFRIG + audit-trail; alarms path independent of the window</td><td>"Vendor window" drill</td></tr>
+      <tr><td>R6 Warehouse roaming</td><td><a href="#step-5">step 5</a></td><td>MKT-SCAN with 802.11r/k/v, 5 GHz, raised minimum rate</td><td>"Warehouse walk" drill</td></tr>
+      <tr><td>R7 CCTV</td><td><a href="#step-3">step 3</a> · <a href="#step-4">step 4</a></td><td>own switch; Po3 carries VLANs 60 and 99 only; V60-IN replies only</td><td>"CCTV" drill</td></tr>
+      <tr><td>R8 Chain-wide sameness</td><td><a href="#step-9">step 9</a></td><td>per-store values limited to store number, tunnel /30 and WAN address; certificates from the chain CA</td><td>Template diff between two stores</td></tr>
+    </tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">Bottom to Top, One Layer at a Time</h2>
+  <p class="section-thesis"><em>Lanes first, head office last. Every step ends with a checkpoint.</em></p>
+  <p>Twelve steps: front-of-store access, back-of-store access, the CCTV switch, the core, Wi-Fi, the PCI ACLs, the edge router, the fibre and zone firewall, the HQ tunnel, LTE backup, vendor access, and finally QoS with logging. Each step that adds equipment opens with the topology: built parts solid, the step's additions in orange, later steps faded.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 12</p>
+  <h2 class="section-title">The Lanes: Front-of-Store Access</h2>
+  <p class="section-thesis"><em>Sixteen lane ports, four self-checkouts, one signage screen. Each payment port remembers the one device allowed on it.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">ACC-FRONT — C9200L-24P-4G · VLANs and lane ports</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname ACC-FRONT
+vtp mode transparent
+spanning-tree mode rapid-pvst
+vlan 10
+ name CDE
+vlan 20
+ name OFFICE
+vlan 30
+ name HANDHELD
+vlan 40
+ name STORE-IOT
+vlan 45
+ name REFRIG
+vlan 50
+ name GUEST
+vlan 60
+ name CCTV
+vlan 99
+ name MGMT
+vlan 666
+ name PARKING
+!
+<span class="cmt">! lanes: one POS and one PIN pad per lane, each pinned to its own MAC</span>
+interface range GigabitEthernet1/0/1 - 16
+ description LANE POS / PIN PAD
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range GigabitEthernet1/0/17 - 20
+ description SELF-CHECKOUT
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface GigabitEthernet1/0/21
+ description SIGNAGE
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+interface range GigabitEthernet1/0/22 , GigabitEthernet1/0/23 - 24
+ switchport access vlan 666
+ shutdown                                    <span class="cmt">! Gi1/0/23-24 become AP trunks in step 5</span>
+!
+no errdisable recovery cause psecure-violation   <span class="cmt">! a swapped PIN pad stays down until a person looks</span></pre><pre class="term vt-pane" data-v="mikrotik" hidden># ACC-FRONT — CRS328-24P-4S+: one known MAC per lane port, learning off
+/interface bridge add name=bridge vlan-filtering=no
+:for i from=1 to=16 do=&#123;
+  /interface bridge port add bridge=bridge interface=(&quot;ether&quot; . $i) pvid=10 learn=no \
+      frame-types=admit-only-untagged-and-priority-tagged comment=&quot;lane POS / PIN pad&quot;
+&#125;
+/interface bridge host add bridge=bridge interface=ether5 mac-address=00:13:C4:00:03:21   # lane 3 PIN pad
+# … one static host per lane device and per self-checkout (ether17-20)
+/interface bridge port add bridge=bridge interface=ether21 pvid=40 comment=&quot;signage&quot;
+/interface bridge vlan add bridge=bridge vlan-ids=10,40,50,99 tagged=sfp-sfpplus1
+/interface ethernet disable ether22,ether23,ether24
+/interface bridge set bridge vlan-filtering=yes
+# a swapped PIN pad just gets no traffic forwarded: silent, not err-disabled (see the appendix)</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Why a PIN pad port must not recover by itself</span>
+    <p>PCI DSS expects stores to detect swapped or tampered payment devices. With <code>maximum 1</code> and a sticky MAC, a different device on a lane port shuts the port immediately, and with errdisable recovery off it stays shut. That's noisy on purpose: the lane stops taking cards, a supervisor gets called, and someone physically inspects the PIN pad before IT re-enables the port. The sticky MACs are saved into the startup config with <code>write memory</code> after the store's devices are installed, and a PIN pad replacement is a ticket, not a shrug.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show port-security</code>: one sticky MAC per lane port after all lanes are powered.</li><li>Swap lane 3's PIN pad for a spare: Gi1/0/5 goes <code>err-disabled</code> and a syslog message appears; it stays down until <code>shutdown</code>/<code>no shutdown</code> after the sticky entry is cleared.</li><li>Lane 1 and lane 2 POS (static 10.50.10.11 and .12) ping each other: same VLAN, no routing yet.</li></ul>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 12</p>
+  <h2 class="section-title">Back of Store: Office, Scales, Labels, Cold Rooms</h2>
+  <p class="section-thesis"><em>A second access switch for everything behind the shop floor. Each device type lands in the VLAN whose rules fit it.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">ACC-BACK — C9200L-24P-4G</span><span class="cfg-meta">30 lines · this step's additions · click to expand</span></summary><pre class="term">hostname ACC-BACK
+<span class="cmt">! (same VLAN database as ACC-FRONT)</span>
+interface range GigabitEthernet1/0/1 - 4
+ description OFFICE
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range GigabitEthernet1/0/5 - 8
+ description DELI / BAKERY / BUTCHER SCALES
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+interface range GigabitEthernet1/0/9 - 14
+ description ESL BASE STATIONS (PoE)
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+interface GigabitEthernet1/0/15
+ description REFRIGERATION CONTROLLER
+ switchport mode access
+ switchport access vlan 45
+ switchport port-security mac-address sticky
+ switchport port-security
+ spanning-tree portfast
+interface GigabitEthernet1/0/16
+ description PA / MUSIC
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast</pre></details>
+
+  <p>The scales, shelf-label base stations, signage and PA share VLAN 40 because they share a rule: talk to their manager servers at HQ and nothing in the store. The refrigeration controller gets VLAN 45 to itself, because it's the one device an outside contractor reaches into, and because a food-safety system deserves its own small, boring network.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show vlan brief</code>: ports in 20, 40 and 45 as planned.</li><li><code>show power inline</code>: the ESL base stations draw power on Gi1/0/9–14.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 12</p>
+  <h2 class="section-title">The CCTV Switch</h2>
+  <p class="section-thesis"><em>24 cameras and the NVR on their own hardware, with an uplink that carries one VLAN.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">SW-CCTV — C9200L-48P-4G</span><span class="cfg-meta">20 lines · this step's additions · click to expand</span></summary><pre class="term">hostname SW-CCTV
+vlan 60
+ name CCTV
+vlan 99
+ name MGMT
+interface range GigabitEthernet1/0/1 - 24
+ description CAMERA
+ switchport mode access
+ switchport access vlan 60
+ switchport port-security mac-address sticky
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface GigabitEthernet1/0/48
+ description NVR
+ switchport mode access
+ switchport access vlan 60
+ spanning-tree portfast
+interface range GigabitEthernet1/0/25 - 47
+ shutdown</pre></details>
+
+  <p>Recording traffic (24 cameras into the NVR, ~100 Mb/s in total) stays inside this switch. Only viewing, a few streams at a time, ever crosses the uplink. That uplink, configured in step 4, allows VLANs 60 and 99 and nothing else, so even a misconfigured camera port can't land in another VLAN.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>The NVR records all 24 cameras; <code>show interfaces Gi1/0/48 | include rate</code> shows the recording load.</li><li><code>show power inline | include Available</code>: enough budget left for the outdoor cameras with heaters.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 12</p>
+  <h2 class="section-title">The Core: Uplinks, SVIs &amp; DHCP</h2>
+  <p class="section-thesis"><em>Three port-channels, one gateway per routed VLAN, and DHCP served locally so the store doesn't depend on HQ to boot a scanner.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">CORE — C9200-24T · port-channels and SVIs</span><span class="cfg-meta">43 lines · this step's additions · click to expand</span></summary><pre class="term">hostname CORE
+vtp mode transparent
+spanning-tree mode rapid-pvst
+spanning-tree vlan 1-4094 priority 4096
+ip routing
+<span class="cmt">! (same VLAN database, plus vlan 900 TRANSIT)</span>
+interface range GigabitEthernet1/1/1 - 2
+ channel-group 1 mode active
+interface range GigabitEthernet1/1/3 - 4
+ channel-group 2 mode active
+interface range GigabitEthernet1/0/23 - 24
+ channel-group 3 mode active
+interface range Port-channel1 - 2
+ switchport mode trunk
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 10,20,30,40,45,50,99
+ switchport nonegotiate
+interface Port-channel3
+ description SW-CCTV: cameras and management only
+ switchport mode trunk
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 60,99
+ switchport nonegotiate
+!
+interface Vlan10
+ description CDE
+ ip address 10.50.10.1 255.255.255.0
+ no ip redirects
+ no ip proxy-arp
+<span class="cmt">! Vlan20, 30, 40, 45, 60, 99: same shape, own subnet</span>
+<span class="key">! no "interface Vlan50": guests are routed by R1 only (step 7)</span>
+!
+ip dhcp excluded-address 10.50.20.1 10.50.20.49
+ip dhcp pool OFFICE
+ network 10.50.20.0 255.255.255.0
+ default-router 10.50.20.1
+ dns-server 172.16.0.53
+ip dhcp pool HANDHELD
+ network 10.50.30.0 255.255.255.0
+ default-router 10.50.30.1
+ dns-server 172.16.0.53
+ lease 0 12
+<span class="cmt">! STORE-IOT: reservations per MAC (client-identifier), same pattern</span></pre></details>
+
+  <p>DNS points at HQ's resolver (172.16.0.53), which is reachable once the tunnel is up in step 9. Until then the checkpoint tests use addresses. The ACC switches get matching <code>channel-group</code> uplinks and a VLAN 99 management SVI, as in the <a href="build-law-firm.html">law-firm build</a>.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show etherchannel summary</code>: Po1–Po3 all <code>(SU)</code>.</li><li><code>show interfaces trunk</code>: Po3 allows only 60 and 99.</li><li>An office PC gets 10.50.20.x and pings a lane POS. Wide open for now: step 6 closes it.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 12</p>
+  <h2 class="section-title">Wi-Fi: Handhelds That Roam, Guests Who Don't Matter</h2>
+  <p class="section-thesis"><em>Six APs, one embedded controller, two SSIDs. The handheld SSID is tuned for fast roaming; the guest SSID only has to be isolated.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <table class="cheat">
+    <thead><tr><th>SSID</th><th>Security · VLAN · tuning</th></tr></thead>
+    <tbody>
+      <tr><td>MKT-SCAN</td><td>WPA2/WPA3-Personal (the scanner fleet's lowest common denominator) · VLAN 30 · <strong>802.11r (Fast Transition)</strong> + 802.11k/v so scanners roam between the 4 warehouse APs in milliseconds · 5 GHz only · minimum data rate raised to 12 Mb/s so clients don't cling to a distant AP</td></tr>
+      <tr><td>MARKET-Guest</td><td>Open, client isolation on · VLAN 50, terminated on R1 · 2.4 + 5 GHz</td></tr>
+    </tbody>
+  </table>
+
+  <div class="term-wrap"><span class="term-label">ACC-FRONT Gi1/0/23-24 and ACC-BACK Gi1/0/21-24 — AP trunks</span><pre class="term">interface range GigabitEthernet1/0/21 - 24      <span class="cmt">! ACC-BACK; on ACC-FRONT the range is Gi1/0/23 - 24</span>
+ description AP (FlexConnect local switching)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 30,50,99
+ switchport nonegotiate
+ spanning-tree portfast trunk
+ no shutdown</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Fast Transition and old scanners</span>
+    <p>Some older handheld scanners fail to associate at all with an SSID that advertises 802.11r. Test the actual scanner model before the store opens. If it's a problem, use "FT adaptive" mode (FT for clients that ask for it, plain WPA2 for the rest) or a separate SSID for the old devices until they're replaced. A personal (PSK) key on a scanner fleet is a known trade-off: rotate it when a scanner is lost, and the HANDHELD VLAN's ACL in step 6 limits what a stolen key can reach.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Walk a scanner from the receiving dock to the back of the warehouse while it pings the core: no lost pings at the roams, and the controller shows FT roams.</li><li>A phone on MARKET-Guest appears in VLAN 50 but gets no address yet (R1 in step 7).</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 12</p>
+  <h2 class="section-title">PCI Segmentation on the Core</h2>
+  <p class="section-thesis"><em>The CDE gets an ACL with one permit line. Everything else gets "what this zone may start", with the CDE always excluded.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 390" role="img" aria-label="Animated PCI segmentation: a lane reaches the HQ POS backend through the tunnel; the office and a deli scale are blocked from the lane; the lane is blocked from the internet">
+      <style>@keyframes sm1p0{0%,1%{transform:translate(132px,70px);opacity:0;}4%{opacity:1;}18%{transform:translate(612px,70px);opacity:1;}22%,100%{transform:translate(612px,70px);opacity:0;}}@keyframes sm1m0{0%,16%{opacity:0;}18%,96%{opacity:1;}98%,100%{opacity:0;}}.sm1-p0{animation:sm1p0 16s ease-in-out infinite;} .sm1-m0{animation:sm1m0 16s linear infinite;}@keyframes sm1p1{0%,26%{transform:translate(132px,150px);opacity:0;}29%{opacity:1;}43%{transform:translate(276px,150px);opacity:1;}47%,100%{transform:translate(276px,150px);opacity:0;}}@keyframes sm1m1{0%,41%{opacity:0;}43%,96%{opacity:1;}98%,100%{opacity:0;}}.sm1-p1{animation:sm1p1 16s ease-in-out infinite;} .sm1-m1{animation:sm1m1 16s linear infinite;}@keyframes sm1p2{0%,51%{transform:translate(132px,230px);opacity:0;}54%{opacity:1;}68%{transform:translate(276px,230px);opacity:1;}72%,100%{transform:translate(276px,230px);opacity:0;}}@keyframes sm1m2{0%,66%{opacity:0;}68%,96%{opacity:1;}98%,100%{opacity:0;}}.sm1-p2{animation:sm1p2 16s ease-in-out infinite;} .sm1-m2{animation:sm1m2 16s linear infinite;}@keyframes sm1p3{0%,76%{transform:translate(132px,310px);opacity:0;}79%{opacity:1;}93%{transform:translate(612px,310px);opacity:1;}97%,100%{transform:translate(612px,310px);opacity:0;}}@keyframes sm1m3{0%,91%{opacity:0;}93%,96%{opacity:1;}98%,100%{opacity:0;}}.sm1-p3{animation:sm1p3 16s ease-in-out infinite;} .sm1-m3{animation:sm1m3 16s linear infinite;}@media (prefers-reduced-motion:reduce){.sm1-p0,.sm1-p1,.sm1-p2,.sm1-p3{animation:none;opacity:0;}.sm1-m0,.sm1-m1,.sm1-m2,.sm1-m3{animation:none;opacity:1;}}</style>
+      <rect class="lf-boxa" x="280" y="24" width="150" height="320" rx="7"/><text class="lf-name lf-c" x="355" y="42">CORE → R1</text>
+      <text class="lf-cap lf-c" x="355" y="334">CDE boundary</text>
+      <rect class="lf-box" x="20" y="50" width="112" height="40" rx="5"/><rect x="20" y="50" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="67">Lane 3 POS</text><text class="lf-mono lf-c" x="78" y="81">10.50.10.13</text>
+      <rect class="lf-boxd" x="620" y="50" width="122" height="40" rx="5"/><text class="lf-sm lf-c" x="681" y="67">HQ POS backend</text><text class="lf-mono lf-c" x="681" y="81">172.16.10.20</text>
+      <text class="lf-mono lf-c" x="355" y="62" style="fill:var(--defender);">V10-IN → tunnel ✓</text>
+      <line class="lf-link" x1="132" y1="70" x2="620" y2="70"/>
+      <text class="lf-mono" x="140" y="62">→ tcp/443</text>
+      <g class="sm1-m0"><text class="lf-cap" x="440" y="62" style="fill:var(--defender);font-weight:700;">✓ CDE → HQ via the tunnel</text></g>
+      <rect class="lf-box" x="20" y="130" width="112" height="40" rx="5"/><rect x="20" y="130" width="5" height="40" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="78" y="147">Office PC</text><text class="lf-mono lf-c" x="78" y="161">10.50.20.31</text>
+      <rect class="lf-box" x="620" y="130" width="122" height="40" rx="5"/><rect x="620" y="130" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="147">Lane 3 POS</text><text class="lf-mono lf-c" x="683" y="161">10.50.10.13</text>
+      <text class="lf-mono lf-c" x="355" y="142" style="fill:var(--accent);">V20-IN: deny V10</text>
+      <line class="lf-dash" x1="132" y1="150" x2="620" y2="150"/>
+      <text class="lf-mono" x="140" y="142">→ tcp/445</text>
+      <g class="sm1-m1"><text x="262" y="157" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="142" style="fill:var(--accent);font-weight:700;">✕ V20-IN: no line to V10</text></g>
+      <rect class="lf-box" x="20" y="210" width="112" height="40" rx="5"/><rect x="20" y="210" width="5" height="40" style="fill:var(--v40);"/><text class="lf-sm lf-c" x="78" y="227">Deli scale 2</text><text class="lf-mono lf-c" x="78" y="241">10.50.40.42</text>
+      <rect class="lf-box" x="620" y="210" width="122" height="40" rx="5"/><rect x="620" y="210" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="227">Lane 3 POS</text><text class="lf-mono lf-c" x="683" y="241">10.50.10.13</text>
+      <text class="lf-mono lf-c" x="355" y="222" style="fill:var(--accent);">V40-IN: deny V10</text>
+      <line class="lf-dash" x1="132" y1="230" x2="620" y2="230"/>
+      <text class="lf-mono" x="140" y="222">→ any</text>
+      <g class="sm1-m2"><text x="262" y="237" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="222" style="fill:var(--accent);font-weight:700;">✕ V40-IN: IoT never to CDE</text></g>
+      <rect class="lf-box" x="20" y="290" width="112" height="40" rx="5"/><rect x="20" y="290" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="307">Lane 3 POS</text><text class="lf-mono lf-c" x="78" y="321">10.50.10.13</text>
+      <rect class="lf-boxd" x="620" y="290" width="122" height="40" rx="5"/><text class="lf-sm lf-c" x="681" y="307">Internet</text><text class="lf-mono lf-c" x="681" y="321">any site</text>
+      <text class="lf-mono lf-c" x="355" y="302" style="fill:var(--accent);">ZBF: CDE ↛ OUTSIDE</text>
+      <line class="lf-link" x1="132" y1="310" x2="620" y2="310"/>
+      <text class="lf-mono" x="140" y="302">→ tcp/443</text>
+      <g class="sm1-m3"><text x="598" y="317" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="302" style="fill:var(--accent);font-weight:700;">✕ ZBF: CDE has no internet</text></g>
+      <text class="lf-cap lf-c" x="380" y="378">The lanes reach exactly one place, head office, through the tunnel. Nothing in the store reaches them, and they never touch the internet directly.</text>
+      <circle class="lf-pkt sm1-p0" r="6"/>
+      <circle class="lf-pkt sm1-p1" r="6"/>
+      <circle class="lf-pkt sm1-p2" r="6"/>
+      <circle class="lf-pkt sm1-p3" r="6"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE — SVI ACLs (inbound)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">ip access-list extended V10-IN
+ remark CDE: lanes and SCOs reach HQ and nothing else
+ 10 permit icmp 10.50.10.0 0.0.0.255 host 10.50.10.1
+ 20 permit ip 10.50.10.0 0.0.0.255 172.16.0.0 0.0.255.255
+ 30 deny   ip any any log
+!
+ip access-list extended V20-IN
+ remark OFFICE: HQ, store-IoT admin, NVR viewing, internet. Never the CDE.
+ 10 permit udp any any eq bootps
+ 15 permit icmp any host 10.50.20.1
+ 20 deny   ip any 10.50.10.0 0.0.0.255 log
+ 30 permit ip 10.50.20.0 0.0.0.255 172.16.0.0 0.0.255.255
+ 40 permit tcp 10.50.20.0 0.0.0.255 10.50.40.0 0.0.0.255 eq 443
+ 50 permit tcp 10.50.20.0 0.0.0.255 host 10.50.60.10 eq 443
+ 60 deny   ip any 10.0.0.0 0.255.255.255 log
+ 70 deny   ip any 172.16.0.0 0.15.255.255
+ 80 deny   ip any 192.168.0.0 0.0.255.255
+ 90 permit ip 10.50.20.0 0.0.0.255 any
+!
+ip access-list extended V30-IN
+ remark HANDHELD: the warehouse system at HQ, nothing else
+ 10 permit udp any any eq bootps
+ 20 permit udp 10.50.30.0 0.0.0.255 host 172.16.0.53 eq domain
+ 30 permit tcp 10.50.30.0 0.0.0.255 host 172.16.30.15 eq 443
+ 40 deny   ip any any log
+!
+ip access-list extended V40-IN
+ remark STORE-IOT: their managers at HQ, replies to the office, vendor clouds
+ 10 permit udp any any eq bootps
+ 20 permit ip 10.50.40.0 0.0.0.255 172.16.40.0 0.0.0.255
+ 30 permit tcp 10.50.40.0 0.0.0.255 10.50.20.0 0.0.0.255 established
+ 40 deny   ip any 10.0.0.0 0.255.255.255 log
+ 50 deny   ip any 172.16.0.0 0.15.255.255
+ 60 deny   ip any 192.168.0.0 0.0.255.255
+ 70 permit tcp 10.50.40.0 0.0.0.255 any eq 443
+!
+ip access-list extended V45-IN
+ remark REFRIG: alarms to HQ BMS, replies to the vendor jump host
+ 10 permit tcp host 10.50.45.10 host 172.16.45.20 eq 443
+ 20 permit tcp host 10.50.45.10 host 172.16.5.10 established
+ 30 deny   ip any any log
+!
+ip access-list extended V60-IN
+ remark CCTV: the NVR answers viewers, nothing else
+ 10 permit tcp host 10.50.60.10 eq 443 10.50.20.0 0.0.0.255 established
+ 20 permit tcp host 10.50.60.10 eq 443 172.16.0.0 0.0.255.255 established
+ 30 deny   ip any any log
+!
+interface Vlan10
+ ip access-group V10-IN in
+<span class="cmt">! … V20-IN to V60-IN on their SVIs the same way</span></pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 (CCR2004) — routing moves off the core; the same policy as a stateful forward chain
+/ip firewall filter
+add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+add chain=forward action=accept in-interface=v10-cde out-interface-list=HQ comment=&quot;CDE: HQ and nothing else&quot;
+add chain=forward action=drop in-interface=v10-cde log=yes log-prefix=CDE-OUT
+add chain=forward action=drop out-interface=v10-cde log=yes log-prefix=CDE-IN comment=&quot;nothing in the store reaches a till&quot;
+add chain=forward action=accept in-interface=v20-office out-interface-list=HQ
+add chain=forward action=accept in-interface=v20-office out-interface=v40-iot protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v20-office dst-address=10.50.60.10 protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v30-handheld dst-address=172.16.30.15 protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v40-iot dst-address=172.16.40.0/24
+add chain=forward action=accept in-interface=v45-refrig src-address=10.50.45.10 dst-address=172.16.45.20 protocol=tcp dst-port=443
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">The deny-the-CDE line goes first</span>
+    <p>In <code>V20-IN</code>, line 20 (deny to the CDE) sits <em>above</em> the HQ permit and the internet permit, even though the later private-address denies would also catch it. That's deliberate: an auditor reads the ACL top-down, and "the office can never reach the CDE" should be visible as an explicit, logged line, not something they have to infer from the order of later rules. Every non-CDE ACL could start the same way; here the IoT, refrigeration and CCTV ACLs already can't reach 10.50.10.0/24 at all.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From the office: ping 10.50.10.11 fails, and <code>show access-lists V20-IN</code> shows line 20 counting.</li><li>From a deli scale (or a laptop on its port): nothing in 10.50.10.0/24 or 10.50.20.0/24 answers.</li><li>From a lane POS: only the gateway answers inside the store. HQ addresses will answer after step 9.</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 12</p>
+  <h2 class="section-title">The Edge Router, Inside Only</h2>
+  <p class="section-thesis"><em>R1 arrives on the inside first: a transit link to the core, the guest network terminated on its own subinterface, and a guest DHCP pool.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1-EDGE — C8200L-1N-4T · LAN side</span><span class="cfg-meta">25 lines · this step's additions · click to expand</span></summary><pre class="term">hostname R1-EDGE
+interface GigabitEthernet0/0/2
+ description CORE Gi1/0/1 (trunk: 50, 900)
+ no ip address
+interface GigabitEthernet0/0/2.900
+ encapsulation dot1Q 900
+ ip address 10.50.255.1 255.255.255.248
+interface GigabitEthernet0/0/2.50
+ encapsulation dot1Q 50
+ ip address 10.50.50.1 255.255.255.0
+!
+ip dhcp excluded-address 10.50.50.1 10.50.50.9
+ip dhcp pool GUEST
+ network 10.50.50.0 255.255.255.0
+ default-router 10.50.50.1
+ dns-server 9.9.9.9 149.112.112.112
+ lease 0 2
+policy-map GUEST-LIMIT
+ class class-default
+  police cir 20000000
+interface GigabitEthernet0/0/2.50
+ service-policy input GUEST-LIMIT
+ service-policy output GUEST-LIMIT
+!
+ip route 10.50.0.0 255.255.0.0 10.50.255.2</pre></details>
+
+  <div class="term-wrap"><span class="term-label">CORE — uplink to R1 and the guest backstop</span><pre class="term">interface GigabitEthernet1/0/1
+ description R1-EDGE Gi0/0/2
+ switchport mode trunk
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 50,900
+ switchport nonegotiate
+ip access-list extended V900-IN
+ 10 deny   ip 10.50.50.0 0.0.0.255 any log
+ 20 permit ip any any
+interface Vlan900
+ ip address 10.50.255.2 255.255.255.248
+ ip access-group V900-IN in
+ip route 0.0.0.0 0.0.0.0 10.50.255.1</pre></div>
+
+  <p>This is the same guest pattern as the <a href="build-law-firm.html">law-firm build</a>: the core never routes guest traffic, every guest packet goes through R1, and the core's transit ACL drops anything sourced from the guest subnet as a second, independent control.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>A phone on MARKET-Guest gets 10.50.50.x from R1.</li><li>From it, <code>ping 10.50.10.11</code> fails, and <code>show access-lists V900-IN</code> counts the attempt.</li><li>From the core, <code>ping 10.50.255.1</code>; from R1, <code>ping 10.50.20.1</code>.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 12</p>
+  <h2 class="section-title">Fibre, NAT &amp; the Zone Firewall</h2>
+  <p class="section-thesis"><em>The fibre goes in. Only the office, the store IoT's HTTPS and the guests may use it directly, and the CDE is not on that list in any form.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="8">▲ Show step 8 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1-EDGE — WAN, NAT and zones</span><span class="cfg-meta">51 lines · this step's additions · click to expand</span></summary><pre class="term">interface GigabitEthernet0/0/0
+ description FIBRE (static 203.0.113.42/29)
+ ip address 203.0.113.42 255.255.255.248
+ ip nat outside
+ no cdp enable
+ip route 0.0.0.0 0.0.0.0 203.0.113.41
+!
+ip access-list standard NAT-SRC
+ permit 10.50.20.0 0.0.0.255
+ permit 10.50.40.0 0.0.0.255
+ permit 10.50.50.0 0.0.0.255
+ip nat inside source list NAT-SRC interface GigabitEthernet0/0/0 overload
+interface GigabitEthernet0/0/2.900
+ ip nat inside
+interface GigabitEthernet0/0/2.50
+ ip nat inside
+!
+zone security INSIDE
+zone security GUEST
+zone security OUTSIDE
+zone security HQ
+ip access-list extended INSIDE-TO-INET
+ remark Office and store-IoT HTTPS only. The CDE, handhelds, refrigeration and CCTV are absent on purpose.
+ permit ip 10.50.20.0 0.0.0.255 any
+ permit tcp 10.50.40.0 0.0.0.255 any eq 443
+class-map type inspect match-all CM-INET
+ match access-group name INSIDE-TO-INET
+class-map type inspect match-any CM-ANY
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-IN-OUT
+ class type inspect CM-INET
+  inspect
+ class class-default
+  drop log
+policy-map type inspect PM-GST-OUT
+ class type inspect CM-ANY
+  inspect
+ class class-default
+  drop
+zone-pair security ZP-IN-OUT source INSIDE destination OUTSIDE
+ service-policy type inspect PM-IN-OUT
+zone-pair security ZP-GST-OUT source GUEST destination OUTSIDE
+ service-policy type inspect PM-GST-OUT
+interface GigabitEthernet0/0/2.900
+ zone-member security INSIDE
+interface GigabitEthernet0/0/2.50
+ zone-member security GUEST
+interface GigabitEthernet0/0/0
+ zone-member security OUTSIDE</pre></details>
+
+  <p>The CDE is kept off the internet three times over: the core's <code>V10-IN</code> only permits HQ addresses, the NAT list doesn't include 10.50.10.0/24, and the zone firewall's INSIDE→OUTSIDE class doesn't match it. Each of those alone would be enough. Together they mean a single mistake never creates an internet path for a till.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>The office browses; a guest phone browses at up to 20 Mb/s.</li><li>From a lane POS: any internet address is unreachable (dropped by the core before it even reaches R1).</li><li><code>show policy-map type inspect zone-pair ZP-IN-OUT sessions</code> lists only office and IoT sources.</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 12</p>
+  <h2 class="section-title">The Tunnel to Head Office</h2>
+  <p class="section-thesis"><em>One IKEv2 tunnel interface, a route to 172.16.0.0/16 through it, and a zone that says what HQ may reach in the store.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="9">▲ Show step 9 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated head-office traffic: a sale from a lane travels through R1's IPsec tunnel to HQ, and at night HQ pushes new prices back through the tunnel to the scales">
+      <style>@keyframes sm2h0{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}18.4%{offset-distance:100%;opacity:1;}21.4%,100%{offset-distance:100%;opacity:0;}}.sm2-h0{offset-path:path('M85 63 L375 139');offset-rotate:0deg;animation:sm2h0 16.0s ease-in-out infinite;}@keyframes sm2h1{0%,24%{offset-distance:0%;opacity:0;}26%{opacity:1;}41.4%{offset-distance:100%;opacity:1;}44.4%,100%{offset-distance:100%;opacity:0;}}.sm2-h1{offset-path:path('M375 139 L665 139');offset-rotate:0deg;animation:sm2h1 16.0s ease-in-out infinite;}@keyframes sm2h2{0%,47%{offset-distance:0%;opacity:0;}49%{opacity:1;}64.4%{offset-distance:100%;opacity:1;}67.4%,100%{offset-distance:100%;opacity:0;}}.sm2-h2{offset-path:path('M665 139 L375 139');offset-rotate:0deg;animation:sm2h2 16.0s ease-in-out infinite;}@keyframes sm2h3{0%,70%{offset-distance:0%;opacity:0;}72%{opacity:1;}87.4%{offset-distance:100%;opacity:1;}90.4%,100%{offset-distance:100%;opacity:0;}}.sm2-h3{offset-path:path('M375 139 L85 213');offset-rotate:0deg;animation:sm2h3 16.0s ease-in-out infinite;}@media (prefers-reduced-motion:reduce){.sm2-h0,.sm2-h1,.sm2-h2,.sm2-h3{animation:none;opacity:0;}}</style>
+      <line class="lf-link" x1="85" y1="63" x2="375" y2="139"/>
+      <text class="lf-cap lf-c" x="230" y="93">1 · sale → R1</text>
+      <line class="lf-link" x1="375" y1="139" x2="665" y2="139"/>
+      <text class="lf-cap lf-c" x="520" y="131">2 · ESP inside the tunnel</text>
+      <line class="lf-link" x1="665" y1="139" x2="375" y2="139"/>
+      <text class="lf-cap lf-c" x="520" y="155">3 · 02:00 price push</text>
+      <line class="lf-link" x1="375" y1="139" x2="85" y2="213"/>
+      <text class="lf-cap lf-c" x="230" y="168">4 · new prices to scales/ESL</text>
+      <rect class="lf-box" x="20" y="40" width="130" height="46" rx="5"/><rect x="20" y="40" width="5" height="46" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="87" y="60">Lane 3 POS</text><text class="lf-mono lf-c" x="87" y="74">sale + card auth</text>
+      <rect class="lf-boxa" x="300" y="112" width="150" height="54" rx="5"/><text class="lf-sm lf-c" x="375" y="136">R1-EDGE</text><text class="lf-mono lf-c" x="375" y="150">IKEv2 · Tunnel0</text>
+      <rect class="lf-boxd" x="590" y="112" width="150" height="54" rx="5"/><text class="lf-sm lf-c" x="665" y="136">HQ data center</text><text class="lf-mono lf-c" x="665" y="150">POS · ERP · ESL mgr</text>
+      <rect class="lf-box" x="20" y="190" width="130" height="46" rx="5"/><rect x="20" y="190" width="5" height="46" style="fill:var(--v40);"/><text class="lf-sm lf-c" x="87" y="210">Deli scales</text><text class="lf-mono lf-c" x="87" y="224">price file</text>
+      <text class="lf-cap lf-c" x="380" y="260">Daytime: every sale and card authorisation goes to HQ through the tunnel. Night: HQ pushes the next day's prices back to the scales and shelf labels.</text>
+      <circle class="lf-pkt sm2-h0" r="6"/>
+      <circle class="lf-pkt sm2-h1" r="6"/>
+      <circle class="lf-pkt sm2-h2" r="6"/>
+      <circle class="lf-pkt sm2-h3" r="6"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — IKEv2 static VTI to HQ</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">crypto ikev2 proposal P-HQ
+ encryption aes-gcm-256
+ prf sha384
+ group 19
+crypto ikev2 policy POL-HQ
+ proposal P-HQ
+crypto ikev2 profile PR-HQ
+ match identity remote address 198.51.100.20 255.255.255.255
+ identity local fqdn store-142.market.example
+ authentication local rsa-sig
+ authentication remote rsa-sig
+ pki trustpoint CHAIN-CA
+ dpd 10 3 periodic
+crypto ipsec transform-set TS-GCM esp-gcm 256
+ mode tunnel
+crypto ipsec profile IP-HQ
+ set transform-set TS-GCM
+ set ikev2-profile PR-HQ
+!
+interface Tunnel0
+ description HQ primary (over fibre)
+ ip address 10.255.142.2 255.255.255.252
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+ tunnel source GigabitEthernet0/0/0
+ tunnel mode ipsec ipv4
+ tunnel destination 198.51.100.20
+ tunnel protection ipsec profile IP-HQ
+ zone-member security HQ
+ip route 172.16.0.0 255.255.0.0 Tunnel0
+ip route 198.51.100.20 255.255.255.255 203.0.113.41         <span class="cmt">! HQ head-end 1 only via fibre</span>
+ip route 198.51.100.20 255.255.255.255 Null0 250</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 — RouterOS has no static VTI: chains running MikroTik usually use WireGuard to HQ
+/interface wireguard add name=wg-hq1 listen-port=13231
+/interface wireguard peers add interface=wg-hq1 comment=&quot;HQ head-end 1&quot; public-key=&quot;&lt;head-end 1 key&gt;&quot; \
+    endpoint-address=198.51.100.20 endpoint-port=51820 allowed-address=172.16.0.0/16,10.255.142.0/30 \
+    persistent-keepalive=25s
+/ip address add address=10.255.142.2/30 interface=wg-hq1
+/interface list member add list=HQ interface=wg-hq1
+/ip route add dst-address=172.16.0.0/16 gateway=10.255.142.1 check-gateway=ping distance=1 comment=&quot;HQ via fibre tunnel&quot;
+# IKEv2 + GRE is the alternative if HQ&#x27;s head-ends must stay IPsec</pre></div>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">R1-EDGE — what may cross the tunnel, in each direction</span><span class="cfg-meta">47 lines · this step's additions · click to expand</span></summary><pre class="term">ip access-list extended STORE-TO-HQ
+ permit ip 10.50.10.0 0.0.0.255 172.16.0.0 0.0.255.255
+ permit ip 10.50.20.0 0.0.0.255 172.16.0.0 0.0.255.255
+ permit ip 10.50.30.0 0.0.0.255 172.16.0.0 0.0.255.255
+ permit ip 10.50.40.0 0.0.0.255 172.16.40.0 0.0.0.255
+ permit tcp host 10.50.45.10 host 172.16.45.20 eq 443
+ip access-list extended HQ-TO-STORE
+ remark HQ is not trusted blindly
+ permit tcp 172.16.10.0 0.0.0.255 10.50.10.0 0.0.0.255 eq 443       <span class="cmt">! POS management</span>
+ permit tcp 172.16.10.0 0.0.0.255 10.50.10.0 0.0.0.255 eq 22
+ permit tcp 172.16.40.0 0.0.0.255 10.50.40.0 0.0.0.255              <span class="cmt">! price push to scales/ESL</span>
+ permit tcp 172.16.20.0 0.0.0.255 10.50.20.0 0.0.0.255 eq 3389     <span class="cmt">! IT support</span>
+ permit tcp 172.16.60.0 0.0.0.255 host 10.50.60.10 eq 443          <span class="cmt">! security viewing</span>
+class-map type inspect match-all CM-TO-HQ
+ match access-group name STORE-TO-HQ
+class-map type inspect match-all CM-FROM-HQ
+ match access-group name HQ-TO-STORE
+policy-map type inspect PM-IN-HQ
+ class type inspect CM-TO-HQ
+  inspect
+ class class-default
+  drop log
+policy-map type inspect PM-HQ-IN
+ class type inspect CM-FROM-HQ
+  inspect
+ class class-default
+  drop log
+zone-pair security ZP-IN-HQ source INSIDE destination HQ
+ service-policy type inspect PM-IN-HQ
+zone-pair security ZP-HQ-IN source HQ destination INSIDE
+ service-policy type inspect PM-HQ-IN
+!
+<span class="cmt">! the router itself: IKE + ESP in, and replies to its own probes (step 10)</span>
+ip access-list extended TO-SELF
+ permit udp any any eq isakmp
+ permit udp any any eq non500-isakmp
+ permit esp any any
+ permit icmp any any echo-reply
+class-map type inspect match-any CM-SELF
+ match access-group name TO-SELF
+policy-map type inspect PM-OUT-SELF
+ class type inspect CM-SELF
+  pass
+ class class-default
+  drop
+zone-pair security ZP-OUT-SELF source OUTSIDE destination self
+ service-policy type inspect PM-OUT-SELF</pre></details>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Templates, MTU, and the head-end side</span>
+    <p>The store side above is a template where only <code>store-142</code>, the tunnel /30 and the WAN address change, which is what R8 asks for. Certificates from the chain's own CA (<code>CHAIN-CA</code>) beat pre-shared keys at 60 stores: revoking one store's certificate doesn't touch the other 59. At HQ, a single <strong>dynamic</strong> VTI (a virtual template matched by the stores' FQDN identities) serves every store. And the <code>ip mtu 1400</code> / <code>adjust-mss 1360</code> pair isn't optional: card-terminal and POS traffic that hits a silent MTU black hole inside the tunnel fails in ways that look like application bugs. The <code>echo-reply</code> line in TO-SELF prepares for step 10's IP SLA probe (the self-zone trap from the <a href="build-law-firm.html">law firm</a>).</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show crypto ikev2 sa</code>: READY; <code>show crypto ipsec sa | include pkts</code>: counters rising in both directions.</li><li>Lane 3 completes a test card payment through HQ's gateway.</li><li>A scanner looks up stock in the WMS; a deli scale receives a test price push from HQ.</li><li>From HQ, port 3389 to an office PC works, but SSH to a deli scale is dropped and logged by <code>ZP-HQ-IN</code>.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 12</p>
+  <h2 class="section-title">LTE Backup: Tunnel Only</h2>
+  <p class="section-thesis"><em>A second tunnel to a second HQ head-end, permanently up over LTE, with a floating route. The LTE line carries nothing else.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="10">▲ Show step 10 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated failover: traffic and the HQ tunnel move from the fibre to the LTE module when the fibre probe fails, with only critical zones allowed on LTE">
+      <style>@keyframes sm3up{0%,44%{opacity:1;}48%,96%{opacity:0;}100%{opacity:1;}}
+@keyframes sm3dn{0%,44%{opacity:0;}48%,96%{opacity:1;}100%{opacity:0;}}
+@keyframes sm3f{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}38%{offset-distance:100%;opacity:1;}41%,100%{offset-distance:100%;opacity:0;}} @keyframes sm3b{0%,53%{offset-distance:0%;opacity:0;}55%{opacity:1;}90%{offset-distance:100%;opacity:1;}93%,100%{offset-distance:100%;opacity:0;}}
+@keyframes sm3p{0%{offset-distance:0%;opacity:1;}85%{offset-distance:100%;opacity:1;}100%{offset-distance:100%;opacity:0;}}
+.sm3-up{animation:sm3up 12s linear infinite;} .sm3-dn{animation:sm3dn 12s linear infinite;}
+.sm3-pf{offset-path:path('M130 120 L200 120 L350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:sm3f 12s ease-in-out infinite;}
+.sm3-pb{offset-path:path('M130 120 L200 120 L350 135 L420 182 L530 182 L612 142');offset-rotate:0deg;animation:sm3b 12s ease-in-out infinite;}
+.sm3-pr{offset-path:path('M350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:sm3p 1.5s linear infinite;fill:var(--gotcha);}
+.sm3-px{offset-path:path('M350 105 L420 58 L530 58 L568 78');offset-rotate:0deg;animation:sm3p 1.5s linear infinite;fill:var(--gotcha);}
+@media (prefers-reduced-motion:reduce){.sm3-up{animation:none;opacity:0;}.sm3-dn{animation:none;opacity:1;}.sm3-pf,.sm3-pr,.sm3-px{animation:none;opacity:0;}.sm3-pb{animation:none;offset-distance:75%;opacity:1;}}</style>
+      <rect class="lf-box" x="20" y="95" width="110" height="50" rx="5"/><text class="lf-sm lf-c" x="75" y="117">Store LAN</text><text class="lf-mono lf-c" x="75" y="131">10.50.0.0/16</text>
+      <rect class="lf-boxa" x="200" y="90" width="150" height="60" rx="5"/><text class="lf-sm lf-c" x="275" y="117">R1-EDGE</text><text class="lf-mono lf-c" x="275" y="131">IP SLA · track 1</text>
+      <line class="lf-link" x1="130" y1="120" x2="200" y2="120"/>
+      <rect class="lf-box" x="420" y="40" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="55">Fibre ONT</text><text class="lf-mono lf-c" x="475" y="69">Gi0/0/0 · primary</text>
+      <rect class="lf-box" x="420" y="164" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="179">LTE module</text><text class="lf-mono lf-c" x="475" y="193">Cellular0/2/0 · AD 250</text>
+      <ellipse class="lf-boxd" cx="675" cy="120" rx="68" ry="42"/><text class="lf-name lf-c" x="675" y="116" style="fill:var(--defender);">Internet + HQ</text><text class="lf-mono lf-c" x="675" y="131" style="fill:var(--defender);">probe 1.1.1.1</text>
+      <line class="lf-dash" x1="350" y1="135" x2="420" y2="182"/><line class="lf-dash" x1="530" y1="182" x2="612" y2="142"/>
+      <g class="sm3-up"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--defender);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--defender);font-weight:700;">Fibre up: the HQ tunnel and internet breakout both use the fibre</text><circle class="sm3-pr" r="3.5"/></g>
+      <g class="sm3-dn"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:6,4;"/><text x="562" y="85" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><path d="M350 135 L420 182 M530 182 L612 142" style="stroke:var(--gotcha);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--accent);font-weight:700;">Fibre down: the tunnel re-forms over LTE; only lanes, handhelds and HQ traffic are allowed on it</text><circle class="sm3-px" r="3.5"/></g>
+      <text class="lf-cap lf-c" x="380" y="258">Guests, signage, CCTV viewing and the office internet wait for the fibre. The tills don't.</text>
+      <circle class="lf-pkt sm3-pf" r="6"/><circle class="lf-pkt sm3-pb" r="6"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — probe, tracked default, LTE zone, standby tunnel</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">ip sla 1
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ delay down 10 up 60
+ip route 1.1.1.1 255.255.255.255 203.0.113.41
+ip route 1.1.1.1 255.255.255.255 Null0 250
+no ip route 0.0.0.0 0.0.0.0 203.0.113.41
+ip route 0.0.0.0 0.0.0.0 203.0.113.41 track 1
+!
+interface Cellular0/2/0
+ description LTE backup (carrier profile configured on the module)
+ ip address negotiated
+ zone-member security LTE
+zone security LTE
+zone-pair security ZP-LTE-SELF source LTE destination self
+ service-policy type inspect PM-OUT-SELF
+ip route 198.51.100.21 255.255.255.255 Cellular0/2/0         <span class="cmt">! HQ head-end 2 only via LTE</span>
+!
+interface Tunnel1
+ description HQ backup (over LTE)
+ ip address 10.255.142.6 255.255.255.252
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+ tunnel source Cellular0/2/0
+ tunnel mode ipsec ipv4
+ tunnel destination 198.51.100.21
+ tunnel protection ipsec profile IP-HQ-LTE
+ zone-member security HQ
+ip route 172.16.0.0 255.255.0.0 Tunnel1 250</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 — second tunnel over LTE, pinned to its own head-end, standby by distance
+/ip dhcp-client add interface=ether5 add-default-route=no use-peer-dns=no comment=&quot;LTE passthrough&quot;
+/ip route add dst-address=198.51.100.21/32 gateway=ether5 comment=&quot;head-end 2 only via LTE&quot;
+/interface wireguard add name=wg-hq2 listen-port=13232
+/interface wireguard peers add interface=wg-hq2 comment=&quot;HQ head-end 2&quot; public-key=&quot;&lt;head-end 2 key&gt;&quot; \
+    endpoint-address=198.51.100.21 endpoint-port=51820 allowed-address=172.16.0.0/16,10.255.142.4/30 \
+    persistent-keepalive=25s
+/ip address add address=10.255.142.6/30 interface=wg-hq2
+/interface list member add list=HQ interface=wg-hq2
+/ip route add dst-address=172.16.0.0/16 gateway=10.255.142.5 check-gateway=ping distance=2 comment=&quot;HQ via LTE tunnel&quot;
+# no default route via LTE at all: office and guests simply have no path to it</pre></div>
+
+  <p><code>IP-HQ-LTE</code> is the same IPsec profile with an IKEv2 profile matching head-end 2. Both tunnels are up all the time, because each head-end address is pinned to one physical path. When the fibre fails, DPD takes Tunnel0 down within ~30 s, its route to 172.16.0.0/16 disappears, and the floating route via Tunnel1 is already there: no IKE negotiation has to happen during the outage. There's no default route via LTE at all, and no zone pair from INSIDE or GUEST to LTE, so the office and guests get nothing during an outage, by design.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show crypto ikev2 sa</code>: two SAs, to .20 (fibre) and .21 (LTE).</li><li>Pull the fibre upstream of the ONT during a test transaction loop: payments resume within ~30–40 s, and <code>show ip route 172.16.0.0</code> now points at Tunnel1.</li><li>During the outage, the office can't browse and a guest phone shows "no internet". The LTE counter shows only tunnel traffic.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="step-11">15 · Step 11 of 12</p>
+  <h2 class="section-title">The Refrigeration Vendor's Window</h2>
+  <p class="section-thesis"><em>One source, one destination, one port, Tuesday mornings only, every session logged.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 322" role="img" aria-label="Animated vendor access: the refrigeration vendor's connection from the HQ jump host is dropped outside the agreed maintenance window and allowed inside it">
+      <style>.sm4-arw{stroke:var(--mid);stroke-width:1.4;fill:none;} .sm4-rad{stroke:var(--defender);stroke-width:1.6;fill:none;}@keyframes sm4r0{0%,4%{opacity:0;}6%,94%{opacity:1;}96%,100%{opacity:0;}}.sm4-r0{animation:sm4r0 14s linear infinite;}@keyframes sm4r1{0%,21%{opacity:0;}23%,94%{opacity:1;}96%,100%{opacity:0;}}.sm4-r1{animation:sm4r1 14s linear infinite;}@keyframes sm4r2{0%,38%{opacity:0;}40%,94%{opacity:1;}96%,100%{opacity:0;}}.sm4-r2{animation:sm4r2 14s linear infinite;}@keyframes sm4r3{0%,55%{opacity:0;}57%,94%{opacity:1;}96%,100%{opacity:0;}}.sm4-r3{animation:sm4r3 14s linear infinite;}@keyframes sm4r4{0%,72%{opacity:0;}74%,94%{opacity:1;}96%,100%{opacity:0;}}.sm4-r4{animation:sm4r4 14s linear infinite;}@keyframes sm4un{0%,88%{opacity:1;}91%,96%{opacity:0;}100%{opacity:1;}}@keyframes sm4au{0%,89%{opacity:0;}91%,96%{opacity:1;}98%,100%{opacity:0;}}.sm4-un{animation:sm4un 14s linear infinite;} .sm4-au{animation:sm4au 14s linear infinite;}@media (prefers-reduced-motion:reduce){.sm4-r0,.sm4-r1,.sm4-r2,.sm4-r3,.sm4-r4{animation:none;opacity:1;}.sm4-un{animation:none;opacity:0;}.sm4-au{animation:none;opacity:1;}}</style>
+      <defs><marker id="sm4ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--mid);"/></marker></defs>
+      <rect class="lf-boxd" x="50" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="130" y="32">Fridge vendor</text><text class="lf-mono lf-c" x="130" y="46">via HQ jump host</text>
+      <line class="lf-dash" x1="130" y1="56" x2="130" y2="232"/>
+      <rect class="lf-boxa" x="300" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="380" y="32">R1 · ZBF</text><text class="lf-mono lf-c" x="380" y="46">time-range VENDOR-REFRIG</text>
+      <line class="lf-dash" x1="380" y1="56" x2="380" y2="232"/>
+      <rect class="lf-box" x="550" y="14" width="160" height="42" rx="5"/><rect x="550" y="14" width="5" height="42" style="fill:var(--v45);"/><text class="lf-sm lf-c" x="632" y="32">Refrigeration</text><text class="lf-mono lf-c" x="632" y="46">10.50.45.10</text>
+      <line class="lf-dash" x1="630" y1="56" x2="630" y2="232"/>
+      <g class="sm4-r0"><line class="sm4-arw" x1="134" y1="92" x2="376" y2="92" marker-end="url(#sm4ar)"/><text class="lf-cap lf-c" x="255" y="87">Monday 14:00: HTTPS from 172.16.5.10</text></g>
+      <g class="sm4-r1"><text class="lf-cap lf-c" x="380" y="120" style="fill:var(--defender);font-weight:700;">outside the window: dropped + logged</text></g>
+      <g class="sm4-r2"><line class="sm4-arw" x1="134" y1="148" x2="376" y2="148" marker-end="url(#sm4ar)"/><text class="lf-cap lf-c" x="255" y="143">Tuesday 09:30: same request</text></g>
+      <g class="sm4-r3"><line class="sm4-rad" x1="384" y1="176" x2="626" y2="176" marker-end="url(#sm4ar)"/><text class="lf-cap lf-c" x="505" y="171" style="fill:var(--defender);font-weight:700;">inside the window: inspected → :443</text></g>
+      <g class="sm4-r4"><text class="lf-cap lf-c" x="630" y="204" style="fill:var(--defender);font-weight:700;">every session logged to HQ syslog</text></g>
+      <rect class="lf-box" x="250" y="248" width="260" height="30" rx="15"/><text class="lf-sm lf-c sm4-au" x="380" y="267" style="fill:var(--defender);">WINDOW OPEN · LOGGED</text><text class="lf-sm lf-c sm4-un" x="380" y="267" style="fill:var(--accent);">WINDOW CLOSED</text>
+      <text class="lf-cap lf-c" x="380" y="312">The vendor gets one source address, one destination, one port and one time window. Every attempt, allowed or not, is logged.</text>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — time-boxed, audited vendor access from HQ's jump host</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">time-range VENDOR-REFRIG
+ periodic Tuesday 9:00 to 12:00
+ip access-list extended HQ-VENDOR
+ permit tcp host 172.16.5.10 host 10.50.45.10 eq 443 time-range VENDOR-REFRIG
+parameter-map type inspect PMAP-AUDIT
+ audit-trail on
+class-map type inspect match-all CM-VENDOR
+ match access-group name HQ-VENDOR
+policy-map type inspect PM-HQ-IN
+ class type inspect CM-VENDOR
+  inspect PMAP-AUDIT
+ class type inspect CM-FROM-HQ
+  inspect
+ class class-default
+  drop log</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 — the firewall&#x27;s time matcher does the window
+/ip firewall filter add chain=forward action=accept src-address=172.16.5.10 dst-address=10.50.45.10 \
+    protocol=tcp dst-port=443 time=9h-12h,tue log=yes log-prefix=VENDOR \
+    place-before=[find log-prefix=FWD-DROP] comment=&quot;refrigeration vendor window&quot;
+/system logging action add name=hq target=remote remote=172.16.50.5
+/system logging add topics=firewall action=hq</pre></div>
+
+  <p>The contractor never connects to the store directly. They log into HQ's jump host (with their own MFA account, recorded by HQ), and only that host's address is allowed through, only to the controller's HTTPS port, only during the window. For an unplanned call-out, HQ's on-call engineer widens the time range for that day and puts it back afterwards; the change itself shows up in the config archive (step 12). Outside the window, the alarms still flow from the controller to HQ's monitoring system, because that path doesn't depend on the vendor rule.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Monday from the jump host: the controller's web UI doesn't load; R1's log shows the drop.</li><li>Tuesday at 09:30: it loads, and an audit-trail line records the session start and end.</li><li>From any other HQ address, at any time: dropped.</li></ul>
+  </div>
+
+  <!-- 16 -->
+  <p class="section-num" id="step-12">16 · Step 12 of 12</p>
+  <h2 class="section-title">QoS, Time &amp; Logs</h2>
+  <p class="section-thesis"><em>Card payments and scanners first on the WAN, the same clock everywhere, and every log line at head office.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Animated queuing at the store's WAN edge: lane, HQ and handheld traffic is guaranteed bandwidth while other traffic is fair-queued">
+      <style>.sm5-l0{offset-path:path('M30 88 L460 88 L505 123 L745 123');offset-rotate:0deg;animation:sm5mv 3s linear infinite;fill:var(--gotcha);}.sm5-l1{offset-path:path('M30 158 L460 158 L505 123 L745 123');offset-rotate:0deg;animation:sm5mv 10s linear infinite;fill:var(--defender);}@keyframes sm5mv{0%{offset-distance:0%;opacity:0;}4%{opacity:1;}96%{opacity:1;}100%{offset-distance:100%;opacity:0;}}@media (prefers-reduced-motion:reduce){.sm5-l0,.sm5-l1{animation:none;offset-distance:40%;}}</style>
+      <rect class="lf-boxa" x="170" y="22" width="390" height="188" rx="7" style="fill:none;"/><text class="lf-name lf-c" x="365" y="40">R1 Gi0/0/0 egress · WAN-OUT</text>
+      <text class="lf-mono" x="30" y="76" style="fill:var(--gotcha);font-weight:700;">lanes · HQ · handhelds</text>
+      <rect x="200" y="74" width="250" height="28" rx="4" style="fill:var(--gotcha);fill-opacity:.13;stroke:var(--gotcha);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="114" style="fill:var(--gotcha);">priority · 30% guaranteed</text>
+      <text class="lf-mono" x="30" y="146" style="fill:var(--defender);font-weight:700;">office · guests · rest</text>
+      <rect x="200" y="144" width="250" height="28" rx="4" style="fill:var(--defender);fill-opacity:.13;stroke:var(--defender);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="184" style="fill:var(--defender);">class-default · fair-queue</text>
+      <rect class="lf-box" x="470" y="78" width="80" height="90" rx="5"/><text class="lf-sm lf-c" x="510" y="118">shaper</text><text class="lf-mono lf-c" x="510" y="132">95 Mb/s</text>
+      <line x1="550" y1="123" x2="745" y2="123" style="stroke:var(--rule);stroke-width:10;"/><text class="lf-mono lf-c" x="650" y="108">fibre up 100</text>
+      <text class="lf-cap lf-c" x="380" y="234">A shopper uploading photos or the office syncing files can't delay a card authorisation or a handheld's stock lookup.</text>
+      <circle class="sm5-l0" r="5" style="animation-delay:0.00s;"/>
+      <circle class="sm5-l0" r="5" style="animation-delay:-1.00s;"/>
+      <circle class="sm5-l0" r="5" style="animation-delay:-2.00s;"/>
+      <rect class="sm5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:0.00s;"/>
+      <rect class="sm5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-2.00s;"/>
+      <rect class="sm5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-4.00s;"/>
+      <rect class="sm5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-6.00s;"/>
+      <rect class="sm5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-8.00s;"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — classify before encryption, shape the fibre upload</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface Tunnel0
+ qos pre-classify
+interface Tunnel1
+ qos pre-classify
+ip access-list extended CRITICAL
+ permit ip 10.50.10.0 0.0.0.255 172.16.0.0 0.0.255.255
+ permit ip 10.50.30.0 0.0.0.255 172.16.0.0 0.0.255.255
+class-map match-any CRIT
+ match access-group name CRITICAL
+policy-map WAN-CHILD
+ class CRIT
+  bandwidth percent 30
+ class class-default
+  fair-queue
+policy-map WAN-OUT
+ class class-default
+  shape average 95000000
+  service-policy WAN-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output WAN-OUT</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 — WireGuard re-encapsulates, so queue the tunnel interface itself
+/ip firewall mangle add chain=forward action=mark-packet new-packet-mark=crit out-interface-list=HQ \
+    src-address-list=CRITICAL passthrough=no
+/ip firewall address-list
+add list=CRITICAL address=10.50.10.0/24
+add list=CRITICAL address=10.50.30.0/24
+/queue tree
+add name=hq parent=wg-hq1 max-limit=60M
+add name=hq-crit parent=hq packet-mark=crit priority=1 limit-at=20M max-limit=60M
+add name=hq-rest parent=hq packet-mark=no-mark priority=8 max-limit=60M</pre></div>
+
+  <p><code>qos pre-classify</code> matters here: after encryption, every packet leaving Gi0/0/0 to HQ is ESP between two public addresses, and the ACL above would never match. With pre-classify, the egress policy classifies on the original inner headers.</p>
+
+  <div class="term-wrap"><span class="term-label">All devices — time and logging (PCI DSS requirement 10)</span><pre class="term">service timestamps log datetime msec localtime show-timezone
+ntp server 172.16.0.123
+logging host 172.16.50.5
+logging trap informational
+login on-failure log
+login on-success log
+archive
+ log config
+  logging enable
+  notify syslog contenttype plaintext
+  hidekeys</pre></div>
+
+  <p>Every device logs to HQ's collector through the tunnel, timestamps match because they share HQ's NTP source, and every configuration change is logged with the user who made it. Administrative logins use HQ's TACACS+ servers with a local fallback account (see <a href="cisco-aaa-tacacs.html">AAA with TACACS+</a> and <a href="cisco-hardening.html">hardening</a>).</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show policy-map interface Gi0/0/0</code>: CRIT matches lane and scanner traffic while a large office upload runs.</li><li>A config change on ACC-BACK appears at HQ's collector within seconds, with username and command.</li><li><code>show ntp associations</code>: synchronised on every device.</li></ul>
+  </div>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">Verify, Then Break It Before the Store Opens</h2>
+  <p class="section-thesis"><em>These drills double as the evidence for the store's PCI segmentation test. Record each result with date and time.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody>
+      <tr><td>CDE seal (R1)</td><td>From every non-CDE VLAN, including guest Wi-Fi and a laptop on a scale port: a full scan of 10.50.10.0/24 finds nothing. From a laptop on a lane port (with that port's sticky MAC cleared for the test): only 172.16.0.0/16 answers.</td></tr>
+      <tr><td>Device swap (R1)</td><td>Swap a PIN pad: the port err-disables and stays down; the event is at HQ's log collector.</td></tr>
+      <tr><td>Fibre cut (R2)</td><td>Payments resume over LTE within ~40 s; office and guests are offline; LTE carries tunnel traffic only.</td></tr>
+      <tr><td>CDE egress (R3)</td><td>From a lane POS, any internet address is unreachable on fibre and on LTE.</td></tr>
+      <tr><td>Overnight prices (R4)</td><td>HQ's 02:00 push reaches scales and labels; a scale can't open a connection to HQ's POS servers.</td></tr>
+      <tr><td>Vendor window (R5)</td><td>Access works only on Tuesday 09:00–12:00 and only from the jump host; alarms reach HQ at all times.</td></tr>
+      <tr><td>Warehouse walk (R6)</td><td>A scanner app session survives a walk across all four warehouse APs.</td></tr>
+      <tr><td>CCTV (R7)</td><td>The cameras' recording traffic never appears on Po3 beyond viewing streams; HQ security can view; nothing else can.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">The Attacker's View</h2>
+  <p class="section-thesis"><em>Where the residual risk sits once the segmentation is in place, and what covers it.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Payment-device tampering.</strong> The biggest retail risk is physical: overlays and swapped PIN pads. The network makes a swap noisy (sticky MAC, no auto-recovery), but daily visual inspection of each PIN pad against its serial number is what catches an overlay.</li>
+    <li><strong>Network sockets in public areas.</strong> Signage, self-checkouts and lane cabinets sit where customers stand. Every port has a fixed VLAN, unused ports are shut and parked, and the CDE ports accept only their one known device.</li>
+    <li><strong>Third-party access.</strong> Retail breaches often start with a contractor's access. Here no vendor connects to the store directly: one jump host at HQ, one address, one port, one window, all logged.</li>
+    <li><strong>IoT with long lives.</strong> Scales, shelf-label base stations and refrigeration controllers run old firmware for years. Their VLANs can reach their managers and (for IoT) HTTPS out, never the CDE or the office.</li>
+    <li><strong>Head office itself.</strong> A compromise at HQ shouldn't spread to every store. The HQ→INSIDE zone policy limits HQ to specific management functions per VLAN rather than full access.</li>
+  </ul>
+
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Building It in Packet Tracer</h2>
+  <p class="section-thesis"><em>The store's inside runs well in Packet Tracer; the edge needs CML or EVE-NG for the full picture.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>This post</th><th>In Packet Tracer</th></tr></thead>
+    <tbody>
+      <tr><td>Access + CCTV switches</td><td>2960-24TT / 2960 Plus for PoE. VLANs, port-security with sticky MACs, port-channels: all work.</td></tr>
+      <tr><td>CORE</td><td>3650-24PS with <code>ip routing</code>; SVIs, DHCP pools and every ACL in step 6 work.</td></tr>
+      <tr><td>R1-EDGE</td><td>ISR4331: subinterfaces, guest DHCP, NAT overload and static routes work. A second ISR4331 with a server behind it can stand in for HQ.</td></tr>
+      <tr><td>Partial / varies</td><td>ZBF, IKEv2 VTI with certificates, IP SLA, LTE, time-ranges in ZBF classes, QoS pre-classify. Build these on CML/EVE-NG with Cat8000v routers for R1 and the HQ head-ends.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 20 -->
+  <p class="section-num" id="sec-20">20</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT. Chains buy in bulk and usually do better.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>R1-EDGE · C8200L-1N-4T + LTE pluggable</td><td>2,200 – 3,200</td></tr>
+      <tr><td>CORE · C9200-24T-4G</td><td>1,800 – 2,500 incl. DNA term</td></tr>
+      <tr><td>ACC-FRONT, ACC-BACK · 2× C9200L-24P-4G</td><td>3,200 – 4,400 incl. DNA</td></tr>
+      <tr><td>SW-CCTV · C9200L-48P-4G</td><td>2,600 – 3,400 incl. DNA</td></tr>
+      <tr><td>6× C9115AXI (one runs EWC)</td><td>3,600 – 4,800</td></tr>
+      <tr><td>UPS for the comms room (core, R1, CCTV switch)</td><td>900 – 1,400</td></tr>
+      <tr><td>Network total</td><td><strong>≈ 14,300 – 19,700</strong>, plus structured cabling (~90 runs), the LTE plan, and the POS/ESL/CCTV systems themselves</td></tr>
+    </tbody>
+  </table>
+
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on MikroTik</h2>
+  <p class="section-thesis"><em>Same store, same VLANs, same matrix, at roughly a quarter of the hardware cost. The MikroTik tabs on the config blocks above show the key steps side by side; this appendix covers what changes underneath.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Role</th><th>This post → MikroTik</th></tr></thead>
+    <tbody>
+      <tr><td>ACC-FRONT, ACC-BACK</td><td>2× C9200L-24P-4G → 2× CRS328-24P-4S+</td></tr>
+      <tr><td>SW-CCTV</td><td>C9200L-48P-4G → CRS354-48P-4S+2Q+</td></tr>
+      <tr><td>CORE</td><td>C9200-24T (L3) → CRS326-24S+2Q+ (Layer 2 only)</td></tr>
+      <tr><td>R1 + LTE</td><td>C8200L-1N-4T + LTE module → CCR2004-16G-2S+ (all routing) + LtAP LTE in passthrough</td></tr>
+      <tr><td>Wi-Fi</td><td>6× C9115AXI with EWC → 6× cAP ax with CAPsMAN</td></tr>
+      <tr><td>Indicative total</td><td>≈ 14,300 – 19,700 → ≈ 3,500 – 4,500 EUR ex VAT</td></tr>
+    </tbody>
+  </table>
+
+  <table class="cheat">
+    <thead><tr><th>Feature</th><th>This post → MikroTik</th></tr></thead>
+    <tbody>
+      <tr><td>Lane port lock</td><td>sticky MAC + err-disable → <code>learn=no</code> + static bridge hosts (silent drop)</td></tr>
+      <tr><td>Inter-VLAN policy</td><td>stateless SVI ACLs on the core → stateful forward chain on R1</td></tr>
+      <tr><td>Tunnel to HQ</td><td>IKEv2 static VTI → WireGuard (or IKEv2 + GRE)</td></tr>
+      <tr><td>Tunnel failover</td><td>IP SLA + floating route → <code>check-gateway</code> on the tunnel peer + distance</td></tr>
+      <tr><td>Vendor window</td><td>time-range ACL in a ZBF class → firewall <code>time=</code> matcher</td></tr>
+      <tr><td>QoS for HQ traffic</td><td><code>qos pre-classify</code> → queue tree on the tunnel interface</td></tr>
+      <tr><td>Logging</td><td><code>logging host</code> + config archive → remote log action + nightly <code>/export</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>The tunnel technology changes</strong>, and with sixty stores that's a head-office decision, not a store one: HQ's head-ends must speak WireGuard (or IPsec with GRE). <strong>A swapped PIN pad is silent</strong> on MikroTik: the port just stops forwarding, with no err-disable state and no log line. For PCI evidence, add a monitoring check on the bridge host table or DHCP leases that alerts on a new MAC in VLAN 10. <strong>Routing moves to R1</strong> and the firewall becomes stateful, as in the other MikroTik builds.</p><p><strong>Fleet management</strong> is the other real difference: at sixty stores, Cisco shops use central tooling; MikroTik shops template RouterOS configs and push them with the API or Ansible.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Give the CDE exactly one destination.</strong> Lanes reach HQ and nothing else, enforced on the core, in NAT and in the zone firewall, so no single mistake opens an internet path for a till.</li>
+      <li><strong>Make payment-device swaps loud.</strong> Sticky MAC with no automatic recovery turns a tampered PIN pad into a stopped lane and a phone call.</li>
+      <li><strong>Route-based tunnels template well.</strong> A static VTI with a route to HQ, certificates from the chain's CA, and a dynamic VTI at the head-end scale to every store.</li>
+      <li><strong>A backup link can be tunnel-only.</strong> Two tunnels, two head-ends, each pinned to its own path, plus a floating route: the failover needs no new IKE negotiation and the LTE line carries nothing else.</li>
+      <li><strong>Don't trust head office blindly.</strong> HQ→store is a zone policy with specific functions, and vendors come through one jump host inside a time window.</li>
+      <li><strong>Classify before you encrypt.</strong> <code>qos pre-classify</code> is what lets the WAN policy see a card payment inside the tunnel.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 4 of the <a href="build-index.html"><strong>Build series</strong></a>. Earlier: <a href="build-law-firm.html">the law firm</a>, <a href="build-gaming-center.html">the gaming center</a>, <a href="build-coffee-shop.html">the coffee shop</a>. Next: <a href="build-clinic.html">the medical clinic</a>.</p>
+
+  <div class="cta-card">
+    <h3>Rolling out or auditing store networks?</h3>
+    <p>I design store templates like this one and test the segmentation the way an assessor will, so the PCI evidence exists before anyone asks for it.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>

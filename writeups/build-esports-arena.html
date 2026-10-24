@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Esports Arena Network — S. Markakis</title>
+<meta name="description" content="A broadcast esports final on Cisco, built bottom-up in 11 tested steps: a sealed stage pod with equal paths to the match servers, a DNS-enforced allowlist for players, an NDI production network, packet capture for disputes, two ISPs with policy routing, and a stream sent twice over two lines.">
+<meta property="og:title" content="Build: The Esports Arena Network — S. Markakis">
+<meta property="og:description" content="A broadcast esports final on Cisco, built bottom-up in 11 tested steps: a sealed stage pod with equal paths to the match servers, a DNS-enforced allowlist for players, an NDI production network, packet capture for disputes, two ISPs with policy routing, and a stream sent twice over two lines.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-esports-arena.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-esports-arena.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-esports-arena.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-esports-arena.html">
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#b0453a;--v11:#c08020;--v15:#8a5bb5;--v20:#3a7ca5;--v30:#4f8f4c;--v40:#2f8f8f;--v50:#d9822b;--v99:#6f7f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Esports Arena Network",
+  "description": "A broadcast esports final on Cisco, built bottom-up in 11 tested steps: a sealed stage pod where both teams sit one switch hop from the match servers, an allowlist-only internet for players, an NDI production network, full packet capture for match disputes, two ISPs with policy routing, and a stream sent twice over two different lines — with Packet Tracer-style diagrams for every step.",
+  "datePublished": "2026-10-24",
+  "dateModified": "2026-10-24",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-esports-arena.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-esports-arena.png",
+  "keywords": [
+    "cisco",
+    "labs",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-esports-arena"
+  },
+  "timeRequired": "PT38M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; Cisco IOS-XE &nbsp;·&nbsp; Real-World Network &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Build: The<br>Esports Arena Network</h1>
+  <p class="post-subtitle">A two-day regional final: eight teams, a stage with two five-seat booths, 1,500 spectators, casters, observers, replay, and a live broadcast watched by tens of thousands. The players need the fairest, quietest network in the building; the production needs the busiest; and the two must never meet. We build it on Cisco from the stage outwards in 11 tested steps.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">Cisco IOS-XE</span>
+    <span class="tag">Esports</span>
+    <span class="tag">Competition Integrity</span>
+    <span class="tag">NDI</span>
+    <span class="tag">SPAN Capture</span>
+    <span class="tag">PBR</span>
+    <span class="tag">SRT</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 600" role="img" aria-label="Interactive topology of the esports arena network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="110" y1="410" x2="40" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="99.3" cy="426.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="50.7" cy="503.1" r="2.4"/>
+<text class="lft-port lft-c" x="68.0" y="479.0">Te1/0/1-5</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="110" y1="410" x2="100" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="108.2" cy="429.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="101.8" cy="500.1" r="2.4"/>
+<text class="lft-port" x="110.0" y="490.0">Te1/0/6-10</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="110" y1="410" x2="160" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="118.3" cy="428.2" r="2.4"/>
+<circle class="lft-led bx-led" cx="151.7" cy="501.8" r="2.4"/>
+<text class="lft-port lft-c" x="140.0" y="479.0">Te1/0/11-12</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="110" y1="410" x2="220" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="124.1" cy="424.1" r="2.4"/>
+<circle class="lft-led bx-led" cx="205.9" cy="505.9" r="2.4"/>
+<text class="lft-port lft-c" x="195.8" y="498.8">Te1/0/13</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="300" y1="410" x2="290" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="298.2" cy="429.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="291.8" cy="500.1" r="2.4"/>
+<text class="lft-port" x="300.0" y="479.0">Gi1/0/1-40</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="300" y1="410" x2="355" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="308.9" cy="427.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="346.1" cy="502.1" r="2.4"/>
+<text class="lft-port lft-c" x="333.0" y="490.0">Gi1/0/41-42</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="500" y1="410" x2="440" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="490.4" cy="427.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="449.6" cy="502.4" r="2.4"/>
+<text class="lft-port lft-c" x="464.0" y="479.0">Te1/0/1-4</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="500" y1="410" x2="505" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="500.9" cy="430.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="504.1" cy="500.0" r="2.4"/>
+<text class="lft-port" x="509.0" y="490.0">Te1/0/5-12</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="500" y1="410" x2="572" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="511.0" cy="426.7" r="2.4"/>
+<circle class="lft-led bx-led" cx="561.0" cy="503.3" r="2.4"/>
+<text class="lft-port lft-c" x="543.2" y="479.0">Te1/0/13-14</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="690" y1="410" x2="650" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="683.2" cy="428.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="656.8" cy="501.2" r="2.4"/>
+<text class="lft-port lft-c" x="666.0" y="479.0">Gi1/0/1-8</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="690" y1="410" x2="722" y2="520" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="695.6" cy="429.2" r="2.4"/>
+<circle class="lft-led bx-led" cx="716.4" cy="500.8" r="2.4"/>
+<text class="lft-port lft-c" x="709.2" y="490.0">Gi1/0/9-16</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="380" y1="294" x2="110" y2="410" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="361.6" cy="301.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="128.4" cy="402.1" r="2.4"/>
+<text class="lft-port lft-c" x="245.0" y="355.0">routed 10G</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="380" y1="294" x2="300" y2="410" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="368.6" cy="310.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="311.4" cy="393.5" r="2.4"/>
+<text class="lft-port lft-c" x="340.0" y="355.0">10G</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="378.2" y1="295.9" x2="498.2" y2="411.9" style="stroke:var(--defender);stroke-width:1.8;"/>
+<line class="bx-line" pathLength="100" x1="381.8" y1="292.1" x2="501.8" y2="408.1" style="stroke:var(--defender);stroke-width:1.8;"/>
+<circle class="lft-led bx-led" cx="394.4" cy="307.9" r="2.4"/>
+<circle class="lft-led bx-led" cx="485.6" cy="396.1" r="2.4"/>
+<text class="lft-port lft-c" x="440.0" y="355.0">Po3 · 2×10G</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="380" y1="294" x2="690" y2="410" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="398.7" cy="301.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="671.3" cy="403.0" r="2.4"/>
+<text class="lft-port lft-c" x="535.0" y="355.0">10G</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="110" y1="410" x2="70" y2="290" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="103.7" cy="391.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="76.3" cy="309.0" r="2.4"/>
+<text class="lft-port lft-c" x="90.0" y="353.0">Te1/0/24 · SPAN</text>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-line" pathLength="100" x1="380" y1="196" x2="380" y2="294" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="380.0" cy="216.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="380.0" cy="274.0" r="2.4"/>
+<text class="lft-port" x="386.0" y="248.0">Gi0/0/2 ⇄ Te1/1/1</text>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-line" pathLength="100" x1="380" y1="196" x2="250" y2="112" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="363.2" cy="185.1" r="2.4"/>
+<circle class="lft-led bx-led" cx="266.8" cy="122.9" r="2.4"/>
+<text class="lft-port lft-c" x="315.0" y="157.0">Gi0/0/0</text>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-line" pathLength="100" x1="250" y1="112" x2="380" y2="40" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="267.5" cy="102.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="350.3" cy="56.5" r="2.4"/>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-line" pathLength="100" x1="380" y1="196" x2="510" y2="112" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="396.8" cy="185.1" r="2.4"/>
+<circle class="lft-led bx-led" cx="493.2" cy="122.9" r="2.4"/>
+<text class="lft-port lft-c" x="445.0" y="157.0">Gi0/0/1</text>
+</g>
+<g class="bx-el" data-step="8">
+<line class="bx-line" pathLength="100" x1="510" y1="112" x2="380" y2="40" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="492.5" cy="102.3" r="2.4"/>
+<circle class="lft-led bx-led" cx="409.7" cy="56.5" r="2.4"/>
+</g>
+<g class="bx-el bx-dev" data-step="8">
+<circle class="bx-ring lft-ring" cx="380" cy="40" r="56"/>
+<use href="#lfi-cloud" x="328" y="16" width="104" height="48" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="380" y="45" style="fill:var(--defender);">Internet</text>
+</g>
+<g class="bx-el bx-dev" data-step="8">
+<circle class="bx-ring lft-ring" cx="250" cy="112" r="26"/>
+<use href="#lfi-modem" x="233" y="103" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="250" y="133">ISP A · fibre</text>
+<text class="lft-chip lft-c" x="250" y="143" style="fill:var(--body);">players · platform · public</text>
+</g>
+<g class="bx-el bx-dev" data-step="8">
+<circle class="bx-ring lft-ring" cx="510" cy="112" r="26"/>
+<use href="#lfi-modem" x="493" y="103" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="510" y="133">ISP B · fibre</text>
+<text class="lft-chip lft-c" x="510" y="143" style="fill:var(--body);">stream encoder 1</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="8" data-dev="r1" tabindex="0" role="button" aria-label="Show the configuration of EDGE">
+<circle class="bx-ring lft-ring" cx="380" cy="196" r="32"/>
+<circle class="bx-sel" cx="380" cy="196" r="28"/>
+<use href="#lfi-router" x="357" y="180" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="411" y="195">EDGE</text>
+<text class="lft-chip" x="411" y="205" style="fill:var(--body);">C8300-1N1S-6T</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="5" data-dev="core" tabindex="0" role="button" aria-label="Show the configuration of CORE">
+<circle class="bx-ring lft-ring" cx="380" cy="294" r="28"/>
+<circle class="bx-sel" cx="380" cy="294" r="24"/>
+<use href="#lfi-l3" x="361" y="275" width="38" height="38" style="color:var(--defender);"/>
+<text class="lft-name" x="407" y="293">CORE</text>
+<text class="lft-chip" x="407" y="303" style="fill:var(--body);">C9300-48T</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="7" data-dev="cap" tabindex="0" role="button" aria-label="Show the configuration of Capture box">
+<circle class="bx-ring lft-ring" cx="70" cy="290" r="25"/>
+<circle class="bx-sel" cx="70" cy="290" r="21"/>
+<use href="#lfi-server" x="59" y="274" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="70" y="318">Capture box</text>
+<text class="lft-chip lft-c" x="70" y="328" style="fill:var(--v20);">SPAN · disputes</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="stage" tabindex="0" role="button" aria-label="Show the configuration of STAGE-SW">
+<circle class="bx-ring lft-ring" cx="110" cy="410" r="34"/>
+<circle class="bx-sel" cx="110" cy="410" r="30"/>
+<use href="#lfi-l2" x="85" y="399" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="143" y="409">STAGE-SW</text>
+<text class="lft-chip" x="143" y="419" style="fill:var(--body);">C9300-24UX · L3</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="boot" tabindex="0" role="button" aria-label="Show the configuration of BOOTCAMP-SW">
+<circle class="bx-ring lft-ring" cx="300" cy="410" r="34"/>
+<circle class="bx-sel" cx="300" cy="410" r="30"/>
+<use href="#lfi-l2" x="275" y="399" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="333" y="409">BOOTCAMP-SW</text>
+<text class="lft-chip" x="333" y="419" style="fill:var(--body);">C9300-48P</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="3" data-dev="prod" tabindex="0" role="button" aria-label="Show the configuration of PROD-SW">
+<circle class="bx-ring lft-ring" cx="500" cy="410" r="34"/>
+<circle class="bx-sel" cx="500" cy="410" r="30"/>
+<use href="#lfi-l2" x="475" y="399" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="533" y="409">PROD-SW</text>
+<text class="lft-chip" x="533" y="419" style="fill:var(--body);">C9300-24UX</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="4" data-dev="foh" tabindex="0" role="button" aria-label="Show the configuration of FOH-SW">
+<circle class="bx-ring lft-ring" cx="690" cy="410" r="34"/>
+<circle class="bx-sel" cx="690" cy="410" r="30"/>
+<use href="#lfi-l2" x="665" y="399" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-e" x="657" y="409">FOH-SW</text>
+<text class="lft-chip lft-e" x="657" y="419" style="fill:var(--body);">C9200L-24P</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="40" cy="520" r="23"/>
+<use href="#lfi-pc" x="26" y="506" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="40" y="546">Team A ×5</text>
+<text class="lft-chip lft-c" x="40" y="556" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="100" cy="520" r="23"/>
+<use href="#lfi-pc" x="86" y="506" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="100" y="546">Team B ×5</text>
+<text class="lft-chip lft-c" x="100" y="556" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="160" cy="520" r="25"/>
+<use href="#lfi-server" x="149" y="504" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="160" y="548">Servers ×2</text>
+<text class="lft-chip lft-c" x="160" y="558" style="fill:var(--v15);">V15</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="220" cy="520" r="25"/>
+<use href="#lfi-laptop" x="204" y="508" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="220" y="544">Referee</text>
+<text class="lft-chip lft-c" x="220" y="554" style="fill:var(--v20);">V20</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="290" cy="520" r="23"/>
+<use href="#lfi-pc" x="276" y="506" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="290" y="546">Bootcamp ×40</text>
+<text class="lft-chip lft-c" x="290" y="556" style="fill:var(--v11);">V11</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="355" cy="520" r="25"/>
+<use href="#lfi-server" x="344" y="504" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="355" y="548">Practice srv</text>
+<text class="lft-chip lft-c" x="355" y="558" style="fill:var(--v11);">V11</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="440" cy="520" r="23"/>
+<use href="#lfi-pc" x="426" y="506" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="440" y="546">Observers ×4</text>
+<text class="lft-chip lft-c" x="440" y="556" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="505" cy="520" r="28"/>
+<use href="#lfi-display" x="486" y="506" width="38" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="505" y="546">Casters · replay</text>
+<text class="lft-chip lft-c" x="505" y="556" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="572" cy="520" r="25"/>
+<use href="#lfi-server" x="561" y="504" width="22" height="32" style="color:var(--v30);"/>
+<text class="lft-name lft-c" x="572" y="548">Encoders ×2</text>
+<text class="lft-chip lft-c" x="572" y="558" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="650" cy="520" r="26"/>
+<use href="#lfi-ap" x="633" y="507" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="650" y="545">Arena APs ×8</text>
+<text class="lft-chip lft-c" x="650" y="555" style="fill:var(--body);">public · press</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="722" cy="520" r="25"/>
+<use href="#lfi-laptop" x="706" y="508" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="722" y="544">Press</text>
+<text class="lft-chip lft-c" x="722" y="554" style="fill:var(--v40);">V40</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 11 steps built</text>
+<text class="lft-chip" x="20" y="590">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="11" value="11" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The Stage Pod", "adds": "STAGE-SW, Team A ×5, Team B ×5, Servers ×2, Referee"}, {"n": 2, "title": "The Bootcamp Room", "adds": "BOOTCAMP-SW, Bootcamp ×40, Practice srv"}, {"n": 3, "title": "The Production Network", "adds": "PROD-SW, Observers ×4, Casters · replay, Encoders ×2"}, {"n": 4, "title": "Front of House: Press and Spectators", "adds": "FOH-SW, Arena APs ×8, Press"}, {"n": 5, "title": "The Core", "adds": "CORE"}, {"n": 6, "title": "Competition Integrity", "adds": "policy / services"}, {"n": 7, "title": "Capturing Everything for Disputes", "adds": "Capture box"}, {"n": 8, "title": "The Edge: Two ISPs, Zones and Policy Routing", "adds": "Internet, ISP A · fibre, ISP B · fibre, EDGE"}, {"n": 9, "title": "The Broadcast, Sent Twice", "adds": "policy / services"}, {"n": 10, "title": "Queuing on ISP A", "adds": "policy / services"}, {"n": 11, "title": "Match-Day Operations", "adds": "policy / services"}], "devices": {"stage": "STAGE-SW", "boot": "BOOTCAMP-SW", "prod": "PROD-SW", "foh": "FOH-SW", "core": "CORE", "cap": "Capture box", "r1": "EDGE"}, "configs": {"stage": [{"step": 1, "title": "The Stage Pod", "label": "STAGE-SW — C9300-24UX · ports, SVIs, routed uplink", "text": "hostname STAGE-SW\nip routing\nvlan 10\n name STAGE-PLAYERS\nvlan 15\n name MATCH-SERVERS\nvlan 20\n name OPS\n!\ninterface range TenGigabitEthernet1/0/1 - 5\n description TEAM A seats 1-5 (3 m cables, same batch as team B)\n switchport mode access\n switchport access vlan 10\n switchport port-security maximum 1\n switchport port-security mac-address sticky\n switchport port-security\n no power efficient-ethernet\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface range TenGigabitEthernet1/0/6 - 10\n description TEAM B seats 1-5 (3 m cables, same batch as team A)\n ! … identical to team A, line for line\ninterface range TenGigabitEthernet1/0/11 - 12\n description MATCH SERVERS (main, hot spare)\n switchport mode access\n switchport access vlan 15\n no power efficient-ethernet\n spanning-tree portfast\ninterface range TenGigabitEthernet1/0/13 - 14\n description REFEREE + capture-box management\n switchport mode access\n switchport access vlan 20\n spanning-tree portfast\n!\ninterface TenGigabitEthernet1/1/1\n description CORE (the pod's only door)\n no switchport\n ip address 10.90.255.2 255.255.255.252\ninterface Vlan10\n ip address 10.90.10.1 255.255.255.0\ninterface Vlan15\n ip address 10.90.15.1 255.255.255.0\ninterface Vlan20\n ip address 10.90.20.1 255.255.255.0\nip route 0.0.0.0 0.0.0.0 10.90.255.1"}, {"step": 6, "title": "Competition Integrity", "label": "STAGE-SW — the pod's ACLs", "text": "ip access-list extended V10-IN\n remark PLAYERS: match servers, the allowlist resolver, HTTPS out\n 10 permit udp 10.90.10.0 0.0.0.255 10.90.15.0 0.0.0.255 range 27015 27020\n 20 permit udp 10.90.10.0 0.0.0.255 host 10.90.20.53 eq domain\n 30 permit tcp 10.90.10.0 0.0.0.255 host 10.90.20.53 eq domain\n 40 permit tcp 10.90.10.0 0.0.0.255 10.90.20.0 0.0.0.255 established\n 50 deny   ip any 10.0.0.0 0.255.255.255 log\n 60 deny   ip any 172.16.0.0 0.15.255.255\n 70 deny   ip any 192.168.0.0 0.0.255.255\n 80 permit tcp 10.90.10.0 0.0.0.255 any eq 443\n 90 deny   ip any any log\n!\nip access-list extended V15-IN\n remark MATCH SERVERS: answer players and observers, report results\n 10 permit udp 10.90.15.0 0.0.0.255 range 27015 27020 10.90.10.0 0.0.0.255\n 20 permit udp 10.90.15.0 0.0.0.255 eq 27020 10.90.30.0 0.0.0.255\n 30 permit tcp 10.90.15.0 0.0.0.255 10.90.20.0 0.0.0.255 established\n 40 deny   ip any 10.0.0.0 0.255.255.255 log\n 50 permit tcp 10.90.15.0 0.0.0.255 any eq 443\n 60 deny   ip any any log\n!\nip access-list extended UPLINK-IN\n remark The pod's only door: delayed spectator feed in, replies in, nothing else\n 10 permit udp 10.90.30.0 0.0.0.255 10.90.15.0 0.0.0.255 eq 27020\n 20 permit tcp any 10.90.10.0 0.0.0.255 established\n 30 permit tcp any 10.90.15.0 0.0.0.255 established\n 40 permit tcp any 10.90.20.0 0.0.0.255 established\n 50 permit udp any eq domain host 10.90.20.53\n 60 deny   ip any any log\n!\ninterface Vlan10\n ip access-group V10-IN in\ninterface Vlan15\n ip access-group V15-IN in\ninterface TenGigabitEthernet1/1/1\n ip access-group UPLINK-IN in"}, {"step": 7, "title": "Capturing Everything for Disputes", "label": "STAGE-SW — SPAN all player and server ports to the capture box", "text": "monitor session 1 source interface TenGigabitEthernet1/0/1 - 12 both\nmonitor session 1 destination interface TenGigabitEthernet1/0/24"}, {"step": 11, "title": "Match-Day Operations", "label": "All devices — a known-good config, change logging, one-command rollback", "text": "archive\n path flash:matchday\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys\n! the night before each match day, after the scrim passes:\ncopy running-config flash:matchday-baseline.cfg\n! if a change on match day goes wrong:\nconfigure replace flash:matchday-baseline.cfg list"}], "boot": [{"step": 2, "title": "The Bootcamp Room", "label": "BOOTCAMP-SW — C9300-48P", "text": "hostname BOOTCAMP-SW\nvlan 11\n name BOOTCAMP\ninterface range GigabitEthernet1/0/1 - 42\n description BOOTCAMP PCs + practice servers\n switchport mode access\n switchport access vlan 11\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface TenGigabitEthernet1/1/1\n description CORE\n switchport mode trunk\n switchport trunk allowed vlan 11,99"}, {"step": 11, "title": "Match-Day Operations", "label": "All devices — a known-good config, change logging, one-command rollback", "text": "archive\n path flash:matchday\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys\n! the night before each match day, after the scrim passes:\ncopy running-config flash:matchday-baseline.cfg\n! if a change on match day goes wrong:\nconfigure replace flash:matchday-baseline.cfg list"}], "prod": [{"step": 3, "title": "The Production Network", "label": "PROD-SW — C9300-24UX · NDI-ready", "text": "hostname PROD-SW\nvlan 30\n name PRODUCTION\nip igmp snooping\nip igmp snooping querier                              ! no multicast router in this VLAN\ninterface range TenGigabitEthernet1/0/1 - 14\n description PRODUCTION machines (observers, replay, graphics, casters, encoders)\n switchport mode access\n switchport access vlan 30\n spanning-tree portfast\ninterface range TenGigabitEthernet1/1/1 - 2\n channel-group 3 mode active\ninterface Port-channel3\n description CORE (2x10G)\n switchport mode trunk\n switchport trunk allowed vlan 30,99"}, {"step": 11, "title": "Match-Day Operations", "label": "All devices — a known-good config, change logging, one-command rollback", "text": "archive\n path flash:matchday\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys\n! the night before each match day, after the scrim passes:\ncopy running-config flash:matchday-baseline.cfg\n! if a change on match day goes wrong:\nconfigure replace flash:matchday-baseline.cfg list"}], "foh": [{"step": 4, "title": "Front of House: Press and Spectators", "label": "FOH-SW — C9200L-24P", "text": "hostname FOH-SW\ninterface range GigabitEthernet1/0/1 - 8\n description ARENA APs (FlexConnect local switching)\n switchport mode trunk\n switchport trunk native vlan 99\n switchport trunk allowed vlan 40,50,99\n spanning-tree portfast trunk\ninterface range GigabitEthernet1/0/9 - 16\n description PRESS desks\n switchport mode access\n switchport access vlan 40\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface TenGigabitEthernet1/1/1\n description CORE\n switchport mode trunk\n switchport trunk allowed vlan 40,50,99"}, {"step": 11, "title": "Match-Day Operations", "label": "All devices — a known-good config, change logging, one-command rollback", "text": "archive\n path flash:matchday\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys\n! the night before each match day, after the scrim passes:\ncopy running-config flash:matchday-baseline.cfg\n! if a change on match day goes wrong:\nconfigure replace flash:matchday-baseline.cfg list"}], "core": [{"step": 5, "title": "The Core", "label": "CORE — C9300-48T · links, SVIs, routes", "text": "hostname CORE\nip routing\ninterface TenGigabitEthernet1/1/2\n description STAGE-SW (routed)\n no switchport\n ip address 10.90.255.1 255.255.255.252\ninterface TenGigabitEthernet1/1/3\n description BOOTCAMP-SW\n switchport mode trunk\n switchport trunk allowed vlan 11,99\ninterface range TenGigabitEthernet1/1/4 - 5\n channel-group 3 mode active\ninterface Port-channel3\n description PROD-SW\n switchport mode trunk\n switchport trunk allowed vlan 30,99\ninterface TenGigabitEthernet1/1/6\n description FOH-SW\n switchport mode trunk\n switchport trunk allowed vlan 40,50,99\ninterface TenGigabitEthernet1/1/1\n description EDGE (transit + public)\n switchport mode trunk\n switchport trunk allowed vlan 50,900\n!\ninterface Vlan11\n ip address 10.90.11.1 255.255.255.0\ninterface Vlan30\n ip address 10.90.30.1 255.255.255.0\ninterface Vlan40\n ip address 10.90.40.1 255.255.255.0\ninterface Vlan99\n ip address 10.90.99.1 255.255.255.0\ninterface Vlan900\n ip address 10.90.254.2 255.255.255.248\n! no \"interface Vlan50\": the public is routed by the EDGE only\n!\nip route 10.90.10.0 255.255.255.0 10.90.255.2\nip route 10.90.15.0 255.255.255.0 10.90.255.2\nip route 10.90.20.0 255.255.255.0 10.90.255.2\nip route 0.0.0.0 0.0.0.0 10.90.254.1"}, {"step": 11, "title": "Match-Day Operations", "label": "All devices — a known-good config, change logging, one-command rollback", "text": "archive\n path flash:matchday\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys\n! the night before each match day, after the scrim passes:\ncopy running-config flash:matchday-baseline.cfg\n! if a change on match day goes wrong:\nconfigure replace flash:matchday-baseline.cfg list"}], "cap": [{"step": 7, "title": "Capturing Everything for Disputes", "label": "Capture box — 10-minute files, 48 hours kept", "text": "dumpcap -i cap0 -b duration:600 -b files:288 -w /data/stage.pcapng"}], "r1": [{"step": 8, "title": "The Edge: Two ISPs, Zones and Policy Routing", "label": "EDGE — C8300-1N1S-6T · zones, NAT per WAN, tracked default", "text": "interface GigabitEthernet0/0/2.900\n encapsulation dot1Q 900\n ip address 10.90.254.1 255.255.255.248\n ip nat inside\n zone-member security INSIDE\n ip policy route-map PBR-IN\ninterface GigabitEthernet0/0/2.50\n encapsulation dot1Q 50\n ip address 10.90.48.1 255.255.248.0\n ip nat inside\n zone-member security PUBLIC\ninterface GigabitEthernet0/0/0\n description ISP A\n ip address 203.0.113.10 255.255.255.248\n ip nat outside\n zone-member security OUTSIDE-A\ninterface GigabitEthernet0/0/1\n description ISP B\n ip address 198.51.100.10 255.255.255.248\n ip nat outside\n zone-member security OUTSIDE-B\n!\nip sla 1\n icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0\n frequency 5\nip sla schedule 1 life forever start-time now\ntrack 1 ip sla 1 reachability\n delay down 10 up 60\nip sla 2\n icmp-echo 9.9.9.9 source-interface GigabitEthernet0/0/1\n frequency 5\nip sla schedule 2 life forever start-time now\ntrack 2 ip sla 2 reachability\nip route 1.1.1.1 255.255.255.255 203.0.113.9            ! each probe pinned to its own ISP\nip route 1.1.1.1 255.255.255.255 Null0 250\nip route 9.9.9.9 255.255.255.255 198.51.100.9\nip route 9.9.9.9 255.255.255.255 Null0 250\nip route 0.0.0.0 0.0.0.0 203.0.113.9 track 1\nip route 0.0.0.0 0.0.0.0 198.51.100.9 250\nip route 10.90.0.0 255.255.0.0 10.90.254.2\n!\n! encoder 1 always leaves via ISP B while ISP B is healthy\nip access-list extended ENC1\n permit ip host 10.90.30.21 any\nroute-map PBR-IN permit 10\n match ip address ENC1\n set ip next-hop verify-availability 198.51.100.9 1 track 2\n!\nroute-map NAT-A permit 10\n match interface GigabitEthernet0/0/0\nroute-map NAT-B permit 10\n match interface GigabitEthernet0/0/1\nip nat inside source route-map NAT-A interface GigabitEthernet0/0/0 overload\nip nat inside source route-map NAT-B interface GigabitEthernet0/0/1 overload"}, {"step": 8, "title": "The Edge: Two ISPs, Zones and Policy Routing", "label": "EDGE — who may use which ISP (zone pairs)", "text": "zone security INSIDE\nzone security PUBLIC\nzone security OUTSIDE-A\nzone security OUTSIDE-B\nclass-map type inspect match-any CM-ANY\n match protocol tcp\n match protocol udp\n match protocol icmp\npolicy-map type inspect PM-OUT\n class type inspect CM-ANY\n  inspect\n class class-default\n  drop log\nzone-pair security ZP-IN-A source INSIDE destination OUTSIDE-A\n service-policy type inspect PM-OUT\nzone-pair security ZP-IN-B source INSIDE destination OUTSIDE-B\n service-policy type inspect PM-OUT\nzone-pair security ZP-PUB-A source PUBLIC destination OUTSIDE-A\n service-policy type inspect PM-OUT\n! no PUBLIC → OUTSIDE-B pair: when ISP A fails, spectators simply have no internet"}, {"step": 10, "title": "Queuing on ISP A", "label": "EDGE — classify on the way in, queue on the way out", "text": "ip access-list extended CRIT\n permit ip 10.90.10.0 0.0.0.255 any\n permit ip 10.90.15.0 0.0.0.255 any\n permit ip 10.90.20.0 0.0.0.255 any\n permit ip host 10.90.30.22 any\nclass-map match-any CRIT\n match access-group name CRIT\npolicy-map MARK-IN\n class CRIT\n  set qos-group 1\ninterface GigabitEthernet0/0/2.900\n service-policy input MARK-IN\n!\nclass-map match-any CRIT-Q\n match qos-group 1\npolicy-map WAN-A-CHILD\n class CRIT-Q\n  bandwidth remaining percent 60\n class class-default\n  fair-queue\npolicy-map WAN-A\n class class-default\n  shape average 475000000\n  service-policy WAN-A-CHILD\ninterface GigabitEthernet0/0/0\n service-policy output WAN-A"}, {"step": 11, "title": "Match-Day Operations", "label": "All devices — a known-good config, change logging, one-command rollback", "text": "archive\n path flash:matchday\n log config\n  logging enable\n  notify syslog contenttype plaintext\n  hidekeys\n! the night before each match day, after the scrim passes:\ncopy running-config flash:matchday-baseline.cfg\n! if a change on match day goes wrong:\nconfigure replace flash:matchday-baseline.cfg list"}]}}</script>
+</div>
+  </div>
+
+  <div class="thesis-card">
+    <p>This is part 8 of the <a href="build-index.html">Build series</a>, and the big brother of the <a href="build-gaming-center.html">gaming center</a>. There, the threat was customers attacking each other and the goal was low latency for everyone. Here, ten people on a stage are playing for prize money in front of an audience, and the network has three new jobs: give both teams <strong>exactly the same path</strong> to the match server, make sure no player can see the broadcast (which would reveal the other team's positions), and keep enough evidence to settle a dispute about lag.</p>
+    <p>At the same time, a production team is moving a dozen high-bitrate video feeds around the building and sending the finished show to the world twice over. The design keeps those two worlds on separate hardware, connected only where the rules say.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>The <a href="build-gaming-center.html">gaming center</a> and the <a href="build-event.html">festival</a> builds</li>
+      <li><a href="cisco-acls.html">ACLs</a>, <a href="cisco-span.html">SPAN</a>, <a href="cisco-pbr.html">policy-based routing</a>, <a href="cisco-zbf.html">zone-based firewall</a></li>
+      <li>IOS-XE 17.x; the switching and ACL steps run in Packet Tracer (section 19)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional regional final in a 1,500-seat arena. The tournament operator owns the rules; the network has to enforce some of them.</em></p>
+
+  <p>Two teams of five play on stage at a time, in booths on either side of a central <strong>stage rack</strong> that holds two <strong>match servers</strong> (main and hot spare) and the referee's console. Six more teams warm up in a <strong>bootcamp room</strong> with 40 PCs and practice servers. The <strong>production gallery</strong> has four observer PCs (in-game camera operators), replay and graphics machines, the casters' feeds, and two encoders. A <strong>press room</strong> has wired desks. The arena has public Wi-Fi for spectators. The tournament runs on the publisher's platform, which needs the players' PCs to log in and run the publisher's anti-cheat.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Fair paths</td><td>Both teams must have the same latency to the match server. Same switch, same port type, same cable length, one hop.</td></tr>
+      <tr><td>R2 No ghosting</td><td>A player watching the live broadcast would see the opponents' positions. Players get no route to any stream or video site, only an allowlist.</td></tr>
+      <tr><td>R3 Delayed spectating</td><td>Observers watch the match through the server's spectator port, which runs on a delay. Production reaches that port and nothing else on the stage.</td></tr>
+      <tr><td>R4 Evidence for disputes</td><td>"My game lagged" claims are settled with data. All stage traffic is recorded for the length of the event.</td></tr>
+      <tr><td>R5 Broadcast never drops</td><td>The show leaves the building twice, from two encoders over two ISPs.</td></tr>
+      <tr><td>R6 Production bandwidth</td><td>Twelve NDI video feeds at ~125–250 Mb/s each move around the gallery. 10G everywhere in production, and multicast under control.</td></tr>
+      <tr><td>R7 Spectators stay out</td><td>1,500 phones on public Wi-Fi with no path to anything that matters, and a hard per-device limit.</td></tr>
+      <tr><td>R8 Change freeze</td><td>Nothing is changed on match days except by the network lead, with the tournament director's approval.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>Each one exists because an esports final is judged on fairness first and speed second.</em></p>
+
+  <h3 class="sub">1 · The stage pod routes itself</h3>
+  <p>Players and match servers live on the same switch, a C9300-24UX in the stage rack, but in different VLANs, so an ACL can sit between them. If that switch only did Layer 2, every packet between a player and the server would go to the core and back. So <strong>STAGE-SW routes its own pod</strong>: player-to-server traffic is one switch, one routing lookup, for both teams. Its single routed uplink to the core is the pod's only door, and that door has its own ACL.</p>
+
+  <h3 class="sub">2 · An allowlist enforced by DNS</h3>
+  <p>Players need the publisher's login, matchmaking and anti-cheat services, which run on large cloud and CDN address ranges that change constantly. An IP allowlist would break mid-match. Instead, players use a <strong>tournament resolver</strong> that only answers the domain names in the publisher's tournament guide; every other name gets "does not exist". The switch ACL blocks any other DNS and anything that isn't HTTPS. The locked player image (no admin rights, encrypted DNS disabled) closes what the network can't.</p>
+
+  <h3 class="sub">3 · Capture everything on stage</h3>
+  <p>A SPAN session on STAGE-SW copies every packet of every player port and both servers to a capture box with a rolling 48-hour buffer. That's a few hundred GB for a two-day event, a cheap disk, and the end of most lag disputes, because the referee can show the exact packet loss and latency for the seat and minute in question. Players agree to this in the tournament rules.</p>
+
+  <h3 class="sub">4 · Redundancy in the application, not just the network</h3>
+  <p>The broadcast doesn't rely on WAN failover. Two encoders send the same program over two ISPs to a cloud ingest that picks a healthy feed. A failing ISP costs nothing visible. The network's job is simply to keep each encoder on its own line, which is what policy routing does.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>10.90.x.0/24, VLAN ID = third octet. The stage pod's three VLANs exist only on STAGE-SW.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>VLAN · subnet</th><th>Who lives here · where it's routed</th></tr></thead>
+    <tbody>
+      <tr><td>10 STAGE-PLAYERS · 10.90.10.0/24</td><td>Team A seats .11–.15, team B .16–.20. Static. Routed on STAGE-SW.</td></tr>
+      <tr><td>15 MATCH-SERVERS · 10.90.15.0/24</td><td>Main .11, hot spare .12. Routed on STAGE-SW.</td></tr>
+      <tr><td>20 OPS · 10.90.20.0/24</td><td>Referee .10, admin consoles .11–.12, tournament resolver DNS-ALLOW .53, capture box management .60. All in the stage rack; routed on STAGE-SW.</td></tr>
+      <tr><td>11 BOOTCAMP · 10.90.11.0/24</td><td>40 practice PCs and practice servers. Routed on CORE.</td></tr>
+      <tr><td>30 PRODUCTION · 10.90.30.0/24</td><td>Observers .11–.14, replay/graphics, casters, encoders .21–.22, NDI Discovery Server .5. Routed on CORE.</td></tr>
+      <tr><td>40 PRESS · 10.90.40.0/24</td><td>Press desks and press Wi-Fi. Routed on CORE.</td></tr>
+      <tr><td>50 PUBLIC · 10.90.48.0/21</td><td>Spectator Wi-Fi. Terminated on the EDGE, never routed by the core.</td></tr>
+      <tr><td>99 MGMT · 10.90.99.0/24</td><td>All switches, APs, EDGE. Transit links: 10.90.255.0/24 in /30s.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 300" role="img" aria-label="Floor plan of the arena colour-coded by VLAN: the stage with both team booths and the match-server rack, the bootcamp room, the production gallery, the casters' desk, the concourse and seating with public Wi-Fi, and the press room">
+    <text class="lf-name" x="15" y="20">ARENA FLOOR</text><rect x="15" y="28" width="470" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <text class="lf-name" x="495" y="20">BACK OF HOUSE</text><rect x="495" y="28" width="250" height="252" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+    <rect x="25" y="38" width="140" height="80" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="95" y="76">Team A booth</text><text class="lf-mono lf-c" x="95" y="90">5 seats · V10</text>
+    <rect x="175" y="38" width="140" height="80" rx="3" style="fill:var(--v15);fill-opacity:.13;stroke:var(--v15);stroke-width:1.4;"/><text class="lf-sm lf-c" x="245" y="76">Stage rack</text><text class="lf-mono lf-c" x="245" y="90">match servers · STAGE-SW</text>
+    <rect x="325" y="38" width="150" height="80" rx="3" style="fill:var(--v10);fill-opacity:.13;stroke:var(--v10);stroke-width:1.4;"/><text class="lf-sm lf-c" x="400" y="76">Team B booth</text><text class="lf-mono lf-c" x="400" y="90">5 seats · V10</text>
+    <rect x="25" y="128" width="450" height="80" rx="3" style="fill:var(--v50);fill-opacity:.13;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-sm lf-c" x="250" y="166">Seating bowl · 1,500</text><text class="lf-mono lf-c" x="250" y="180">public Wi-Fi · V50</text>
+    <rect x="25" y="218" width="220" height="52" rx="3" style="fill:var(--v50);fill-opacity:.13;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-sm lf-c" x="135" y="242">Concourse</text><text class="lf-mono lf-c" x="135" y="256">food · merch · V50</text>
+    <rect x="255" y="218" width="220" height="52" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="365" y="242">Casters' desk</text><text class="lf-mono lf-c" x="365" y="256">front of stage · V30</text>
+    <rect x="505" y="38" width="230" height="80" rx="3" style="fill:var(--v30);fill-opacity:.13;stroke:var(--v30);stroke-width:1.4;"/><text class="lf-sm lf-c" x="620" y="76">Production gallery</text><text class="lf-mono lf-c" x="620" y="90">observers · replay · encoders</text>
+    <rect x="505" y="128" width="230" height="80" rx="3" style="fill:var(--v11);fill-opacity:.13;stroke:var(--v11);stroke-width:1.4;"/><text class="lf-sm lf-c" x="620" y="166">Bootcamp room</text><text class="lf-mono lf-c" x="620" y="180">40 PCs · practice servers · V11</text>
+    <rect x="505" y="218" width="110" height="52" rx="3" style="fill:var(--v40);fill-opacity:.13;stroke:var(--v40);stroke-width:1.4;"/><text class="lf-sm lf-c" x="560" y="242">Press room</text><text class="lf-mono lf-c" x="560" y="256">V40</text>
+    <rect x="625" y="218" width="110" height="52" rx="3" style="fill:var(--v99);fill-opacity:.13;stroke:var(--v99);stroke-width:1.4;"/><text class="lf-sm lf-c" x="680" y="242">Network room</text><text class="lf-mono lf-c" x="680" y="256">core · edge</text>
+    <circle cx="60" cy="210" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="60" y="213" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="240" cy="128" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="240" y="131" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="440" cy="128" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="440" y="131" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="130" cy="270" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="130" y="273" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="360" cy="270" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="360" y="273" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="600" cy="270" r="8" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="600" y="273" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <text class="lf-cap lf-c" x="380" y="296">Both team booths are cabled to the same switch in the stage rack with equal-length cables. No access point is mounted on the stage.</text>
+    </svg>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start, columns receive. Default deny. The Stage players column is empty except for Ops.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 320" role="img" aria-label="Policy matrix for the esports arena: which zones may start connections to the stage players, match servers, production, ops, the press and the internet">
+    <text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM ↓  ·  TO →</text>
+    <text class="lf-sm lf-c" x="222.5" y="38">Stage players</text>
+    <text class="lf-sm lf-c" x="317.5" y="38">Match servers</text>
+    <text class="lf-sm lf-c" x="412.5" y="38">Production</text>
+    <text class="lf-sm lf-c" x="507.5" y="38">Ops · referee</text>
+    <text class="lf-sm lf-c" x="602.5" y="38">Bootcamp</text>
+    <text class="lf-sm lf-c" x="697.5" y="38">Internet</text>
+    <rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="70">Stage players · V10</text>
+    <rect x="177" y="54" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="222.5" y="71" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="272" y="54" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="317.5" y="71" style="fill:var(--gotcha);font-weight:700;">◐ game ports</text>
+    <rect x="367" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="54" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="71" style="fill:var(--gotcha);font-weight:700;">◐ allowlist</text>
+    <rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v11);"/><text class="lf-sm" x="38" y="100">Bootcamp · V11</text>
+    <rect x="177" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="84" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="602.5" y="101" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="652" y="84" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="101" style="fill:var(--defender);font-weight:700;">✓ platform</text>
+    <rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v15);"/><text class="lf-sm" x="38" y="130">Match servers · V15</text>
+    <rect x="177" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="114" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="317.5" y="131" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="367" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="114" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="131" style="fill:var(--gotcha);font-weight:700;">◐ results API</text>
+    <rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="160">Ops · referee · V20</text>
+    <rect x="177" y="144" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="222.5" y="161" style="fill:var(--defender);font-weight:700;">✓ admin</text>
+    <rect x="272" y="144" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="317.5" y="161" style="fill:var(--defender);font-weight:700;">✓ rcon</text>
+    <rect x="367" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ talkback</text>
+    <rect x="462" y="144" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="507.5" y="161" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="557" y="144" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="602.5" y="161" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="652" y="144" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="161" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="190">Production · V30</text>
+    <rect x="177" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="174" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="317.5" y="191" style="fill:var(--gotcha);font-weight:700;">◐ delayed feed</text>
+    <rect x="367" y="174" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="412.5" y="191" style="fill:var(--body);font-weight:700;">—</text>
+    <rect x="462" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="174" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="191" style="fill:var(--gotcha);font-weight:700;">◐ SRT out</text>
+    <rect x="20" y="211" width="10" height="10" rx="2" style="fill:var(--v40);"/><text class="lf-sm" x="38" y="220">Press · V40</text>
+    <rect x="177" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="204" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="221" style="fill:var(--defender);font-weight:700;">✓</text>
+    <rect x="20" y="241" width="10" height="10" rx="2" style="fill:var(--v50);"/><text class="lf-sm" x="38" y="250">Public · V50</text>
+    <rect x="177" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="272" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="367" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="462" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="557" y="234" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+    <rect x="652" y="234" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="251" style="fill:var(--gotcha);font-weight:700;">◐ 1 Mb/s</text>
+    <rect x="20" y="280" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="290">allowed</text>
+    <rect x="140" y="280" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="290">limited to the host/port shown</text>
+    <rect x="360" y="280" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="290">denied (default)</text>
+    <rect x="520" y="280" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="290">same zone / n.a.</text>
+    <text class="lf-cap" x="20" y="306">Stage-pod ACLs live on STAGE-SW (it routes its own pod); the rest on CORE; internet on the EDGE zone firewall. Players never reach production.</text>
+    </svg>
+  </div>
+
+  <p>The <strong>Production → Match servers</strong> cell is the only door into the stage pod from outside, and it's one UDP port: the server's delayed spectator feed. The <strong>Stage players</strong> column is closed to everyone except the referee and admins. That's what makes "a spectator interfered with a match" a claim the network can rule out.</p>
+
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+  <table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Fair paths</td><td><a href="#step-1">step 1</a></td><td>both teams and the servers on STAGE-SW; matched cables; EEE off; routed pod</td><td>"Fair paths" drill, <a href="#sec-16">section 16</a></td></tr>
+      <tr><td>R2 No ghosting</td><td><a href="#step-6">step 6</a></td><td>DNS-ALLOW resolver; V10-IN blocks other DNS; HTTPS only</td><td>"No ghosting" drill</td></tr>
+      <tr><td>R3 Delayed spectating</td><td><a href="#step-6">step 6</a></td><td>UPLINK-IN permits only UDP 27020 from production</td><td>"Delayed spectating" drill</td></tr>
+      <tr><td>R4 Evidence for disputes</td><td><a href="#step-7">step 7</a></td><td>SPAN session 1 to Te1/0/24; 48 h ring buffer</td><td>"Dispute drill"</td></tr>
+      <tr><td>R5 Broadcast never drops</td><td><a href="#step-8">step 8</a> · <a href="#step-9">step 9</a></td><td>PBR keeps encoder 1 on ISP B; two SRT feeds to the cloud</td><td>"Broadcast resilience" drill</td></tr>
+      <tr><td>R6 Production bandwidth</td><td><a href="#step-3">step 3</a></td><td>10G production switch; NDI Discovery Server; IGMP snooping + querier</td><td>"Production load" drill</td></tr>
+      <tr><td>R7 Spectators stay out</td><td><a href="#step-4">step 4</a> · <a href="#step-8">step 8</a></td><td>public terminated on the edge; no PUBLIC → OUTSIDE-B pair; 1 Mb/s per client</td><td>"Crowd" drill</td></tr>
+      <tr><td>R8 Change freeze</td><td><a href="#step-11">step 11</a></td><td>archive log config; baseline copy; configure replace</td><td>"Freeze and rollback" drill</td></tr>
+    </tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">From the Stage Outwards</h2>
+  <p class="section-thesis"><em>The stage pod first, because everything else is built around protecting it. Every step ends with a checkpoint.</em></p>
+  <p>Eleven steps: the stage pod, the bootcamp room, production, front of house, the core, competition integrity, dispute capture, the edge with two ISPs, the broadcast, WAN queuing, and match-day operations. The final "scrim day" rehearsal (section 16) runs a full match with the whole crew before doors open.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 11</p>
+  <h2 class="section-title">The Stage Pod</h2>
+  <p class="section-thesis"><em>Ten player PCs, two match servers and the referee on one switch that routes its own pod, cabled so neither team is a metre closer to the server.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">STAGE-SW — C9300-24UX · ports, SVIs, routed uplink</span><span class="cfg-meta">45 lines · this step's additions · click to expand</span></summary><pre class="term">hostname STAGE-SW
+ip routing
+vlan 10
+ name STAGE-PLAYERS
+vlan 15
+ name MATCH-SERVERS
+vlan 20
+ name OPS
+!
+interface range TenGigabitEthernet1/0/1 - 5
+ description TEAM A seats 1-5 (3 m cables, same batch as team B)
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security
+ no power efficient-ethernet
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range TenGigabitEthernet1/0/6 - 10
+ description TEAM B seats 1-5 (3 m cables, same batch as team A)
+<span class="cmt"> ! … identical to team A, line for line</span>
+interface range TenGigabitEthernet1/0/11 - 12
+ description MATCH SERVERS (main, hot spare)
+ switchport mode access
+ switchport access vlan 15
+ no power efficient-ethernet
+ spanning-tree portfast
+interface range TenGigabitEthernet1/0/13 - 14
+ description REFEREE + capture-box management
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+!
+interface TenGigabitEthernet1/1/1
+ description CORE (the pod's only door)
+ no switchport
+ ip address 10.90.255.2 255.255.255.252
+interface Vlan10
+ ip address 10.90.10.1 255.255.255.0
+interface Vlan15
+ ip address 10.90.15.1 255.255.255.0
+interface Vlan20
+ ip address 10.90.20.1 255.255.255.0
+ip route 0.0.0.0 0.0.0.0 10.90.255.1</pre></details>
+
+  <div class="callout gotcha">
+    <span class="callout-label">"Same path" means more than same switch</span>
+    <p>Both teams on one switch is the obvious part. Less obvious: identical cable lengths from the same batch; both teams' ports on the same forwarding ASIC (true for every port on a 24-port C9300; on larger switches, check which port groups share an ASIC); identical negotiated speed (check <code>show interfaces status</code> after the PCs are in, as one PC with an older NIC at 1G against nine at 2.5G is a fairness complaint waiting to happen); and Energy-Efficient Ethernet off, because its wake-up delay is tiny but not identical between NICs. Write all of it into the tournament's technical rules, so it was checked rather than assumed.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show interfaces status</code>: all ten player ports at the same speed and duplex.</li><li>A player PC pings the match server; the round-trip time from a team A seat and a team B seat is the same to within a few microseconds (measure with a high-resolution tool such as <code>sockperf</code>, not Windows <code>ping</code>).</li><li><code>show port-security</code>: one sticky MAC per player port.</li></ul>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 11</p>
+  <h2 class="section-title">The Bootcamp Room</h2>
+  <p class="section-thesis"><em>Forty practice PCs and two practice servers in one flat VLAN. Practice isn't refereed, so it doesn't need the stage's strictness.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap"><span class="term-label">BOOTCAMP-SW — C9300-48P</span><pre class="term">hostname BOOTCAMP-SW
+vlan 11
+ name BOOTCAMP
+interface range GigabitEthernet1/0/1 - 42
+ description BOOTCAMP PCs + practice servers
+ switchport mode access
+ switchport access vlan 11
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface TenGigabitEthernet1/1/1
+ description CORE
+ switchport mode trunk
+ switchport trunk allowed vlan 11,99</pre></div>
+
+  <p>The bootcamp is deliberately ordinary: teams warm up, play online scrims against each other, and download patches. It gets the platform and the internet, but no path to the stage or to production. Keeping it on a separate switch means a team's patch download or a broken practice PC can't touch the stage switch's forwarding at all.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show vlan brief</code>: Gi1/0/1–42 in VLAN 11.</li><li>Two bootcamp PCs reach the practice server; nothing routes yet.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 11</p>
+  <h2 class="section-title">The Production Network</h2>
+  <p class="section-thesis"><em>Observers, replay, graphics, casters and encoders moving video over IP. 10G to every machine, and multicast that only goes where it's asked for.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">PROD-SW — C9300-24UX · NDI-ready</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname PROD-SW
+vlan 30
+ name PRODUCTION
+ip igmp snooping
+ip igmp snooping querier                              <span class="cmt">! no multicast router in this VLAN</span>
+interface range TenGigabitEthernet1/0/1 - 14
+ description PRODUCTION machines (observers, replay, graphics, casters, encoders)
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+interface range TenGigabitEthernet1/1/1 - 2
+ channel-group 3 mode active
+interface Port-channel3
+ description CORE (2x10G)
+ switchport mode trunk
+ switchport trunk allowed vlan 30,99</pre><pre class="term vt-pane" data-v="mikrotik" hidden># PROD-SW — CRS326-24S+2Q+: IGMP snooping and a querier on the bridge
+/interface bridge add name=bridge vlan-filtering=no igmp-snooping=yes multicast-querier=yes
+:for i from=1 to=14 do=&#123; /interface bridge port add bridge=bridge interface=(&quot;sfp-sfpplus&quot; . $i) pvid=30 &#125;
+/interface bonding add name=bond-core slaves=sfp-sfpplus23,sfp-sfpplus24 mode=802.3ad
+/interface bridge port add bridge=bridge interface=bond-core frame-types=admit-only-vlan-tagged
+/interface bridge vlan add bridge=bridge vlan-ids=30,99 tagged=bond-core
+/interface bridge set bridge vlan-filtering=yes</pre></div>
+
+  <p>The production team uses NDI to move video between machines: each observer's game view, the casters' cameras, replay outputs and graphics all become network sources. A full-bandwidth 1080p60 NDI stream is about 125–150 Mb/s, and a vision mixer may pull a dozen at once, which is why the gallery is 10G and the uplink is 2×10G. Two settings keep it stable:</p>
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Discovery through an NDI Discovery Server</strong> (10.90.30.5) instead of mDNS. Every NDI machine is pointed at it, so sources show up reliably and discovery traffic never needs to cross a router.</li>
+    <li><strong>IGMP snooping with a querier</strong>. NDI is unicast by default; if the mixer turns on multicast for a source, snooping makes sure that stream only reaches the ports that joined it. Without a querier in a VLAN with no multicast router, snooping tables age out and multicast floods every port.</li>
+  </ul>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>The mixer sees all NDI sources via the Discovery Server; twelve full-bandwidth sources play without drops.</li><li>Enable multicast on one source: <code>show ip igmp snooping groups</code> lists only the ports that joined it.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 11</p>
+  <h2 class="section-title">Front of House: Press and Spectators</h2>
+  <p class="section-thesis"><em>Eight high-density APs for the bowl and concourse, and wired desks for the press.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">FOH-SW — C9200L-24P</span><span class="cfg-meta">17 lines · this step's additions · click to expand</span></summary><pre class="term">hostname FOH-SW
+interface range GigabitEthernet1/0/1 - 8
+ description ARENA APs (FlexConnect local switching)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 40,50,99
+ spanning-tree portfast trunk
+interface range GigabitEthernet1/0/9 - 16
+ description PRESS desks
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface TenGigabitEthernet1/1/1
+ description CORE
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,99</pre></details>
+
+  <p>The APs are mounted around the seating bowl and concourse, pointing at the crowd, with 20 MHz channels and a per-client rate limit of 1 Mb/s on the public SSID (set on the wireless controller). No AP is mounted on or near the stage: players use wired peripherals only (a common tournament rule, because the 2.4 GHz band in a full arena is unusable), and keeping APs away from the stage avoids anyone suggesting that the Wi-Fi had anything to do with a player's game.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>A phone on ARENA-Free appears in VLAN 50 (address comes from the EDGE in step 8).</li><li>A press desk gets link in VLAN 40.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 11</p>
+  <h2 class="section-title">The Core</h2>
+  <p class="section-thesis"><em>One C9300 joins the four zones, routes everything except the stage pod and the public, and hands the internet to the edge.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">CORE — C9300-48T · links, SVIs, routes</span><span class="cfg-meta">41 lines · this step's additions · click to expand</span></summary><pre class="term">hostname CORE
+ip routing
+interface TenGigabitEthernet1/1/2
+ description STAGE-SW (routed)
+ no switchport
+ ip address 10.90.255.1 255.255.255.252
+interface TenGigabitEthernet1/1/3
+ description BOOTCAMP-SW
+ switchport mode trunk
+ switchport trunk allowed vlan 11,99
+interface range TenGigabitEthernet1/1/4 - 5
+ channel-group 3 mode active
+interface Port-channel3
+ description PROD-SW
+ switchport mode trunk
+ switchport trunk allowed vlan 30,99
+interface TenGigabitEthernet1/1/6
+ description FOH-SW
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,99
+interface TenGigabitEthernet1/1/1
+ description EDGE (transit + public)
+ switchport mode trunk
+ switchport trunk allowed vlan 50,900
+!
+interface Vlan11
+ ip address 10.90.11.1 255.255.255.0
+interface Vlan30
+ ip address 10.90.30.1 255.255.255.0
+interface Vlan40
+ ip address 10.90.40.1 255.255.255.0
+interface Vlan99
+ ip address 10.90.99.1 255.255.255.0
+interface Vlan900
+ ip address 10.90.254.2 255.255.255.248
+<span class="key">! no "interface Vlan50": the public is routed by the EDGE only</span>
+!
+ip route 10.90.10.0 255.255.255.0 10.90.255.2
+ip route 10.90.15.0 255.255.255.0 10.90.255.2
+ip route 10.90.20.0 255.255.255.0 10.90.255.2
+ip route 0.0.0.0 0.0.0.0 10.90.254.1</pre></details>
+
+  <p>Static routes are enough for a network with one door per zone and no redundant paths, and they're one less thing to go wrong on match day. The public VLAN passes through the core at Layer 2 to the edge, the same pattern as the <a href="build-law-firm.html">law firm</a> and the <a href="build-supermarket.html">supermarket</a>.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show ip route</code>: the three stage subnets via 10.90.255.2, default via 10.90.254.1 (the edge arrives in step 8).</li><li>A production machine pings the match server, and a bootcamp PC pings a player PC. Both work for now; step 6 closes everything that shouldn't.</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 11</p>
+  <h2 class="section-title">Competition Integrity</h2>
+  <p class="section-thesis"><em>Players reach the match servers and an allowlist. Observers reach a delayed feed. The pod's one door lets in nothing else.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 390" role="img" aria-label="Animated competition integrity: a player reaches the match server; the same player cannot reach the live stream; an observer reaches the delayed spectator port; a spectator's phone cannot reach a player">
+      <style>@keyframes es1p0{0%,1%{transform:translate(132px,70px);opacity:0;}4%{opacity:1;}18%{transform:translate(612px,70px);opacity:1;}22%,100%{transform:translate(612px,70px);opacity:0;}}@keyframes es1m0{0%,16%{opacity:0;}18%,96%{opacity:1;}98%,100%{opacity:0;}}.es1-p0{animation:es1p0 16s ease-in-out infinite;} .es1-m0{animation:es1m0 16s linear infinite;}@keyframes es1p1{0%,26%{transform:translate(132px,150px);opacity:0;}29%{opacity:1;}43%{transform:translate(276px,150px);opacity:1;}47%,100%{transform:translate(276px,150px);opacity:0;}}@keyframes es1m1{0%,41%{opacity:0;}43%,96%{opacity:1;}98%,100%{opacity:0;}}.es1-p1{animation:es1p1 16s ease-in-out infinite;} .es1-m1{animation:es1m1 16s linear infinite;}@keyframes es1p2{0%,51%{transform:translate(132px,230px);opacity:0;}54%{opacity:1;}68%{transform:translate(612px,230px);opacity:1;}72%,100%{transform:translate(612px,230px);opacity:0;}}@keyframes es1m2{0%,66%{opacity:0;}68%,96%{opacity:1;}98%,100%{opacity:0;}}.es1-p2{animation:es1p2 16s ease-in-out infinite;} .es1-m2{animation:es1m2 16s linear infinite;}@keyframes es1p3{0%,76%{transform:translate(132px,310px);opacity:0;}79%{opacity:1;}93%{transform:translate(276px,310px);opacity:1;}97%,100%{transform:translate(276px,310px);opacity:0;}}@keyframes es1m3{0%,91%{opacity:0;}93%,96%{opacity:1;}98%,100%{opacity:0;}}.es1-p3{animation:es1p3 16s ease-in-out infinite;} .es1-m3{animation:es1m3 16s linear infinite;}@media (prefers-reduced-motion:reduce){.es1-p0,.es1-p1,.es1-p2,.es1-p3{animation:none;opacity:0;}.es1-m0,.es1-m1,.es1-m2,.es1-m3{animation:none;opacity:1;}}</style>
+      <rect class="lf-boxa" x="280" y="24" width="150" height="320" rx="7"/><text class="lf-name lf-c" x="355" y="42">STAGE-SW · DNS</text>
+      <text class="lf-cap lf-c" x="355" y="334">sealed pod</text>
+      <rect class="lf-box" x="20" y="50" width="112" height="40" rx="5"/><rect x="20" y="50" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="67">Team A · seat 3</text><text class="lf-mono lf-c" x="78" y="81">10.90.10.13</text>
+      <rect class="lf-box" x="620" y="50" width="122" height="40" rx="5"/><rect x="620" y="50" width="5" height="40" style="fill:var(--v15);"/><text class="lf-sm lf-c" x="683" y="67">Match server 1</text><text class="lf-mono lf-c" x="683" y="81">10.90.15.11:27015</text>
+      <text class="lf-mono lf-c" x="355" y="62" style="fill:var(--defender);">V10-IN → V15 game ✓</text>
+      <line class="lf-link" x1="132" y1="70" x2="620" y2="70"/>
+      <text class="lf-mono" x="140" y="62">→ udp/27015</text>
+      <g class="es1-m0"><text class="lf-cap" x="440" y="62" style="fill:var(--defender);font-weight:700;">✓ players → match server</text></g>
+      <rect class="lf-box" x="20" y="130" width="112" height="40" rx="5"/><rect x="20" y="130" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="78" y="147">Team A · seat 3</text><text class="lf-mono lf-c" x="78" y="161">10.90.10.13</text>
+      <rect class="lf-boxd" x="620" y="130" width="122" height="40" rx="5"/><text class="lf-sm lf-c" x="681" y="147">Stream / CDN</text><text class="lf-mono lf-c" x="681" y="161">live broadcast</text>
+      <text class="lf-mono lf-c" x="355" y="142" style="fill:var(--accent);">DNS-ALLOW: NXDOMAIN</text>
+      <line class="lf-dash" x1="132" y1="150" x2="620" y2="150"/>
+      <text class="lf-mono" x="140" y="142">→ watch the stream</text>
+      <g class="es1-m1"><text x="262" y="157" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="142" style="fill:var(--accent);font-weight:700;">✕ not on the allowlist</text></g>
+      <rect class="lf-box" x="20" y="210" width="112" height="40" rx="5"/><rect x="20" y="210" width="5" height="40" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="78" y="227">Observer 2</text><text class="lf-mono lf-c" x="78" y="241">10.90.30.12</text>
+      <rect class="lf-box" x="620" y="210" width="122" height="40" rx="5"/><rect x="620" y="210" width="5" height="40" style="fill:var(--v15);"/><text class="lf-sm lf-c" x="683" y="227">Match server 1</text><text class="lf-mono lf-c" x="683" y="241">10.90.15.11:27020</text>
+      <text class="lf-mono lf-c" x="355" y="222" style="fill:var(--defender);">UPLINK-IN → :27020 ✓</text>
+      <line class="lf-link" x1="132" y1="230" x2="620" y2="230"/>
+      <text class="lf-mono" x="140" y="222">→ udp/27020</text>
+      <g class="es1-m2"><text class="lf-cap" x="440" y="222" style="fill:var(--defender);font-weight:700;">✓ delayed spectator feed only</text></g>
+      <rect class="lf-box" x="20" y="290" width="112" height="40" rx="5"/><rect x="20" y="290" width="5" height="40" style="fill:var(--v50);"/><text class="lf-sm lf-c" x="78" y="307">Spectator phone</text><text class="lf-mono lf-c" x="78" y="321">10.90.50.211</text>
+      <rect class="lf-box" x="620" y="290" width="122" height="40" rx="5"/><rect x="620" y="290" width="5" height="40" style="fill:var(--v10);"/><text class="lf-sm lf-c" x="683" y="307">Team B · seat 1</text><text class="lf-mono lf-c" x="683" y="321">10.90.10.16</text>
+      <text class="lf-mono lf-c" x="355" y="302" style="fill:var(--accent);">UPLINK-IN: deny</text>
+      <line class="lf-dash" x1="132" y1="310" x2="620" y2="310"/>
+      <text class="lf-mono" x="140" y="302">→ anything</text>
+      <g class="es1-m3"><text x="262" y="317" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><text class="lf-cap" x="440" y="302" style="fill:var(--accent);font-weight:700;">✕ public → stage: no route</text></g>
+      <text class="lf-cap lf-c" x="380" y="378">Players reach the match servers and an allowlist. Observers get the delayed spectator feed. Nobody outside the pod reaches a player.</text>
+      <circle class="lf-pkt es1-p0" r="6"/>
+      <circle class="lf-pkt es1-p1" r="6"/>
+      <circle class="lf-pkt es1-p2" r="6"/>
+      <circle class="lf-pkt es1-p3" r="6"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap"><span class="term-label">DNS-ALLOW (10.90.20.53) — Unbound: every name is NXDOMAIN unless it's on the list</span><pre class="term">server:
+    interface: 10.90.20.53
+    access-control: 10.90.10.0/24 allow
+    local-zone: "." always_nxdomain
+    local-zone: "login.publisher.example." transparent
+    local-zone: "matchmaking.publisher.example." transparent
+    local-zone: "anticheat.publisher.example." transparent
+    local-zone: "cdn.publisher.example." transparent
+forward-zone:
+    name: "."
+    forward-addr: 9.9.9.9
+    forward-addr: 149.112.112.112</pre></div>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">STAGE-SW — the pod's ACLs</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">ip access-list extended V10-IN
+ remark PLAYERS: match servers, the allowlist resolver, HTTPS out
+ 10 permit udp 10.90.10.0 0.0.0.255 10.90.15.0 0.0.0.255 range 27015 27020
+ 20 permit udp 10.90.10.0 0.0.0.255 host 10.90.20.53 eq domain
+ 30 permit tcp 10.90.10.0 0.0.0.255 host 10.90.20.53 eq domain
+ 40 permit tcp 10.90.10.0 0.0.0.255 10.90.20.0 0.0.0.255 established
+ 50 deny   ip any 10.0.0.0 0.255.255.255 log
+ 60 deny   ip any 172.16.0.0 0.15.255.255
+ 70 deny   ip any 192.168.0.0 0.0.255.255
+ 80 permit tcp 10.90.10.0 0.0.0.255 any eq 443
+ 90 deny   ip any any log
+!
+ip access-list extended V15-IN
+ remark MATCH SERVERS: answer players and observers, report results
+ 10 permit udp 10.90.15.0 0.0.0.255 range 27015 27020 10.90.10.0 0.0.0.255
+ 20 permit udp 10.90.15.0 0.0.0.255 eq 27020 10.90.30.0 0.0.0.255
+ 30 permit tcp 10.90.15.0 0.0.0.255 10.90.20.0 0.0.0.255 established
+ 40 deny   ip any 10.0.0.0 0.255.255.255 log
+ 50 permit tcp 10.90.15.0 0.0.0.255 any eq 443
+ 60 deny   ip any any log
+!
+ip access-list extended UPLINK-IN
+ remark The pod's only door: delayed spectator feed in, replies in, nothing else
+ 10 permit udp 10.90.30.0 0.0.0.255 10.90.15.0 0.0.0.255 eq 27020
+ 20 permit tcp any 10.90.10.0 0.0.0.255 established
+ 30 permit tcp any 10.90.15.0 0.0.0.255 established
+ 40 permit tcp any 10.90.20.0 0.0.0.255 established
+ 50 permit udp any eq domain host 10.90.20.53
+ 60 deny   ip any any log
+!
+interface Vlan10
+ ip access-group V10-IN in
+interface Vlan15
+ ip access-group V15-IN in
+interface TenGigabitEthernet1/1/1
+ ip access-group UPLINK-IN in</pre><pre class="term vt-pane" data-v="mikrotik" hidden># Stage pod on MikroTik: a CRS312 switches the pod, a small CCR2004 routes it with a
+# stateful firewall (software routing, but identical for both teams; measure it)
+/ip firewall filter
+add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+add chain=forward action=accept in-interface=v10-players out-interface=v15-servers protocol=udp dst-port=27015-27020
+add chain=forward action=accept in-interface=v10-players dst-address=10.90.20.53 protocol=udp dst-port=53
+add chain=forward action=drop in-interface=v10-players protocol=udp dst-port=53,853 log=yes log-prefix=DNS-BYPASS
+add chain=forward action=accept in-interface=v10-players out-interface=uplink protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=uplink src-address=10.90.30.0/24 out-interface=v15-servers \
+    protocol=udp dst-port=27020 comment=&quot;observers: delayed spectator feed only&quot;
+add chain=forward action=accept in-interface=v20-ops
+add chain=forward action=drop log=yes log-prefix=POD-DROP</pre></div>
+
+  <p>The ports are an example: 27015 for the game and 27020 for the delayed spectator feed are the defaults for Source-engine titles. Every publisher's tournament guide lists its own, and each one becomes a named, commented line. The ops VLAN (referee, admin consoles) has no inbound ACL; it can reach players and servers for administration, and the players' ACL only lets them answer it.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Why "HTTPS to anywhere" is still an allowlist</span>
+    <p>Line 80 lets players open HTTPS to any address, which looks like the opposite of an allowlist. But a player PC only learns addresses through DNS-ALLOW, which refuses every name except the publisher's, and line 50 blocks every other resolver inside the building. Two gaps remain, and both are closed on the PC, not the network: encrypted DNS (DoH) to a public resolver, and connecting to an IP address typed by hand. The tournament image disables DoH by policy, players have no admin rights, and the referee's checklist includes a quick look at each seat's browser before every match.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From a player PC: the game client logs in and joins the match server; <code>nslookup twitch.tv</code> returns NXDOMAIN; <code>nslookup example.com 8.8.8.8</code> times out.</li><li>An observer joins the server's spectator port and sees the game on a delay; the same observer can't ping a player PC.</li><li>From a bootcamp PC and a press desk: nothing in 10.90.10.0/24 or 10.90.15.0/24 answers, and STAGE-SW logs the attempts.</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 11</p>
+  <h2 class="section-title">Capturing Everything for Disputes</h2>
+  <p class="section-thesis"><em>Every packet on the stage is copied to a disk. A lag complaint becomes a measurement.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">STAGE-SW — SPAN all player and server ports to the capture box</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">monitor session 1 source interface TenGigabitEthernet1/0/1 - 12 both
+monitor session 1 destination interface TenGigabitEthernet1/0/24</pre><pre class="term vt-pane" data-v="mikrotik" hidden># CRS3xx port mirroring: every player and server port copied to the capture box on ether24
+/interface ethernet switch port set ether1,ether2,ether3,ether4,ether5,ether6,ether7,ether8,ether9,ether10,ether11,ether12 \
+    mirror-ingress=yes mirror-egress=yes
+/interface ethernet switch set switch1 mirror-ingress-target=ether24 mirror-egress-target=ether24
+# property names have changed across RouterOS 7 releases: check /interface ethernet switch print</pre></div>
+
+  <div class="term-wrap"><span class="term-label">Capture box — 10-minute files, 48 hours kept</span><pre class="term">dumpcap -i cap0 -b duration:600 -b files:288 -w /data/stage.pcapng</pre></div>
+
+  <p>The capture box has two network ports: <code>cap0</code> on Te1/0/24 receives the SPAN copy (a SPAN destination port doesn't carry normal traffic), and a second port on Te1/0/14 in the ops VLAN is how the referee reaches it. A full match generates a few GB of game traffic; 48 hours of 10-minute files fits comfortably on a 2 TB disk. The files are deleted after the event's dispute window closes, and that retention is stated in the tournament rules players sign.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 322" role="img" aria-label="Animated dispute handling: a captain raises a lag complaint, the referee pulls that seat's traffic for the disputed minutes from the capture box, analyses it and rules with evidence">
+      <style>.es2-arw{stroke:var(--mid);stroke-width:1.4;fill:none;} .es2-rad{stroke:var(--defender);stroke-width:1.6;fill:none;}@keyframes es2r0{0%,4%{opacity:0;}6%,94%{opacity:1;}96%,100%{opacity:0;}}.es2-r0{animation:es2r0 14s linear infinite;}@keyframes es2r1{0%,21%{opacity:0;}23%,94%{opacity:1;}96%,100%{opacity:0;}}.es2-r1{animation:es2r1 14s linear infinite;}@keyframes es2r2{0%,38%{opacity:0;}40%,94%{opacity:1;}96%,100%{opacity:0;}}.es2-r2{animation:es2r2 14s linear infinite;}@keyframes es2r3{0%,55%{opacity:0;}57%,94%{opacity:1;}96%,100%{opacity:0;}}.es2-r3{animation:es2r3 14s linear infinite;}@keyframes es2r4{0%,72%{opacity:0;}74%,94%{opacity:1;}96%,100%{opacity:0;}}.es2-r4{animation:es2r4 14s linear infinite;}@keyframes es2un{0%,88%{opacity:1;}91%,96%{opacity:0;}100%{opacity:1;}}@keyframes es2au{0%,89%{opacity:0;}91%,96%{opacity:1;}98%,100%{opacity:0;}}.es2-un{animation:es2un 14s linear infinite;} .es2-au{animation:es2au 14s linear infinite;}@media (prefers-reduced-motion:reduce){.es2-r0,.es2-r1,.es2-r2,.es2-r3,.es2-r4{animation:none;opacity:1;}.es2-un{animation:none;opacity:0;}.es2-au{animation:none;opacity:1;}}</style>
+      <defs><marker id="es2ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--mid);"/></marker></defs>
+      <rect class="lf-box" x="50" y="14" width="160" height="42" rx="5"/><text class="lf-sm lf-c" x="130" y="32">Team B captain</text><text class="lf-mono lf-c" x="130" y="46">raises a dispute</text>
+      <line class="lf-dash" x1="130" y1="56" x2="130" y2="232"/>
+      <rect class="lf-boxa" x="300" y="14" width="160" height="42" rx="5"/><rect x="300" y="14" width="5" height="42" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="382" y="32">Referee</text><text class="lf-mono lf-c" x="382" y="46">ops console</text>
+      <line class="lf-dash" x1="380" y1="56" x2="380" y2="232"/>
+      <rect class="lf-boxd" x="550" y="14" width="160" height="42" rx="5"/><rect x="550" y="14" width="5" height="42" style="fill:var(--v20);"/><text class="lf-sm lf-c" x="632" y="32">Capture box</text><text class="lf-mono lf-c" x="632" y="46">48 h ring buffer</text>
+      <line class="lf-dash" x1="630" y1="56" x2="630" y2="232"/>
+      <g class="es2-r0"><line class="es2-arw" x1="134" y1="92" x2="376" y2="92" marker-end="url(#es2ar)"/><text class="lf-cap lf-c" x="255" y="87">19:43 "seat A3 lagged on purpose"</text></g>
+      <g class="es2-r1"><line class="es2-arw" x1="384" y1="120" x2="626" y2="120" marker-end="url(#es2ar)"/><text class="lf-cap lf-c" x="505" y="115">extract seat A3 + server, 19:40–19:46</text></g>
+      <g class="es2-r2"><line class="es2-rad" x1="626" y1="148" x2="384" y2="148" marker-end="url(#es2ar)"/><text class="lf-cap lf-c" x="505" y="143">pcap: 6 min, 180 MB</text></g>
+      <g class="es2-r3"><text class="lf-cap lf-c" x="380" y="176" style="fill:var(--defender);font-weight:700;">loss/latency graph per player</text></g>
+      <g class="es2-r4"><line class="es2-rad" x1="376" y1="204" x2="134" y2="204" marker-end="url(#es2ar)"/><text class="lf-cap lf-c" x="255" y="199" style="fill:var(--defender);font-weight:700;">ruling with evidence</text></g>
+      <rect class="lf-box" x="250" y="248" width="260" height="30" rx="15"/><text class="lf-sm lf-c es2-au" x="380" y="267" style="fill:var(--defender);">RULED · EVIDENCE FILED</text><text class="lf-sm lf-c es2-un" x="380" y="267" style="fill:var(--accent);">DISPUTE OPEN</text>
+      <text class="lf-cap lf-c" x="380" y="312">Every packet between the players and the servers is recorded for the length of the event, so a lag claim becomes a measurement instead of an argument.</text>
+    </svg>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show monitor session 1</code>: sources Te1/0/1–12, destination Te1/0/24.</li><li>During a test match, the newest capture file grows; filtering it for one seat's IP shows that seat's game traffic in both directions.</li><li>The referee extracts a five-minute window for one seat in under two minutes.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 11</p>
+  <h2 class="section-title">The Edge: Two ISPs, Zones and Policy Routing</h2>
+  <p class="section-thesis"><em>ISP A carries the event; ISP B belongs to encoder 1 and catches the platform if A fails. The public never touches B.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="8">▲ Show step 8 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated failover from ISP A to ISP B for the players' platform and press, while the public Wi-Fi loses internet and the broadcast continues">
+      <style>@keyframes es3up{0%,44%{opacity:1;}48%,96%{opacity:0;}100%{opacity:1;}}
+@keyframes es3dn{0%,44%{opacity:0;}48%,96%{opacity:1;}100%{opacity:0;}}
+@keyframes es3f{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}38%{offset-distance:100%;opacity:1;}41%,100%{offset-distance:100%;opacity:0;}} @keyframes es3b{0%,53%{offset-distance:0%;opacity:0;}55%{opacity:1;}90%{offset-distance:100%;opacity:1;}93%,100%{offset-distance:100%;opacity:0;}}
+@keyframes es3p{0%{offset-distance:0%;opacity:1;}85%{offset-distance:100%;opacity:1;}100%{offset-distance:100%;opacity:0;}}
+.es3-up{animation:es3up 12s linear infinite;} .es3-dn{animation:es3dn 12s linear infinite;}
+.es3-pf{offset-path:path('M130 120 L200 120 L350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:es3f 12s ease-in-out infinite;}
+.es3-pb{offset-path:path('M130 120 L200 120 L350 135 L420 182 L530 182 L612 142');offset-rotate:0deg;animation:es3b 12s ease-in-out infinite;}
+.es3-pr{offset-path:path('M350 105 L420 58 L530 58 L612 100');offset-rotate:0deg;animation:es3p 1.5s linear infinite;fill:var(--gotcha);}
+.es3-px{offset-path:path('M350 105 L420 58 L530 58 L568 78');offset-rotate:0deg;animation:es3p 1.5s linear infinite;fill:var(--gotcha);}
+@media (prefers-reduced-motion:reduce){.es3-up{animation:none;opacity:0;}.es3-dn{animation:none;opacity:1;}.es3-pf,.es3-pr,.es3-px{animation:none;opacity:0;}.es3-pb{animation:none;offset-distance:75%;opacity:1;}}</style>
+      <rect class="lf-box" x="20" y="95" width="110" height="50" rx="5"/><text class="lf-sm lf-c" x="75" y="117">Arena LAN</text><text class="lf-mono lf-c" x="75" y="131">10.90.0.0/16</text>
+      <rect class="lf-boxa" x="200" y="90" width="150" height="60" rx="5"/><text class="lf-sm lf-c" x="275" y="117">EDGE</text><text class="lf-mono lf-c" x="275" y="131">IP SLA · PBR</text>
+      <line class="lf-link" x1="130" y1="120" x2="200" y2="120"/>
+      <rect class="lf-box" x="420" y="40" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="55">ISP A · fibre</text><text class="lf-mono lf-c" x="475" y="69">Gi0/0/0 · primary</text>
+      <rect class="lf-box" x="420" y="164" width="110" height="36" rx="5"/><text class="lf-sm lf-c" x="475" y="179">ISP B · fibre</text><text class="lf-mono lf-c" x="475" y="193">Gi0/0/1 · AD 250</text>
+      <ellipse class="lf-boxd" cx="675" cy="120" rx="68" ry="42"/><text class="lf-name lf-c" x="675" y="116" style="fill:var(--defender);">Internet</text><text class="lf-mono lf-c" x="675" y="131" style="fill:var(--defender);">probe 1.1.1.1</text>
+      <line class="lf-dash" x1="350" y1="135" x2="420" y2="182"/><line class="lf-dash" x1="530" y1="182" x2="612" y2="142"/>
+      <g class="es3-up"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--defender);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--defender);font-weight:700;">ISP A up: players' platform, encoder 2, press and public use ISP A; encoder 1 owns ISP B</text><circle class="es3-pr" r="3.5"/></g>
+      <g class="es3-dn"><path d="M350 105 L420 58 M530 58 L612 100" style="stroke:var(--accent);stroke-width:2;fill:none;stroke-dasharray:6,4;"/><text x="562" y="85" style="font-size:20px;font-weight:700;fill:var(--accent);">✕</text><path d="M350 135 L420 182 M530 182 L612 142" style="stroke:var(--gotcha);stroke-width:2.6;fill:none;"/><text class="lf-cap lf-c" x="380" y="236" style="fill:var(--accent);font-weight:700;">ISP A down: platform and press move to ISP B behind encoder 1's guarantee; the public waits</text><circle class="es3-px" r="3.5"/></g>
+      <text class="lf-cap lf-c" x="380" y="258">The broadcast doesn't fail over at all: two encoders on two lines already send it twice.</text>
+      <circle class="lf-pkt es3-pf" r="6"/><circle class="lf-pkt es3-pb" r="6"/>
+    </svg>
+  </div>
+
+  <details class="term-wrap cfg"><summary><span class="term-label">EDGE — C8300-1N1S-6T · zones, NAT per WAN, tracked default</span><span class="cfg-meta">54 lines · this step's additions · click to expand</span></summary><pre class="term">interface GigabitEthernet0/0/2.900
+ encapsulation dot1Q 900
+ ip address 10.90.254.1 255.255.255.248
+ ip nat inside
+ zone-member security INSIDE
+ ip policy route-map PBR-IN
+interface GigabitEthernet0/0/2.50
+ encapsulation dot1Q 50
+ ip address 10.90.48.1 255.255.248.0
+ ip nat inside
+ zone-member security PUBLIC
+interface GigabitEthernet0/0/0
+ description ISP A
+ ip address 203.0.113.10 255.255.255.248
+ ip nat outside
+ zone-member security OUTSIDE-A
+interface GigabitEthernet0/0/1
+ description ISP B
+ ip address 198.51.100.10 255.255.255.248
+ ip nat outside
+ zone-member security OUTSIDE-B
+!
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ delay down 10 up 60
+ip sla 2
+ icmp-echo 9.9.9.9 source-interface GigabitEthernet0/0/1
+ frequency 5
+ip sla schedule 2 life forever start-time now
+track 2 ip sla 2 reachability
+ip route 1.1.1.1 255.255.255.255 203.0.113.9            <span class="cmt">! each probe pinned to its own ISP</span>
+ip route 1.1.1.1 255.255.255.255 Null0 250
+ip route 9.9.9.9 255.255.255.255 198.51.100.9
+ip route 9.9.9.9 255.255.255.255 Null0 250
+ip route 0.0.0.0 0.0.0.0 203.0.113.9 track 1
+ip route 0.0.0.0 0.0.0.0 198.51.100.9 250
+ip route 10.90.0.0 255.255.0.0 10.90.254.2
+!
+<span class="cmt">! encoder 1 always leaves via ISP B while ISP B is healthy</span>
+ip access-list extended ENC1
+ permit ip host 10.90.30.21 any
+route-map PBR-IN permit 10
+ match ip address ENC1
+ set ip next-hop verify-availability 198.51.100.9 1 track 2
+!
+route-map NAT-A permit 10
+ match interface GigabitEthernet0/0/0
+route-map NAT-B permit 10
+ match interface GigabitEthernet0/0/1
+ip nat inside source route-map NAT-A interface GigabitEthernet0/0/0 overload
+ip nat inside source route-map NAT-B interface GigabitEthernet0/0/1 overload</pre></details>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">EDGE — who may use which ISP (zone pairs)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">zone security INSIDE
+zone security PUBLIC
+zone security OUTSIDE-A
+zone security OUTSIDE-B
+class-map type inspect match-any CM-ANY
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-ANY
+  inspect
+ class class-default
+  drop log
+zone-pair security ZP-IN-A source INSIDE destination OUTSIDE-A
+ service-policy type inspect PM-OUT
+zone-pair security ZP-IN-B source INSIDE destination OUTSIDE-B
+ service-policy type inspect PM-OUT
+zone-pair security ZP-PUB-A source PUBLIC destination OUTSIDE-A
+ service-policy type inspect PM-OUT
+<span class="key">! no PUBLIC → OUTSIDE-B pair: when ISP A fails, spectators simply have no internet</span></pre><pre class="term vt-pane" data-v="mikrotik" hidden># EDGE (CCR2116) — interface lists for zones, routing tables for &quot;which ISP&quot;
+/routing table add name=isp-b fib
+/routing table add name=isp-a-only fib
+/ip route
+add dst-address=0.0.0.0/0 gateway=203.0.113.9 distance=1 routing-table=isp-a-only
+add dst-address=0.0.0.0/0 gateway=198.51.100.9 distance=1 routing-table=isp-b
+/routing rule
+add dst-address=10.90.0.0/16 action=lookup-only-in-table table=main
+add src-address=10.90.30.21/32 action=lookup table=isp-b comment=&quot;encoder 1 on ISP B&quot;
+add src-address=10.90.48.0/21 action=lookup-only-in-table table=isp-a-only comment=&quot;public: ISP A or nothing&quot;</pre></div>
+
+  <p>Putting each ISP in its own zone gives the "who may use the backup" rule for free, the same idea as the <a href="build-supermarket.html">supermarket</a>'s tunnel-only LTE zone. A self-zone policy for the probes isn't needed here, because nothing on the WAN needs to reach the edge itself. If you add one later, remember the echo-reply line from the <a href="build-law-firm.html">law firm</a>. The route-map NAT per interface is the law firm's dual-WAN NAT lesson again.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show route-map PBR-IN</code>: encoder 1's packets counted; a traceroute from encoder 1 leaves via ISP B.</li><li>Pull ISP A: players' platform and the press continue via ISP B within ~20 s; a spectator phone has no internet; encoder 2's stream drops (expected) while encoder 1's continues.</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 11</p>
+  <h2 class="section-title">The Broadcast, Sent Twice</h2>
+  <p class="section-thesis"><em>Two encoders, two ISPs, one cloud ingest that always has a healthy copy.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="Animated broadcast redundancy: two encoders send the same program over two ISPs to a cloud ingest, which forwards one healthy feed to the streaming platforms">
+      <style>@keyframes es4h0{0%,1%{offset-distance:0%;opacity:0;}3%{opacity:1;}24.5333%{offset-distance:100%;opacity:1;}27.5333%,100%{offset-distance:100%;opacity:0;}}.es4-h0{offset-path:path('M95 63 L385 139');offset-rotate:0deg;animation:es4h0 12.5s ease-in-out infinite;}@keyframes es4h1{0%,31.6667%{offset-distance:0%;opacity:0;}33.6667%{opacity:1;}55.2%{offset-distance:100%;opacity:1;}58.2%,100%{offset-distance:100%;opacity:0;}}.es4-h1{offset-path:path('M95 213 L385 139');offset-rotate:0deg;animation:es4h1 12.5s ease-in-out infinite;}@keyframes es4h2{0%,62.3333%{offset-distance:0%;opacity:0;}64.3333%{opacity:1;}85.8667%{offset-distance:100%;opacity:1;}88.8667%,100%{offset-distance:100%;opacity:0;}}.es4-h2{offset-path:path('M385 139 L665 139');offset-rotate:0deg;animation:es4h2 12.5s ease-in-out infinite;}@media (prefers-reduced-motion:reduce){.es4-h0,.es4-h1,.es4-h2{animation:none;opacity:0;}}</style>
+      <line class="lf-link" x1="95" y1="63" x2="385" y2="139"/>
+      <text class="lf-cap lf-c" x="240" y="93">SRT via ISP B</text>
+      <line class="lf-link" x1="95" y1="213" x2="385" y2="139"/>
+      <text class="lf-cap lf-c" x="240" y="168">SRT via ISP A</text>
+      <line class="lf-link" x1="385" y1="139" x2="665" y2="139"/>
+      <text class="lf-cap lf-c" x="525" y="131">one program out</text>
+      <rect class="lf-box" x="20" y="40" width="150" height="46" rx="5"/><rect x="20" y="40" width="5" height="46" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="97" y="60">Encoder 1</text><text class="lf-mono lf-c" x="97" y="74">10.90.30.21</text>
+      <rect class="lf-box" x="20" y="190" width="150" height="46" rx="5"/><rect x="20" y="190" width="5" height="46" style="fill:var(--v30);"/><text class="lf-sm lf-c" x="97" y="210">Encoder 2</text><text class="lf-mono lf-c" x="97" y="224">10.90.30.22</text>
+      <rect class="lf-boxa" x="300" y="112" width="170" height="54" rx="5"/><text class="lf-sm lf-c" x="385" y="136">Cloud ingest</text><text class="lf-mono lf-c" x="385" y="150">SRT · picks a healthy feed</text>
+      <rect class="lf-boxd" x="590" y="112" width="150" height="54" rx="5"/><text class="lf-sm lf-c" x="665" y="136">Platforms</text><text class="lf-mono lf-c" x="665" y="150">stream to viewers</text>
+      <text class="lf-cap lf-c" x="380" y="260">The same program leaves twice, over two ISPs, from two encoders. If either path fails, the cloud switches to the other within a second.</text>
+      <circle class="lf-pkt es4-h0" r="6"/>
+      <circle class="lf-pkt es4-h1" r="6"/>
+      <circle class="lf-pkt es4-h2" r="6"/>
+    </svg>
+  </div>
+
+  <p>Both encoders take the same program output from the vision mixer and send it with SRT (a protocol built for live video over the public internet: it retransmits lost packets within a fixed latency budget) to two inputs of a cloud production service. Encoder 1 leaves via ISP B because of the policy route; encoder 2 leaves via ISP A by normal routing. The cloud service watches both and forwards one to the streaming platforms. If an ISP, an encoder or a cable fails, it switches within a second. The production network's ACL on the core allows the encoders out to the cloud ingest and nothing else.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Both SRT inputs show green in the cloud service, with packet loss and round-trip time per input.</li><li>Unplug ISP B: the cloud switches to encoder 2's feed and the public stream doesn't visibly blink.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 11</p>
+  <h2 class="section-title">Queuing on ISP A</h2>
+  <p class="section-thesis"><em>The platform, the referee and encoder 2 first; press and spectators share the rest.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Animated queuing on ISP A: platform, referee and stream traffic is guaranteed bandwidth while press and public traffic is fair-queued">
+      <style>.es5-l0{offset-path:path('M30 88 L460 88 L505 123 L745 123');offset-rotate:0deg;animation:es5mv 3s linear infinite;fill:var(--gotcha);}.es5-l1{offset-path:path('M30 158 L460 158 L505 123 L745 123');offset-rotate:0deg;animation:es5mv 10s linear infinite;fill:var(--defender);}@keyframes es5mv{0%{offset-distance:0%;opacity:0;}4%{opacity:1;}96%{opacity:1;}100%{offset-distance:100%;opacity:0;}}@media (prefers-reduced-motion:reduce){.es5-l0,.es5-l1{animation:none;offset-distance:40%;}}</style>
+      <rect class="lf-boxa" x="170" y="22" width="390" height="188" rx="7" style="fill:none;"/><text class="lf-name lf-c" x="365" y="40">EDGE Gi0/0/0 egress · ISP A</text>
+      <text class="lf-mono" x="30" y="76" style="fill:var(--gotcha);font-weight:700;">platform · ref · stream</text>
+      <rect x="200" y="74" width="250" height="28" rx="4" style="fill:var(--gotcha);fill-opacity:.13;stroke:var(--gotcha);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="114" style="fill:var(--gotcha);">guaranteed 60% · first</text>
+      <text class="lf-mono" x="30" y="146" style="fill:var(--defender);font-weight:700;">press · public</text>
+      <rect x="200" y="144" width="250" height="28" rx="4" style="fill:var(--defender);fill-opacity:.13;stroke:var(--defender);stroke-width:1.2;"/>
+      <text class="lf-cap" x="206" y="184" style="fill:var(--defender);">fair-queued · public 1 Mb/s each</text>
+      <rect class="lf-box" x="470" y="78" width="80" height="90" rx="5"/><text class="lf-sm lf-c" x="510" y="118">shaper</text><text class="lf-mono lf-c" x="510" y="132">475 Mb/s</text>
+      <line x1="550" y1="123" x2="745" y2="123" style="stroke:var(--rule);stroke-width:10;"/><text class="lf-mono lf-c" x="650" y="108">ISP A 500/500</text>
+      <text class="lf-cap lf-c" x="380" y="234">Fifteen hundred spectators uploading videos can't delay a player's connection to the game platform or encoder 2's stream.</text>
+      <circle class="es5-l0" r="5" style="animation-delay:0.00s;"/>
+      <circle class="es5-l0" r="5" style="animation-delay:-1.00s;"/>
+      <circle class="es5-l0" r="5" style="animation-delay:-2.00s;"/>
+      <rect class="es5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:0.00s;"/>
+      <rect class="es5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-2.00s;"/>
+      <rect class="es5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-4.00s;"/>
+      <rect class="es5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-6.00s;"/>
+      <rect class="es5-l1" x="-8" y="-5" width="16" height="10" rx="2" style="animation-delay:-8.00s;"/>
+    </svg>
+  </div>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">EDGE — classify on the way in, queue on the way out</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">ip access-list extended CRIT
+ permit ip 10.90.10.0 0.0.0.255 any
+ permit ip 10.90.15.0 0.0.0.255 any
+ permit ip 10.90.20.0 0.0.0.255 any
+ permit ip host 10.90.30.22 any
+class-map match-any CRIT
+ match access-group name CRIT
+policy-map MARK-IN
+ class CRIT
+  set qos-group 1
+interface GigabitEthernet0/0/2.900
+ service-policy input MARK-IN
+!
+class-map match-any CRIT-Q
+ match qos-group 1
+policy-map WAN-A-CHILD
+ class CRIT-Q
+  bandwidth remaining percent 60
+ class class-default
+  fair-queue
+policy-map WAN-A
+ class class-default
+  shape average 475000000
+  service-policy WAN-A-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output WAN-A</pre><pre class="term vt-pane" data-v="mikrotik" hidden># EDGE — on RouterOS the gotcha doesn&#x27;t exist: mangle in the forward chain
+# runs before srcnat, so inside addresses are still visible when marking
+/ip firewall address-list
+add list=CRIT address=10.90.10.0/24
+add list=CRIT address=10.90.15.0/24
+add list=CRIT address=10.90.20.0/24
+add list=CRIT address=10.90.30.22
+/ip firewall mangle
+add chain=forward action=mark-packet new-packet-mark=crit out-interface=ether1 src-address-list=CRIT passthrough=no
+add chain=forward action=mark-packet new-packet-mark=rest out-interface=ether1 passthrough=no
+/queue type add name=fq kind=fq-codel
+/queue tree
+add name=ISP-A parent=ether1 max-limit=475M
+add name=crit parent=ISP-A packet-mark=crit priority=1 limit-at=285M max-limit=475M queue=fq
+add name=rest parent=ISP-A packet-mark=rest priority=8 max-limit=475M queue=fq</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Egress QoS sees translated addresses</span>
+    <p>By the time a packet reaches the output policy on Gi0/0/0, NAT has already rewritten its source to the ISP A address, so an ACL matching 10.90.10.0/24 there would never match anything. The fix is to classify where the inside addresses are still visible, on the LAN subinterface's <strong>input</strong> policy, and carry the decision across the router as a <code>qos-group</code> (a label that exists only inside this router). The output policy then queues by qos-group. The 1 Mb/s per spectator is enforced at the APs; this policy makes sure that even 1,500 of them together can't squeeze the critical class below 60% of the line.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>With a load generator saturating ISP A from the public VLAN, a player's login and a test match start normally, and <code>show policy-map interface Gi0/0/0</code> shows drops only in class-default.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="step-11">15 · Step 11 of 11</p>
+  <h2 class="section-title">Match-Day Operations</h2>
+  <p class="section-thesis"><em>A change freeze you can roll back, monitoring the director can read, and nothing improvised.</em></p>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">All devices — a known-good config, change logging, one-command rollback</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">archive
+ path flash:matchday
+ log config
+  logging enable
+  notify syslog contenttype plaintext
+  hidekeys
+<span class="cmt">! the night before each match day, after the scrim passes:</span>
+copy running-config flash:matchday-baseline.cfg
+<span class="cmt">! if a change on match day goes wrong:</span>
+configure replace flash:matchday-baseline.cfg list</pre><pre class="term vt-pane" data-v="mikrotik" hidden># every device — baseline the night before, roll back by restoring it
+/system backup save name=matchday-baseline dont-encrypt=no password=********
+/export file=matchday-baseline
+# risky change on match day: do it in Safe Mode (Ctrl+X), which undoes itself if you lose the session
+# full rollback: /system backup load name=matchday-baseline.backup (reboots the device)</pre></div>
+
+  <p>The tournament director approves any change on match days, the network lead makes it, and every command is logged with the user who typed it. <code>configure replace</code> puts a device back to the baseline in seconds, without a reload. In the NOC corner of the production gallery, one screen shows the IP SLA probes for both ISPs, the SRT health of both encoders, STAGE-SW's port counters and errors, and the AP client counts. If any of those changes during a match, the network lead sees it first. Management access is limited to VLAN 99 and the ops VLAN (see <a href="cisco-hardening.html">hardening</a>).</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Make a harmless change on FOH-SW, then run <code>configure replace</code>: the device returns to the baseline, and the syslog shows both the change and the rollback with usernames.</li></ul>
+  </div>
+
+  <!-- 16 -->
+  <p class="section-num" id="sec-16">16</p>
+  <h2 class="section-title">Scrim Day: The Full Rehearsal</h2>
+  <p class="section-thesis"><em>The day before doors open, two teams play a full match on stage with the whole production running. Every drill happens during that match.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody>
+      <tr><td>Fair paths (R1)</td><td>Latency from every seat to the match server measured with a high-resolution tool: all ten within a few microseconds; all ports at the same speed.</td></tr>
+      <tr><td>No ghosting (R2)</td><td>On a player PC, any stream or video site fails to resolve; DNS to outside resolvers times out.</td></tr>
+      <tr><td>Delayed spectating (R3)</td><td>Observers see the match on the spectator delay; nothing else from production reaches the pod.</td></tr>
+      <tr><td>Dispute drill (R4)</td><td>The referee extracts and graphs one seat's traffic for a chosen two-minute window.</td></tr>
+      <tr><td>Broadcast resilience (R5)</td><td>Unplug ISP B, then ISP A (one at a time): the cloud output never blinks.</td></tr>
+      <tr><td>Production load (R6)</td><td>All NDI sources live at full bandwidth for the whole match, no dropped frames at the mixer.</td></tr>
+      <tr><td>Crowd (R7)</td><td>The public VLAN loaded to its limit: player login and the match unaffected.</td></tr>
+      <tr><td>Freeze and rollback (R8)</td><td>Baselines saved; one rollback rehearsed.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">Residual Risk</h2>
+  <p class="section-thesis"><em>What the network can't rule out, and what covers it.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>The arena's big screens.</strong> The network keeps the broadcast off player PCs, but the bowl's screens show the live show. Booth soundproofing, screens that players can't see, and noise-cancelling headsets are the tournament's controls for that.</li>
+    <li><strong>Player devices.</strong> Phones are collected before matches; peripherals are wired and inspected. A USB device can't reach the network through the locked image's policies, but checking for one is the referee's job.</li>
+    <li><strong>The publisher's services.</strong> If the publisher's login or anti-cheat has an outage, no local design helps. The tournament rules need a pause-and-resume procedure for that case.</li>
+    <li><strong>The capture data.</strong> It contains every stage packet. Access is limited to the referee team, and the files are deleted when the dispute window closes.</li>
+    <li><strong>Admin access during the event.</strong> Anyone with an admin console can reach the players. Admin accounts are named, logged, and few.</li>
+  </ul>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT. Often rented for the event; listed here at purchase price.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>EDGE · C8300-1N1S-6T</td><td>3,000 – 4,500</td></tr>
+      <tr><td>CORE · C9300-48T + 8×10G module</td><td>5,000 – 7,000 incl. DNA</td></tr>
+      <tr><td>STAGE-SW + PROD-SW · 2× C9300-24UX</td><td>9,000 – 13,000 incl. DNA</td></tr>
+      <tr><td>BOOTCAMP-SW · C9300-48P</td><td>4,500 – 6,000 incl. DNA</td></tr>
+      <tr><td>FOH-SW · C9200L-24P + 8 Wi-Fi 6E APs</td><td>6,000 – 8,500</td></tr>
+      <tr><td>Capture box (2 TB, two NICs) + DNS-ALLOW VM host</td><td>1,500 – 2,500</td></tr>
+      <tr><td>Optics, DACs, cable (incl. matched stage cables)</td><td>800 – 1,500</td></tr>
+      <tr><td>Network total</td><td><strong>≈ 30,000 – 43,000</strong> to buy; typically a fraction of that to rent for a weekend</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Building It in Packet Tracer</h2>
+  <p class="section-thesis"><em>The pod, the core and every ACL run in Packet Tracer. The edge, capture and NDI need real gear or CML.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>This post</th><th>In Packet Tracer</th></tr></thead>
+    <tbody>
+      <tr><td>STAGE-SW, CORE</td><td>3650-24PS with <code>ip routing</code>: routed uplink, SVIs, every ACL in step 6, static routes. Server-PT boxes stand in for the match servers and DNS-ALLOW.</td></tr>
+      <tr><td>BOOTCAMP / PROD / FOH</td><td>2960 or 3650 switches with the same VLANs and trunks. IGMP snooping exists, but NDI obviously doesn't.</td></tr>
+      <tr><td>SPAN</td><td>Supported on the switches; a Sniffer device on the destination port shows the copied traffic.</td></tr>
+      <tr><td>EDGE</td><td>ISR4331 for NAT and static routes. PBR with tracking, ZBF with four zones and hierarchical QoS need CML or EVE-NG with a Cat8000v.</td></tr>
+    </tbody>
+  </table>
+
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on MikroTik</h2>
+  <p class="section-thesis"><em>Same arena, same zones and rules, at a fraction of the cost. The MikroTik tabs on the config blocks above show the key steps side by side; this appendix covers what changes underneath.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Role</th><th>This post → MikroTik</th></tr></thead>
+    <tbody>
+      <tr><td>Stage pod</td><td>C9300-24UX (L3) → CRS312-4C+8XG (switching) + CCR2004-1G-12S+2XS (pod routing and firewall)</td></tr>
+      <tr><td>BOOTCAMP-SW</td><td>C9300-48P → CRS354-48G-4S+2Q+</td></tr>
+      <tr><td>PROD-SW</td><td>C9300-24UX → CRS326-24S+2Q+ (10G SFP+ to every production machine)</td></tr>
+      <tr><td>FOH-SW</td><td>C9200L-24P → CRS328-24P-4S+</td></tr>
+      <tr><td>CORE + EDGE</td><td>C9300-48T + C8300 → CRS326-24S+2Q+ (Layer 2) + CCR2116-12G-4S+ (all routing, both ISPs)</td></tr>
+      <tr><td>Indicative total</td><td>≈ 30,000 – 43,000 → ≈ 5,000 – 7,500 EUR ex VAT</td></tr>
+    </tbody>
+  </table>
+
+  <table class="cheat">
+    <thead><tr><th>Feature</th><th>This post → MikroTik</th></tr></thead>
+    <tbody>
+      <tr><td>Stage pod routing</td><td>C9300 SVIs in hardware → a small CCR routing the pod in software</td></tr>
+      <tr><td>Pod ACLs</td><td>stateless ACLs with <code>established</code> → stateful forward chain</td></tr>
+      <tr><td>SPAN</td><td><code>monitor session</code> → switch-chip port mirroring to one target port</td></tr>
+      <tr><td>IGMP snooping + querier</td><td><code>ip igmp snooping querier</code> → bridge <code>igmp-snooping</code> + <code>multicast-querier</code></td></tr>
+      <tr><td>ISP per zone</td><td>PBR + zone pairs → routing tables + routing rules</td></tr>
+      <tr><td>QoS before NAT</td><td>qos-group marked on ingress → mangle in forward (already before srcnat)</td></tr>
+      <tr><td>Change freeze</td><td>archive + <code>configure replace</code> → backups, <code>/export</code> and Safe Mode</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>The stage pod is the hard part.</strong> A Catalyst routes the pod in its switching hardware with identical, tiny latency for every port. On MikroTik the pod is routed by a small CCR in software. That's still well under a tenth of a millisecond and the same for both teams, but it's exactly the kind of claim the fairness rules say must be measured, not assumed. <strong>Rollback is coarser:</strong> there's no <code>configure replace</code>, so match-day changes rely on Safe Mode and a full backup restore.</p><p>For a one-off community tournament, MikroTik is a sensible choice. For a broadcast final with prize money, the hardware-routed pod and atomic rollback are worth the Cisco price.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Fairness is a network requirement.</strong> Same switch, same ASIC, same cable, same speed, one hop, with EEE off. Measure it and write it into the rules.</li>
+      <li><strong>Let the stage pod route itself</strong>, so player-to-server traffic never leaves one box and the pod has exactly one door with its own ACL.</li>
+      <li><strong>Enforce the player allowlist with DNS.</strong> A resolver that answers only the publisher's names, every other resolver blocked, and the locked image closing the last gaps.</li>
+      <li><strong>Observers get the delayed feed, never the players.</strong> One UDP port is the only way into the pod from production.</li>
+      <li><strong>Capture everything on stage.</strong> SPAN to a ring buffer turns lag disputes into measurements.</li>
+      <li><strong>Make the broadcast redundant at the application level.</strong> Two encoders over two ISPs, with policy routing keeping each on its own line.</li>
+      <li><strong>Classify before NAT.</strong> Mark on the inside interface, queue on the outside.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 8 of the <a href="build-index.html"><strong>Build series</strong></a>. Earlier: <a href="build-law-firm.html">the law firm</a>, <a href="build-gaming-center.html">the gaming center</a>, <a href="build-coffee-shop.html">the coffee shop</a>, <a href="build-supermarket.html">the supermarket</a>, <a href="build-clinic.html">the medical clinic</a>, <a href="build-villa.html">the holiday villa</a>, <a href="build-event.html">the festival</a>.</p>
+
+  <div class="cta-card">
+    <h3>Hosting a tournament or LAN event?</h3>
+    <p>I design competition networks with fair paths, sealed stage pods and evidence for disputes, alongside production networks that keep the broadcast on air.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>
