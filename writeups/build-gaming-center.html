@@ -683,7 +683,28 @@
 
   <p>The CRS354-48G-4S+2Q+ has 48 gigabit ports for the seats and four 10G SFP+ ports: one up to the router and two for the game servers, with one spare. All seat ports are untagged members of VLAN 10. The uplink is a tagged trunk. Hardware offload stays on, so the switch chip does all of this at line rate, not the switch's CPU.</p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">SW-SEATS — bridge, VLANs, seat ports</span><span class="cfg-meta">21 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=SW-SEATS
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-SEATS — bridge, VLANs, seat ports</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-SEATS — Catalyst 9300-48T: 40 seat ports on VLAN 10, uplink trunk to R1
+vtp mode transparent
+vlan 10,30,99
+interface range GigabitEthernet1/0/1 - 40
+ description seats
+ switchport mode access
+ switchport access vlan 10
+ switchport nonegotiate
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range TenGigabitEthernet1/1/1 - 2
+ description BOOT01 + CACHE01 (untagged boot on 10, tagged mgmt on 30)
+ switchport mode trunk
+ switchport trunk native vlan 10
+ switchport trunk allowed vlan 10,30
+interface TenGigabitEthernet1/1/3
+ description uplink to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,30,99
+interface Vlan99
+ ip address 10.30.99.11 255.255.255.0
+ip default-gateway 10.30.99.1</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=SW-SEATS
 <span class="cmt"># enforcement OFF now, ON at the end (lock-out safety)</span>
 /interface bridge add name=bridge vlan-filtering=no
 <span class="cmt"># seats: untagged VLAN 10 only</span>
@@ -704,7 +725,7 @@ add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
 /ip route add gateway=10.30.99.1                 <span class="cmt"># R1 arrives in step 4</span>
 /interface ethernet disable ether41,ether42,ether43,ether44,ether45,ether46,ether47,ether48
 <span class="cmt"># last, from the console port or in Safe Mode:</span>
-/interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span></pre></details>
+/interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span></pre></div>
 
   <p>Now the isolation. On CRS3xx switches, each port can be given an explicit list of ports it's allowed to forward to. A seat port may forward only to the uplink and the two server ports:</p>
 
@@ -764,7 +785,41 @@ interface range TenGigabitEthernet1/1/1 - 3
 
   <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">SW-FRONT — CRS328-24P-4S+ (PoE)</span><span class="cfg-meta">24 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=SW-FRONT
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-FRONT — CRS328-24P-4S+ (PoE)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-FRONT — Catalyst 9300-24P (PoE): booths, counter, cameras, AP trunks
+vtp mode transparent
+vlan 20,40,50,60,99
+interface range GigabitEthernet1/0/1 - 6
+ description console booths 1-6
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+interface range GigabitEthernet1/0/9 - 10
+ description POS PC + card terminal
+ switchport mode access
+ switchport access vlan 40
+interface range GigabitEthernet1/0/13 - 20
+ description cameras (PoE), one MAC each
+ switchport mode access
+ switchport access vlan 60
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ spanning-tree portfast
+interface GigabitEthernet1/0/21
+ description NVR
+ switchport access vlan 60
+interface range GigabitEthernet1/0/22 - 24
+ description cAP APs (trunk: staff + guest + mgmt native)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 40,50,99
+interface TenGigabitEthernet1/1/1
+ description uplink to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 20,40,50,60,99
+interface Vlan99
+ ip address 10.30.99.12 255.255.255.0
+ip default-gateway 10.30.99.1</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=SW-FRONT
 /interface bridge add name=bridge vlan-filtering=no
 /interface bridge port
 add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="uplink R1"
@@ -788,7 +843,7 @@ add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
 /interface bridge port set [find interface=ether13] learn=no
 /interface bridge host add bridge=bridge interface=ether13 mac-address=AC:CC:8E:00:00:21
 <span class="cmt"># … repeat per camera; then:</span>
-/interface bridge set bridge vlan-filtering=yes</pre></details>
+/interface bridge set bridge vlan-filtering=yes</pre></div>
 
   <p>RouterOS has no "sticky MAC". The equivalent for the outdoor cameras is to turn off MAC learning on the port and add the camera's MAC as a static host. A laptop plugged into a camera cable then gets nowhere (see <a href="mikrotik-port-security.html">port security</a>). The three cAPs sit on ether22–24 as trunks (management untagged, staff and guest SSIDs tagged) and get their SSIDs in step 11.</p>
 
@@ -804,7 +859,35 @@ add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
 
   <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — CCR2004-16G-2S+ · trunks and VLAN interfaces</span><span class="cfg-meta">29 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=R1
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — CCR2004-16G-2S+ · trunks and VLAN interfaces</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — C8300: two trunks to the switches; dot1Q subinterfaces are the VLAN gateways
+interface TenGigabitEthernet0/0/0
+ description SW-SEATS trunk
+ no ip address
+interface TenGigabitEthernet0/0/0.10
+ encapsulation dot1Q 10
+ ip address 10.30.10.1 255.255.255.0
+interface TenGigabitEthernet0/0/0.30
+ encapsulation dot1Q 30
+ ip address 10.30.30.1 255.255.255.0
+interface TenGigabitEthernet0/0/0.99
+ encapsulation dot1Q 99
+ ip address 10.30.99.1 255.255.255.0
+interface TenGigabitEthernet0/0/1
+ description SW-FRONT trunk
+ no ip address
+interface TenGigabitEthernet0/0/1.20
+ encapsulation dot1Q 20
+ ip address 10.30.20.1 255.255.255.0
+interface TenGigabitEthernet0/0/1.40
+ encapsulation dot1Q 40
+ ip address 10.30.40.1 255.255.255.0
+interface TenGigabitEthernet0/0/1.50
+ encapsulation dot1Q 50
+ ip address 10.30.50.1 255.255.255.0
+interface TenGigabitEthernet0/0/1.60
+ encapsulation dot1Q 60
+ ip address 10.30.60.1 255.255.255.0
+! VLAN 99 (mgmt) rides both trunks; its gateway sits on the SEATS side above</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=R1
 /interface bridge add name=br-lan vlan-filtering=yes
 /interface bridge port
 add bridge=br-lan interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="SW-SEATS"
@@ -832,7 +915,7 @@ add address=10.30.99.1/24 interface=v99-mgmt
 /interface list add name=LAN
 /interface list member
 add list=LAN interface=v10-seats
-<span class="cmt"># … the same for every v* interface</span></pre></details>
+<span class="cmt"># … the same for every v* interface</span></pre></div>
 
   <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — DHCP with PXE options for the seats</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — C8300: IOS DHCP pool with the PXE options
 ip dhcp excluded-address 10.30.10.1 10.30.10.149
@@ -942,7 +1025,75 @@ add server=d-seats mac-address=58:11:22:00:00:01 address=10.30.10.101 comment="S
     </svg>
   </div>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — address lists and filter rules</span><span class="cfg-meta">29 lines · this step's additions · click to expand</span></summary><pre class="term">/ip firewall address-list
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — address lists and filter rules</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — Zone-Based Firewall. No zone-pair = dropped (default-deny).
+zone security SEATS
+zone security CONSOLES
+zone security SRV
+zone security COUNTER
+zone security GUEST
+zone security CCTV
+zone security WAN
+interface Te0/0/0.10
+ zone-member security SEATS
+interface Te0/0/0.30
+ zone-member security SRV
+interface Te0/0/1.20
+ zone-member security CONSOLES
+interface Te0/0/1.40
+ zone-member security COUNTER
+interface Te0/0/1.50
+ zone-member security GUEST
+interface Te0/0/1.60
+ zone-member security CCTV
+class-map type inspect match-any CM-GENERAL
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GENERAL
+  inspect
+ class class-default
+  drop
+! seats, consoles, counter, guest, servers -&gt; internet
+zone-pair security ZP-SEATS-WAN source SEATS destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-CONSOLES-WAN source CONSOLES destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-COUNTER-WAN source COUNTER destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-GUEST-WAN source GUEST destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-SRV-WAN source SRV destination WAN
+ service-policy type inspect PM-OUT
+! consoles reach the game cache on the seats VLAN
+ip access-list extended ACL-CACHE
+ permit ip any host 10.30.10.20
+class-map type inspect match-all CM-CACHE
+ match access-group name ACL-CACHE
+policy-map type inspect PM-CACHE
+ class type inspect CM-CACHE
+  inspect
+zone-pair security ZP-CONSOLES-SEATS source CONSOLES destination SEATS
+ service-policy type inspect PM-CACHE
+! the counter PC drives the diskless boot server and views the NVR (HTTPS)
+ip access-list extended ACL-COUNTER-SRV
+ permit tcp host 10.30.40.10 host 10.30.10.10 eq 443
+class-map type inspect match-all CM-CSRV
+ match access-group name ACL-COUNTER-SRV
+policy-map type inspect PM-CSRV
+ class type inspect CM-CSRV
+  inspect
+zone-pair security ZP-COUNTER-SEATS source COUNTER destination SEATS
+ service-policy type inspect PM-CSRV
+ip access-list extended ACL-COUNTER-CCTV
+ permit tcp host 10.30.40.10 host 10.30.60.10 eq 443
+class-map type inspect match-all CM-CCCTV
+ match access-group name ACL-COUNTER-CCTV
+policy-map type inspect PM-CCCTV
+ class type inspect CM-CCCTV
+  inspect
+zone-pair security ZP-COUNTER-CCTV source COUNTER destination CCTV
+ service-policy type inspect PM-CCCTV</pre><pre class="term vt-pane" data-v="mikrotik">/ip firewall address-list
 add list=CACHE address=10.30.10.20
 add list=BOOT address=10.30.10.10
 add list=POS address=10.30.40.10
@@ -971,7 +1122,7 @@ add chain=forward action=accept src-address-list=POS dst-address-list=NVR protoc
 add chain=forward action=accept in-interface=v50-guest out-interface-list=WAN
 add chain=forward action=accept in-interface=v30-srv out-interface-list=WAN protocol=tcp dst-port=443
 add chain=forward action=accept in-interface=v99-mgmt
-add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></details>
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
 
   <p>The WAN interface list is created in step 7, so the <code>out-interface-list=WAN</code> rules match nothing until then. Staff wake and restart seats from the diskless platform's own console, which runs on BOOT01 inside VLAN 10 where Wake-on-LAN broadcasts work. That avoids routing WoL broadcasts across VLANs (for that, see <a href="mikrotik-wol.html">Wake-on-LAN on RouterOS</a>).</p>
 
@@ -1351,7 +1502,26 @@ add name=t-off start-date=2026-11-07 start-time=23:30:00 interval=7d on-event=to
 
   <p class="bx-jump"><a href="#bx" data-bx-step="11">▲ Show step 11 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — CAPsMAN for three cAP ax (RouterOS 7 wifi)</span><span class="cfg-meta">17 lines · this step's additions · click to expand</span></summary><pre class="term">/interface wifi security
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — CAPsMAN for three cAP ax (RouterOS 7 wifi)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Embedded Wireless Controller (Catalyst 9800): two WLANs to two VLANs, three APs
+wlan ARENA-Staff 1 ARENA-Staff
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+wlan ARENA-Guest 2 ARENA-Guest
+ no security wpa
+ peer-blocking drop
+ no shutdown
+wireless profile policy STAFF
+ vlan 40
+ no shutdown
+wireless profile policy GUEST
+ vlan 50
+ no shutdown
+wireless tag policy ARENA
+ wlan ARENA-Staff policy STAFF
+ wlan ARENA-Guest policy GUEST
+! peer-blocking drop = the Cisco equivalent of client-isolation on the guest WLAN
+! the 30 Mb/s lounge cap maps to a rate limit in the GUEST policy profile (AVC/QoS)</pre><pre class="term vt-pane" data-v="mikrotik">/interface wifi security
 add name=sec-guest authentication-types=wpa2-psk,wpa3-psk passphrase="rotate-me-monthly"
 add name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase="********"
 <span class="cmt"># a datapath ties an SSID to its VLAN — that's the per-SSID isolation</span>
@@ -1369,7 +1539,7 @@ add action=create-dynamic-enabled supported-bands=2ghz-ax master-configuration=c
 
 <span class="cmt"># 30 Mb/s for the whole lounge, split evenly per device</span>
 /queue simple add name=guest-wifi target=10.30.50.0/24 max-limit=30M/30M \
-    queue=pcq-upload-default/pcq-download-default</pre></details>
+    queue=pcq-upload-default/pcq-download-default</pre></div>
 
   <p>The <code>bridge=bridge</code> in the datapath refers to each cAP's own local bridge: the APs switch traffic locally onto VLANs 40 and 50 of their trunk, so nothing hairpins through R1. The AP-side bridge setup is the same as in the <a href="mikrotik-capsman.html">CAPsMAN post</a> and the <a href="mikrotik-lab-hotel.html">hotel lab</a>. Hiding the staff SSID is not a security control. It only stops customers' phones from listing it. The password is the control.</p>
 
