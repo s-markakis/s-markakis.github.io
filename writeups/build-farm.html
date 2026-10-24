@@ -502,7 +502,47 @@
   <p class="section-thesis"><em>The packing shed is the only place with power and a rack. Everything wired starts here, VLAN by VLAN.</em></p>
   <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">SW-SHED — CRS328-24P-4S+</span><span class="cfg-meta">build with filtering off → on · click to expand</span></summary><pre class="term">/system identity set name=SW-SHED
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-SHED — CRS328-24P-4S+</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-SHED — Catalyst 9300-24P: office, scale, NVR, cameras, and three trunks
+vtp mode transparent
+vlan 10,20,30,35,40,50,99
+interface GigabitEthernet1/0/1
+ description office PC
+ switchport mode access
+ switchport access vlan 10
+interface GigabitEthernet1/0/4
+ description scale + label printer
+ switchport access vlan 10
+interface GigabitEthernet1/0/5
+ description NVR
+ switchport access vlan 40
+interface range GigabitEthernet1/0/6 - 9
+ description yard cameras (PoE)
+ switchport access vlan 40
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+interface GigabitEthernet1/0/10
+ description LoRa gateway trunk
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 35,99
+interface GigabitEthernet1/0/11
+ description shed AP trunk
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 20,50,99
+interface GigabitEthernet1/0/12
+ description SXT to greenhouses trunk
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 30,99
+interface TenGigabitEthernet1/1/1
+ description uplink to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,35,40,50,99
+interface Vlan99
+ ip address 10.60.99.11 255.255.255.0
+ip default-gateway 10.60.99.1</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=SW-SHED
 <span class="cmt"># enforcement OFF now, ON at the end (lock-out safety)</span>
 /interface bridge add name=bridge vlan-filtering=no
 /interface bridge port
@@ -529,7 +569,7 @@ add bridge=bridge vlan-ids=99 tagged=bridge
 /ip route add gateway=10.60.99.1
 <span class="cmt"># disable unused ports — an open jack is an open door</span>
 /interface ethernet disable ether13,ether14,ether15,ether16,ether17,ether18,ether19,ether20,ether21,ether22,ether23,ether24
-/interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span></pre></details>
+/interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span></pre></div>
 
   <p>The shed switch is where the wired world lands: the office PCs and the crate scale on OPS, the NVR and yard cameras on CCTV, and three trunk ports for the things that carry more than one VLAN — the LoRa gateway, a shed AP, and the SXT radio aimed at the greenhouses. PoE feeds the cameras and the APs; the PCs and the printer don't need it.</p>
 
@@ -544,7 +584,40 @@ add bridge=bridge vlan-ids=99 tagged=bridge
   <p class="section-thesis"><em>One RB5009 in the shed is the gateway for all seven VLANs and the firewall between them.</em></p>
   <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · select R1 for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — RB5009 · bridge, trunk, VLAN interfaces, DHCP</span><span class="cfg-meta">router-on-a-stick · click to expand</span></summary><pre class="term">/system identity set name=R1
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — RB5009 · bridge, trunk, VLAN interfaces, DHCP</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — C1121X: SVIs route between the VLANs; one trunk to SW-SHED
+ip routing
+interface GigabitEthernet0/0/1
+ description SW-SHED trunk
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,35,40,50,99
+interface Vlan10
+ ip address 10.60.10.1 255.255.255.0
+interface Vlan20
+ ip address 10.60.20.1 255.255.255.0
+interface Vlan30
+ ip address 10.60.30.1 255.255.255.0
+interface Vlan35
+ ip address 10.60.35.1 255.255.255.0
+interface Vlan40
+ ip address 10.60.40.1 255.255.255.0
+interface Vlan50
+ ip address 10.60.50.1 255.255.255.0
+interface Vlan99
+ ip address 10.60.99.1 255.255.255.0
+! staff/guest get pools; controllers and the LoRa gateway are reserved by MAC
+ip dhcp pool STAFF
+ network 10.60.20.0 255.255.255.0
+ default-router 10.60.20.1
+ dns-server 10.60.20.1
+ lease 0 4
+ip dhcp pool GUEST
+ network 10.60.50.0 255.255.255.0
+ default-router 10.60.50.1
+ lease 0 2
+! … ops, control (reservations), lns (reservation) the same way
+ip name-server 9.9.9.9 149.112.112.112
+ip dns server
+ntp master</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=R1
 /interface bridge add name=bridge vlan-filtering=no
 /interface bridge port
 add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="SW-SHED"
@@ -573,7 +646,7 @@ add address=10.60.99.1/24 interface=v99-mgmt
 <span class="cmt"># … ops, control (reservations), lns (reservation), cctv networks the same way</span>
 /ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112
 /system ntp client set enabled=yes servers=time.cloudflare.com
-/interface bridge set bridge vlan-filtering=yes</pre></details>
+/interface bridge set bridge vlan-filtering=yes</pre></div>
 
   <p>A single trunk between R1 and the switch carries all seven VLANs tagged; R1 holds a gateway address on each. The controllers and the LoRa gateway get DHCP <em>reservations</em> rather than dynamic leases — a fertigation controller whose address moves is a dashboard that stops working mid-season. DNS upstream is Quad9; the controllers are pointed at R1 so their vendor lookups can be watched and, if needed, pinned.</p>
 
@@ -589,7 +662,12 @@ add address=10.60.99.1/24 interface=v99-mgmt
   <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · select LoRa GW for its config</span></p>
 
   <span class="cmt"># sensors are RF endpoints (OTAA to the LNS); the gateway only relays frames — no IP on the grove</span>
-  <details class="term-wrap cfg"><summary><span class="term-label">LoRa GW — wAP LR8 · packet-forwarder to The Things Stack</span><span class="cfg-meta">EU868 · click to expand</span></summary><pre class="term">
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">LoRa GW — wAP LR8 · packet-forwarder to The Things Stack</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! No Cisco box is a drop-in for a MikroTik wAP LR8. Cisco's LoRaWAN story is the
+! IXM gateway + IoT Field Network Director, aimed at utilities and smart cities —
+! heavy and licensed for a six-greenhouse farm. In practice you run ANY vendor's
+! LoRaWAN gateway (RAK, Kerlink, a wAP LR8) pointed at The Things Stack; the router
+! just carries its UDP 1700 packet-forwarder traffic on VLAN 35, exactly as here.
+! The sensors are RF either way and never touch the IP network.</pre><pre class="term vt-pane" data-v="mikrotik">
 /system identity set name=LORA-GW
 <span class="cmt"># ether1 is the trunk from SW-SHED</span>
 /interface vlan add name=v35-lns interface=ether1 vlan-id=35
@@ -600,7 +678,7 @@ add address=10.60.99.1/24 interface=v99-mgmt
 /ip dns set servers=10.60.35.1
 <span class="cmt"># Semtech UDP packet-forwarder to The Things Stack (EU868)</span>
 /iot lora servers add name=tts address=eu1.cloud.thethings.network up-port=1700 down-port=1700
-/iot lora set lora0 servers=tts network=public antenna-gain=3</pre></details>
+/iot lora set lora0 servers=tts network=public antenna-gain=3</pre></div>
 
   <p>LoRaWAN splits the job in two. The <strong>sensor</strong> wakes a few times an hour, sends one small encrypted frame, and sleeps — which is how a coin cell lasts years. The <strong>gateway</strong> is a dumb, powerful ear: it hears every frame in range and forwards it, untouched, to the <strong>network server</strong>, which owns the keys and decrypts it. That is why the gateway sits alone on VLAN 35 with a single job — reach The Things Stack on UDP 1700 — and why adding a hundred more probes across the grove changes nothing on the wire.</p>
 
@@ -621,13 +699,18 @@ add address=10.60.99.1/24 interface=v99-mgmt
   <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · select SXT pair for its config</span></p>
 
   <span class="cmt"># SXT-SHED (AP end). nv2 = MikroTik TDMA: scheduled slots beat 802.11 back-off over distance</span>
-  <details class="term-wrap cfg"><summary><span class="term-label">SXT pair — 5 GHz nv2 bridge carrying the control VLAN</span><span class="cfg-meta">600 m PtP · click to expand</span></summary><pre class="term">
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SXT pair — 5 GHz nv2 bridge carrying the control VLAN</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! There is no nv2 on Cisco. For a 600 m point-to-point link Cisco's answer is the
+! Catalyst IW (Industrial Wireless) or Ultra-Reliable Wireless Backhaul line — they
+! do PtP well but cost far more than a pair of SXTs. What you give up dropping to
+! plain 802.11 is nv2's TDMA scheduling: the trick that keeps a long, one-to-one
+! link stable without CSMA back-off waiting for a faint, distant station. The VLAN
+! trunk it carries (control VLAN 30 + mgmt) is identical whatever bridges the gap.</pre><pre class="term vt-pane" data-v="mikrotik">
 /interface wireless set wlan1 mode=ap-bridge band=5ghz-a/n/ac channel-width=20mhz frequency=5500 \
     ssid=farm-ptp wireless-protocol=nv2 nv2-security=enabled nv2-preshared-key="********" distance=1
 <span class="cmt"># radio joins the bridge → the VLAN trunk rides the air</span>
 /interface bridge port add bridge=bridge interface=wlan1
 <span class="cmt"># far end: same radio in station-bridge, its ether1 feeds a small switch</span>
-<span class="cmt"># controllers sit on V30 at the far end — untagged on their ports, tagged across the link</span></pre></details>
+<span class="cmt"># controllers sit on V30 at the far end — untagged on their ports, tagged across the link</span></pre></div>
 
   <p>A point-to-point link is a cable you can't trench. The two SXT dishes are aimed at each other across the grove; <code>nv2</code>, MikroTik's TDMA protocol, replaces 802.11's listen-before-talk with scheduled time slots, which is what makes a long, one-to-one link stable where plain Wi-Fi would stall waiting for a faint, distant station. The link is a transparent bridge, so VLAN 30 (and management) crosses it exactly as if the greenhouses were in the shed — the controllers never know they are 600 m and one radio hop away.</p>
 
@@ -647,7 +730,56 @@ add address=10.60.99.1/24 interface=v99-mgmt
   <p class="section-thesis"><em>The rule that matters: a device that moves water may reach its vendor and nothing else, and only the office may reach it.</em></p>
   <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · select R1 for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — interface lists, input and forward chains</span><span class="cfg-meta">default-deny · click to expand</span></summary><pre class="term">/interface list
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — interface lists, input and forward chains</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — Zone-Based Firewall. No zone-pair = dropped (default-deny).
+zone security OPS
+zone security STAFF
+zone security CONTROL
+zone security LNS
+zone security CCTV
+zone security GUEST
+zone security WAN
+interface Vlan10
+ zone-member security OPS
+interface Vlan20
+ zone-member security STAFF
+interface Vlan30
+ zone-member security CONTROL
+interface Vlan35
+ zone-member security LNS
+interface Vlan40
+ zone-member security CCTV
+interface Vlan50
+ zone-member security GUEST
+interface GigabitEthernet0/0/0
+ zone-member security WAN
+class-map type inspect match-any CM-GENERAL
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GENERAL
+  inspect
+ class class-default
+  drop
+! the office reaches the controllers and the cameras
+zone-pair security ZP-OPS-CONTROL source OPS destination CONTROL
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OPS-CCTV source OPS destination CCTV
+ service-policy type inspect PM-OUT
+! every inside zone reaches the internet (narrow CONTROL/LNS/CCTV to their vendor by ACL)
+zone-pair security ZP-OPS-WAN source OPS destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-STAFF-WAN source STAFF destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-CONTROL-WAN source CONTROL destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-LNS-WAN source LNS destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-GUEST-WAN source GUEST destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-CCTV-WAN source CCTV destination WAN
+ service-policy type inspect PM-OUT
+! a greenhouse PLC can reach the internet, never the office or the cameras</pre><pre class="term vt-pane" data-v="mikrotik">/interface list
 add name=WAN
 add name=MGMT
 /interface list member
@@ -679,7 +811,7 @@ add chain=forward action=accept in-interface=v50-guest out-interface-list=WAN
 add chain=forward action=accept in-interface=v40-cctv out-interface-list=WAN comment="camera vendor cloud"
 add chain=forward action=accept in-interface-list=MGMT
 <span class="cmt"># default-deny: a PLC reaches the internet, never the office/cameras</span>
-add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></details>
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
 
   <p>The forward chain reads as the policy matrix, line for line. OPS reaches the controllers, the cameras and the internet. CONTROL and LNS and CCTV each reach only the internet (to be narrowed to their vendor by DNS address-lists). STAFF and GUEST get the internet and nothing of the farm's. Everything else falls to the logged drop at the bottom. The single most important line is that last drop: without it, a compromised greenhouse PLC could scan straight into the office.</p>
 
@@ -699,7 +831,24 @@ add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></details>
   <p class="section-thesis"><em>The dish is the only way out. In bypass mode R1 owns the connection, and a DHCP script keeps the failover probe honest.</em></p>
   <p class="bx-jump"><a href="#bx" data-bx-step="6">▲ Show step 6 in the interactive topology</a><span> · select R1 for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — Starlink in bypass, recursive route kept by the DHCP client</span><span class="cfg-meta">+ 4G backup · click to expand</span></summary><pre class="term">/interface list member add list=WAN interface=ether1
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — Starlink in bypass, recursive route kept by the DHCP client</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — Starlink in bypass: the WAN takes the carrier-NAT address; IP SLA tracks it
+interface GigabitEthernet0/0/0
+ description Starlink (bypass)
+ ip address dhcp
+ ip nat outside
+interface Cellular0/1/0
+ description 4G backup
+ ip nat outside
+ip sla 1
+ icmp-echo 1.1.1.1
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ip route 0.0.0.0 0.0.0.0 dhcp 1 track 1
+ip route 0.0.0.0 0.0.0.0 Cellular0/1/0 2
+ip access-list standard NAT-ALL
+ permit 10.60.0.0 0.0.255.255
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload</pre><pre class="term vt-pane" data-v="mikrotik">/interface list member add list=WAN interface=ether1
 /ip route
 add dst-address=1.1.1.1/32 gateway=100.64.0.1 scope=10 comment="probe via starlink"
 add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment="main: starlink"
@@ -709,7 +858,7 @@ add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping dis
 <span class="cmt"># optional 4G at distance 2: used only when Starlink is down</span>
 /ip dhcp-client add interface=ether2 default-route-distance=2 use-peer-dns=no comment="4G backup"
 /interface list member add list=WAN interface=ether2
-/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN</pre></details>
+/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN</pre></div>
 
   <p>This is the villa's Starlink pattern, and it earns its place again: in bypass mode the dish stops routing and R1 takes the carrier-NAT address directly, so the farm's firewall — not Starlink's box — is the edge. The recursive default route pings 1.1.1.1 <em>through</em> Starlink's gateway; a DHCP-client script rewrites that gateway whenever it changes, so <code>check-gateway</code> can tell a real outage from a reboot. The 4G line sits at distance 2 and only carries traffic when the dish is down — out here, that means a summer storm or the dish icing in the rare winter one.</p>
 
@@ -725,7 +874,12 @@ add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping dis
   <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · select Solar node for its config</span></p>
 
   <span class="cmt"># no mains, no cable: backhauls over its own LTE + WireGuard, and relays LoRa for the far grove</span>
-  <details class="term-wrap cfg"><summary><span class="term-label">Solar node — LtAP LR8 LTE · camera + LoRa repeater</span><span class="cfg-meta">low-power · click to expand</span></summary><pre class="term">
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">Solar node — LtAP LR8 LTE · camera + LoRa repeater</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! No single Cisco box is a solar-powered LoRa repeater + LTE camera node. The
+! closest is an IR1101 industrial router: DIN-rail, wide-temperature, built-in LTE,
+! low draw — but it has no LoRa concentrator, so a third-party gateway still rides
+! alongside it. The hard part isn't the vendor anyway: the power budget (load x dark
+! hours x a cloud margin -&gt; battery, then panel) is identical whichever box it is.
+! Over the LTE it dials the same FlexVPN tunnel home as R1.</pre><pre class="term vt-pane" data-v="mikrotik">
 /system identity set name=NODE-WEST
 <span class="cmt"># let it clock down: every watt is battery</span>
 /system routerboard settings set cpu-frequency=auto
@@ -740,7 +894,7 @@ add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping dis
 <span class="cmt"># less logging = fewer writes = less power</span>
 /system logging action set memory memory-lines=200
 <span class="cmt"># watchdog reboots it on a wedge — nobody's driving out</span>
-/system watchdog set watchdog-timer=yes</pre></details>
+/system watchdog set watchdog-timer=yes</pre></div>
 
   <p>The node backhauls over its own LTE and dials a WireGuard tunnel home, so the camera reaches the shed NVR and the LoRa concentrator reaches the same network server as the shed gateway — all without a single cable leaving the gate. The config is deliberately frugal: the CPU clocks down, logging is trimmed to spare the flash, and the hardware watchdog reboots the board if a brownout wedges it, because the nearest pair of hands is 30 minutes away.</p>
 
@@ -760,7 +914,30 @@ add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping dis
   <p class="section-thesis"><em>Nobody is on site. The network dials out, reports in, and backs itself up — over a tunnel, because both WANs are behind carrier NAT.</em></p>
   <p class="bx-jump"><a href="#bx" data-bx-step="8">▲ Show step 8 in the interactive topology</a><span> · select R1 for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — WireGuard to the operator hub, alerts, remote logs</span><span class="cfg-meta">dial-out · click to expand</span></summary><pre class="term">/interface wireguard add name=wg-ops listen-port=13231
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — WireGuard to the operator hub, alerts, remote logs</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — FlexVPN client: dials out to the operator's hub through CGNAT
+crypto ikev2 profile TO-HUB
+ match identity remote fqdn hub.example.net
+ identity local fqdn farm-r1.example.net
+ authentication local rsa-sig
+ authentication remote rsa-sig
+ pki trustpoint OP-CA
+ dpd 10 3 periodic
+crypto ipsec profile TO-HUB
+ set ikev2-profile TO-HUB
+interface Tunnel1
+ ip address 10.250.0.31 255.255.255.0
+ tunnel source GigabitEthernet0/0/0
+ tunnel destination dynamic
+ tunnel protection ipsec profile TO-HUB
+crypto ikev2 client flexvpn HUB
+ peer 1 fqdn hub.example.net dynamic
+ client connect Tunnel1
+! remote syslog + an EEM applet as the netwatch equivalent
+logging host 10.250.0.1
+logging trap warnings
+event manager applet WAN-DOWN
+ event track 1 state down
+ action 1 syslog msg "Starlink path DOWN"</pre><pre class="term vt-pane" data-v="mikrotik">/interface wireguard add name=wg-ops listen-port=13231
 /interface wireguard peers add interface=wg-ops comment="operator hub" public-key="&lt;hub public key&gt;" \
     endpoint-address=hub.example.net endpoint-port=51820 allowed-address=10.250.0.0/24 persistent-keepalive=25s
 /ip address add address=10.250.0.31/24 interface=wg-ops
@@ -771,7 +948,7 @@ add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping dis
 /system scheduler add name=nightly-export start-time=03:00:00 interval=1d on-event={
   /export file=r1-latest ; /tool fetch upload=yes url="sftp://10.250.0.1/backups/r1-latest.rsc" src-path=r1-latest.rsc
 }
-/tool netwatch add host=1.1.1.1 interval=30s type=simple down-script=":log warning \"Starlink DOWN\"" up-script=":log warning \"Starlink UP\""</pre></details>
+/tool netwatch add host=1.1.1.1 interval=30s type=simple down-script=":log warning \"Starlink DOWN\"" up-script=":log warning \"Starlink UP\""</pre></div>
 
   <p>Both WANs are behind carrier NAT, so there is nothing to connect <em>to</em> — R1 and the solar node both dial <em>out</em> to the operator's hub over WireGuard and stay reachable there. Warnings stream to the hub's log server, a nightly export lands a config backup over the same tunnel, and netwatch turns a dropped dish into a log line the operator sees. When a controller or a node goes quiet, the operator knows before the grower does.</p>
 
