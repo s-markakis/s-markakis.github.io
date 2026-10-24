@@ -1,0 +1,577 @@
+! Build: The Law Firm Network — full Cisco IOS config
+! s-markakis.github.io/writeups/build-law-firm.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== ACC-1 — C9200L-48P · VLANs and every endpoint port =====
+hostname ACC-1
+! keeps its own VLAN list; ignores VTP from the wire (a rogue switch can't wipe it)
+vtp mode transparent
+! fast (802.1w) loop prevention, one instance per VLAN
+spanning-tree mode rapid-pvst
+!
+vlan 10
+ name LAWYERS
+vlan 20
+ name STAFF
+vlan 30
+ name SERVERS
+vlan 40
+ name VOICE
+vlan 45
+ name PRINT
+vlan 50
+ name GUEST
+vlan 60
+ name SECURITY
+vlan 99
+ name MGMT
+vlan 666
+ name PARKING
+!
+! desks: PC behind the phone. TEMPORARY static VLAN, replaced in step 6
+interface range GigabitEthernet1/0/1 - 16
+ description DESK staff (phone + PC)
+ switchport mode access
+ switchport access vlan 20
+ ! phone tags its own voice VLAN; the PC behind it stays on data
+ switchport voice vlan 40
+ spanning-tree portfast
+ ! portfast skips the listen/learn wait; bpduguard shuts the port on a switch's BPDU
+ spanning-tree bpduguard enable
+interface GigabitEthernet1/0/17
+ description RECEPTION PC
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface GigabitEthernet1/0/25
+ description MFP-1
+ switchport mode access
+ switchport access vlan 45
+ spanning-tree portfast
+!
+! meeting-room wall sockets: guest, nothing else, no switches
+interface range GigabitEthernet1/0/41 - 44
+ description MEETING-ROOM wall ports
+ switchport mode access
+ switchport access vlan 50
+ ! caps the MACs a port may learn; a violation locks it — no swapping a camera for a laptop
+switchport port-security maximum 2
+ switchport port-security violation restrict
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+!
+! cameras, door controller, NVR: pinned MACs
+interface range GigabitEthernet1/0/33 - 40
+ description SECURITY (cams 33-38 · NVR 39 · door controller 40)
+ switchport mode access
+ switchport access vlan 60
+ switchport port-security mac-address sticky
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+!
+! anything not patched: shut, parked (Gi1/0/21-22 are the APs, step 2)
+interface range GigabitEthernet1/0/18 - 20 , GigabitEthernet1/0/23 - 24 , GigabitEthernet1/0/26 - 32 , GigabitEthernet1/0/45 - 48
+ switchport access vlan 666
+ shutdown
+!
+interface Vlan99
+ ip address 10.20.99.11 255.255.255.0
+! doesn't exist yet: arrives with the core in step 3
+ip default-gateway 10.20.99.1
+! ===== AP switch ports (both floors) =====
+interface range GigabitEthernet1/0/21 - 22
+ description AP (FlexConnect local switching)
+ switchport mode trunk
+ ! AP management + CAPWAP to the EWC
+ ! the trunk's untagged VLAN — parked on an unused one so tag-injection goes nowhere
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,50,99
+ switchport nonegotiate
+ spanning-tree portfast trunk
+! ===== CORE — C9200-24T · VLANs, LACP to the floors, SVIs =====
+hostname CORE
+vtp mode transparent
+spanning-tree mode rapid-pvst
+spanning-tree vlan 1-4094 priority 4096        ! the core is root, always
+ip routing
+! (same VLAN database as the access switches, plus:)
+vlan 900
+ name TRANSIT
+!
+interface range GigabitEthernet1/1/1 - 2
+ description to ACC-1
+ ! bond links into one Port-channel: bandwidth + redundancy
+ channel-group 1 mode active
+interface range GigabitEthernet1/1/3 - 4
+ description to ACC-2
+ channel-group 2 mode active
+interface range Port-channel1 - 2
+ switchport mode trunk
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 10,20,40,45,50,60,99
+ switchport nonegotiate
+!
+interface Vlan10
+ description LAWYERS
+ ip address 10.20.10.1 255.255.255.0
+ no ip redirects
+ no ip proxy-arp
+interface Vlan20
+ description STAFF
+ ip address 10.20.20.1 255.255.255.0
+interface Vlan40
+ description VOICE
+ ip address 10.20.40.1 255.255.255.0
+interface Vlan45
+ description PRINT
+ ip address 10.20.45.1 255.255.255.0
+interface Vlan60
+ description SECURITY
+ ip address 10.20.60.1 255.255.255.0
+interface Vlan99
+ description MGMT
+ ip address 10.20.99.1 255.255.255.0
+! deliberately NO "interface Vlan50": guest is switched here, never routed
+! ===== ACC-1 / ACC-2 — the matching uplink =====
+interface range GigabitEthernet1/1/1 - 2
+ description to CORE
+ channel-group 1 mode active
+interface Port-channel1
+ switchport mode trunk
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 10,20,40,45,50,60,99
+ switchport nonegotiate
+! ===== CORE — server ports and DHCP relay =====
+interface range GigabitEthernet1/0/5 - 8
+ description SERVERS (DC01 DMS01 FS01 NAS01)
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+!
+interface Vlan10
+ ! relay: no local DHCP, forward requests to this server
+ ip helper-address 10.20.30.10
+interface Vlan20
+ ip helper-address 10.20.30.10
+interface Vlan40
+ ip helper-address 10.20.30.10
+interface Vlan45
+ ip helper-address 10.20.30.10
+interface Vlan30
+ description SERVERS
+ ip address 10.20.30.1 255.255.255.0
+! ===== ACC-1 / ACC-2 — DHCP snooping, then DAI =====
+ip dhcp snooping vlan 10,20,40,45,50
+! else Windows DHCP drops relayed option-82 requests
+no ip dhcp snooping information option
+ip dhcp snooping
+interface Port-channel1
+ ip dhcp snooping trust
+ ip arp inspection trust
+!
+! APs carry dozens of clients: the default 15 ARP pps on an untrusted port err-disables them
+interface range GigabitEthernet1/0/21 - 22
+ ip arp inspection limit rate 100
+!
+! only AFTER every client has a real DHCP lease (see gotcha)
+! drop forged ARP replies (LAN MITM), checked against the snooping table
+ip arp inspection vlan 10,20,45,50
+! ===== CORE — user-VLAN ACLs =====
+ip access-list extended V10-IN
+ remark LAWYERS: DC, DMS, files, print, internet. Nothing else inside.
+ 10 permit udp any any eq bootps
+ 15 permit icmp any host 10.20.10.1                   ! the helpdesk pings the gateway first
+ ! DC01: AD needs too many ports to list
+ 20 permit ip 10.20.10.0 0.0.0.255 host 10.20.30.10
+ 30 permit tcp 10.20.10.0 0.0.0.255 host 10.20.30.20 eq 443
+ 40 permit tcp 10.20.10.0 0.0.0.255 host 10.20.30.21 eq 445
+ ! raw print only: MFP web UI is MGMT-only
+ 50 permit tcp 10.20.10.0 0.0.0.255 10.20.45.0 0.0.0.255 eq 9100
+ ! replies to remote support
+ 60 permit tcp 10.20.10.0 0.0.0.255 10.20.99.0 0.0.0.255 established
+ 70 deny   ip any 10.0.0.0 0.255.255.255 log
+ 80 deny   ip any 172.16.0.0 0.15.255.255
+ 90 deny   ip any 192.168.0.0 0.0.255.255
+ 100 permit ip 10.20.10.0 0.0.0.255 any
+!
+ip access-list extended V20-IN
+ remark STAFF: DC, DMS web only, print, reception->NVR, internet
+ 10 permit udp any any eq bootps
+ 15 permit icmp any host 10.20.20.1
+ 20 permit ip 10.20.20.0 0.0.0.255 host 10.20.30.10
+ 30 permit tcp 10.20.20.0 0.0.0.255 host 10.20.30.20 eq 443
+ 40 permit tcp 10.20.20.0 0.0.0.255 10.20.45.0 0.0.0.255 eq 9100
+ 50 permit tcp host 10.20.20.50 host 10.20.60.10 eq 443   ! reception PC only
+ 60 permit tcp 10.20.20.0 0.0.0.255 10.20.99.0 0.0.0.255 established
+ 70 deny   ip any 10.0.0.0 0.255.255.255 log
+ 80 deny   ip any 172.16.0.0 0.15.255.255
+ 90 deny   ip any 192.168.0.0 0.0.255.255
+ 100 permit ip 10.20.20.0 0.0.0.255 any
+!
+ip access-list extended V40-IN
+ remark VOICE: DNS/NTP from DC01, then hosted PBX on the internet
+ 10 permit udp any any eq bootps
+ 20 permit udp 10.20.40.0 0.0.0.255 host 10.20.30.10 eq domain
+ 30 permit udp 10.20.40.0 0.0.0.255 host 10.20.30.10 eq ntp
+ 40 deny   ip any 10.0.0.0 0.255.255.255 log
+ 50 deny   ip any 172.16.0.0 0.15.255.255
+ 60 deny   ip any 192.168.0.0 0.0.255.255
+ 70 permit ip 10.20.40.0 0.0.0.255 any
+!
+ip access-list extended V45-IN
+ remark PRINT: replies, DNS/NTP, LDAPS, scan-to-folder, scan-to-email
+ 10 permit udp any any eq bootps
+ 20 permit tcp 10.20.45.0 0.0.0.255 10.20.0.0 0.0.255.255 established
+ 30 permit udp 10.20.45.0 0.0.0.255 host 10.20.30.10 eq domain
+ 35 permit udp 10.20.45.0 0.0.0.255 host 10.20.30.10 eq ntp
+ 36 permit tcp 10.20.45.0 0.0.0.255 host 10.20.30.10 eq 636   ! LDAPS address book
+ 40 permit tcp 10.20.45.0 0.0.0.255 host 10.20.30.21 eq 445   ! scan-to-folder
+ 50 deny   ip any 10.0.0.0 0.255.255.255 log
+ 60 deny   ip any 172.16.0.0 0.15.255.255
+ 70 deny   ip any 192.168.0.0 0.0.255.255
+ 80 permit tcp 10.20.45.0 0.0.0.255 any eq 587               ! scan-to-email (M365)
+ 90 deny   ip any any log
+! ===== CORE — server, security and management ACLs =====
+ip access-list extended V30-IN
+ remark SERVERS: replies to the LAN, plus a short list they may start
+ 10 permit tcp 10.20.30.0 0.0.0.255 10.20.0.0 0.0.255.255 established
+ 20 permit udp host 10.20.30.10 eq domain 10.20.0.0 0.0.255.255
+ 30 permit udp host 10.20.30.10 eq 88 10.20.0.0 0.0.255.255
+ 40 permit udp host 10.20.30.10 eq 389 10.20.0.0 0.0.255.255
+ 50 permit udp host 10.20.30.10 eq ntp 10.20.0.0 0.0.255.255
+ 60 permit udp host 10.20.30.10 eq bootps 10.20.0.0 0.0.255.255  ! DHCP offers to the relay
+ 70 permit udp host 10.20.30.10 eq 1812 10.20.99.0 0.0.0.255    ! RADIUS replies: see gotcha
+ 75 permit udp host 10.20.30.10 eq 1813 10.20.99.0 0.0.0.255
+ 80 permit icmp 10.20.30.0 0.0.0.255 10.20.0.0 0.0.255.255 echo-reply
+ 90 deny   ip any 10.0.0.0 0.255.255.255 log
+ 100 deny  ip any 172.16.0.0 0.15.255.255
+ 110 deny  ip any 192.168.0.0 0.0.255.255
+ 120 permit udp host 10.20.30.10 any eq domain                  ! DC01 forwarders
+ 130 permit udp host 10.20.30.10 any eq ntp
+ 140 permit tcp 10.20.30.0 0.0.0.255 any eq 443                 ! updates + offsite backup
+ 150 deny  ip any any log
+!
+ip access-list extended V60-IN
+ remark SECURITY: answers reception, syncs time, otherwise mute
+ 10 permit tcp host 10.20.60.10 eq 443 host 10.20.20.50 established
+ 20 permit udp 10.20.60.0 0.0.0.255 host 10.20.30.10 eq ntp
+ 30 deny   ip any any log                                       ! no internet, ever
+!
+ip access-list extended V99-IN
+ 10 permit ip 10.20.99.0 0.0.0.255 10.20.0.0 0.0.255.255
+ 20 permit tcp 10.20.99.0 0.0.0.255 any eq 443                  ! firmware downloads
+ 30 deny   ip any any log
+! ===== CORE — apply the ACLs (one per SVI, inbound) =====
+interface Vlan10
+ ip access-group V10-IN in
+interface Vlan20
+ ip access-group V20-IN in
+interface Vlan30
+ ip access-group V30-IN in
+interface Vlan40
+ ip access-group V40-IN in
+interface Vlan45
+ ip access-group V45-IN in
+interface Vlan60
+ ip access-group V60-IN in
+interface Vlan99
+ ip access-group V99-IN in
+! ===== ACC-1 / ACC-2 — AAA, RADIUS, desk-port template =====
+username netadmin privilege 15 secret <local-break-glass>
+aaa new-model
+aaa authentication login default local          ! set this BEFORE anything else: no lockout
+!
+radius server NPS
+ address ipv4 10.20.30.10 auth-port 1812 acct-port 1813
+ key <radius-shared-secret>
+aaa group server radius RAD-NPS
+ server name NPS
+ ip radius source-interface Vlan99
+aaa authentication dot1x default group RAD-NPS
+aaa authorization network default group RAD-NPS
+aaa accounting dot1x default start-stop group RAD-NPS
+radius-server dead-criteria time 5 tries 3
+radius-server deadtime 10
+dot1x system-auth-control
+!
+interface range GigabitEthernet1/0/1 - 17                  ! ACC-2: 1 - 12
+ description DESK (phone + PC behind it)
+ switchport mode access
+ switchport access vlan 666                       ! dead end until proven otherwise
+ switchport voice vlan 40
+ authentication host-mode multi-domain            ! one data + one voice device
+ authentication order dot1x mab
+ authentication priority dot1x mab
+ authentication port-control auto
+ authentication periodic
+ authentication timer reauthenticate server
+ authentication event fail action next-method
+ authentication event server dead action authorize vlan 20
+ authentication event server dead action authorize voice
+ authentication event server alive action reinitialize
+ mab
+ dot1x pae authenticator
+ dot1x timeout tx-period 7
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+! ===== R1-EDGE — LAN side and guest DHCP =====
+hostname R1-EDGE
+vlan 50
+ name GUEST
+vlan 666
+ name PARKING
+vlan 900
+ name TRANSIT
+interface GigabitEthernet0/1/0
+ description CORE Gi1/0/1
+ switchport mode trunk
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 50,900
+!
+interface Vlan900
+ description TRANSIT to CORE
+ ip address 10.20.255.1 255.255.255.248
+interface Vlan50
+ description GUEST (terminates here, not on the core)
+ ip address 10.20.50.1 255.255.255.0
+!
+ip dhcp excluded-address 10.20.50.1 10.20.50.9
+ip dhcp pool GUEST
+ network 10.20.50.0 255.255.255.0
+ default-router 10.20.50.1
+ dns-server 9.9.9.9 1.1.1.1                 ! guests never touch DC01, not even for DNS
+ lease 0 4
+!
+! policy-map first: IOS rejects a service-policy that names an undefined map
+policy-map GUEST-LIMIT
+ class class-default
+  police cir 50000000 conform-action transmit exceed-action drop
+interface Vlan50
+ service-policy input GUEST-LIMIT
+ service-policy output GUEST-LIMIT
+!
+ip route 10.20.0.0 255.255.0.0 10.20.255.2
+! ===== CORE — uplink to R1, transit SVI, the guest backstop ACL =====
+interface GigabitEthernet1/0/1
+ description R1-EDGE Gi0/1/0
+ switchport mode trunk
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 50,900
+ switchport nonegotiate
+!
+ip access-list extended V900-IN
+ remark Backstop: nothing sourced from the guest subnet is ever routed inside
+ 10 deny   ip 10.20.50.0 0.0.0.255 any log
+ 20 permit ip any any
+interface Vlan900
+ description TRANSIT to R1
+ ip address 10.20.255.2 255.255.255.248
+ ip access-group V900-IN in
+!
+ip route 0.0.0.0 0.0.0.0 10.20.255.1
+! ===== R1-EDGE — zone-based firewall =====
+zone security INSIDE
+zone security GUEST
+zone security VPN
+zone security OUTSIDE
+!
+class-map type inspect match-any CM-ANY
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+ip access-list extended VPN-TO-INSIDE
+ permit ip 10.20.200.0 0.0.0.255 host 10.20.30.10
+ permit tcp 10.20.200.0 0.0.0.255 host 10.20.30.20 eq 443
+ permit tcp 10.20.200.0 0.0.0.255 host 10.20.30.21 eq 445
+ permit tcp 10.20.200.0 0.0.0.15 10.20.99.0 0.0.0.255 eq 22     ! admins only (.0/28)
+ permit tcp 10.20.200.0 0.0.0.15 10.20.99.0 0.0.0.255 eq 443
+class-map type inspect match-all CM-VPN-IN
+ match access-group name VPN-TO-INSIDE
+!
+policy-map type inspect PM-TO-OUT
+ class type inspect CM-ANY
+  inspect
+ class class-default
+  drop log
+policy-map type inspect PM-VPN-IN
+ class type inspect CM-VPN-IN
+  inspect
+ class class-default
+  drop log
+!
+zone-pair security ZP-IN-OUT  source INSIDE destination OUTSIDE
+ service-policy type inspect PM-TO-OUT
+zone-pair security ZP-GST-OUT source GUEST  destination OUTSIDE
+ service-policy type inspect PM-TO-OUT
+zone-pair security ZP-VPN-OUT source VPN    destination OUTSIDE
+ service-policy type inspect PM-TO-OUT
+zone-pair security ZP-VPN-IN  source VPN    destination INSIDE
+ service-policy type inspect PM-VPN-IN
+! not configured, on purpose: GUEST<->INSIDE, GUEST<->VPN, INSIDE->VPN
+! ===== R1-EDGE — put the inside interfaces in their zones =====
+interface Vlan900
+ zone-member security INSIDE
+interface Vlan50
+ zone-member security GUEST
+! ===== R1-EDGE — fibre WAN and PAT (route-map form, ready for the second WAN) =====
+interface GigabitEthernet0/0/0
+ description FIBRE (static 203.0.113.10/29)
+ ip address 203.0.113.10 255.255.255.248
+ ip nat outside
+ zone-member security OUTSIDE
+ no cdp enable
+interface Vlan900
+ ip nat inside
+interface Vlan50
+ ip nat inside
+!
+ip access-list standard NAT-SRC
+ permit 10.20.0.0 0.0.255.255
+route-map NAT-FIBRE permit 10
+ match ip address NAT-SRC
+ match interface GigabitEthernet0/0/0
+ip nat inside source route-map NAT-FIBRE interface GigabitEthernet0/0/0 overload
+no ip nat service sip udp port 5060         ! SIP ALG off: the hosted PBX handles NAT itself
+no ip nat service sip tcp port 5060
+!
+ip route 0.0.0.0 0.0.0.0 203.0.113.9
+! ===== R1-EDGE — the 5G port and its NAT rule =====
+interface GigabitEthernet0/0/1
+ description 5G BACKUP (bridge mode)
+ ! DHCP default route at AD 254 = the floating backup
+ ip address dhcp
+ ip nat outside
+ zone-member security OUTSIDE
+ no cdp enable
+route-map NAT-5G permit 10
+ match ip address NAT-SRC
+ match interface GigabitEthernet0/0/1
+ip nat inside source route-map NAT-5G interface GigabitEthernet0/0/1 overload
+!
+no ip route 0.0.0.0 0.0.0.0 203.0.113.9     ! replaced by the tracked route below
+! ===== R1-EDGE — IP SLA, tracked default, NAT cleanup =====
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ delay down 10 up 60                        ! fail fast, return slowly (no flapping)
+!
+ip route 0.0.0.0 0.0.0.0 203.0.113.9 track 1
+ip route 1.1.1.1 255.255.255.255 203.0.113.9
+ip route 1.1.1.1 255.255.255.255 Null0 250  ! the probe may NEVER leave via 5G
+!
+event manager applet WAN-FAILOVER
+ event track 1 state any
+ action 1.0 cli command "enable"
+ action 2.0 cli command "clear ip nat translation *"
+ action 3.0 syslog msg "WAN track 1 changed: NAT translations cleared"
+! ===== R1-EDGE — the firm-specific parts of the FlexVPN =====
+ip local pool VPN-POOL 10.20.200.16 10.20.200.250
+!
+crypto ikev2 authorization policy VPN-POLICY
+ pool VPN-POOL
+ dns 10.20.30.10
+ def-domain firm.local
+ ! no "route set access-list" = client installs a default route = FULL tunnel
+!
+crypto ikev2 profile VPN-PROFILE
+ match identity remote any
+ authentication local rsa-sig
+ authentication remote eap query-identity          ! EAP → NPS → Entra MFA extension
+ pki trustpoint FIRM-VPN
+ aaa authentication eap VPN-EAP
+ aaa authorization group eap list VPN-AUTHZ VPN-POLICY
+ virtual-template 1
+!
+interface Virtual-Template1 type tunnel
+ ip unnumbered Vlan900
+ ip nat inside                                     ! full tunnel hairpins out via PAT
+ zone-member security VPN
+ tunnel mode ipsec ipv4
+ tunnel protection ipsec profile VPN-IPSEC
+!
+! per-client /32s win; unused pool IPs don't loop via the core
+ip route 10.20.200.0 255.255.255.0 Null0
+! ===== R1-EDGE — RADIUS to NPS · CORE — one more reply line =====
+radius server NPS
+ address ipv4 10.20.30.10 auth-port 1812 acct-port 1813
+ key <radius-shared-secret>
+aaa group server radius RAD-NPS
+ server name NPS
+ ip radius source-interface Vlan900
+aaa authentication login VPN-EAP group RAD-NPS
+aaa authorization network VPN-AUTHZ local
+!
+! on CORE: without this, every VPN login times out
+ip access-list extended V30-IN
+ 72 permit udp host 10.20.30.10 eq 1812 host 10.20.255.1
+! ===== R1-EDGE — self zone: IKE/ESP in, plus replies to the router's own probes =====
+ip access-list extended OUT-SELF
+ permit udp any any eq isakmp
+ permit udp any any eq non500-isakmp
+ permit esp any any
+ permit icmp any any echo-reply                ! IP SLA probe replies, see gotcha
+ permit udp any eq bootps any eq bootpc        ! DHCP on the 5G port
+class-map type inspect match-any CM-OUT-SELF
+ match access-group name OUT-SELF
+policy-map type inspect PM-OUT-SELF
+ class type inspect CM-OUT-SELF
+  pass
+ class class-default
+  drop
+zone-pair security ZP-OUT-SELF source OUTSIDE destination self
+ service-policy type inspect PM-OUT-SELF
+! ===== R1-EDGE — hierarchical shaping + LLQ =====
+class-map match-any VOICE
+ match dscp ef
+class-map match-any SIGNALLING
+ match dscp cs3 af31
+policy-map WAN-CHILD
+ class VOICE
+  ! ~9.5 Mb/s: about 100 concurrent G.711 calls, policed
+  priority percent 10
+ class SIGNALLING
+  bandwidth percent 5
+ class class-default
+  fair-queue
+policy-map WAN-OUT
+ class class-default
+  shape average 95000000                   ! just below the 100 Mb/s upload
+  service-policy WAN-CHILD
+!
+interface GigabitEthernet0/0/0
+ service-policy output WAN-OUT
+! no policy on the 5G port: its uplink rate varies too much to shape usefully
+! ===== All devices — the management baseline =====
+service password-encryption
+no ip http server
+no ip http secure-server
+ip ssh version 2
+ip ssh time-out 60
+login block-for 120 attempts 5 within 60
+!
+ip access-list standard MGMT-SRC
+ permit 10.20.99.0 0.0.0.255
+ permit 10.20.200.0 0.0.0.15                ! VPN admins
+line vty 0 15
+ access-class MGMT-SRC in
+ transport input ssh
+ exec-timeout 10 0
+!
+ntp server 10.20.30.10
+logging host 10.20.99.20                    ! monitoring VM: syslog + SNMP + config diffs
+logging trap informational
+archive
+ path flash:archive
+ write-memory
+ maximum 10
+!
+! R1 only: no discovery protocols toward the ISP
+interface range GigabitEthernet0/0/0 - 1
+ no cdp enable
+ no lldp transmit
+ no lldp receive

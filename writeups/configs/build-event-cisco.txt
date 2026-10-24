@@ -1,0 +1,244 @@
+! Build: The Festival Network — full Cisco IOS config
+! s-markakis.github.io/writeups/build-event.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== Generated node config — the per-node values come first, the shared body follows =====
+{# the same idea on Cisco: a Jinja2 template rendered per node (Ansible or a short script) #}
+hostname {{ name }}
+{% for v in vlans %}vlan {{ v }}
+{% endfor %}vlan 99
+interface {{ trunk }}
+ description backhaul
+ switchport mode trunk
+ switchport trunk allowed vlan {{ vlans | join(',') }},99
+interface Vlan99
+ ip address {{ mgmt_ip }} 255.255.255.0
+ip default-gateway 10.80.99.1
+ntp server 10.80.99.1
+logging host 10.80.99.5
+! ===== R1 — CCR2004 · trunk to the NOC switch, VLAN interfaces =====
+! R1 — edge router: one trunk to the NOC switch, dot1Q subinterfaces as VLAN gateways
+interface GigabitEthernet0/0/1
+ description NOC switch trunk
+ no ip address
+interface GigabitEthernet0/0/1.10
+ encapsulation dot1Q 10
+ ip address 10.80.10.1 255.255.255.0
+interface GigabitEthernet0/0/1.20
+ encapsulation dot1Q 20
+ ip address 10.80.20.1 255.255.255.0
+interface GigabitEthernet0/0/1.25
+ encapsulation dot1Q 25
+ ip address 10.80.25.1 255.255.255.0
+interface GigabitEthernet0/0/1.30
+ encapsulation dot1Q 30
+ ip address 10.80.30.1 255.255.255.0
+interface GigabitEthernet0/0/1.40
+ encapsulation dot1Q 40
+ ip address 10.80.40.1 255.255.255.0
+interface GigabitEthernet0/0/1.50
+ encapsulation dot1Q 50
+ ip address 10.80.48.1 255.255.248.0
+interface GigabitEthernet0/0/1.99
+ encapsulation dot1Q 99
+ ip address 10.80.99.1 255.255.255.0
+ip routing
+ntp master
+! ===== R1 — DHCP and DNS sized for thousands of phones =====
+! R1 — a big public pool (a /21), short leases; scanners and tills are reserved by MAC
+ip dhcp excluded-address 10.80.48.1
+ip dhcp pool PUBLIC
+ network 10.80.48.0 255.255.248.0
+ default-router 10.80.48.1
+ dns-server 10.80.48.1
+ lease 0 0 15
+ip dhcp pool TICKET
+ network 10.80.20.0 255.255.255.0
+ default-router 10.80.20.1
+ lease 0 12
+ip dhcp pool SCAN-GA01
+ host 10.80.20.41 255.255.255.0
+ client-identifier 0100.242b.0000.01
+ default-router 10.80.20.1
+! … the other scanners and tills the same way
+ip name-server 208.67.222.222 208.67.220.220
+ip dns server
+ip domain lookup
+! ===== R1 — CAPsMAN: SSIDs per zone, matched by AP name =====
+! Embedded Wireless Controller (Catalyst 9800): SSIDs per zone, applied by AP location
+! GATE APs -> SCAN+STAFF, FOOD APs -> FESTIVAL-Free+PAY+STAFF, STAGE APs -> Press+STAFF
+wlan EVT-SCAN 1 EVT-SCAN
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+wlan FESTIVAL-Free 2 FESTIVAL-Free
+ no security wpa
+ peer-blocking drop
+ no shutdown
+wlan FESTIVAL-Press 3 FESTIVAL-Press
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+! … EVT-PAY, EVT-STAFF the same way
+wireless profile policy SCAN
+ vlan 20
+ no shutdown
+wireless profile policy PUBLIC
+ vlan 50
+ no shutdown
+! one policy tag per AP group; the AP's name/location selects which tag it gets
+wireless tag policy GATE
+ wlan EVT-SCAN policy SCAN
+wireless tag policy FOOD
+ wlan FESTIVAL-Free policy PUBLIC
+! ===== R1 — address lists and the forward chain =====
+! Edge router — Zone-Based Firewall. A pair that doesn't exist = dropped (default-deny).
+object-group network TICKET-API
+ ! the ticketing company's published API ranges (IOS ACLs can't match a hostname)
+ 203.0.113.0 255.255.255.0
+zone security STAFF
+zone security TICKET
+zone security PAY
+zone security PROD
+zone security PRESS
+zone security PUBLIC
+zone security WAN
+interface Vlan10
+ zone-member security STAFF
+interface Vlan20
+ zone-member security TICKET
+interface Vlan25
+ zone-member security PAY
+interface Vlan30
+ zone-member security PROD
+interface Vlan40
+ zone-member security PRESS
+interface Vlan50
+ zone-member security PUBLIC
+! both WAN uplinks (Starlink + 5G) join the WAN zone
+interface range Cellular0/1/0, GigabitEthernet0/0/0
+ zone-member security WAN
+! generic "TCP/UDP/ICMP out" inspect policy, reused by the open zones
+class-map type inspect match-any CM-GENERAL
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GENERAL
+  inspect
+ class class-default
+  drop
+! ticketing: only HTTPS to the ticketing API
+ip access-list extended ACL-TICKET
+ permit tcp any object-group TICKET-API eq 443
+class-map type inspect match-all CM-TICKET
+ match access-group name ACL-TICKET
+policy-map type inspect PM-TICKET
+ class type inspect CM-TICKET
+  inspect
+ class class-default
+  drop
+zone-pair security ZP-TICKET-WAN source TICKET destination WAN
+ service-policy type inspect PM-TICKET
+! payments: HTTPS out only (vendors bring their own terminals and acquirers)
+ip access-list extended ACL-PAY
+ permit tcp any any eq 443
+class-map type inspect match-all CM-PAY
+ match access-group name ACL-PAY
+policy-map type inspect PM-PAY
+ class type inspect CM-PAY
+  inspect
+ class class-default
+  drop
+zone-pair security ZP-PAY-WAN source PAY destination WAN
+ service-policy type inspect PM-PAY
+! production -> the press tent's feed receiver (SRT, UDP 9000), and the internet
+ip access-list extended ACL-PROD-PRESS
+ permit udp any host 10.80.40.50 eq 9000
+class-map type inspect match-all CM-PRODPRESS
+ match access-group name ACL-PROD-PRESS
+policy-map type inspect PM-PRODPRESS
+ class type inspect CM-PRODPRESS
+  inspect
+zone-pair security ZP-PROD-PRESS source PROD destination PRESS
+ service-policy type inspect PM-PRODPRESS
+zone-pair security ZP-PROD-WAN source PROD destination WAN
+ service-policy type inspect PM-OUT
+! staff, press, public: internet only
+zone-pair security ZP-STAFF-WAN source STAFF destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-PRESS-WAN source PRESS destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-PUBLIC-WAN source PUBLIC destination WAN
+ service-policy type inspect PM-OUT
+! traffic to the router itself (DNS/DHCP/NTP from the LAN, mgmt from V99) is the
+! self zone, locked down in the hardening step
+! ===== R1 — WAN interfaces, probe routes kept current by DHCP scripts =====
+! R1 — three WANs (two Starlinks + 5G); IP SLA + tracked routes, not DHCP probe scripts
+interface GigabitEthernet0/0/0
+ description Starlink A
+ ip address dhcp
+interface GigabitEthernet0/0/2
+ description Starlink B
+ ip address dhcp
+interface Cellular0/1/0
+ description 5G
+ip sla 1
+ icmp-echo 1.1.1.1
+ frequency 5
+ip sla 2
+ icmp-echo 9.9.9.9
+ frequency 5
+ip sla schedule 1 life forever start-time now
+ip sla schedule 2 life forever start-time now
+track 1 ip sla 1 reachability
+track 2 ip sla 2 reachability
+ip route 0.0.0.0 0.0.0.0 dhcp 10 track 1
+ip route 0.0.0.0 0.0.0.0 dhcp 20 track 2
+! critical traffic is pinned to 5G by PBR in the per-job-table step
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload
+! ===== R1 — one table per job, and rules that pick the table =====
+! R1 — C8300: policy routing with tracked next hops instead of routing tables.
+! IOS PBR needs fixed next hops, so each Starlink keeps its own router (not bypass mode)
+! and hands R1 a stable LAN address: A = 192.168.1.1, B = 192.168.2.1, 5G = 192.168.8.1.
+route-map PBR-ZONES permit 10
+ match ip address CRIT-SRC                     ! staff, scanners, tills
+ set ip next-hop verify-availability 192.168.1.1 1 track 1
+ set ip next-hop verify-availability 192.168.8.1 2 track 3
+route-map PBR-ZONES permit 20
+ match ip address PROD-SRC                     ! the stream
+ set ip next-hop verify-availability 192.168.2.1 1 track 2
+ set ip next-hop verify-availability 192.168.1.1 2 track 1
+route-map PBR-ZONES permit 30
+ match ip address PUBLIC-SRC                   ! public and press
+ set ip next-hop verify-availability 192.168.1.1 1 track 1
+ set interface Null0                           ! A down: no other line for them
+interface GigabitEthernet0/0/2.900
+ ip policy route-map PBR-ZONES
+! ===== R1 — one simple queue, per-phone limits inside it =====
+! R1 — the total cap is a policer on the public subinterface;
+! the 2 Mb/s per phone moves to the wireless controller (per-client rate limit)
+policy-map PUBLIC-CAP
+ class class-default
+  police cir 60000000
+interface GigabitEthernet0/0/2.50
+ service-policy output PUBLIC-CAP
+! ===== R1 — a watch per zone and per line, logged to the NOC laptop =====
+! R1 — IP SLA per zone switch, EEM turns state changes into syslog warnings
+ip sla 11
+ icmp-echo 10.80.99.11
+ frequency 10
+ip sla schedule 11 life forever start-time now
+track 11 ip sla 11 reachability
+event manager applet ZONE-GATES
+ event track 11 state any
+ action 1.0 syslog priority warnings msg "ZONE GATES changed state"
+! … the same for FOOD-SW (.12), STAGE-SW (.13) and each internet line
+logging host 10.80.99.5
+! ===== Every node — keep the lessons, then return to the staging config =====
+! every node — keep the evidence, then return to the staging config
+show logging | redirect flash:festival-log.txt
+copy running-config flash:festival-final.cfg
+! copy both files to the NOC laptop, then:
+configure replace flash:staging.cfg force
+write memory

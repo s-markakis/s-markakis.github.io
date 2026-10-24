@@ -1,0 +1,197 @@
+! Build: The Off-Grid Farm — full Cisco IOS config
+! s-markakis.github.io/writeups/build-farm.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== SW-SHED — CRS328-24P-4S+ =====
+! SW-SHED — Catalyst 9300-24P: office, scale, NVR, cameras, and three trunks
+vtp mode transparent
+vlan 10,20,30,35,40,50,99
+interface GigabitEthernet1/0/1
+ description office PC
+ switchport mode access
+ switchport access vlan 10
+interface GigabitEthernet1/0/4
+ description scale + label printer
+ switchport access vlan 10
+interface GigabitEthernet1/0/5
+ description NVR
+ switchport access vlan 40
+interface range GigabitEthernet1/0/6 - 9
+ description yard cameras (PoE)
+ switchport access vlan 40
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+interface GigabitEthernet1/0/10
+ description LoRa gateway trunk
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 35,99
+interface GigabitEthernet1/0/11
+ description shed AP trunk
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 20,50,99
+interface GigabitEthernet1/0/12
+ description SXT to greenhouses trunk
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 30,99
+interface TenGigabitEthernet1/1/1
+ description uplink to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,35,40,50,99
+interface Vlan99
+ ip address 10.60.99.11 255.255.255.0
+ip default-gateway 10.60.99.1
+! ===== R1 — RB5009 · bridge, trunk, VLAN interfaces, DHCP =====
+! R1 — C1121X: SVIs route between the VLANs; one trunk to SW-SHED
+ip routing
+interface GigabitEthernet0/0/1
+ description SW-SHED trunk
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,35,40,50,99
+interface Vlan10
+ ip address 10.60.10.1 255.255.255.0
+interface Vlan20
+ ip address 10.60.20.1 255.255.255.0
+interface Vlan30
+ ip address 10.60.30.1 255.255.255.0
+interface Vlan35
+ ip address 10.60.35.1 255.255.255.0
+interface Vlan40
+ ip address 10.60.40.1 255.255.255.0
+interface Vlan50
+ ip address 10.60.50.1 255.255.255.0
+interface Vlan99
+ ip address 10.60.99.1 255.255.255.0
+! staff/guest get pools; controllers and the LoRa gateway are reserved by MAC
+ip dhcp pool STAFF
+ network 10.60.20.0 255.255.255.0
+ default-router 10.60.20.1
+ dns-server 10.60.20.1
+ lease 0 4
+ip dhcp pool GUEST
+ network 10.60.50.0 255.255.255.0
+ default-router 10.60.50.1
+ lease 0 2
+! … ops, control (reservations), lns (reservation) the same way
+ip name-server 9.9.9.9 149.112.112.112
+ip dns server
+ntp master
+! ===== LoRa GW — wAP LR8 · packet-forwarder to The Things Stack =====
+! No Cisco box is a drop-in for a MikroTik wAP LR8. Cisco's LoRaWAN story is the
+! IXM gateway + IoT Field Network Director, aimed at utilities and smart cities —
+! heavy and licensed for a six-greenhouse farm. In practice you run ANY vendor's
+! LoRaWAN gateway (RAK, Kerlink, a wAP LR8) pointed at The Things Stack; the router
+! just carries its UDP 1700 packet-forwarder traffic on VLAN 35, exactly as here.
+! The sensors are RF either way and never touch the IP network.
+! ===== SXT pair — 5 GHz nv2 bridge carrying the control VLAN =====
+! There is no nv2 on Cisco. For a 600 m point-to-point link Cisco's answer is the
+! Catalyst IW (Industrial Wireless) or Ultra-Reliable Wireless Backhaul line — they
+! do PtP well but cost far more than a pair of SXTs. What you give up dropping to
+! plain 802.11 is nv2's TDMA scheduling: the trick that keeps a long, one-to-one
+! link stable without CSMA back-off waiting for a faint, distant station. The VLAN
+! trunk it carries (control VLAN 30 + mgmt) is identical whatever bridges the gap.
+! ===== R1 — interface lists, input and forward chains =====
+! R1 — Zone-Based Firewall. No zone-pair = dropped (default-deny).
+zone security OPS
+zone security STAFF
+zone security CONTROL
+zone security LNS
+zone security CCTV
+zone security GUEST
+zone security WAN
+interface Vlan10
+ zone-member security OPS
+interface Vlan20
+ zone-member security STAFF
+interface Vlan30
+ zone-member security CONTROL
+interface Vlan35
+ zone-member security LNS
+interface Vlan40
+ zone-member security CCTV
+interface Vlan50
+ zone-member security GUEST
+interface GigabitEthernet0/0/0
+ zone-member security WAN
+class-map type inspect match-any CM-GENERAL
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GENERAL
+  inspect
+ class class-default
+  drop
+! the office reaches the controllers and the cameras
+zone-pair security ZP-OPS-CONTROL source OPS destination CONTROL
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OPS-CCTV source OPS destination CCTV
+ service-policy type inspect PM-OUT
+! every inside zone reaches the internet (narrow CONTROL/LNS/CCTV to their vendor by ACL)
+zone-pair security ZP-OPS-WAN source OPS destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-STAFF-WAN source STAFF destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-CONTROL-WAN source CONTROL destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-LNS-WAN source LNS destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-GUEST-WAN source GUEST destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-CCTV-WAN source CCTV destination WAN
+ service-policy type inspect PM-OUT
+! a greenhouse PLC can reach the internet, never the office or the cameras
+! ===== R1 — Starlink in bypass, recursive route kept by the DHCP client =====
+! R1 — Starlink in bypass: the WAN takes the carrier-NAT address; IP SLA tracks it
+interface GigabitEthernet0/0/0
+ description Starlink (bypass)
+ ip address dhcp
+ ip nat outside
+interface Cellular0/1/0
+ description 4G backup
+ ip nat outside
+ip sla 1
+ icmp-echo 1.1.1.1
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ip route 0.0.0.0 0.0.0.0 dhcp 1 track 1
+ip route 0.0.0.0 0.0.0.0 Cellular0/1/0 2
+ip access-list standard NAT-ALL
+ permit 10.60.0.0 0.0.255.255
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload
+! ===== Solar node — LtAP LR8 LTE · camera + LoRa repeater =====
+! No single Cisco box is a solar-powered LoRa repeater + LTE camera node. The
+! closest is an IR1101 industrial router: DIN-rail, wide-temperature, built-in LTE,
+! low draw — but it has no LoRa concentrator, so a third-party gateway still rides
+! alongside it. The hard part isn't the vendor anyway: the power budget (load x dark
+! hours x a cloud margin -> battery, then panel) is identical whichever box it is.
+! Over the LTE it dials the same FlexVPN tunnel home as R1.
+! ===== R1 — WireGuard to the operator hub, alerts, remote logs =====
+! R1 — FlexVPN client: dials out to the operator's hub through CGNAT
+crypto ikev2 profile TO-HUB
+ match identity remote fqdn hub.example.net
+ identity local fqdn farm-r1.example.net
+ authentication local rsa-sig
+ authentication remote rsa-sig
+ pki trustpoint OP-CA
+ dpd 10 3 periodic
+crypto ipsec profile TO-HUB
+ set ikev2-profile TO-HUB
+interface Tunnel1
+ ip address 10.250.0.31 255.255.255.0
+ tunnel source GigabitEthernet0/0/0
+ tunnel destination dynamic
+ tunnel protection ipsec profile TO-HUB
+crypto ikev2 client flexvpn HUB
+ peer 1 fqdn hub.example.net dynamic
+ client connect Tunnel1
+! remote syslog + an EEM applet as the netwatch equivalent
+logging host 10.250.0.1
+logging trap warnings
+event manager applet WAN-DOWN
+ event track 1 state down
+ action 1 syslog msg "Starlink path DOWN"

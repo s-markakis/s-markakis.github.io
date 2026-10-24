@@ -1,0 +1,288 @@
+! Build: The Coffee Shop Network — full Cisco IOS config
+! s-markakis.github.io/writeups/build-coffee-shop.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== SW-COUNTER — CRS112-8P-4S =====
+! SW-COUNTER — Catalyst 1000/9200: VLANs, access ports, one trunk to R1
+vtp mode transparent
+vlan 20,25,30,40,99
+interface range GigabitEthernet1/0/1 - 2
+ description card terminals
+ switchport mode access
+ switchport access vlan 25
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface GigabitEthernet1/0/3
+ description receipt printer
+ switchport access vlan 20
+interface range GigabitEthernet1/0/4 - 5
+ description music streamer + menu screen
+ switchport access vlan 30
+interface range GigabitEthernet1/0/6 - 8
+ description cameras (PoE)
+ switchport access vlan 40
+ spanning-tree portfast
+interface GigabitEthernet1/0/9
+ description trunk to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 20,25,30,40,99
+interface Vlan99
+ ip address 10.40.99.11 255.255.255.0
+ no shutdown
+ip default-gateway 10.40.99.1
+! only the cameras draw PoE; nothing else is powered
+interface range GigabitEthernet1/0/1 - 5
+ power inline never
+! ===== R1 — hAP ax³ · bridge, trunks, VLAN interfaces =====
+! R1 — C1121X: the integrated switch ports plus SVIs do the inter-VLAN routing
+ip routing
+vlan 10,20,25,30,40,50,99
+interface GigabitEthernet0/1/0
+ description SW-COUNTER trunk
+ switchport mode trunk
+ switchport trunk allowed vlan 20,25,30,40,99
+interface GigabitEthernet0/1/1
+ description patio AP trunk (mgmt native)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,50,99
+interface GigabitEthernet0/1/2
+ description office PC
+ switchport access vlan 10
+interface Vlan10
+ ip address 10.40.10.1 255.255.255.0
+interface Vlan20
+ ip address 10.40.20.1 255.255.255.0
+interface Vlan25
+ ip address 10.40.25.1 255.255.255.0
+interface Vlan30
+ ip address 10.40.30.1 255.255.255.0
+interface Vlan40
+ ip address 10.40.40.1 255.255.255.0
+interface Vlan50
+ ip address 10.40.50.1 255.255.255.0
+interface Vlan99
+ ip address 10.40.99.1 255.255.255.0
+! ===== R1 — DHCP and DNS (one pool + server + network per VLAN) =====
+! R1 — one DHCP pool per VLAN; the card terminals are reserved by MAC
+ip dhcp excluded-address 10.40.20.1 10.40.20.49
+ip dhcp excluded-address 10.40.50.1 10.40.50.19
+ip dhcp pool POS
+ network 10.40.20.0 255.255.255.0
+ default-router 10.40.20.1
+ dns-server 10.40.20.1
+ lease 1
+ip dhcp pool GUEST
+ network 10.40.50.0 255.255.255.0
+ default-router 10.40.50.1
+ dns-server 10.40.50.1
+ lease 0 0 30
+! … OFFICE, IOT, CCTV pools the same way
+! no dynamic pool on the payment VLAN — only these two reservations
+ip dhcp pool PAY-T1
+ host 10.40.25.11 255.255.255.0
+ client-identifier 010b.4f00.0011
+ default-router 10.40.25.1
+ip dhcp pool PAY-T2
+ host 10.40.25.12 255.255.255.0
+ client-identifier 010b.4f00.0012
+ default-router 10.40.25.1
+! the router as a DNS forwarder to Quad9
+ip name-server 9.9.9.9 149.112.112.112
+ip dns server
+ip domain lookup
+! ===== R1 — local radios + CAPsMAN for the patio wAP =====
+! Embedded Wireless Controller (Catalyst 9800, e.g. on a C9105 AP):
+! three WLANs mapped to three VLANs — the Cisco equivalent of CAPsMAN
+wlan CAFE-POS 1 CAFE-POS
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+wlan CAFE-Staff 2 CAFE-Staff
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+! CAFE-Guest (open + web consent) is defined in the guest-portal step
+wireless profile policy POS
+ vlan 20
+ no shutdown
+wireless profile policy STAFF
+ vlan 10
+ no shutdown
+wireless tag policy CAFE
+ wlan CAFE-POS policy POS
+ wlan CAFE-Staff policy STAFF
+! the patio AP joins the controller and inherits the CAFE tag — one config, every AP
+! ===== R1 — payment VLAN rules (first in the forward chain) =====
+! R1 — C1121X: IOS ACLs can't match host names, so the acquirer's
+! published address ranges go into an object-group
+object-group network ACQUIRER
+ 198.51.100.0 255.255.255.0
+! read top-down, first match wins; wildcard masks inverted. Deny RFC1918, then permit internet
+ip access-list extended V25-IN
+ permit udp 10.40.25.0 0.0.0.255 host 10.40.25.1 eq domain
+ permit tcp 10.40.25.0 0.0.0.255 object-group ACQUIRER eq 443
+ deny   ip any any log
+ip access-list extended V25-OUT
+ permit tcp any 10.40.25.0 0.0.0.255 established
+ deny   ip any any log                          ! nothing starts a connection into payments
+interface Vlan25
+ ip access-group V25-IN in
+ ip access-group V25-OUT out
+! ===== R1 — interface lists, input chain, the rest of forward =====
+! R1 — Zone-Based Firewall. A pair that doesn't exist = dropped, so this is
+! default-deny by design (no "drop rule at the bottom" needed).
+zone security OFFICE
+zone security POS
+zone security IOT
+zone security CCTV
+zone security GUEST
+zone security WAN
+interface Vlan10
+ zone-member security OFFICE
+interface Vlan20
+ zone-member security POS
+interface Vlan30
+ zone-member security IOT
+interface Vlan40
+ zone-member security CCTV
+interface Vlan50
+ zone-member security GUEST
+interface Dialer1
+ zone-member security WAN
+class-map type inspect match-any CM-GENERAL
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GENERAL
+  inspect
+ class class-default
+  drop
+! every inside zone may start sessions to the internet (PAY is handled in step 4)
+zone-pair security ZP-OFFICE-WAN source OFFICE destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-POS-WAN source POS destination WAN
+ service-policy type inspect PM-OUT
+! … IOT, CCTV, GUEST -> WAN the same way
+! the owner views the cameras on site
+zone-pair security ZP-OFFICE-CCTV source OFFICE destination CCTV
+ service-policy type inspect PM-OUT
+! ===== R1 — hotspot on the guest VLAN, click-through ("trial") login =====
+! Embedded wireless controller (Catalyst 9800/EWC syntax): web consent instead of a router hotspot
+parameter-map type webauth CONSENT
+ type consent
+wlan CAFE-Guest 3 CAFE-Guest
+ no security wpa
+ no security wpa wpa2
+ no security wpa akm dot1x
+ security web-auth
+ security web-auth parameter-map CONSENT
+ no shutdown
+wireless profile policy GUEST
+ vlan 50
+ session-timeout 7200
+ idle-timeout 900
+ no shutdown
+! per-client 5 Mb/s: a QoS policy applied per client on the GUEST policy profile
+! ===== R1 — total guest cap with a queue tree (on top of the hotspot's per-device queues) =====
+! R1 — one shaper for the whole guest VLAN; per-device fairness is the controller's job
+policy-map GUEST-DOWN
+ class class-default
+  shape average 180000000
+  fair-queue
+interface Vlan50
+ service-policy output GUEST-DOWN
+! the 30 Mb/s upload cap is a matching shaper on guest traffic as it egresses the WAN
+policy-map GUEST-UP
+ class class-default
+  shape average 30000000
+  fair-queue
+! ===== R1 — PPPoE fibre, 4G passthrough, recursive failover, NAT =====
+! R1 — PPPoE dialer, built-in LTE, IP SLA instead of recursive routes
+interface GigabitEthernet0/0/0
+ pppoe-client dial-pool-number 1
+interface Dialer1
+ ip address negotiated
+ encapsulation ppp
+ dialer pool 1
+ ppp chap hostname cafe@isp
+ ppp chap password 0 ********
+ ip mtu 1492
+ ip tcp adjust-mss 1452
+ ip nat outside
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface Dialer1
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ip route 1.1.1.1 255.255.255.255 Dialer1
+ip route 0.0.0.0 0.0.0.0 Dialer1 track 1
+ip route 0.0.0.0 0.0.0.0 Cellular0/1/0 250
+! ===== R1 — the expensive line is for the tills =====
+! R1 — the LTE interface gets its own zone; only the tills and payments get a pair to it
+zone security LTE
+interface Cellular0/1/0
+ zone-member security LTE
+zone-pair security ZP-POS-LTE source POS destination LTE
+ service-policy type inspect PM-OUT
+zone-pair security ZP-PAY-LTE source PAY destination LTE
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OFFICE-LTE source OFFICE destination LTE
+ service-policy type inspect PM-OUT
+! no GUEST, IOT or CCTV → LTE pairs: those zones have no path to 4G at all
+! ===== R1 — mDNS repeater (RouterOS 7.16+) and the matching forward rules =====
+! R1 — IOS-XE Service Discovery Gateway: learn the speaker on V30, announce it on V20
+mdns-sd gateway
+interface Vlan30
+ mdns-sd gateway
+interface Vlan20
+ mdns-sd gateway
+! filter by service type for your music system (service-list / service-policy);
+! the syntax differs between releases, check the SDG guide for yours
+! ===== R1 — WireGuard client to the contractor's hub =====
+! R1 — FlexVPN client: the router dials out to the contractor's hub, NAT-T through any CGNAT
+crypto ikev2 profile TO-HUB
+ match identity remote fqdn hub.example.net
+ identity local fqdn cafe-r1.example.net
+ authentication local rsa-sig
+ authentication remote rsa-sig
+ pki trustpoint IT-CA
+ dpd 10 3 periodic
+crypto ipsec profile TO-HUB-IPSEC
+ set ikev2-profile TO-HUB
+crypto ikev2 client flexvpn HUB
+ peer 1 fqdn hub.example.net dynamic
+ client connect Tunnel1
+interface Tunnel1
+ ip address negotiated
+ tunnel source Dialer1
+ tunnel destination dynamic
+ tunnel protection ipsec profile TO-HUB-IPSEC
+! ===== R1 (and the switch) — management plane and nightly backup =====
+! R1 — management plane: SSH only, from mgmt and the tunnel; config archived nightly
+no ip http server
+no ip http secure-server
+ip ssh version 2
+username netadmin privilege 15 secret 0 ********
+no username admin
+ip access-list standard MGMT-IN
+ permit 10.40.99.0 0.0.0.255
+ permit 10.250.0.0 0.0.0.255
+line vty 0 4
+ transport input ssh
+ access-class MGMT-IN in
+ login local
+ntp server time.cloudflare.com
+! nightly config backup over SCP (archive + kron)
+archive
+ path scp://backup@10.250.0.1/cafe-r1
+kron occurrence NIGHTLY at 3:30 recurring
+ policy-list BACKUP
+kron policy-list BACKUP
+ cli show running-config | redirect scp://backup@10.250.0.1/cafe-r1-latest.cfg
+! on SW-COUNTER: DHCP snooping, only the uplink to R1 is trusted
+ip dhcp snooping vlan 20,25,30,50
+ip dhcp snooping
+interface GigabitEthernet1/0/9
+ ip dhcp snooping trust

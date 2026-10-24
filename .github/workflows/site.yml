@@ -1,0 +1,65 @@
+name: Site
+
+# Catches the recurring "I forgot to regenerate X" bugs (stale OG cards, missing
+# -el twins in the sitemap, stale SW cache, unbalanced markup) and keeps the
+# generated artifacts fresh. On every push/PR it regenerates everything and runs
+# the checks; on a push to master it commits the regenerated artifacts back.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  site:
+    runs-on: ubuntu-latest   # never macos — 10x minute burn
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet pillow
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Regenerate artifacts
+        run: |
+          python3 compute-reading-time.py
+          bash generate-feed.sh
+          bash generate-sitemap.sh
+          python3 generate-configs.py
+          python3 generate-og-png.py || true          # root cards: only those in the CARDS dict
+          python3 generate-writeup-og-png.py || true   # every post in posts.json (incl. new ones)
+          python3 generate-main-og.py || true
+          npx -y pagefind@1 --site . > /dev/null
+
+      - name: Check (markup balance, JSON-LD, bx-data, OG refs, sitemap, feed)
+        run: |
+          bash validate.sh
+          python3 check_site.py
+
+      - name: Commit regenerated artifacts (master push only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.actor != 'github-actions[bot]'
+        run: |
+          if git diff --quiet; then
+            echo "nothing to regenerate — already fresh"
+            exit 0
+          fi
+          v=$(grep -oE "'v[0-9]+'" sw.js | head -1 | tr -dc 0-9)
+          sed -i "s/const VERSION = 'v${v}';/const VERSION = 'v$((v + 1))';/" sw.js
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "CI: regenerate OG/feed/sitemap/configs/pagefind, bump SW cache [skip ci]"
+          git push

@@ -1,0 +1,325 @@
+! Build: The Gaming Center Network — full Cisco IOS config
+! s-markakis.github.io/writeups/build-gaming-center.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== SW-SEATS — bridge, VLANs, seat ports =====
+! SW-SEATS — Catalyst 9300-48T: 40 seat ports on VLAN 10, uplink trunk to R1
+vtp mode transparent
+vlan 10,30,99
+interface range GigabitEthernet1/0/1 - 40
+ description seats
+ switchport mode access
+ switchport access vlan 10
+ switchport nonegotiate
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range TenGigabitEthernet1/1/1 - 2
+ description BOOT01 + CACHE01 (untagged boot on 10, tagged mgmt on 30)
+ switchport mode trunk
+ switchport trunk native vlan 10
+ switchport trunk allowed vlan 10,30
+interface TenGigabitEthernet1/1/3
+ description uplink to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,30,99
+interface Vlan99
+ ip address 10.30.99.11 255.255.255.0
+ip default-gateway 10.30.99.1
+! ===== SW-SEATS — port isolation in the switch chip =====
+! SW-SEATS — Catalyst 9300-48T + C9300-NM-8X: protected ports are Cisco's port isolation
+interface range GigabitEthernet1/0/1 - 40
+ description SEAT
+ switchport mode access
+ switchport access vlan 10
+ switchport protected                     ! protected ports never forward to each other
+ spanning-tree portfast
+ ! portfast skips the listen/learn wait; bpduguard shuts the port on a switch's BPDU
+ spanning-tree bpduguard enable
+interface range TenGigabitEthernet1/1/1 - 3
+ description R1 uplink / BOOT01 / CACHE01  ! NOT protected: every seat reaches these
+! careful: an unprotected port can reach every protected one (see tournament mode)
+! ===== SW-FRONT — CRS328-24P-4S+ (PoE) =====
+! SW-FRONT — Catalyst 9300-24P (PoE): booths, counter, cameras, AP trunks
+vtp mode transparent
+vlan 20,40,50,60,99
+interface range GigabitEthernet1/0/1 - 6
+ description console booths 1-6
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+interface range GigabitEthernet1/0/9 - 10
+ description POS PC + card terminal
+ switchport mode access
+ switchport access vlan 40
+interface range GigabitEthernet1/0/13 - 20
+ description cameras (PoE), one MAC each
+ switchport mode access
+ switchport access vlan 60
+ switchport port-security
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ spanning-tree portfast
+interface GigabitEthernet1/0/21
+ description NVR
+ switchport access vlan 60
+interface range GigabitEthernet1/0/22 - 24
+ description cAP APs (trunk: staff + guest + mgmt native)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 40,50,99
+interface TenGigabitEthernet1/1/1
+ description uplink to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 20,40,50,60,99
+interface Vlan99
+ ip address 10.30.99.12 255.255.255.0
+ip default-gateway 10.30.99.1
+! ===== R1 — CCR2004-16G-2S+ · trunks and VLAN interfaces =====
+! R1 — C8300: two trunks to the switches; dot1Q subinterfaces are the VLAN gateways
+interface TenGigabitEthernet0/0/0
+ description SW-SEATS trunk
+ no ip address
+interface TenGigabitEthernet0/0/0.10
+ encapsulation dot1Q 10
+ ip address 10.30.10.1 255.255.255.0
+interface TenGigabitEthernet0/0/0.30
+ encapsulation dot1Q 30
+ ip address 10.30.30.1 255.255.255.0
+interface TenGigabitEthernet0/0/0.99
+ encapsulation dot1Q 99
+ ip address 10.30.99.1 255.255.255.0
+interface TenGigabitEthernet0/0/1
+ description SW-FRONT trunk
+ no ip address
+interface TenGigabitEthernet0/0/1.20
+ encapsulation dot1Q 20
+ ip address 10.30.20.1 255.255.255.0
+interface TenGigabitEthernet0/0/1.40
+ encapsulation dot1Q 40
+ ip address 10.30.40.1 255.255.255.0
+interface TenGigabitEthernet0/0/1.50
+ encapsulation dot1Q 50
+ ip address 10.30.50.1 255.255.255.0
+interface TenGigabitEthernet0/0/1.60
+ encapsulation dot1Q 60
+ ip address 10.30.60.1 255.255.255.0
+! VLAN 99 (mgmt) rides both trunks; its gateway sits on the SEATS side above
+! ===== R1 — DHCP with PXE options for the seats =====
+! R1 — C8300: IOS DHCP pool with the PXE options
+ip dhcp excluded-address 10.30.10.1 10.30.10.149
+ip dhcp pool SEATS
+ network 10.30.10.0 255.255.255.0
+ default-router 10.30.10.1
+ dns-server 10.30.10.20
+ next-server 10.30.10.10
+ bootfile ipxe.efi
+ lease 0 12
+ip dhcp pool SEAT-17
+ host 10.30.10.117 255.255.255.0
+ client-identifier 0158.1122.0000.11       ! 01 + the seat's MAC
+! ===== R1 — address lists and filter rules =====
+! R1 — Zone-Based Firewall. No zone-pair = dropped (default-deny).
+zone security SEATS
+zone security CONSOLES
+zone security SRV
+zone security COUNTER
+zone security GUEST
+zone security CCTV
+zone security WAN
+interface Te0/0/0.10
+ zone-member security SEATS
+interface Te0/0/0.30
+ zone-member security SRV
+interface Te0/0/1.20
+ zone-member security CONSOLES
+interface Te0/0/1.40
+ zone-member security COUNTER
+interface Te0/0/1.50
+ zone-member security GUEST
+interface Te0/0/1.60
+ zone-member security CCTV
+class-map type inspect match-any CM-GENERAL
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GENERAL
+  inspect
+ class class-default
+  drop
+! seats, consoles, counter, guest, servers -> internet
+zone-pair security ZP-SEATS-WAN source SEATS destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-CONSOLES-WAN source CONSOLES destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-COUNTER-WAN source COUNTER destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-GUEST-WAN source GUEST destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-SRV-WAN source SRV destination WAN
+ service-policy type inspect PM-OUT
+! consoles reach the game cache on the seats VLAN
+ip access-list extended ACL-CACHE
+ permit ip any host 10.30.10.20
+class-map type inspect match-all CM-CACHE
+ match access-group name ACL-CACHE
+policy-map type inspect PM-CACHE
+ class type inspect CM-CACHE
+  inspect
+zone-pair security ZP-CONSOLES-SEATS source CONSOLES destination SEATS
+ service-policy type inspect PM-CACHE
+! the counter PC drives the diskless boot server and views the NVR (HTTPS)
+ip access-list extended ACL-COUNTER-SRV
+ permit tcp host 10.30.40.10 host 10.30.10.10 eq 443
+class-map type inspect match-all CM-CSRV
+ match access-group name ACL-COUNTER-SRV
+policy-map type inspect PM-CSRV
+ class type inspect CM-CSRV
+  inspect
+zone-pair security ZP-COUNTER-SEATS source COUNTER destination SEATS
+ service-policy type inspect PM-CSRV
+ip access-list extended ACL-COUNTER-CCTV
+ permit tcp host 10.30.40.10 host 10.30.60.10 eq 443
+class-map type inspect match-all CM-CCCTV
+ match access-group name ACL-COUNTER-CCTV
+policy-map type inspect PM-CCCTV
+ class type inspect CM-CCCTV
+  inspect
+zone-pair security ZP-COUNTER-CCTV source COUNTER destination CCTV
+ service-policy type inspect PM-CCCTV
+! ===== R1 — seats use the cache's DNS, nothing else =====
+! R1 — seats may only use the cache server's DNS; block all other DNS leaving the VLAN
+ip access-list extended ACL-SEATS-NODNS
+ deny   udp any any eq 53
+ deny   tcp any any eq 53
+ deny   tcp any any eq 853
+ permit ip any any
+interface Te0/0/0.10
+ ip access-group ACL-SEATS-NODNS in
+! the cache resolver is on the seats VLAN itself, so intra-VLAN DNS still works
+! ===== R1 — WAN1, masquerade, UPnP on the console VLAN only =====
+! R1 — IOS has no UPnP. Open NAT for six consoles needs six public addresses:
+! ask the ISP for a /28 and give each booth a 1:1 static NAT.
+ip access-list standard NAT-ALL
+ permit 10.30.0.0 0.0.255.255
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload
+ip nat inside source static 10.30.20.11 203.0.113.17      ! booth 1
+ip nat inside source static 10.30.20.12 203.0.113.18      ! booth 2
+! … booths 3-6
+interface GigabitEthernet0/0/0
+ ip nat outside
+! ===== R1 — WAN2, recursive failover, and a routing table for the cache =====
+! R1 — IP SLA + track instead of recursive routes, PBR instead of a routing table
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ip sla 2
+ icmp-echo 9.9.9.9 source-interface GigabitEthernet0/0/1
+ip sla schedule 2 life forever start-time now
+track 2 ip sla 2 reachability
+ip route 1.1.1.1 255.255.255.255 203.0.113.9
+ip route 9.9.9.9 255.255.255.255 198.51.100.1     ! VDSL modem in router mode, /30 to R1
+ip route 0.0.0.0 0.0.0.0 203.0.113.9 track 1
+ip route 0.0.0.0 0.0.0.0 198.51.100.1 250
+! cache downloads ride WAN2 while it's healthy; LAN traffic is excluded first
+! read top-down, first match wins; wildcard masks inverted. Deny RFC1918, then permit internet
+ip access-list extended CACHE-OUT
+ deny   ip host 10.30.10.20 10.30.0.0 0.0.255.255
+ permit ip host 10.30.10.20 any
+route-map PBR-LAN permit 10
+ match ip address CACHE-OUT
+ set ip next-hop verify-availability 198.51.100.1 1 track 2
+interface Vlan10
+ ip policy route-map PBR-LAN
+! ===== R1 — mangle and queue tree (WAN1) =====
+! R1 — NBAR2 classifies by application instead of by size
+class-map match-any GAME
+ match protocol attribute category gaming
+ match protocol attribute category voice-and-video
+class-map match-any BULK
+ match protocol attribute category file-sharing
+policy-map WAN1-CHILD
+ class GAME
+  priority percent 30
+ class BULK
+  bandwidth remaining percent 10
+ class class-default
+  fair-queue
+policy-map WAN1-OUT
+ class class-default
+  shape average 190000000
+  service-policy WAN1-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output WAN1-OUT
+! the same classes, shaped at 950M, go on the LAN-facing interface's output for downloads
+! check the category names on your release: show ip nbar attribute category
+! ===== SW-SEATS — tournament on/off, scheduled =====
+! SW-SEATS — EEM with cron timers. Because an unprotected port can reach every
+! protected one, the bracket also moves to its own VLAN 70 (with its own SVI on R1).
+event manager applet TOURNAMENT-ON
+ event timer cron cron-entry "0 17 * * 6"
+ action 1.0 cli command "enable"
+ action 2.0 cli command "configure terminal"
+ action 3.0 cli command "interface range GigabitEthernet1/0/1 - 10"
+ action 4.0 cli command "switchport access vlan 70"
+ action 5.0 cli command "no switchport protected"
+ action 6.0 syslog priority warnings msg "TOURNAMENT ON: seats 1-10 in VLAN 70"
+event manager applet TOURNAMENT-OFF
+ event timer cron cron-entry "30 23 * * 6"
+ action 1.0 cli command "enable"
+ action 2.0 cli command "configure terminal"
+ action 3.0 cli command "interface range GigabitEthernet1/0/1 - 10"
+ action 4.0 cli command "switchport access vlan 10"
+ action 5.0 cli command "switchport protected"
+ action 6.0 syslog priority warnings msg "TOURNAMENT OFF: seats 1-10 isolated again"
+! ===== R1 — CAPsMAN for three cAP ax (RouterOS 7 wifi) =====
+! Embedded Wireless Controller (Catalyst 9800): two WLANs to two VLANs, three APs
+wlan ARENA-Staff 1 ARENA-Staff
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+wlan ARENA-Guest 2 ARENA-Guest
+ no security wpa
+ peer-blocking drop
+ no shutdown
+wireless profile policy STAFF
+ vlan 40
+ no shutdown
+wireless profile policy GUEST
+ vlan 50
+ no shutdown
+wireless tag policy ARENA
+ wlan ARENA-Staff policy STAFF
+ wlan ARENA-Guest policy GUEST
+! peer-blocking drop = the Cisco equivalent of client-isolation on the guest WLAN
+! the 30 Mb/s lounge cap maps to a rate limit in the GUEST policy profile (AVC/QoS)
+! ===== R1 + both switches — management plane =====
+! R1 and both switches — SSH only from MGMT, logging to the NOC, nightly save
+no ip http server
+no ip http secure-server
+ip ssh version 2
+username netadmin privilege 15 secret 0 ********
+no username admin
+ip access-list standard MGMT-IN
+ permit 10.30.99.0 0.0.0.255
+line vty 0 4
+ transport input ssh
+ access-class MGMT-IN in
+ login local
+logging host 10.30.99.20
+logging trap warnings
+ntp server time.cloudflare.com
+archive
+ path scp://backup@10.30.99.20/game
+kron occurrence NIGHTLY at 4:00 recurring
+ policy-list SAVE
+kron policy-list SAVE
+ cli write memory
+! ===== SW-SEATS + SW-FRONT — DHCP snooping =====
+! SW-SEATS + SW-FRONT — DHCP snooping; only the uplink to R1 is trusted
+ip dhcp snooping vlan 10,20,30,40,50,60
+ip dhcp snooping
+interface TenGigabitEthernet1/1/1
+ ip dhcp snooping trust

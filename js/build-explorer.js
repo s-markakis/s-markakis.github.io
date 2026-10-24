@@ -4,6 +4,9 @@
 (function () {
   'use strict';
 
+  // current vendor + a hook so the vendor toggle can re-render the explorer pane
+  var curVendor = 'mikrotik', rerenderCfg = null;
+
   // ---- vendor tabs (work even on pages without an explorer)
   function setVendor(v) {
     document.querySelectorAll('[data-vt]').forEach(function (box) {
@@ -14,13 +17,20 @@
       });
       box.querySelectorAll('.vt-pane').forEach(function (p) { p.hidden = p.getAttribute('data-v') !== v; });
     });
+    curVendor = v;
+    if (rerenderCfg) rerenderCfg();   // keep the explorer's config pane in sync with the tabs
     try { localStorage.setItem('sp1r4_vendor', v); } catch (e) { /* storage blocked: tabs still work */ }
   }
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('.vt-btn');
     if (b) setVendor(b.getAttribute('data-v'));
   });
-  try { var saved = localStorage.getItem('sp1r4_vendor'); if (saved) setVendor(saved); } catch (e) { /* ignore */ }
+  // default to the saved choice, else the page's own primary (data-own), else MikroTik
+  try {
+    var saved = localStorage.getItem('sp1r4_vendor');
+    var vtEl = document.querySelector('[data-vt][data-own]');
+    setVendor(saved || (vtEl && vtEl.getAttribute('data-own')) || 'mikrotik');
+  } catch (e) { curVendor = 'mikrotik'; }
 
   // ---- explorer
   var root = document.getElementById('bx');
@@ -65,13 +75,13 @@
     root.querySelectorAll('.bx-cfg[data-dev]').forEach(function (g) { g.classList.toggle('bx-on', g.getAttribute('data-dev') === dev); });
     if (!dev) { cfgLabel.textContent = 'Select a device to see its configuration'; cfgPre.innerHTML = ''; return; }
     var frags = (data.configs[dev] || []).filter(function (f) { return step > max || f.step <= step; });
-    var added = frags.filter(function (f) { return f.step === step; }).reduce(function (n, f) { return n + f.text.split('\n').length; }, 0);
+    var added = frags.filter(function (f) { return f.step === step; }).reduce(function (n, f) { return n + (f[curVendor] || f.text).split('\n').length; }, 0);
     cfgLabel.textContent = data.devices[dev] + (step > max ? ' — complete configuration' :
       ' — configuration after step ' + step + (added ? ' (' + added + ' lines added in this step)' : ' (nothing added in this step)'));
     if (!frags.length) { cfgPre.innerHTML = '<span class="bx-hdr">! nothing configured on this device yet</span>'; return; }
     var out = '', first = null;
     frags.forEach(function (f) {
-      var body = '<span class="bx-hdr">! ── step ' + f.step + ' · ' + esc(f.title) + ' · ' + esc(f.label) + '</span>\n' + esc(f.text);
+      var body = '<span class="bx-hdr">! ── step ' + f.step + ' · ' + esc(f.title) + ' · ' + esc(f.label) + '</span>\n' + esc(f[curVendor] || f.text);
       if (f.step === step) { out += '<span class="bx-add">' + body + '</span>\n'; if (first === null) first = out.length; }
       else out += body + '\n\n';
     });
@@ -135,5 +145,6 @@
     root.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
+  rerenderCfg = renderCfg;   // now that renderCfg exists, let the vendor toggle call it
   setStep(max + 1);
 })();

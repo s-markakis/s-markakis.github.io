@@ -1,0 +1,476 @@
+! Build: The Supermarket Network — full Cisco IOS config
+! s-markakis.github.io/writeups/build-supermarket.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== ACC-FRONT — C9200L-24P-4G · VLANs and lane ports =====
+hostname ACC-FRONT
+! keeps its own VLAN list; ignores VTP from the wire (a rogue switch can't wipe it)
+vtp mode transparent
+! fast (802.1w) loop prevention, one instance per VLAN
+spanning-tree mode rapid-pvst
+vlan 10
+ name CDE
+vlan 20
+ name OFFICE
+vlan 30
+ name HANDHELD
+vlan 40
+ name STORE-IOT
+vlan 45
+ name REFRIG
+vlan 50
+ name GUEST
+vlan 60
+ name CCTV
+vlan 99
+ name MGMT
+vlan 666
+ name PARKING
+!
+! lanes: one POS and one PIN pad per lane, each pinned to its own MAC
+interface range GigabitEthernet1/0/1 - 16
+ description LANE POS / PIN PAD
+ switchport mode access
+ switchport access vlan 10
+ ! caps the MACs a port may learn; a violation locks it — no swapping a camera for a laptop
+switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security violation shutdown
+ switchport port-security
+ spanning-tree portfast
+ ! portfast skips the listen/learn wait; bpduguard shuts the port on a switch's BPDU
+ spanning-tree bpduguard enable
+interface range GigabitEthernet1/0/17 - 20
+ description SELF-CHECKOUT
+ switchport mode access
+ switchport access vlan 10
+ switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface GigabitEthernet1/0/21
+ description SIGNAGE
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+interface range GigabitEthernet1/0/22 , GigabitEthernet1/0/23 - 24
+ switchport access vlan 666
+ shutdown                                    ! Gi1/0/23-24 become AP trunks in step 5
+!
+! a swapped PIN pad stays down until a person looks
+no errdisable recovery cause psecure-violation
+! ===== ACC-BACK — C9200L-24P-4G =====
+hostname ACC-BACK
+! (same VLAN database as ACC-FRONT)
+interface range GigabitEthernet1/0/1 - 4
+ description OFFICE
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range GigabitEthernet1/0/5 - 8
+ description DELI / BAKERY / BUTCHER SCALES
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+interface range GigabitEthernet1/0/9 - 14
+ description ESL BASE STATIONS (PoE)
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+interface GigabitEthernet1/0/15
+ description REFRIGERATION CONTROLLER
+ switchport mode access
+ switchport access vlan 45
+ switchport port-security mac-address sticky
+ switchport port-security
+ spanning-tree portfast
+interface GigabitEthernet1/0/16
+ description PA / MUSIC
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+! ===== SW-CCTV — C9200L-48P-4G =====
+hostname SW-CCTV
+vlan 60
+ name CCTV
+vlan 99
+ name MGMT
+interface range GigabitEthernet1/0/1 - 24
+ description CAMERA
+ switchport mode access
+ switchport access vlan 60
+ switchport port-security mac-address sticky
+ switchport port-security
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface GigabitEthernet1/0/48
+ description NVR
+ switchport mode access
+ switchport access vlan 60
+ spanning-tree portfast
+interface range GigabitEthernet1/0/25 - 47
+ shutdown
+! ===== CORE — C9200-24T · port-channels and SVIs =====
+hostname CORE
+vtp mode transparent
+spanning-tree mode rapid-pvst
+spanning-tree vlan 1-4094 priority 4096
+ip routing
+! (same VLAN database, plus vlan 900 TRANSIT)
+interface range GigabitEthernet1/1/1 - 2
+ ! bond links into one Port-channel: bandwidth + redundancy
+ channel-group 1 mode active
+interface range GigabitEthernet1/1/3 - 4
+ channel-group 2 mode active
+interface range GigabitEthernet1/0/23 - 24
+ channel-group 3 mode active
+interface range Port-channel1 - 2
+ switchport mode trunk
+ ! the trunk's untagged VLAN — parked on an unused one so tag-injection goes nowhere
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 10,20,30,40,45,50,99
+ switchport nonegotiate
+interface Port-channel3
+ description SW-CCTV: cameras and management only
+ switchport mode trunk
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 60,99
+ switchport nonegotiate
+!
+interface Vlan10
+ description CDE
+ ip address 10.50.10.1 255.255.255.0
+ no ip redirects
+ no ip proxy-arp
+! Vlan20, 30, 40, 45, 60, 99: same shape, own subnet
+! no "interface Vlan50": guests are routed by R1 only (step 7)
+!
+ip dhcp excluded-address 10.50.20.1 10.50.20.49
+ip dhcp pool OFFICE
+ network 10.50.20.0 255.255.255.0
+ default-router 10.50.20.1
+ dns-server 172.16.0.53
+ip dhcp pool HANDHELD
+ network 10.50.30.0 255.255.255.0
+ default-router 10.50.30.1
+ dns-server 172.16.0.53
+ lease 0 12
+! STORE-IOT: reservations per MAC (client-identifier), same pattern
+! ===== ACC-FRONT Gi1/0/23-24 and ACC-BACK Gi1/0/21-24 — AP trunks =====
+interface range GigabitEthernet1/0/21 - 24
+ description AP (FlexConnect local switching)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 30,50,99
+ switchport nonegotiate
+ spanning-tree portfast trunk
+ no shutdown
+! ===== CORE — SVI ACLs (inbound) =====
+ip access-list extended V10-IN
+ remark CDE: lanes and SCOs reach HQ and nothing else
+ 10 permit icmp 10.50.10.0 0.0.0.255 host 10.50.10.1
+ 20 permit ip 10.50.10.0 0.0.0.255 172.16.0.0 0.0.255.255
+ 30 deny   ip any any log
+!
+ip access-list extended V20-IN
+ remark OFFICE: HQ, store-IoT admin, NVR viewing, internet. Never the CDE.
+ 10 permit udp any any eq bootps
+ 15 permit icmp any host 10.50.20.1
+ 20 deny   ip any 10.50.10.0 0.0.0.255 log
+ 30 permit ip 10.50.20.0 0.0.0.255 172.16.0.0 0.0.255.255
+ 40 permit tcp 10.50.20.0 0.0.0.255 10.50.40.0 0.0.0.255 eq 443
+ 50 permit tcp 10.50.20.0 0.0.0.255 host 10.50.60.10 eq 443
+ 60 deny   ip any 10.0.0.0 0.255.255.255 log
+ 70 deny   ip any 172.16.0.0 0.15.255.255
+ 80 deny   ip any 192.168.0.0 0.0.255.255
+ 90 permit ip 10.50.20.0 0.0.0.255 any
+!
+ip access-list extended V30-IN
+ remark HANDHELD: the warehouse system at HQ, nothing else
+ 10 permit udp any any eq bootps
+ 20 permit udp 10.50.30.0 0.0.0.255 host 172.16.0.53 eq domain
+ 30 permit tcp 10.50.30.0 0.0.0.255 host 172.16.30.15 eq 443
+ 40 deny   ip any any log
+!
+ip access-list extended V40-IN
+ remark STORE-IOT: their managers at HQ, replies to the office, vendor clouds
+ 10 permit udp any any eq bootps
+ 20 permit ip 10.50.40.0 0.0.0.255 172.16.40.0 0.0.0.255
+ 30 permit tcp 10.50.40.0 0.0.0.255 10.50.20.0 0.0.0.255 established
+ 40 deny   ip any 10.0.0.0 0.255.255.255 log
+ 50 deny   ip any 172.16.0.0 0.15.255.255
+ 60 deny   ip any 192.168.0.0 0.0.255.255
+ 70 permit tcp 10.50.40.0 0.0.0.255 any eq 443
+!
+ip access-list extended V45-IN
+ remark REFRIG: alarms to HQ BMS, replies to the vendor jump host
+ 10 permit tcp host 10.50.45.10 host 172.16.45.20 eq 443
+ 20 permit tcp host 10.50.45.10 host 172.16.5.10 established
+ 30 deny   ip any any log
+!
+ip access-list extended V60-IN
+ remark CCTV: the NVR answers viewers, nothing else
+ 10 permit tcp host 10.50.60.10 eq 443 10.50.20.0 0.0.0.255 established
+ 20 permit tcp host 10.50.60.10 eq 443 172.16.0.0 0.0.255.255 established
+ 30 deny   ip any any log
+!
+interface Vlan10
+ ip access-group V10-IN in
+! … V20-IN to V60-IN on their SVIs the same way
+! ===== R1-EDGE — C8200L-1N-4T · LAN side =====
+hostname R1-EDGE
+interface GigabitEthernet0/0/2
+ description CORE Gi1/0/1 (trunk: 50, 900)
+ no ip address
+interface GigabitEthernet0/0/2.900
+ encapsulation dot1Q 900
+ ip address 10.50.255.1 255.255.255.248
+interface GigabitEthernet0/0/2.50
+ encapsulation dot1Q 50
+ ip address 10.50.50.1 255.255.255.0
+!
+ip dhcp excluded-address 10.50.50.1 10.50.50.9
+ip dhcp pool GUEST
+ network 10.50.50.0 255.255.255.0
+ default-router 10.50.50.1
+ dns-server 9.9.9.9 149.112.112.112
+ lease 0 2
+policy-map GUEST-LIMIT
+ class class-default
+  police cir 20000000
+interface GigabitEthernet0/0/2.50
+ service-policy input GUEST-LIMIT
+ service-policy output GUEST-LIMIT
+!
+ip route 10.50.0.0 255.255.0.0 10.50.255.2
+! ===== CORE — uplink to R1 and the guest backstop =====
+interface GigabitEthernet1/0/1
+ description R1-EDGE Gi0/0/2
+ switchport mode trunk
+ switchport trunk native vlan 666
+ switchport trunk allowed vlan 50,900
+ switchport nonegotiate
+ip access-list extended V900-IN
+ 10 deny   ip 10.50.50.0 0.0.0.255 any log
+ 20 permit ip any any
+interface Vlan900
+ ip address 10.50.255.2 255.255.255.248
+ ip access-group V900-IN in
+ip route 0.0.0.0 0.0.0.0 10.50.255.1
+! ===== R1-EDGE — WAN, NAT and zones =====
+interface GigabitEthernet0/0/0
+ description FIBRE (static 203.0.113.42/29)
+ ip address 203.0.113.42 255.255.255.248
+ ip nat outside
+ no cdp enable
+ip route 0.0.0.0 0.0.0.0 203.0.113.41
+!
+ip access-list standard NAT-SRC
+ permit 10.50.20.0 0.0.0.255
+ permit 10.50.40.0 0.0.0.255
+ permit 10.50.50.0 0.0.0.255
+ip nat inside source list NAT-SRC interface GigabitEthernet0/0/0 overload
+interface GigabitEthernet0/0/2.900
+ ip nat inside
+interface GigabitEthernet0/0/2.50
+ ip nat inside
+!
+zone security INSIDE
+zone security GUEST
+zone security OUTSIDE
+zone security HQ
+ip access-list extended INSIDE-TO-INET
+ remark Office and store-IoT HTTPS only. The CDE, handhelds, refrigeration and CCTV are absent on purpose.
+ permit ip 10.50.20.0 0.0.0.255 any
+ permit tcp 10.50.40.0 0.0.0.255 any eq 443
+class-map type inspect match-all CM-INET
+ match access-group name INSIDE-TO-INET
+class-map type inspect match-any CM-ANY
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-IN-OUT
+ class type inspect CM-INET
+  inspect
+ class class-default
+  drop log
+policy-map type inspect PM-GST-OUT
+ class type inspect CM-ANY
+  inspect
+ class class-default
+  drop
+zone-pair security ZP-IN-OUT source INSIDE destination OUTSIDE
+ service-policy type inspect PM-IN-OUT
+zone-pair security ZP-GST-OUT source GUEST destination OUTSIDE
+ service-policy type inspect PM-GST-OUT
+interface GigabitEthernet0/0/2.900
+ zone-member security INSIDE
+interface GigabitEthernet0/0/2.50
+ zone-member security GUEST
+interface GigabitEthernet0/0/0
+ zone-member security OUTSIDE
+! ===== R1-EDGE — IKEv2 static VTI to HQ =====
+crypto ikev2 proposal P-HQ
+ encryption aes-gcm-256
+ prf sha384
+ group 19
+crypto ikev2 policy POL-HQ
+ proposal P-HQ
+crypto ikev2 profile PR-HQ
+ match identity remote address 198.51.100.20 255.255.255.255
+ identity local fqdn store-142.market.example
+ authentication local rsa-sig
+ authentication remote rsa-sig
+ pki trustpoint CHAIN-CA
+ dpd 10 3 periodic
+crypto ipsec transform-set TS-GCM esp-gcm 256
+ mode tunnel
+crypto ipsec profile IP-HQ
+ set transform-set TS-GCM
+ set ikev2-profile PR-HQ
+!
+interface Tunnel0
+ description HQ primary (over fibre)
+ ip address 10.255.142.2 255.255.255.252
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+ tunnel source GigabitEthernet0/0/0
+ tunnel mode ipsec ipv4
+ tunnel destination 198.51.100.20
+ tunnel protection ipsec profile IP-HQ
+ zone-member security HQ
+ip route 172.16.0.0 255.255.0.0 Tunnel0
+ip route 198.51.100.20 255.255.255.255 203.0.113.41         ! HQ head-end 1 only via fibre
+ip route 198.51.100.20 255.255.255.255 Null0 250
+! ===== R1-EDGE — what may cross the tunnel, in each direction =====
+ip access-list extended STORE-TO-HQ
+ permit ip 10.50.10.0 0.0.0.255 172.16.0.0 0.0.255.255
+ permit ip 10.50.20.0 0.0.0.255 172.16.0.0 0.0.255.255
+ permit ip 10.50.30.0 0.0.0.255 172.16.0.0 0.0.255.255
+ permit ip 10.50.40.0 0.0.0.255 172.16.40.0 0.0.0.255
+ permit tcp host 10.50.45.10 host 172.16.45.20 eq 443
+ip access-list extended HQ-TO-STORE
+ remark HQ is not trusted blindly
+ permit tcp 172.16.10.0 0.0.0.255 10.50.10.0 0.0.0.255 eq 443       ! POS management
+ permit tcp 172.16.10.0 0.0.0.255 10.50.10.0 0.0.0.255 eq 22
+ ! price push to scales/ESL
+ permit tcp 172.16.40.0 0.0.0.255 10.50.40.0 0.0.0.255
+ permit tcp 172.16.20.0 0.0.0.255 10.50.20.0 0.0.0.255 eq 3389     ! IT support
+ permit tcp 172.16.60.0 0.0.0.255 host 10.50.60.10 eq 443          ! security viewing
+class-map type inspect match-all CM-TO-HQ
+ match access-group name STORE-TO-HQ
+class-map type inspect match-all CM-FROM-HQ
+ match access-group name HQ-TO-STORE
+policy-map type inspect PM-IN-HQ
+ class type inspect CM-TO-HQ
+  inspect
+ class class-default
+  drop log
+policy-map type inspect PM-HQ-IN
+ class type inspect CM-FROM-HQ
+  inspect
+ class class-default
+  drop log
+zone-pair security ZP-IN-HQ source INSIDE destination HQ
+ service-policy type inspect PM-IN-HQ
+zone-pair security ZP-HQ-IN source HQ destination INSIDE
+ service-policy type inspect PM-HQ-IN
+!
+! the router itself: IKE + ESP in, and replies to its own probes (step 10)
+ip access-list extended TO-SELF
+ permit udp any any eq isakmp
+ permit udp any any eq non500-isakmp
+ permit esp any any
+ permit icmp any any echo-reply
+class-map type inspect match-any CM-SELF
+ match access-group name TO-SELF
+policy-map type inspect PM-OUT-SELF
+ class type inspect CM-SELF
+  pass
+ class class-default
+  drop
+zone-pair security ZP-OUT-SELF source OUTSIDE destination self
+ service-policy type inspect PM-OUT-SELF
+! ===== R1-EDGE — probe, tracked default, LTE zone, standby tunnel =====
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ delay down 10 up 60
+ip route 1.1.1.1 255.255.255.255 203.0.113.41
+ip route 1.1.1.1 255.255.255.255 Null0 250
+no ip route 0.0.0.0 0.0.0.0 203.0.113.41
+ip route 0.0.0.0 0.0.0.0 203.0.113.41 track 1
+!
+interface Cellular0/2/0
+ description LTE backup (carrier profile configured on the module)
+ ip address negotiated
+ zone-member security LTE
+zone security LTE
+zone-pair security ZP-LTE-SELF source LTE destination self
+ service-policy type inspect PM-OUT-SELF
+ip route 198.51.100.21 255.255.255.255 Cellular0/2/0         ! HQ head-end 2 only via LTE
+!
+interface Tunnel1
+ description HQ backup (over LTE)
+ ip address 10.255.142.6 255.255.255.252
+ ip mtu 1400
+ ip tcp adjust-mss 1360
+ tunnel source Cellular0/2/0
+ tunnel mode ipsec ipv4
+ tunnel destination 198.51.100.21
+ tunnel protection ipsec profile IP-HQ-LTE
+ zone-member security HQ
+ip route 172.16.0.0 255.255.0.0 Tunnel1 250
+! ===== R1-EDGE — time-boxed, audited vendor access from HQ's jump host =====
+time-range VENDOR-REFRIG
+ periodic Tuesday 9:00 to 12:00
+ip access-list extended HQ-VENDOR
+ permit tcp host 172.16.5.10 host 10.50.45.10 eq 443 time-range VENDOR-REFRIG
+parameter-map type inspect PMAP-AUDIT
+ audit-trail on
+class-map type inspect match-all CM-VENDOR
+ match access-group name HQ-VENDOR
+policy-map type inspect PM-HQ-IN
+ class type inspect CM-VENDOR
+  inspect PMAP-AUDIT
+ class type inspect CM-FROM-HQ
+  inspect
+ class class-default
+  drop log
+! ===== R1-EDGE — classify before encryption, shape the fibre upload =====
+interface Tunnel0
+ qos pre-classify
+interface Tunnel1
+ qos pre-classify
+ip access-list extended CRITICAL
+ permit ip 10.50.10.0 0.0.0.255 172.16.0.0 0.0.255.255
+ permit ip 10.50.30.0 0.0.0.255 172.16.0.0 0.0.255.255
+class-map match-any CRIT
+ match access-group name CRITICAL
+policy-map WAN-CHILD
+ class CRIT
+  bandwidth percent 30
+ class class-default
+  fair-queue
+policy-map WAN-OUT
+ class class-default
+  shape average 95000000
+  service-policy WAN-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output WAN-OUT
+! ===== All devices — time and logging (PCI DSS requirement 10) =====
+service timestamps log datetime msec localtime show-timezone
+ntp server 172.16.0.123
+logging host 172.16.50.5
+logging trap informational
+login on-failure log
+login on-success log
+archive
+ log config
+  logging enable
+  notify syslog contenttype plaintext
+  hidekeys

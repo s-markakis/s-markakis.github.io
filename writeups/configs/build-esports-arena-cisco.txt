@@ -1,0 +1,299 @@
+! Build: The Esports Arena Network — full Cisco IOS config
+! s-markakis.github.io/writeups/build-esports-arena.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== STAGE-SW — C9300-24UX · ports, SVIs, routed uplink =====
+hostname STAGE-SW
+ip routing
+vlan 10
+ name STAGE-PLAYERS
+vlan 15
+ name MATCH-SERVERS
+vlan 20
+ name OPS
+!
+interface range TenGigabitEthernet1/0/1 - 5
+ description TEAM A seats 1-5 (3 m cables, same batch as team B)
+ switchport mode access
+ switchport access vlan 10
+ ! caps the MACs a port may learn; a violation locks it — no swapping a camera for a laptop
+switchport port-security maximum 1
+ switchport port-security mac-address sticky
+ switchport port-security
+ no power efficient-ethernet
+ spanning-tree portfast
+ ! portfast skips the listen/learn wait; bpduguard shuts the port on a switch's BPDU
+ spanning-tree bpduguard enable
+interface range TenGigabitEthernet1/0/6 - 10
+ description TEAM B seats 1-5 (3 m cables, same batch as team A)
+ ! … identical to team A, line for line
+interface range TenGigabitEthernet1/0/11 - 12
+ description MATCH SERVERS (main, hot spare)
+ switchport mode access
+ switchport access vlan 15
+ no power efficient-ethernet
+ spanning-tree portfast
+interface range TenGigabitEthernet1/0/13 - 14
+ description REFEREE + capture-box management
+ switchport mode access
+ switchport access vlan 20
+ spanning-tree portfast
+!
+interface TenGigabitEthernet1/1/1
+ description CORE (the pod's only door)
+ no switchport
+ ip address 10.90.255.2 255.255.255.252
+interface Vlan10
+ ip address 10.90.10.1 255.255.255.0
+interface Vlan15
+ ip address 10.90.15.1 255.255.255.0
+interface Vlan20
+ ip address 10.90.20.1 255.255.255.0
+ip route 0.0.0.0 0.0.0.0 10.90.255.1
+! ===== BOOTCAMP-SW — C9300-48P =====
+hostname BOOTCAMP-SW
+vlan 11
+ name BOOTCAMP
+interface range GigabitEthernet1/0/1 - 42
+ description BOOTCAMP PCs + practice servers
+ switchport mode access
+ switchport access vlan 11
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface TenGigabitEthernet1/1/1
+ description CORE
+ switchport mode trunk
+ switchport trunk allowed vlan 11,99
+! ===== PROD-SW — C9300-24UX · NDI-ready =====
+hostname PROD-SW
+vlan 30
+ name PRODUCTION
+ip igmp snooping
+ip igmp snooping querier                              ! no multicast router in this VLAN
+interface range TenGigabitEthernet1/0/1 - 14
+ description PRODUCTION machines (observers, replay, graphics, casters, encoders)
+ switchport mode access
+ switchport access vlan 30
+ spanning-tree portfast
+interface range TenGigabitEthernet1/1/1 - 2
+ ! bond links into one Port-channel: bandwidth + redundancy
+ channel-group 3 mode active
+interface Port-channel3
+ description CORE (2x10G)
+ switchport mode trunk
+ switchport trunk allowed vlan 30,99
+! ===== FOH-SW — C9200L-24P =====
+hostname FOH-SW
+interface range GigabitEthernet1/0/1 - 8
+ description ARENA APs (FlexConnect local switching)
+ switchport mode trunk
+ ! the trunk's untagged VLAN — parked on an unused one so tag-injection goes nowhere
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 40,50,99
+ spanning-tree portfast trunk
+interface range GigabitEthernet1/0/9 - 16
+ description PRESS desks
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface TenGigabitEthernet1/1/1
+ description CORE
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,99
+! ===== CORE — C9300-48T · links, SVIs, routes =====
+hostname CORE
+ip routing
+interface TenGigabitEthernet1/1/2
+ description STAGE-SW (routed)
+ no switchport
+ ip address 10.90.255.1 255.255.255.252
+interface TenGigabitEthernet1/1/3
+ description BOOTCAMP-SW
+ switchport mode trunk
+ switchport trunk allowed vlan 11,99
+interface range TenGigabitEthernet1/1/4 - 5
+ channel-group 3 mode active
+interface Port-channel3
+ description PROD-SW
+ switchport mode trunk
+ switchport trunk allowed vlan 30,99
+interface TenGigabitEthernet1/1/6
+ description FOH-SW
+ switchport mode trunk
+ switchport trunk allowed vlan 40,50,99
+interface TenGigabitEthernet1/1/1
+ description EDGE (transit + public)
+ switchport mode trunk
+ switchport trunk allowed vlan 50,900
+!
+interface Vlan11
+ ip address 10.90.11.1 255.255.255.0
+interface Vlan30
+ ip address 10.90.30.1 255.255.255.0
+interface Vlan40
+ ip address 10.90.40.1 255.255.255.0
+interface Vlan99
+ ip address 10.90.99.1 255.255.255.0
+interface Vlan900
+ ip address 10.90.254.2 255.255.255.248
+! no "interface Vlan50": the public is routed by the EDGE only
+!
+ip route 10.90.10.0 255.255.255.0 10.90.255.2
+ip route 10.90.15.0 255.255.255.0 10.90.255.2
+ip route 10.90.20.0 255.255.255.0 10.90.255.2
+ip route 0.0.0.0 0.0.0.0 10.90.254.1
+! ===== DNS-ALLOW (10.90.20.53) — Unbound: every name is NXDOMAIN unless it's on the list =====
+ip access-list extended V10-IN
+ remark PLAYERS: match servers, the allowlist resolver, HTTPS out
+ 10 permit udp 10.90.10.0 0.0.0.255 10.90.15.0 0.0.0.255 range 27015 27020
+ 20 permit udp 10.90.10.0 0.0.0.255 host 10.90.20.53 eq domain
+ 30 permit tcp 10.90.10.0 0.0.0.255 host 10.90.20.53 eq domain
+ 40 permit tcp 10.90.10.0 0.0.0.255 10.90.20.0 0.0.0.255 established
+ 50 deny   ip any 10.0.0.0 0.255.255.255 log
+ 60 deny   ip any 172.16.0.0 0.15.255.255
+ 70 deny   ip any 192.168.0.0 0.0.255.255
+ 80 permit tcp 10.90.10.0 0.0.0.255 any eq 443
+ 90 deny   ip any any log
+!
+ip access-list extended V15-IN
+ remark MATCH SERVERS: answer players and observers, report results
+ 10 permit udp 10.90.15.0 0.0.0.255 range 27015 27020 10.90.10.0 0.0.0.255
+ 20 permit udp 10.90.15.0 0.0.0.255 eq 27020 10.90.30.0 0.0.0.255
+ 30 permit tcp 10.90.15.0 0.0.0.255 10.90.20.0 0.0.0.255 established
+ 40 deny   ip any 10.0.0.0 0.255.255.255 log
+ 50 permit tcp 10.90.15.0 0.0.0.255 any eq 443
+ 60 deny   ip any any log
+!
+ip access-list extended UPLINK-IN
+ remark The pod's only door: delayed spectator feed in, replies in, nothing else
+ 10 permit udp 10.90.30.0 0.0.0.255 10.90.15.0 0.0.0.255 eq 27020
+ 20 permit tcp any 10.90.10.0 0.0.0.255 established
+ 30 permit tcp any 10.90.15.0 0.0.0.255 established
+ 40 permit tcp any 10.90.20.0 0.0.0.255 established
+ 50 permit udp any eq domain host 10.90.20.53
+ 60 deny   ip any any log
+!
+interface Vlan10
+ ip access-group V10-IN in
+interface Vlan15
+ ip access-group V15-IN in
+interface TenGigabitEthernet1/1/1
+ ip access-group UPLINK-IN in
+! ===== STAGE-SW — SPAN all player and server ports to the capture box =====
+monitor session 1 source interface TenGigabitEthernet1/0/1 - 12 both
+monitor session 1 destination interface TenGigabitEthernet1/0/24
+! ===== Capture box — 10-minute files, 48 hours kept =====
+interface GigabitEthernet0/0/2.900
+ encapsulation dot1Q 900
+ ip address 10.90.254.1 255.255.255.248
+ ip nat inside
+ zone-member security INSIDE
+ ip policy route-map PBR-IN
+interface GigabitEthernet0/0/2.50
+ encapsulation dot1Q 50
+ ip address 10.90.48.1 255.255.248.0
+ ip nat inside
+ zone-member security PUBLIC
+interface GigabitEthernet0/0/0
+ description ISP A
+ ip address 203.0.113.10 255.255.255.248
+ ip nat outside
+ zone-member security OUTSIDE-A
+interface GigabitEthernet0/0/1
+ description ISP B
+ ip address 198.51.100.10 255.255.255.248
+ ip nat outside
+ zone-member security OUTSIDE-B
+!
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ delay down 10 up 60
+ip sla 2
+ icmp-echo 9.9.9.9 source-interface GigabitEthernet0/0/1
+ frequency 5
+ip sla schedule 2 life forever start-time now
+track 2 ip sla 2 reachability
+ip route 1.1.1.1 255.255.255.255 203.0.113.9            ! each probe pinned to its own ISP
+ip route 1.1.1.1 255.255.255.255 Null0 250
+ip route 9.9.9.9 255.255.255.255 198.51.100.9
+ip route 9.9.9.9 255.255.255.255 Null0 250
+ip route 0.0.0.0 0.0.0.0 203.0.113.9 track 1
+ip route 0.0.0.0 0.0.0.0 198.51.100.9 250
+ip route 10.90.0.0 255.255.0.0 10.90.254.2
+!
+! encoder 1 always leaves via ISP B while ISP B is healthy
+ip access-list extended ENC1
+ permit ip host 10.90.30.21 any
+route-map PBR-IN permit 10
+ match ip address ENC1
+ set ip next-hop verify-availability 198.51.100.9 1 track 2
+!
+route-map NAT-A permit 10
+ match interface GigabitEthernet0/0/0
+route-map NAT-B permit 10
+ match interface GigabitEthernet0/0/1
+ip nat inside source route-map NAT-A interface GigabitEthernet0/0/0 overload
+ip nat inside source route-map NAT-B interface GigabitEthernet0/0/1 overload
+! ===== EDGE — who may use which ISP (zone pairs) =====
+zone security INSIDE
+zone security PUBLIC
+zone security OUTSIDE-A
+zone security OUTSIDE-B
+class-map type inspect match-any CM-ANY
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-ANY
+  inspect
+ class class-default
+  drop log
+zone-pair security ZP-IN-A source INSIDE destination OUTSIDE-A
+ service-policy type inspect PM-OUT
+zone-pair security ZP-IN-B source INSIDE destination OUTSIDE-B
+ service-policy type inspect PM-OUT
+zone-pair security ZP-PUB-A source PUBLIC destination OUTSIDE-A
+ service-policy type inspect PM-OUT
+! no PUBLIC → OUTSIDE-B pair: when ISP A fails, spectators simply have no internet
+! ===== EDGE — classify on the way in, queue on the way out =====
+ip access-list extended CRIT
+ permit ip 10.90.10.0 0.0.0.255 any
+ permit ip 10.90.15.0 0.0.0.255 any
+ permit ip 10.90.20.0 0.0.0.255 any
+ permit ip host 10.90.30.22 any
+class-map match-any CRIT
+ match access-group name CRIT
+policy-map MARK-IN
+ class CRIT
+  set qos-group 1
+interface GigabitEthernet0/0/2.900
+ service-policy input MARK-IN
+!
+class-map match-any CRIT-Q
+ match qos-group 1
+policy-map WAN-A-CHILD
+ class CRIT-Q
+  bandwidth remaining percent 60
+ class class-default
+  fair-queue
+policy-map WAN-A
+ class class-default
+  shape average 475000000
+  service-policy WAN-A-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output WAN-A
+! ===== All devices — a known-good config, change logging, one-command rollback =====
+archive
+ path flash:matchday
+ log config
+  logging enable
+  notify syslog contenttype plaintext
+  hidekeys
+! the night before each match day, after the scrim passes:
+copy running-config flash:matchday-baseline.cfg
+! if a change on match day goes wrong:
+configure replace flash:matchday-baseline.cfg list
