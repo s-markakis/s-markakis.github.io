@@ -65,10 +65,18 @@ function formatDate(d) {
 function getAllTags() {
   const tags = new Set();
   posts.forEach(p => (p.tags || []).forEach(t => tags.add(t)));
-  // Platform pills first (in this order), then every topic tag alphabetically.
-  const PLATFORM = ['cisco', 'mikrotik'];
-  const rest = [...tags].filter(t => !PLATFORM.includes(t)).sort();
-  return [...PLATFORM.filter(t => tags.has(t)), ...rest];
+  // Platform pills first (in this order), then series, then every topic tag alphabetically.
+  const PINNED = ['cisco', 'mikrotik', 'build'];
+  const rest = [...tags].filter(t => !PINNED.includes(t)).sort();
+  return [...PINNED.filter(t => tags.has(t)), ...rest];
+}
+
+// Keep the active tag in ?tag= so a category view can be linked (e.g. blog.html?tag=build).
+function syncTagParam() {
+  const url = new URL(location.href);
+  if (activeFilter && activeFilter !== RECENT) url.searchParams.set('tag', activeFilter);
+  else url.searchParams.delete('tag');
+  history.replaceState(null, '', url);
 }
 
 function renderFilterBar() {
@@ -81,20 +89,20 @@ function renderFilterBar() {
   const allBtn = document.createElement('button');
   allBtn.className = 'filter-pill' + (activeFilter === null ? ' active' : '');
   allBtn.textContent = t('blog.filter.all');
-  allBtn.addEventListener('click', () => { activeFilter = null; renderFilterBar(); renderList(); });
+  allBtn.addEventListener('click', () => { activeFilter = null; syncTagParam(); renderFilterBar(); renderList(); });
   bar.appendChild(allBtn);
 
   const recentBtn = document.createElement('button');
   recentBtn.className = 'filter-pill' + (activeFilter === RECENT ? ' active' : '');
   recentBtn.textContent = t('blog.filter.recent');
-  recentBtn.addEventListener('click', () => { activeFilter = RECENT; renderFilterBar(); renderList(); });
+  recentBtn.addEventListener('click', () => { activeFilter = RECENT; syncTagParam(); renderFilterBar(); renderList(); });
   bar.appendChild(recentBtn);
 
   tags.forEach(tag => {
     const btn = document.createElement('button');
-    btn.className = 'filter-pill' + (activeFilter === tag ? ' active' : '');
+    btn.className = 'filter-pill' + (activeFilter === tag ? ' active' : '') + (tag === 'build' ? ' filter-pill-build' : '');
     btn.textContent = tag;
-    btn.addEventListener('click', () => { activeFilter = tag; renderFilterBar(); renderList(); });
+    btn.addEventListener('click', () => { activeFilter = tag; syncTagParam(); renderFilterBar(); renderList(); });
     bar.appendChild(btn);
   });
 }
@@ -141,7 +149,8 @@ function renderList() {
   const isEl = lang() === 'el';
   visible.forEach((post, i) => {
     const el = document.createElement('a');
-    el.className = 'post-card' + (post.tags && post.tags.includes('htb') ? ' post-card-htb' : '');
+    el.className = 'post-card' + (post.tags && post.tags.includes('htb') ? ' post-card-htb' : '')
+                 + (post.tags && post.tags.includes('build') ? ' post-card-build' : '');
     el.href = (isEl && post.html_el) ? post.html_el : post.html;
     el.style.setProperty('--i', i);
 
@@ -192,6 +201,9 @@ fetch('posts.json')
   .then(r => r.json())
   .then(data => {
     posts = data;
+    // Only accept a ?tag= that names a real tag; anything else falls back to "All".
+    const wanted = new URLSearchParams(location.search).get('tag');
+    if (wanted && getAllTags().includes(wanted)) activeFilter = wanted;
     renderFilterBar();
     renderList();
   });

@@ -9,11 +9,14 @@ OUTPUT="sitemap.xml"
 TODAY=$(date +%Y-%m-%d)
 
 python3 - > "$OUTPUT" <<PYEOF
-import json
+import json, glob
 from xml.sax.saxutils import escape
 
 with open('posts.json') as f:
     posts = json.load(f)
+
+# Date of each EN writeup, so its Greek twin can reuse it as lastmod.
+en_date = {p['html']: p['date'] for p in posts}
 
 static = [
     ('/', '1.0'),
@@ -38,21 +41,29 @@ static = [
     ('/privacy.html', '0.3'),
 ]
 
+seen = set()
+
+def emit(loc, lastmod, priority):
+    if loc in seen:
+        return
+    seen.add(loc)
+    print(f'  <url>')
+    print(f'    <loc>{loc}</loc>')
+    print(f'    <lastmod>{lastmod}</lastmod>')
+    print(f'    <priority>{priority}</priority>')
+    print(f'  </url>')
+
 print('<?xml version="1.0" encoding="UTF-8"?>')
 print('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
 for path, priority in static:
-    print(f'  <url>')
-    print(f'    <loc>$SITE{path}</loc>')
-    print(f'    <lastmod>$TODAY</lastmod>')
-    print(f'    <priority>{priority}</priority>')
-    print(f'  </url>')
+    emit(f'$SITE{path}', '$TODAY', priority)
 for p in posts:
-    loc = escape(f"$SITE/{p['html']}")
-    print(f'  <url>')
-    print(f'    <loc>{loc}</loc>')
-    print(f"    <lastmod>{p['date']}</lastmod>")
-    print(f'    <priority>0.6</priority>')
-    print(f'  </url>')
+    emit(escape(f"$SITE/{p['html']}"), p['date'], '0.6')
+# Greek writeup twins live on disk but not in posts.json (kept out of the EN
+# feed); include every one so it's sitemap-discoverable, dated from its EN twin.
+for f in sorted(glob.glob('writeups/*-el.html')):
+    en = f[:-len('-el.html')] + '.html'
+    emit(escape(f'$SITE/{f}'), en_date.get(en, '$TODAY'), '0.5')
 print('</urlset>')
 PYEOF
 
