@@ -907,7 +907,87 @@ add action=create-dynamic-enabled identity-regexp="^STAGE-AP" master-configurati
     </svg>
   </div>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — address lists and the forward chain</span><span class="cfg-meta">24 lines · this step's additions · click to expand</span></summary><pre class="term">/ip firewall address-list
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — address lists and the forward chain</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Edge router — Zone-Based Firewall. A pair that doesn't exist = dropped (default-deny).
+object-group network TICKET-API
+ ! the ticketing company's published API ranges (IOS ACLs can't match a hostname)
+ 203.0.113.0 255.255.255.0
+zone security STAFF
+zone security TICKET
+zone security PAY
+zone security PROD
+zone security PRESS
+zone security PUBLIC
+zone security WAN
+interface Vlan10
+ zone-member security STAFF
+interface Vlan20
+ zone-member security TICKET
+interface Vlan25
+ zone-member security PAY
+interface Vlan30
+ zone-member security PROD
+interface Vlan40
+ zone-member security PRESS
+interface Vlan50
+ zone-member security PUBLIC
+! both WAN uplinks (Starlink + 5G) join the WAN zone
+interface range Cellular0/1/0, GigabitEthernet0/0/0
+ zone-member security WAN
+! generic "TCP/UDP/ICMP out" inspect policy, reused by the open zones
+class-map type inspect match-any CM-GENERAL
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GENERAL
+  inspect
+ class class-default
+  drop
+! ticketing: only HTTPS to the ticketing API
+ip access-list extended ACL-TICKET
+ permit tcp any object-group TICKET-API eq 443
+class-map type inspect match-all CM-TICKET
+ match access-group name ACL-TICKET
+policy-map type inspect PM-TICKET
+ class type inspect CM-TICKET
+  inspect
+ class class-default
+  drop
+zone-pair security ZP-TICKET-WAN source TICKET destination WAN
+ service-policy type inspect PM-TICKET
+! payments: HTTPS out only (vendors bring their own terminals and acquirers)
+ip access-list extended ACL-PAY
+ permit tcp any any eq 443
+class-map type inspect match-all CM-PAY
+ match access-group name ACL-PAY
+policy-map type inspect PM-PAY
+ class type inspect CM-PAY
+  inspect
+ class class-default
+  drop
+zone-pair security ZP-PAY-WAN source PAY destination WAN
+ service-policy type inspect PM-PAY
+! production -&gt; the press tent's feed receiver (SRT, UDP 9000), and the internet
+ip access-list extended ACL-PROD-PRESS
+ permit udp any host 10.80.40.50 eq 9000
+class-map type inspect match-all CM-PRODPRESS
+ match access-group name ACL-PROD-PRESS
+policy-map type inspect PM-PRODPRESS
+ class type inspect CM-PRODPRESS
+  inspect
+zone-pair security ZP-PROD-PRESS source PROD destination PRESS
+ service-policy type inspect PM-PRODPRESS
+zone-pair security ZP-PROD-WAN source PROD destination WAN
+ service-policy type inspect PM-OUT
+! staff, press, public: internet only
+zone-pair security ZP-STAFF-WAN source STAFF destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-PRESS-WAN source PRESS destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-PUBLIC-WAN source PUBLIC destination WAN
+ service-policy type inspect PM-OUT
+! traffic to the router itself (DNS/DHCP/NTP from the LAN, mgmt from V99) is the
+! self zone, locked down in the hardening step</pre><pre class="term vt-pane" data-v="mikrotik">/ip firewall address-list
 add list=TICKET-API address=api.tickets.example comment="from the ticketing company"
 add list=PRESS-RX address=10.80.40.50 comment="feed receiver in the press tent"
 <span class="cmt"># input = TO the router; forward = THROUGH it; first match wins; end drop = default-deny</span>
@@ -931,7 +1011,7 @@ add chain=forward action=accept in-interface=v10-staff out-interface-list=WAN
 add chain=forward action=accept in-interface=v40-press out-interface-list=WAN
 add chain=forward action=accept in-interface=v50-public out-interface-list=WAN
 add chain=forward action=accept in-interface=v99-mgmt
-add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></details>
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
 
   <div class="callout gotcha">
     <span class="callout-label">Twenty vendors, twenty acquirers</span>
