@@ -633,7 +633,35 @@
 
   <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">SW-UTIL — CRS328-24P-4S+</span><span class="cfg-meta">20 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=SW-UTIL
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-UTIL — CRS328-24P-4S+</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-UTIL — Catalyst 1000-24P: cameras, smart home, TVs, owner, one trunk to R1
+vtp mode transparent
+vlan 10,20,30,40,99
+interface range GigabitEthernet1/0/1 - 4
+ description cameras (gate, driveway, pool)
+ switchport mode access
+ switchport access vlan 40
+ spanning-tree portfast
+interface range GigabitEthernet1/0/5 - 8
+ description smart home (alarm, pool, irrigation, locks)
+ switchport access vlan 30
+interface range GigabitEthernet1/0/9 - 12
+ description TVs
+ switchport access vlan 20
+interface GigabitEthernet1/0/13
+ description owner office
+ switchport access vlan 10
+interface GigabitEthernet1/0/24
+ description uplink to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,99
+interface Vlan99
+ ip address 10.70.99.11 255.255.255.0
+ip default-gateway 10.70.99.1
+! only the cameras draw PoE; everything else is disabled or unpowered
+interface range GigabitEthernet1/0/5 - 13
+ power inline never
+interface range GigabitEthernet1/0/14 - 23
+ shutdown</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=SW-UTIL
 <span class="cmt"># enforcement OFF now, ON at the end (lock-out safety)</span>
 /interface bridge add name=bridge vlan-filtering=no
 /interface bridge port
@@ -662,7 +690,7 @@ add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
 /interface ethernet poe set ether5,ether6,ether7,ether8,ether9,ether10,ether11,ether12,ether13 poe-out=off
 <span class="cmt"># disable unused ports — an open jack is an open door</span>
 /interface ethernet disable ether14,ether15,ether16,ether17,ether18,ether19,ether20,ether21,ether22,ether23,ether24
-/interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span></pre></details>
+/interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span></pre></div>
 
   <p>PoE stays on for the four camera ports only. The TVs are wired on purpose: streaming 4K to four bedrooms over Wi-Fi would use the airtime guests' phones need. The owner's office cable runs to a locked room, so a guest can't plug into it.</p>
 
@@ -678,7 +706,39 @@ add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
 
   <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — RB5009UPr+S+IN · bridge, trunks, VLAN interfaces, DHCP</span><span class="cfg-meta">31 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=R1
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — RB5009UPr+S+IN · bridge, trunks, VLAN interfaces, DHCP</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — C1111-8P: integrated switch + SVIs; the AP trunks carry mgmt untagged
+ip routing
+vlan 10,20,30,40,99
+interface GigabitEthernet0/1/0
+ description SW-UTIL trunk
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,99
+interface range GigabitEthernet0/1/1 - 3
+ description AP trunks (mgmt native, SSID VLANs tagged)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,30,99
+interface Vlan10
+ ip address 10.70.10.1 255.255.255.0
+interface Vlan20
+ ip address 10.70.20.1 255.255.255.0
+interface Vlan30
+ ip address 10.70.30.1 255.255.255.0
+interface Vlan40
+ ip address 10.70.40.1 255.255.255.0
+interface Vlan99
+ ip address 10.70.99.1 255.255.255.0
+! DHCP: a short lease for guests; owner, smart home and cctv are reserved
+ip dhcp excluded-address 10.70.20.1 10.70.20.30
+ip dhcp pool GUEST
+ network 10.70.20.0 255.255.255.0
+ default-router 10.70.20.1
+ dns-server 10.70.20.1
+ lease 0 2
+! … owner / smart-home / cctv pools with host reservations
+ip name-server 9.9.9.9 149.112.112.112
+ip dns server
+ntp server time.cloudflare.com</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=R1
 /interface bridge add name=bridge vlan-filtering=no
 /interface bridge port
 add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="SW-UTIL"
@@ -710,7 +770,7 @@ add address=10.70.99.1/24 interface=v99-mgmt
 <span class="cmt"># … owner, smart home (reservations), CCTV (reservations), mgmt</span>
 /ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112
 /system ntp client set enabled=yes servers=time.cloudflare.com
-/interface bridge set bridge vlan-filtering=yes</pre></details>
+/interface bridge set bridge vlan-filtering=yes</pre></div>
 
   <p>The AP ports are trunks: management untagged on VLAN 99 (so CAPsMAN can find the APs), with VLANs 10, 20 and 30 tagged for the SSIDs. The 60 GHz radio gets the same trunk, because it's carrying the annex AP's traffic. DNS upstream is Quad9, not Cloudflare, because 1.1.1.1 becomes the Starlink probe in step 5.</p>
 
@@ -726,7 +786,11 @@ add address=10.70.99.1/24 interface=v99-mgmt
 
   <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <div class="term-wrap"><span class="term-label">wAP 60G pair — a transparent bridge for the trunk</span><pre class="term"><span class="cmt"># house end</span>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">wAP 60G pair — a transparent bridge for the trunk</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! No Cisco 60 GHz product fits a single villa. The same gigabit link to the annex
+! is either a buried fibre/copper run, or a PtP bridge from Cisco's Ultra-Reliable
+! Wireless Backhaul / Catalyst IW line — far more kit and cost than a pair of
+! wAP 60G. For one villa, MikroTik is the right call; the trunk it carries
+! (VLANs 10/20/30/99) is identical whatever bridges the 40 m gap.</pre><pre class="term vt-pane" data-v="mikrotik"><span class="cmt"># house end</span>
 /interface w60g set wlan60-1 mode=bridge ssid=villa-annex password="********" frequency=auto disabled=no
 /interface bridge add name=bridge
 /interface bridge port add bridge=bridge interface=ether1
@@ -735,7 +799,35 @@ add address=10.70.99.1/24 interface=v99-mgmt
 
   <p>The 60 GHz radios' bridges don't filter VLANs: they pass the trunk through unchanged, so the annex AP sees exactly what the house APs see. Each radio has a management address in VLAN 99 (a VLAN interface on its bridge), and both show up in the operator's monitoring like any other device.</p>
 
-  <div class="term-wrap"><span class="term-label">R1 — CAPsMAN: guest, owner, and a 2.4 GHz smart-home SSID</span><pre class="term">/interface wifi security
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — CAPsMAN: guest, owner, and a 2.4 GHz smart-home SSID</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Embedded Wireless Controller (Catalyst 9800 on a C9105 AP): three WLANs, three VLANs
+wlan VILLA-Guest 1 VILLA-Guest
+ security wpa psk set-key ascii 0 replaced-at-every-checkout
+ security wpa akm psk
+ no shutdown
+wlan VILLA-Owner 2 VILLA-Owner
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no broadcast-ssid
+ no shutdown
+wlan VILLA-Home 3 VILLA-Home
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no broadcast-ssid
+ no shutdown
+wireless profile policy GUEST
+ vlan 20
+ no shutdown
+wireless profile policy OWNER
+ vlan 10
+ no shutdown
+wireless profile policy HOME
+ vlan 30
+ no shutdown
+wireless tag policy VILLA
+ wlan VILLA-Guest policy GUEST
+ wlan VILLA-Owner policy OWNER
+ wlan VILLA-Home policy HOME
+! VILLA-Home is 2.4 GHz only for the smart devices (set a 5 GHz radio-policy shut on it)</pre><pre class="term vt-pane" data-v="mikrotik">/interface wifi security
 add name=sec-guest authentication-types=wpa2-psk,wpa3-psk passphrase="replaced-at-every-checkout"
 add name=sec-owner authentication-types=wpa2-psk,wpa3-psk passphrase="********"
 add name=sec-home authentication-types=wpa2-psk passphrase="********"
@@ -805,7 +897,56 @@ add action=create-dynamic-enabled supported-bands=2ghz-ax master-configuration=c
   </div>
 
   <span class="cmt"># interface lists: one rule matches a group of interfaces</span>
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — interface lists, input and forward chains</span><span class="cfg-meta">30 lines · this step's additions · click to expand</span></summary><pre class="term">
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — interface lists, input and forward chains</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — Zone-Based Firewall. No zone-pair = dropped (default-deny).
+zone security OWNER
+zone security GUEST
+zone security HOME
+zone security CCTV
+zone security WAN
+interface Vlan10
+ zone-member security OWNER
+interface Vlan20
+ zone-member security GUEST
+interface Vlan30
+ zone-member security HOME
+interface Vlan40
+ zone-member security CCTV
+interface GigabitEthernet0/0/0
+ zone-member security WAN
+class-map type inspect match-any CM-GENERAL
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GENERAL
+  inspect
+ class class-default
+  drop
+! every inside zone reaches the internet
+zone-pair security ZP-OWNER-WAN source OWNER destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-GUEST-WAN source GUEST destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-HOME-WAN source HOME destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-CCTV-WAN source CCTV destination WAN
+ service-policy type inspect PM-OUT
+! the owner reaches the smart home and the cameras; nobody else crosses
+zone-pair security ZP-OWNER-HOME source OWNER destination HOME
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OWNER-CCTV source OWNER destination CCTV
+ service-policy type inspect PM-OUT
+! the owner casts to the TVs, which sit in the guest VLAN (.32-.35)
+ip access-list extended ACL-TVS
+ permit ip any 10.70.20.32 0.0.0.3
+class-map type inspect match-all CM-TVS
+ match access-group name ACL-TVS
+policy-map type inspect PM-TVS
+ class type inspect CM-TVS
+  inspect
+zone-pair security ZP-OWNER-GUEST source OWNER destination GUEST
+ service-policy type inspect PM-TVS
+! cross-VLAN mDNS for casting = IOS-XE Service Discovery Gateway (mdns-sd gateway)</pre><pre class="term vt-pane" data-v="mikrotik">
 /interface list
 add name=LAN
 add name=WAN
@@ -844,7 +985,7 @@ add chain=forward action=accept in-interface-list=MGMT
 <span class="cmt"># default-deny between VLANs — this line is the isolation</span>
 add chain=forward action=drop log=yes log-prefix=FWD-DROP
 <span class="cmt"># let the owner's phone discover the TVs across VLANs (RouterOS 7.16+)</span>
-/ip dns set mdns-repeat-ifaces=v10-owner,v20-guest</pre></details>
+/ip dns set mdns-repeat-ifaces=v10-owner,v20-guest</pre></div>
 
   <div class="callout gotcha">
     <span class="callout-label">mDNS repeating goes both ways</span>
@@ -863,7 +1004,22 @@ add chain=forward action=drop log=yes log-prefix=FWD-DROP
 
   <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <div class="term-wrap"><span class="term-label">R1 — Starlink on ether1, probe route maintained by the DHCP client</span><pre class="term">/interface list member add list=WAN interface=ether1
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — Starlink on ether1, probe route maintained by the DHCP client</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — Starlink in bypass: the WAN takes the carrier-NAT address; IP SLA tracks the path
+interface GigabitEthernet0/0/0
+ description Starlink (bypass)
+ ip address dhcp
+ ip nat outside
+ip sla 1
+ icmp-echo 1.1.1.1
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ip route 0.0.0.0 0.0.0.0 dhcp 1 track 1
+! the dish's own status page stays reachable on a static route
+ip route 192.168.100.1 255.255.255.255 GigabitEthernet0/0/0
+ip access-list standard NAT-ALL
+ permit 10.70.0.0 0.0.255.255
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload</pre><pre class="term vt-pane" data-v="mikrotik">/interface list member add list=WAN interface=ether1
 /ip route
 add dst-address=1.1.1.1/32 gateway=100.64.0.1 scope=10 comment="probe via starlink"
 add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment="main: starlink"
@@ -1073,7 +1229,30 @@ wlan VILLA-Guest 1 VILLA-Guest
 
   <p class="bx-jump"><a href="#bx" data-bx-step="9">▲ Show step 9 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <div class="term-wrap"><span class="term-label">R1 — WireGuard to the operator's hub, alerts and remote logs</span><pre class="term">/interface wireguard add name=wg-ops listen-port=13231
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — WireGuard to the operator's hub, alerts and remote logs</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — FlexVPN client: the router dials out to the operator's hub through CGNAT
+crypto ikev2 profile TO-HUB
+ match identity remote fqdn hub.example.net
+ identity local fqdn villa-r1.example.net
+ authentication local rsa-sig
+ authentication remote rsa-sig
+ pki trustpoint OP-CA
+ dpd 10 3 periodic
+crypto ipsec profile TO-HUB
+ set ikev2-profile TO-HUB
+interface Tunnel1
+ ip address 10.250.0.21 255.255.255.0
+ tunnel source GigabitEthernet0/0/0
+ tunnel destination dynamic
+ tunnel protection ipsec profile TO-HUB
+crypto ikev2 client flexvpn HUB
+ peer 1 fqdn hub.example.net dynamic
+ client connect Tunnel1
+! alerts + remote logging to the hub; EEM is the netwatch equivalent
+logging host 10.250.0.1
+logging trap warnings
+event manager applet WAN-DOWN
+ event track 1 state down
+ action 1 syslog msg "Starlink path DOWN"</pre><pre class="term vt-pane" data-v="mikrotik">/interface wireguard add name=wg-ops listen-port=13231
 /interface wireguard peers add interface=wg-ops comment="operator hub" public-key="&lt;hub public key&gt;" \
     endpoint-address=hub.example.net endpoint-port=51820 allowed-address=10.250.0.0/24 persistent-keepalive=25s
 /ip address add address=10.250.0.21/24 interface=wg-ops
