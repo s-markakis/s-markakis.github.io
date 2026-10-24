@@ -881,21 +881,30 @@ ip default-gateway 10.20.99.1</pre><pre class="term vt-pane" data-v="mikrotik" h
 /interface bridge add name=bridge vlan-filtering=no
 :for i from=1 to=16 do=&#123;
   /interface bridge port add bridge=bridge interface=(&quot;ether&quot; . $i) pvid=20 \
-      frame-types=admit-only-untagged-and-priority-tagged comment=&quot;desk (PC behind phone)&quot;
+frame-types=admit-only-untagged-and-priority-tagged comment=&quot;desk (PC behind \
+          phone)&quot;
 &#125;
-/interface bridge port add bridge=bridge interface=ether17 pvid=20 comment=&quot;reception PC&quot;
-/interface bridge port add bridge=bridge interface=ether25 pvid=45 comment=&quot;MFP-1&quot;
-:for i from=41 to=44 do=&#123; /interface bridge port add bridge=bridge interface=(&quot;ether&quot; . $i) pvid=50 comment=&quot;meeting room&quot; &#125;
-:for i from=33 to=40 do=&#123; /interface bridge port add bridge=bridge interface=(&quot;ether&quot; . $i) pvid=60 learn=no comment=&quot;security&quot; &#125;
-/interface bridge host add bridge=bridge interface=ether33 mac-address=AC:CC:8E:00:00:21   # one per camera
+/interface bridge port add bridge=bridge interface=ether17 pvid=20 comment=&quot;reception \
+    PC&quot;
+/interface bridge port add bridge=bridge interface=ether25 pvid=45 \
+    comment=&quot;MFP-1&quot;
+:for i from=41 to=44 do=&#123; /interface bridge port add bridge=bridge \
+    interface=(&quot;ether&quot; . $i) pvid=50 comment=&quot;meeting room&quot; &#125;
+:for i from=33 to=40 do=&#123; /interface bridge port add bridge=bridge \
+    interface=(&quot;ether&quot; . $i) pvid=60 learn=no comment=&quot;security&quot; \
+    &#125;
+/interface bridge host add bridge=bridge interface=ether33 mac-address=AC:CC:8E:00:00:21   \
+    # one per camera
 &#123;
   :local t &quot;sfp-sfpplus1&quot;
   :for i from=1 to=16 do=&#123; :set t ($t . &quot;,ether&quot; . $i) &#125;
-  /interface bridge vlan add bridge=bridge vlan-ids=40 tagged=$t        # voice VLAN on the desk ports
+/interface bridge vlan add bridge=bridge vlan-ids=40 tagged=$t        # voice VLAN on the \
+      desk ports
 &#125;
 /interface bridge vlan add bridge=bridge vlan-ids=10,20,45,50,60 tagged=sfp-sfpplus1
 /interface bridge vlan add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
-/ip neighbor discovery-settings set lldp-med-net-policy-vlan=40      # phones learn VLAN 40
+/ip neighbor discovery-settings set lldp-med-net-policy-vlan=40      # phones learn VLAN \
+    40
 /interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span>
 # no &quot;port-security maximum 2&quot;: meeting ports rely on the guest VLAN having nowhere to go</pre></div>
 
@@ -930,7 +939,7 @@ ip default-gateway 10.20.99.1</pre><pre class="term vt-pane" data-v="mikrotik" h
     </tbody>
   </table>
 
-  <div class="term-wrap"><span class="term-label">AP switch ports (both floors)</span><pre class="term">interface range GigabitEthernet1/0/21 - 22
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">AP switch ports (both floors)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface range GigabitEthernet1/0/21 - 22
  description AP (FlexConnect local switching)
  switchport mode trunk
  <span class="cmt">! AP management + CAPWAP to the EWC</span>
@@ -938,7 +947,12 @@ ip default-gateway 10.20.99.1</pre><pre class="term vt-pane" data-v="mikrotik" h
  switchport trunk native vlan 99
  switchport trunk allowed vlan 10,20,50,99
  switchport nonegotiate
- spanning-tree portfast trunk</pre></div>
+ spanning-tree portfast trunk</pre><pre class="term vt-pane" data-v="mikrotik" hidden># ACC-1/ACC-2 ether21-22 — AP trunks (mgmt untagged, lawyer/staff/guest tagged)
+/interface bridge port
+add bridge=bridge interface=ether21 pvid=99 comment="AP (local switching)"
+add bridge=bridge interface=ether22 pvid=99 comment="AP (local switching)"
+/interface bridge vlan add bridge=bridge vlan-ids=10,20,50,99 \
+    tagged=sfp-sfpplus1,ether21,ether22</pre></div>
 
 
   <div class="callout defender">
@@ -1002,15 +1016,19 @@ interface Vlan99
 # The SVIs move to R1 (a CCR2004): MikroTik switches route in hardware, but not with a firewall
 # on every inter-VLAN packet, which this design needs. See the appendix.
 /interface bonding
-add name=bond-acc1 slaves=sfp-sfpplus1,sfp-sfpplus2 mode=802.3ad transmit-hash-policy=layer-2-and-3
-add name=bond-acc2 slaves=sfp-sfpplus3,sfp-sfpplus4 mode=802.3ad transmit-hash-policy=layer-2-and-3
+add name=bond-acc1 slaves=sfp-sfpplus1,sfp-sfpplus2 mode=802.3ad \
+    transmit-hash-policy=layer-2-and-3
+add name=bond-acc2 slaves=sfp-sfpplus3,sfp-sfpplus4 mode=802.3ad \
+    transmit-hash-policy=layer-2-and-3
 /interface bridge add name=bridge vlan-filtering=no priority=0x1000      # STP root
 /interface bridge port
 add bridge=bridge interface=bond-acc1 frame-types=admit-only-vlan-tagged
 add bridge=bridge interface=bond-acc2 frame-types=admit-only-vlan-tagged
-add bridge=bridge interface=sfp-sfpplus24 frame-types=admit-only-vlan-tagged comment=&quot;R1 (CCR2004)&quot;
+add bridge=bridge interface=sfp-sfpplus24 frame-types=admit-only-vlan-tagged \
+    comment=&quot;R1 (CCR2004)&quot;
 /interface bridge vlan
-add bridge=bridge vlan-ids=10,20,30,40,45,50,60,99 tagged=bond-acc1,bond-acc2,sfp-sfpplus24
+add bridge=bridge vlan-ids=10,20,30,40,45,50,60,99 \
+    tagged=bond-acc1,bond-acc2,sfp-sfpplus24
 /interface bridge set bridge vlan-filtering=yes
 
 # on R1 (CCR2004): one VLAN interface per routed VLAN replaces each Cisco SVI
@@ -1019,14 +1037,18 @@ add bridge=bridge vlan-ids=10,20,30,40,45,50,60,99 tagged=bond-acc1,bond-acc2,sf
 # … the same for 20, 30, 40, 45, 60, 99</pre></div>
 
 
-  <div class="term-wrap"><span class="term-label">ACC-1 / ACC-2 — the matching uplink</span><pre class="term">interface range GigabitEthernet1/1/1 - 2
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">ACC-1 / ACC-2 — the matching uplink</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface range GigabitEthernet1/1/1 - 2
  description to CORE
  channel-group 1 mode active
 interface Port-channel1
  switchport mode trunk
  switchport trunk native vlan 666
  switchport trunk allowed vlan 10,20,40,45,50,60,99
- switchport nonegotiate</pre></div>
+ switchport nonegotiate</pre><pre class="term vt-pane" data-v="mikrotik" hidden># ACC-1/ACC-2 — LACP uplink to CORE (= Cisco Port-channel, native 666 parking)
+/interface bonding add name=bond1 slaves=ether1,ether2 mode=802.3ad comment="to CORE"
+/interface bridge port add bridge=bridge interface=bond1 \
+    frame-types=admit-only-vlan-tagged
+/interface bridge vlan add bridge=bridge vlan-ids=10,20,40,45,50,60,99 tagged=bond1</pre></div>
 
 
   <div class="callout defender">
@@ -1045,7 +1067,7 @@ interface Port-channel1
 
   <p>The servers are VMs on one host (HV01, see the rack in section 22), connected to core ports <code>Gi1/0/5-8</code> in VLAN 30 with static addresses. DC01 runs AD DS, DNS, DHCP and, from step 6, NPS. On the network side there are two jobs: get DHCP requests from every VLAN to DC01, and stop rogue DHCP servers on the access ports.</p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">CORE — server ports and DHCP relay</span><span class="cfg-meta">17 lines · this step's additions · click to expand</span></summary><pre class="term">interface range GigabitEthernet1/0/5 - 8
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE — server ports and DHCP relay</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface range GigabitEthernet1/0/5 - 8
  description SERVERS (DC01 DMS01 FS01 NAS01)
  switchport mode access
  switchport access vlan 30
@@ -1062,7 +1084,19 @@ interface Vlan45
  ip helper-address 10.20.30.10
 interface Vlan30
  description SERVERS
- ip address 10.20.30.1 255.255.255.0</pre></details>
+ ip address 10.20.30.1 255.255.255.0</pre><pre class="term vt-pane" data-v="mikrotik" hidden># CORE — server ports on VLAN 30, and a DHCP relay to DC01 (10.20.30.10)
+/interface bridge port
+add bridge=bridge interface=ether5 pvid=30 comment="SERVERS: DC01 DMS01 FS01 NAS01 \
+    (ether5-8)"
+/interface bridge vlan add bridge=bridge vlan-ids=30 tagged=bridge
+/interface vlan add name=v30-srv interface=bridge vlan-id=30
+/ip address add address=10.20.30.1/24 interface=v30-srv
+# relay each client VLAN's DHCP to DC01 (= Cisco ip helper-address)
+/ip dhcp-relay
+add name=r-lawyers interface=v10-lawyers dhcp-server=10.20.30.10 local-address=10.20.10.1
+add name=r-staff interface=v20-staff dhcp-server=10.20.30.10 local-address=10.20.20.1
+add name=r-voice interface=v40-voice dhcp-server=10.20.30.10 local-address=10.20.40.1
+add name=r-print interface=v45-print dhcp-server=10.20.30.10 local-address=10.20.45.1</pre></div>
 
   <table class="cheat">
     <thead><tr><th>DC01 DHCP scope</th><th>Options (003 router · 006 DNS · 015 domain)</th></tr></thead>
@@ -1075,7 +1109,7 @@ interface Vlan30
   </table>
 
   <span class="cmt">! only the trusted uplink may answer DHCP; a rogue server on a user port is ignored</span>
-  <div class="term-wrap"><span class="term-label">ACC-1 / ACC-2 — DHCP snooping, then DAI</span><pre class="term">
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">ACC-1 / ACC-2 — DHCP snooping, then DAI</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">
 ip dhcp snooping vlan 10,20,40,45,50
 <span class="cmt">! else Windows DHCP drops relayed option-82 requests</span>
 no ip dhcp snooping information option
@@ -1090,7 +1124,14 @@ interface range GigabitEthernet1/0/21 - 22
 !
 <span class="cmt">! only AFTER every client has a real DHCP lease (see gotcha)</span>
 <span class="cmt">! drop forged ARP replies (LAN MITM), checked against the snooping table</span>
-ip arp inspection vlan 10,20,45,50</pre></div>
+ip arp inspection vlan 10,20,45,50</pre><pre class="term vt-pane" data-v="mikrotik" hidden># ACC-1/ACC-2 — DHCP snooping + ARP inspection. RouterOS does both on the bridge:
+# add-arp=yes builds the ARP table from snooped leases, which is the DAI check.
+/interface bridge set bridge dhcp-snooping=yes add-arp=yes
+# only the uplink to CORE is trusted (the relay/real DHCP server is upstream)
+/interface bridge port set [find interface=bond1] trusted=yes
+# the AP ports carry many clients; keep them trusted so bursts don't trip the bridge
+/interface bridge port set [find interface=ether21] trusted=yes
+/interface bridge port set [find interface=ether22] trusted=yes</pre></div>
 
   <div class="callout gotcha">
     <span class="callout-label">Turn on DAI last</span>
@@ -1241,20 +1282,26 @@ add list=USERS interface=v40-voice
 add chain=forward action=accept connection-state=established,related,untracked
 add chain=forward action=drop connection-state=invalid
 add chain=forward action=accept in-interface=v10-lawyers dst-address-list=DC
-add chain=forward action=accept in-interface=v10-lawyers dst-address-list=DMS protocol=tcp dst-port=443
-add chain=forward action=accept in-interface=v10-lawyers dst-address-list=FS protocol=tcp dst-port=445
-add chain=forward action=accept in-interface=v10-lawyers out-interface=v45-print protocol=tcp dst-port=9100
+add chain=forward action=accept in-interface=v10-lawyers dst-address-list=DMS protocol=tcp \
+    dst-port=443
+add chain=forward action=accept in-interface=v10-lawyers dst-address-list=FS protocol=tcp \
+    dst-port=445
+add chain=forward action=accept in-interface=v10-lawyers out-interface=v45-print \
+    protocol=tcp dst-port=9100
 add chain=forward action=accept in-interface=v20-staff dst-address-list=DC
-add chain=forward action=accept in-interface=v20-staff dst-address-list=DMS protocol=tcp dst-port=443
-add chain=forward action=accept in-interface=v20-staff out-interface=v45-print protocol=tcp dst-port=9100
-add chain=forward action=accept src-address=10.20.20.50 dst-address=10.20.60.10 protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v20-staff dst-address-list=DMS protocol=tcp \
+    dst-port=443
+add chain=forward action=accept in-interface=v20-staff out-interface=v45-print \
+    protocol=tcp dst-port=9100
+add chain=forward action=accept src-address=10.20.20.50 dst-address=10.20.60.10 \
+    protocol=tcp dst-port=443
 add chain=forward action=accept in-interface-list=USERS out-interface-list=WAN
 add chain=forward action=drop log=yes log-prefix=FWD-DROP
 # no &quot;established&quot; flags, no per-UDP-reply lines: connection tracking handles every reply</pre></div>
 
   <p>The server, security and management VLANs are written the other way round. They mostly <em>answer</em>, so their ACLs permit replies plus a short list of things they genuinely need to start:</p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">CORE — server, security and management ACLs</span><span class="cfg-meta">29 lines · this step's additions · click to expand</span></summary><pre class="term">ip access-list extended V30-IN
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE — server, security and management ACLs</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">ip access-list extended V30-IN
  remark SERVERS: replies to the LAN, plus a short list they may start
  10 permit tcp 10.20.30.0 0.0.0.255 10.20.0.0 0.0.255.255 established
  20 permit udp host 10.20.30.10 eq domain 10.20.0.0 0.0.255.255
@@ -1282,7 +1329,33 @@ ip access-list extended V60-IN
 ip access-list extended V99-IN
  10 permit ip 10.20.99.0 0.0.0.255 10.20.0.0 0.0.255.255
  20 permit tcp 10.20.99.0 0.0.0.255 any eq 443                  <span class="cmt">! firmware downloads</span>
- 30 deny   ip any any log</pre></details>
+ 30 deny   ip any any log</pre><pre class="term vt-pane" data-v="mikrotik" hidden># CORE — RouterOS has no per-SVI inbound ACL; the same intent lives in the forward
+# chain, matched by in-interface=&lt;the VLAN&gt;. Order these before the default-deny.
+/ip firewall filter
+# V30 SERVERS: established replies, then the short list DC01 may start
+add chain=forward in-interface=v30-srv connection-state=established,related action=accept
+add chain=forward in-interface=v30-srv src-address=10.20.30.10 dst-address=10.20.0.0/16 \
+    protocol=udp dst-port=53,88,389,123,67 action=accept
+add chain=forward in-interface=v30-srv src-address=10.20.30.10 dst-address=10.20.99.0/24 \
+    protocol=udp dst-port=1812,1813 action=accept comment="RADIUS replies"
+add chain=forward in-interface=v30-srv dst-address=10.0.0.0/8 action=drop log=yes \
+    comment="no server -&gt; other internal"
+add chain=forward in-interface=v30-srv src-address=10.20.30.10 protocol=udp \
+    dst-port=53,123 action=accept comment="DC forwarders + NTP out"
+add chain=forward in-interface=v30-srv protocol=tcp dst-port=443 action=accept \
+    comment="updates + offsite backup"
+add chain=forward in-interface=v30-srv action=drop log=yes
+# V60 SECURITY: answers reception, NTP only, no internet ever
+add chain=forward in-interface=v60-security src-address=10.20.60.10 \
+    dst-address=10.20.20.50 connection-state=established action=accept
+add chain=forward in-interface=v60-security dst-address=10.20.30.10 protocol=udp \
+    dst-port=123 action=accept
+add chain=forward in-interface=v60-security action=drop log=yes comment="SECURITY: no \
+    internet, ever"
+# V99 MGMT: the whole LAN, plus 443 out for firmware
+add chain=forward in-interface=v99-mgmt dst-address=10.20.0.0/16 action=accept
+add chain=forward in-interface=v99-mgmt protocol=tcp dst-port=443 action=accept
+add chain=forward in-interface=v99-mgmt action=drop log=yes</pre></div>
 
   <div class="callout gotcha">
     <span class="callout-label">The RADIUS reply that killed every desk port</span>
@@ -1294,7 +1367,7 @@ ip access-list extended V99-IN
     <p><code>established</code> only checks that the ACK or RST bit is set. It is not connection tracking. Someone already on the server VLAN can still send crafted ACK packets toward user VLANs (useful for mapping hosts, though it can't open a connection). More importantly, <strong>none of these ACLs stop lateral movement inside one VLAN</strong>: lawyer-to-lawyer SMB never passes through an SVI. That is where ransomware spreads, so it gets a host-level control: a GPO that turns on the Windows Firewall on every workstation and blocks inbound SMB/RPC/WinRM from anything except the management subnet. The switch handles traffic between categories; the endpoint handles traffic between peers.</p>
   </div>
 
-  <div class="term-wrap"><span class="term-label">CORE — apply the ACLs (one per SVI, inbound)</span><pre class="term">interface Vlan10
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE — apply the ACLs (one per SVI, inbound)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface Vlan10
  ip access-group V10-IN in
 interface Vlan20
  ip access-group V20-IN in
@@ -1307,7 +1380,12 @@ interface Vlan45
 interface Vlan60
  ip access-group V60-IN in
 interface Vlan99
- ip access-group V99-IN in</pre></div>
+ ip access-group V99-IN in</pre><pre class="term vt-pane" data-v="mikrotik" hidden># On RouterOS there is no "ip access-group in" to apply per SVI: the rules written
+# in the ACL step already match on in-interface=&lt;the VLAN&gt;, so they take effect the
+# moment they exist. The only job here is ordering — keep every per-VLAN block above
+# the final "chain=forward action=drop" so the default-deny stays last.
+/ip firewall filter
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
 
 
   <div class="callout defender">
@@ -1413,13 +1491,15 @@ interface range GigabitEthernet1/0/1 - 17                  <span class="cmt">! A
  dot1x timeout tx-period 7
  spanning-tree portfast
  spanning-tree bpduguard enable</pre><pre class="term vt-pane" data-v="mikrotik" hidden># ACC-1 / ACC-2 — RouterOS dot1x server (CRS3xx) with NPS as RADIUS
-/radius add service=dot1x address=10.20.30.10 secret=&quot;&lt;radius-shared-secret&gt;&quot; src-address=10.20.99.11
+/radius add service=dot1x address=10.20.30.10 \
+    secret=&quot;&lt;radius-shared-secret&gt;&quot; src-address=10.20.99.11
 /interface dot1x server
 add interface=ether1 auth-types=dot1x,mac-auth reject-vlan-id=666 server-fail-vlan-id=20 \
     comment=&quot;desk 1: machine certificate, or MAC for printers&quot;
 # … one entry per desk port. NPS returns the VLAN (Tunnel-Pvt-Group-ID) exactly as for Cisco.
 # Check the property names on your release; they&#x27;ve changed between RouterOS 7 versions.
-/interface bridge port set [find interface=ether1] pvid=666      # dead end until authenticated</pre></div>
+/interface bridge port set [find interface=ether1] pvid=666      # dead end until \
+    authenticated</pre></div>
 
   <p>These are the classic <code>authentication</code> commands. Current IOS-XE still accepts them, and <code>authentication convert-to new-style</code> rewrites them as IBNS 2.0 policy-maps if you prefer that form.</p>
 
@@ -1451,7 +1531,7 @@ add interface=ether1 auth-types=dot1x,mac-auth reject-vlan-id=666 server-fail-vl
 
   <p>R1 is a C1111-8P: two routed WAN ports and an 8-port switch. The trunk from the core lands on switchport Gi0/1/0 and carries <strong>only</strong> VLANs 50 and 900. R1 therefore has exactly two inside interfaces: the routed transit link to the core, and the guest network, which never touches the core's routing table.</p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1-EDGE — LAN side and guest DHCP</span><span class="cfg-meta">36 lines · this step's additions · click to expand</span></summary><pre class="term">hostname R1-EDGE
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — LAN side and guest DHCP</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname R1-EDGE
 vlan 50
  name GUEST
 vlan 666
@@ -1486,10 +1566,20 @@ interface Vlan50
  service-policy input GUEST-LIMIT
  service-policy output GUEST-LIMIT
 !
-ip route 10.20.0.0 255.255.0.0 10.20.255.2</pre></details>
+ip route 10.20.0.0 255.255.0.0 10.20.255.2</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1-EDGE — RB5009: the guest VLAN terminates here (never on the core); transit to CORE
+/interface vlan add name=v900 interface=ether3 vlan-id=900
+/interface vlan add name=v50-guest interface=ether3 vlan-id=50
+/ip address add address=10.20.255.1/29 interface=v900
+/ip address add address=10.20.50.1/24 interface=v50-guest
+/ip dhcp-server add name=d-guest interface=v50-guest address-pool=p-guest lease-time=4h
+# guests get public resolvers, never DC01
+/ip dhcp-server network add address=10.20.50.0/24 gateway=10.20.50.1 \
+    dns-server=9.9.9.9,1.1.1.1
+/queue simple add name=guest target=10.20.50.0/24 max-limit=50M/50M
+/ip route add dst-address=10.20.0.0/16 gateway=10.20.255.2</pre></div>
 
 
-  <details class="term-wrap cfg"><summary><span class="term-label">CORE — uplink to R1, transit SVI, the guest backstop ACL</span><span class="cfg-meta">17 lines · this step's additions · click to expand</span></summary><pre class="term">interface GigabitEthernet1/0/1
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE — uplink to R1, transit SVI, the guest backstop ACL</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface GigabitEthernet1/0/1
  description R1-EDGE Gi0/1/0
  switchport mode trunk
  switchport trunk native vlan 666
@@ -1505,7 +1595,16 @@ interface Vlan900
  ip address 10.20.255.2 255.255.255.248
  ip access-group V900-IN in
 !
-ip route 0.0.0.0 0.0.0.0 10.20.255.1</pre></details>
+ip route 0.0.0.0 0.0.0.0 10.20.255.1</pre><pre class="term vt-pane" data-v="mikrotik" hidden># CORE — the trunk to R1 (guest + transit); a guest-sourced packet is never routed inside
+/interface bridge port add bridge=bridge interface=sfp-sfpplus1 \
+    frame-types=admit-only-vlan-tagged comment="R1-EDGE"
+/interface bridge vlan add bridge=bridge vlan-ids=50,900 tagged=sfp-sfpplus1
+/interface vlan add name=v900-transit interface=bridge vlan-id=900
+/ip address add address=10.20.255.2/29 interface=v900-transit
+/ip firewall filter add chain=forward in-interface=v900-transit src-address=10.20.50.0/24 \
+    \
+    action=drop log=yes comment="guest backstop"
+/ip route add dst-address=0.0.0.0/0 gateway=10.20.255.1</pre></div>
 
   <p style="font-size:.88rem;"><em>Platform note:</em> if your IOS-XE release won't take a service-policy on the C1111's Vlan interface, apply the same 50 Mb/s limit with a <code>police rate</code> action inside the GUEST→OUTSIDE zone-firewall policy in step 8.</p>
 
@@ -1576,13 +1675,18 @@ add chain=forward action=accept in-interface-list=INSIDE out-interface-list=WAN
 add chain=forward action=accept in-interface-list=GUEST out-interface-list=WAN
 add chain=forward action=drop in-interface-list=GUEST log=yes log-prefix=GUEST-DROP \
     comment=&quot;no GUEST→INSIDE pair = this line&quot;
-add chain=input action=accept in-interface-list=WAN protocol=udp dst-port=500,4500 comment=&quot;IKE (step 11)&quot;
+add chain=input action=accept in-interface-list=WAN protocol=udp dst-port=500,4500 \
+    comment=&quot;IKE (step 11)&quot;
 add chain=input action=accept in-interface-list=WAN protocol=ipsec-esp</pre></div>
 
-  <div class="term-wrap"><span class="term-label">R1-EDGE — put the inside interfaces in their zones</span><pre class="term">interface Vlan900
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — put the inside interfaces in their zones</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface Vlan900
  zone-member security INSIDE
 interface Vlan50
- zone-member security GUEST</pre></div>
+ zone-member security GUEST</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1-EDGE — RouterOS groups interfaces with lists, not ZBF zones
+/interface list add name=INSIDE
+/interface list add name=GUEST
+/interface list member add list=INSIDE interface=v900
+/interface list member add list=GUEST interface=v50-guest</pre></div>
 
 
   <div class="callout defender">
@@ -1763,7 +1867,7 @@ ip route 0.0.0.0 0.0.0.0 203.0.113.9</pre><pre class="term vt-pane" data-v="mikr
     </svg>
   </div>
 
-  <div class="term-wrap"><span class="term-label">R1-EDGE — the 5G port and its NAT rule</span><pre class="term">interface GigabitEthernet0/0/1
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — the 5G port and its NAT rule</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface GigabitEthernet0/0/1
  description 5G BACKUP (bridge mode)
  <span class="cmt">! DHCP default route at AD 254 = the floating backup</span>
  ip address dhcp
@@ -1775,7 +1879,12 @@ route-map NAT-5G permit 10
  match interface GigabitEthernet0/0/1
 ip nat inside source route-map NAT-5G interface GigabitEthernet0/0/1 overload
 !
-no ip route 0.0.0.0 0.0.0.0 203.0.113.9     <span class="cmt">! replaced by the tracked route below</span></pre></div>
+no ip route 0.0.0.0 0.0.0.0 203.0.113.9     <span class="cmt">! replaced by the tracked route below</span></pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1-EDGE — the 5G backup WAN; it floats in at a high distance (= AD 254)
+/interface list member add list=WAN interface=ether2
+/ip dhcp-client add interface=ether2 default-route-distance=254 use-peer-dns=no \
+    comment="5G backup"
+/ip firewall nat add chain=srcnat out-interface=ether2 src-address-list=NAT-SRC \
+    action=masquerade</pre></div>
 
   <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — IP SLA, tracked default, NAT cleanup</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">ip sla 1
  icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
@@ -1794,14 +1903,18 @@ event manager applet WAN-FAILOVER
  action 2.0 cli command "clear ip nat translation *"
  action 3.0 syslog msg "WAN track 1 changed: NAT translations cleared"</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 (CCR2004) — recursive failover replaces IP SLA + track
 /ip route
-add dst-address=1.1.1.1/32 gateway=203.0.113.9 scope=10 comment=&quot;probe via fibre&quot;
-add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 comment=&quot;main: fibre&quot;
+add dst-address=1.1.1.1/32 gateway=203.0.113.9 scope=10 comment=&quot;probe via \
+    fibre&quot;
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 \
+    comment=&quot;main: fibre&quot;
 <span class="cmt"># backup route: used only when the primary is down (failover)</span>
-/ip dhcp-client add interface=ether2 default-route-distance=2 use-peer-dns=no comment=&quot;5G (bridge mode)&quot;
+/ip dhcp-client add interface=ether2 default-route-distance=2 use-peer-dns=no \
+    comment=&quot;5G (bridge mode)&quot;
 /interface list member add list=WAN interface=ether2
 # netwatch replaces the EEM applet: flush NAT state when the fibre path changes
 /tool netwatch add host=1.1.1.1 interval=10s \
-    down-script=&quot;/ip firewall connection remove [find]&quot; up-script=&quot;/ip firewall connection remove [find]&quot;</pre></div>
+down-script=&quot;/ip firewall connection remove [find]&quot; up-script=&quot;/ip firewall \
+        connection remove [find]&quot;</pre></div>
   <div class="callout gotcha">
     <span class="callout-label">Three ways this failover lies to you</span>
     <p><strong>1. The probe escapes.</strong> If the fibre <em>interface</em> goes down, the pinned /32 disappears with it, the probe to 1.1.1.1 follows the 5G default, gets answered, and track 1 comes back up while the fibre is still dead. The Null0 route at AD 250 stops that. <strong>2. Stale NAT.</strong> Existing translations still point at the old outside address, so long-lived sessions (Teams, VoIP registrations) hang until they time out. The <a href="cisco-eem.html">EEM</a> applet clears the table on every state change. <strong>3. The VPN goes away.</strong> The 5G provider uses CGNAT, so while on backup nobody can reach R1 from outside. Remote lawyers drop until the fibre is back. That is a documented, accepted limitation: if the firm needs remote access during a fibre outage, the fix is a 5G plan with a public IP, not a cleverer config.</p>
@@ -1890,15 +2003,17 @@ interface Virtual-Template1 type tunnel
 ip route 10.20.200.0 255.255.255.0 Null0</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 (CCR2004) — RouterOS also does IKEv2 with EAP via RADIUS, but most MikroTik
 # remote-access builds use WireGuard: simpler, faster, one key per laptop.
 /interface wireguard add name=wg-lawyers listen-port=13231
-/interface wireguard peers add interface=wg-lawyers public-key=&quot;&lt;partner laptop 1 key&gt;&quot; \
+/interface wireguard peers add interface=wg-lawyers public-key=&quot;&lt;partner laptop 1 \
+    key&gt;&quot; \
     allowed-address=10.20.200.16/32 comment=&quot;partner laptop 1&quot;
 /ip address add address=10.20.200.1/24 interface=wg-lawyers
-/ip firewall filter add chain=input action=accept in-interface-list=WAN protocol=udp dst-port=13231 \
+/ip firewall filter add chain=input action=accept in-interface-list=WAN protocol=udp \
+    dst-port=13231 \
     place-before=0 comment=&quot;WireGuard&quot;
 # full tunnel: the laptop&#x27;s config sets AllowedIPs = 0.0.0.0/0
 # trade-off: WireGuard has no per-user RADIUS/MFA; MFA moves to the DMS and the EHR-style apps</pre></div>
   <p>EAP goes from R1 to NPS on DC01, so R1 needs its own RADIUS client config (and NPS needs R1, 10.20.255.1, as a RADIUS client). That brings back step 5's trap: NPS's replies now go to <strong>10.20.255.1</strong>, which <code>V30-IN</code> doesn't allow.</p>
-  <div class="term-wrap"><span class="term-label">R1-EDGE — RADIUS to NPS · CORE — one more reply line</span><pre class="term">radius server NPS
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — RADIUS to NPS · CORE — one more reply line</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">radius server NPS
  address ipv4 10.20.30.10 auth-port 1812 acct-port 1813
  key &lt;radius-shared-secret&gt;
 aaa group server radius RAD-NPS
@@ -1909,10 +2024,14 @@ aaa authorization network VPN-AUTHZ local
 !
 <span class="cmt">! on CORE: without this, every VPN login times out</span>
 ip access-list extended V30-IN
- 72 permit udp host 10.20.30.10 eq 1812 host 10.20.255.1</pre></div>
+ 72 permit udp host 10.20.30.10 eq 1812 host 10.20.255.1</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1-EDGE + the switches — 802.1X to the Windows NPS (DC01) for desk ports and APs
+/radius add service=login,wireless address=10.20.30.10 secret=******** \
+    src-address=10.20.255.1
+# the source address is the transit SVI, so NPS's 1812/1813 replies have a route back
+# (the CORE forward rule already permits those replies to 10.20.255.1)</pre></div>
 
   <p>The VPN needs IKE and ESP to reach the router itself, which means a policy for the <strong>self</strong> zone, and that's where step 10 can break without anyone noticing:</p>
-  <div class="term-wrap"><span class="term-label">R1-EDGE — self zone: IKE/ESP in, plus replies to the router's own probes</span><pre class="term">ip access-list extended OUT-SELF
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — self zone: IKE/ESP in, plus replies to the router's own probes</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">ip access-list extended OUT-SELF
  permit udp any any eq isakmp
  permit udp any any eq non500-isakmp
  permit esp any any
@@ -1926,7 +2045,16 @@ policy-map type inspect PM-OUT-SELF
  class class-default
   drop
 zone-pair security ZP-OUT-SELF source OUTSIDE destination self
- service-policy type inspect PM-OUT-SELF</pre></div>
+ service-policy type inspect PM-OUT-SELF</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1-EDGE — the input chain for the router itself: IKE/ESP in, probe replies, DHCP
+/ip firewall filter
+add chain=input in-interface-list=WAN protocol=udp dst-port=500,4500 action=accept \
+    comment="IKEv2"
+add chain=input in-interface-list=WAN protocol=ipsec-esp action=accept
+add chain=input in-interface-list=WAN protocol=icmp icmp-options=0:0 action=accept \
+    comment="IP SLA probe replies"
+add chain=input in-interface-list=WAN protocol=udp dst-port=68 action=accept comment="DHCP \
+    on the 5G port"
+add chain=input in-interface-list=WAN action=drop log=yes log-prefix=IN-WAN-DROP</pre></div>
   <div class="callout gotcha">
     <span class="callout-label">Add a self-zone policy and your failover breaks</span>
     <p>Without an OUTSIDE→self zone pair, traffic to the router itself is allowed. As soon as you add one (and you need it, to restrict the VPN), anything not listed is dropped, <em>including the echo replies to R1's own IP SLA probes</em>. Traffic the router originates isn't inspected, so there is no state entry to let the reply back in. Track 1 goes down and stays down, and the site sits on 5G with a perfectly healthy fibre. That's why the <code>echo-reply</code> and DHCP lines are in <code>OUT-SELF</code>. Whenever you change a self-zone policy, run <code>show track 1</code> immediately afterwards.</p>
@@ -2003,9 +2131,12 @@ interface GigabitEthernet0/0/0
  service-policy output WAN-OUT
 <span class="cmt">! no policy on the 5G port: its uplink rate varies too much to shape usefully</span></pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 (CCR2004) — queue tree replaces the LLQ policy
 /ip firewall mangle
-add chain=postrouting action=mark-packet new-packet-mark=voice out-interface=ether1 dscp=46 passthrough=no
-add chain=postrouting action=mark-packet new-packet-mark=signal out-interface=ether1 dscp=24 passthrough=no
-add chain=postrouting action=mark-packet new-packet-mark=rest out-interface=ether1 passthrough=no
+add chain=postrouting action=mark-packet new-packet-mark=voice out-interface=ether1 \
+    dscp=46 passthrough=no
+add chain=postrouting action=mark-packet new-packet-mark=signal out-interface=ether1 \
+    dscp=24 passthrough=no
+add chain=postrouting action=mark-packet new-packet-mark=rest out-interface=ether1 \
+    passthrough=no
 /queue type add name=fq kind=fq-codel
 /queue tree
 add name=WAN-OUT parent=ether1 max-limit=95M
@@ -2084,7 +2215,7 @@ add name=rest parent=WAN-OUT packet-mark=rest priority=8 max-limit=95M queue=fq<
   <h2 class="section-title">Hardening &amp; Remote Management</h2>
   <p class="section-thesis"><em>The firm has no IT staff (R8). Every device has to be manageable remotely, from one subnet, and must keep records of what happened to it.</em></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">All devices — the management baseline</span><span class="cfg-meta">28 lines · this step's additions · click to expand</span></summary><pre class="term">service password-encryption
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">All devices — the management baseline</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">service password-encryption
 no ip http server
 no ip http secure-server
 ip ssh version 2
@@ -2111,7 +2242,21 @@ archive
 interface range GigabitEthernet0/0/0 - 1
  no cdp enable
  no lldp transmit
- no lldp receive</pre></details>
+ no lldp receive</pre><pre class="term vt-pane" data-v="mikrotik" hidden># All devices — SSH only from MGMT + the VPN admins, remote syslog, nightly export
+/ip service disable telnet,ftp,www,www-ssl,api,api-ssl
+/ip service set ssh address=10.20.99.0/24,10.20.200.0/28
+/ip service set winbox address=10.20.99.0/24,10.20.200.0/28
+/ip ssh set strong-crypto=yes
+/user set admin disabled=yes
+/user add name=netadmin group=full password=********
+/system ntp client set enabled=yes servers=10.20.30.10
+/system logging action add name=mon target=remote remote=10.20.99.20
+/system logging add topics=info action=mon
+/system logging add topics=firewall action=mon
+/system scheduler add name=nightly interval=1d start-time=03:00:00 on-event="/export \
+    file=nightly"
+# R1 only: no neighbour discovery toward the ISP
+/ip neighbor discovery-settings set discover-interface-list=!WAN</pre></div>
 
   <p>Unused switch ports are shut down and left in VLAN 666. Configs are pulled nightly to the monitoring VM and diffed, so an unexpected change shows up as a diff the next morning rather than being found six months later. The full baselines are in <a href="cisco-hardening.html">Hardening IOS</a> and <a href="cisco-backup-restore.html">Backup &amp; Restore</a>.</p>
 
