@@ -696,7 +696,33 @@ logging host 10.80.99.5</pre><pre class="term vt-pane" data-v="mikrotik">{
 
   <p>A ten-line generator (any scripting language) fills in the first block from a node table: name, management address, trunk port, VLANs. It writes one <code>.rsc</code> per node, and each node is reset and imports its file on the bench. The braces matter: RouterOS runs an imported file line by line, and <code>:local</code> variables only survive across lines inside a block.</p>
 
-  <div class="term-wrap"><span class="term-label">R1 — CCR2004 · trunk to the NOC switch, VLAN interfaces</span><pre class="term">/system identity set name=R1
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — CCR2004 · trunk to the NOC switch, VLAN interfaces</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — edge router: one trunk to the NOC switch, dot1Q subinterfaces as VLAN gateways
+interface GigabitEthernet0/0/1
+ description NOC switch trunk
+ no ip address
+interface GigabitEthernet0/0/1.10
+ encapsulation dot1Q 10
+ ip address 10.80.10.1 255.255.255.0
+interface GigabitEthernet0/0/1.20
+ encapsulation dot1Q 20
+ ip address 10.80.20.1 255.255.255.0
+interface GigabitEthernet0/0/1.25
+ encapsulation dot1Q 25
+ ip address 10.80.25.1 255.255.255.0
+interface GigabitEthernet0/0/1.30
+ encapsulation dot1Q 30
+ ip address 10.80.30.1 255.255.255.0
+interface GigabitEthernet0/0/1.40
+ encapsulation dot1Q 40
+ ip address 10.80.40.1 255.255.255.0
+interface GigabitEthernet0/0/1.50
+ encapsulation dot1Q 50
+ ip address 10.80.48.1 255.255.248.0
+interface GigabitEthernet0/0/1.99
+ encapsulation dot1Q 99
+ ip address 10.80.99.1 255.255.255.0
+ip routing
+ntp master</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=R1
 /interface bridge add name=bridge vlan-filtering=no
 /interface bridge port add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged
 /interface bridge vlan add bridge=bridge vlan-ids=10,20,25,30,40,50,99 tagged=bridge,sfp-sfpplus1
@@ -793,7 +819,25 @@ add name=v99-mgmt interface=bridge vlan-id=99
   <h2 class="section-title">Addressing a Crowd</h2>
   <p class="section-thesis"><em>The public VLAN gets a /21 and 15-minute leases. Everything else is small and boring.</em></p>
 
-  <div class="term-wrap"><span class="term-label">R1 — DHCP and DNS sized for thousands of phones</span><pre class="term">/ip address add address=10.80.48.1/21 interface=v50-public
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — DHCP and DNS sized for thousands of phones</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — a big public pool (a /21), short leases; scanners and tills are reserved by MAC
+ip dhcp excluded-address 10.80.48.1
+ip dhcp pool PUBLIC
+ network 10.80.48.0 255.255.248.0
+ default-router 10.80.48.1
+ dns-server 10.80.48.1
+ lease 0 0 15
+ip dhcp pool TICKET
+ network 10.80.20.0 255.255.255.0
+ default-router 10.80.20.1
+ lease 0 12
+ip dhcp pool SCAN-GA01
+ host 10.80.20.41 255.255.255.0
+ client-identifier 0100.242b.0000.01
+ default-router 10.80.20.1
+! … the other scanners and tills the same way
+ip name-server 208.67.222.222 208.67.220.220
+ip dns server
+ip domain lookup</pre><pre class="term vt-pane" data-v="mikrotik">/ip address add address=10.80.48.1/21 interface=v50-public
 /ip pool add name=p-public ranges=10.80.48.10-10.80.55.250
 /ip dhcp-server add name=d-public interface=v50-public address-pool=p-public lease-time=15m
 /ip dhcp-server network add address=10.80.48.0/21 gateway=10.80.48.1 dns-server=10.80.48.1
@@ -817,7 +861,32 @@ add name=v99-mgmt interface=bridge vlan-id=99
   <p class="section-thesis"><em>CAPsMAN gives each zone's APs only the SSIDs that zone needs. The scanners' offline mode covers what the network can't.</em></p>
 
   <span class="cmt"># a datapath ties an SSID to its VLAN — that's the per-SSID isolation</span>
-  <div class="term-wrap"><span class="term-label">R1 — CAPsMAN: SSIDs per zone, matched by AP name</span><pre class="term">
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — CAPsMAN: SSIDs per zone, matched by AP name</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Embedded Wireless Controller (Catalyst 9800): SSIDs per zone, applied by AP location
+! GATE APs -&gt; SCAN+STAFF, FOOD APs -&gt; FESTIVAL-Free+PAY+STAFF, STAGE APs -&gt; Press+STAFF
+wlan EVT-SCAN 1 EVT-SCAN
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+wlan FESTIVAL-Free 2 FESTIVAL-Free
+ no security wpa
+ peer-blocking drop
+ no shutdown
+wlan FESTIVAL-Press 3 FESTIVAL-Press
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+! … EVT-PAY, EVT-STAFF the same way
+wireless profile policy SCAN
+ vlan 20
+ no shutdown
+wireless profile policy PUBLIC
+ vlan 50
+ no shutdown
+! one policy tag per AP group; the AP's name/location selects which tag it gets
+wireless tag policy GATE
+ wlan EVT-SCAN policy SCAN
+wireless tag policy FOOD
+ wlan FESTIVAL-Free policy PUBLIC</pre><pre class="term vt-pane" data-v="mikrotik">
 /interface wifi datapath
 add name=dp-scan bridge=bridge vlan-id=20
 add name=dp-pay bridge=bridge vlan-id=25
@@ -1056,7 +1125,29 @@ add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
     </svg>
   </div>
 
-  <div class="term-wrap"><span class="term-label">R1 — WAN interfaces, probe routes kept current by DHCP scripts</span><pre class="term">/interface list member
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — WAN interfaces, probe routes kept current by DHCP scripts</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — three WANs (two Starlinks + 5G); IP SLA + tracked routes, not DHCP probe scripts
+interface GigabitEthernet0/0/0
+ description Starlink A
+ ip address dhcp
+interface GigabitEthernet0/0/2
+ description Starlink B
+ ip address dhcp
+interface Cellular0/1/0
+ description 5G
+ip sla 1
+ icmp-echo 1.1.1.1
+ frequency 5
+ip sla 2
+ icmp-echo 9.9.9.9
+ frequency 5
+ip sla schedule 1 life forever start-time now
+ip sla schedule 2 life forever start-time now
+track 1 ip sla 1 reachability
+track 2 ip sla 2 reachability
+ip route 0.0.0.0 0.0.0.0 dhcp 10 track 1
+ip route 0.0.0.0 0.0.0.0 dhcp 20 track 2
+! critical traffic is pinned to 5G by PBR in the per-job-table step
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload</pre><pre class="term vt-pane" data-v="mikrotik">/interface list member
 add list=WAN interface=ether1
 add list=WAN interface=ether2
 add list=WAN interface=ether3

@@ -1114,7 +1114,18 @@ add name=hs-cafe hotspot-address=10.40.50.1 dns-name=wifi.cafe.local html-direct
     </svg>
   </div>
 
-  <div class="term-wrap"><span class="term-label">R1 — total guest cap with a queue tree (on top of the hotspot's per-device queues)</span><pre class="term">/ip firewall mangle
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — total guest cap with a queue tree (on top of the hotspot's per-device queues)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — one shaper for the whole guest VLAN; per-device fairness is the controller's job
+policy-map GUEST-DOWN
+ class class-default
+  shape average 180000000
+  fair-queue
+interface Vlan50
+ service-policy output GUEST-DOWN
+! the 30 Mb/s upload cap is a matching shaper on guest traffic as it egresses the WAN
+policy-map GUEST-UP
+ class class-default
+  shape average 30000000
+  fair-queue</pre><pre class="term vt-pane" data-v="mikrotik">/ip firewall mangle
 add chain=forward action=mark-packet in-interface=v50-guest new-packet-mark=guest-up passthrough=no
 add chain=forward action=mark-packet out-interface=v50-guest new-packet-mark=guest-down passthrough=no
 /queue tree

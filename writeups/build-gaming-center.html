@@ -1163,7 +1163,15 @@ add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
 
   <p>Every other DNS name is forwarded upstream to Cloudflare's malware-blocking resolver (1.1.1.2), or the family resolver (1.1.1.3) if the center admits under-16s on its own. To stop seats from bypassing the cache, and the filtering with it, with a hard-coded resolver, the forward chain drops DNS and DNS-over-TLS from seats. A seat's queries to CACHE01 never cross R1 (same VLAN), so the drop only hits bypass attempts:</p>
 
-  <div class="term-wrap"><span class="term-label">R1 — seats use the cache's DNS, nothing else</span><pre class="term">/ip firewall filter
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — seats use the cache's DNS, nothing else</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — seats may only use the cache server's DNS; block all other DNS leaving the VLAN
+ip access-list extended ACL-SEATS-NODNS
+ deny   udp any any eq 53
+ deny   tcp any any eq 53
+ deny   tcp any any eq 853
+ permit ip any any
+interface Te0/0/0.10
+ ip access-group ACL-SEATS-NODNS in
+! the cache resolver is on the seats VLAN itself, so intra-VLAN DNS still works</pre><pre class="term vt-pane" data-v="mikrotik">/ip firewall filter
 add chain=forward action=drop in-interface=v10-seats protocol=udp dst-port=53,853 \
     place-before=[find comment="seats -&gt; internet"] comment="no DNS bypass"
 add chain=forward action=drop in-interface=v10-seats protocol=tcp dst-port=53,853 \
@@ -1553,7 +1561,27 @@ add action=create-dynamic-enabled supported-bands=2ghz-ax master-configuration=c
   <h2 class="section-title">Hardening, Snooping &amp; Backups</h2>
   <p class="section-thesis"><em>Close the management plane, stop rogue DHCP on the switches, and make sure a dead router costs 20 minutes, not a weekend.</em></p>
 
-  <div class="term-wrap"><span class="term-label">R1 + both switches — management plane</span><pre class="term">/interface list add name=MGMT
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 + both switches — management plane</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 and both switches — SSH only from MGMT, logging to the NOC, nightly save
+no ip http server
+no ip http secure-server
+ip ssh version 2
+username netadmin privilege 15 secret 0 ********
+no username admin
+ip access-list standard MGMT-IN
+ permit 10.30.99.0 0.0.0.255
+line vty 0 4
+ transport input ssh
+ access-class MGMT-IN in
+ login local
+logging host 10.30.99.20
+logging trap warnings
+ntp server time.cloudflare.com
+archive
+ path scp://backup@10.30.99.20/game
+kron occurrence NIGHTLY at 4:00 recurring
+ policy-list SAVE
+kron policy-list SAVE
+ cli write memory</pre><pre class="term vt-pane" data-v="mikrotik">/interface list add name=MGMT
 /interface list member add list=MGMT interface=v99-mgmt
 /ip service disable telnet,ftp,www,api,api-ssl
 /ip service set ssh address=10.30.99.0/24
@@ -1570,7 +1598,11 @@ add action=create-dynamic-enabled supported-bands=2ghz-ax master-configuration=c
 /system scheduler add name=nightly-export interval=1d start-time=04:00:00 \
     on-event="/export show-sensitive file=nightly"</pre></div>
 
-  <div class="term-wrap"><span class="term-label">SW-SEATS + SW-FRONT — DHCP snooping</span><pre class="term">/interface bridge set bridge dhcp-snooping=yes
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-SEATS + SW-FRONT — DHCP snooping</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-SEATS + SW-FRONT — DHCP snooping; only the uplink to R1 is trusted
+ip dhcp snooping vlan 10,20,30,40,50,60
+ip dhcp snooping
+interface TenGigabitEthernet1/1/1
+ ip dhcp snooping trust</pre><pre class="term vt-pane" data-v="mikrotik">/interface bridge set bridge dhcp-snooping=yes
 /interface bridge port set [find interface=sfp-sfpplus1] trusted=yes</pre></div>
 
   <p>DHCP snooping on the switches drops DHCP offers from anything except the uplink, so a customer's laptop running a DHCP server can't take over the room. The nightly export is collected by the monitoring box over SFTP and kept off-device. Store it encrypted, because <code>show-sensitive</code> includes the PPPoE and Wi-Fi passwords (see <a href="mikrotik-backup.html">backups</a> and <a href="mikrotik-hardening.html">hardening</a>).</p>
