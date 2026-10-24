@@ -806,12 +806,15 @@ no errdisable recovery cause psecure-violation</pre><pre class="term vt-pane" da
 <span class="cmt"># enforcement OFF now, ON at the end (lock-out safety)</span>
 /interface bridge add name=bridge vlan-filtering=no
 :for i from=1 to=16 do=&#123;
-  /interface bridge port add bridge=bridge interface=(&quot;ether&quot; . $i) pvid=10 learn=no \
-      frame-types=admit-only-untagged-and-priority-tagged comment=&quot;lane POS / PIN pad&quot;
+/interface bridge port add bridge=bridge interface=(&quot;ether&quot; . $i) pvid=10 \
+      learn=no \
+frame-types=admit-only-untagged-and-priority-tagged comment=&quot;lane POS / PIN pad&quot;
 &#125;
-/interface bridge host add bridge=bridge interface=ether5 mac-address=00:13:C4:00:03:21   # lane 3 PIN pad
+/interface bridge host add bridge=bridge interface=ether5 mac-address=00:13:C4:00:03:21   \
+    # lane 3 PIN pad
 # … one static host per lane device and per self-checkout (ether17-20)
-/interface bridge port add bridge=bridge interface=ether21 pvid=40 comment=&quot;signage&quot;
+/interface bridge port add bridge=bridge interface=ether21 pvid=40 \
+    comment=&quot;signage&quot;
 /interface bridge vlan add bridge=bridge vlan-ids=10,40,50,99 tagged=sfp-sfpplus1
 /interface ethernet disable ether22,ether23,ether24
 /interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span>
@@ -867,7 +870,8 @@ interface GigabitEthernet1/0/16
 /system identity set name=ACC-BACK
 /interface bridge add name=bridge vlan-filtering=yes
 /interface bridge port
-add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="uplink CORE"
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged \
+    comment="uplink CORE"
 add bridge=bridge interface=ether1 pvid=20 comment="OFFICE (ether1-4)"
 add bridge=bridge interface=ether5 pvid=40 comment="deli/bakery/butcher scales (ether5-8)"
 add bridge=bridge interface=ether9 pvid=40 comment="ESL base stations, PoE (ether9-14)"
@@ -920,7 +924,8 @@ interface range GigabitEthernet1/0/25 - 47
 /system identity set name=SW-CCTV
 /interface bridge add name=bridge vlan-filtering=yes
 /interface bridge port
-add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="uplink CORE"
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged \
+    comment="uplink CORE"
 add bridge=bridge interface=ether1 pvid=60 comment="camera (ether1-24)"
 add bridge=bridge interface=ether48 pvid=60 comment="NVR"
 /interface bridge vlan
@@ -1002,8 +1007,10 @@ ip dhcp pool HANDHELD
 /interface bridge port
 add bridge=bridge interface=bond1 frame-types=admit-only-vlan-tagged
 add bridge=bridge interface=bond2 frame-types=admit-only-vlan-tagged
-add bridge=bridge interface=bond3 frame-types=admit-only-vlan-tagged comment="cameras + mgmt only"
-add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="R1-EDGE (50,900)"
+add bridge=bridge interface=bond3 frame-types=admit-only-vlan-tagged comment="cameras + \
+    mgmt only"
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged \
+    comment="R1-EDGE (50,900)"
 /interface bridge vlan
 add bridge=bridge vlan-ids=10,20,30,40,45,99 tagged=bridge,bond1,bond2
 add bridge=bridge vlan-ids=60,99 tagged=bond3
@@ -1017,7 +1024,8 @@ add name=v900-transit interface=bridge vlan-id=900
 # … .1 on each VLAN
 /ip address add address=10.50.255.2/29 interface=v900-transit
 /ip dhcp-server add name=d-office interface=v20-office address-pool=p-office
-/ip dhcp-server add name=d-handheld interface=v30-handheld address-pool=p-handheld lease-time=12h
+/ip dhcp-server add name=d-handheld interface=v30-handheld address-pool=p-handheld \
+    lease-time=12h
 # store-iot: MAC reservations, same pattern
 /ip route add gateway=10.50.255.1</pre></div>
 
@@ -1168,15 +1176,21 @@ interface Vlan10
 /ip firewall filter
 add chain=forward action=accept connection-state=established,related,untracked
 add chain=forward action=drop connection-state=invalid
-add chain=forward action=accept in-interface=v10-cde out-interface-list=HQ comment=&quot;CDE: HQ and nothing else&quot;
+add chain=forward action=accept in-interface=v10-cde out-interface-list=HQ \
+    comment=&quot;CDE: HQ and nothing else&quot;
 add chain=forward action=drop in-interface=v10-cde log=yes log-prefix=CDE-OUT
-add chain=forward action=drop out-interface=v10-cde log=yes log-prefix=CDE-IN comment=&quot;nothing in the store reaches a till&quot;
+add chain=forward action=drop out-interface=v10-cde log=yes log-prefix=CDE-IN \
+    comment=&quot;nothing in the store reaches a till&quot;
 add chain=forward action=accept in-interface=v20-office out-interface-list=HQ
-add chain=forward action=accept in-interface=v20-office out-interface=v40-iot protocol=tcp dst-port=443
-add chain=forward action=accept in-interface=v20-office dst-address=10.50.60.10 protocol=tcp dst-port=443
-add chain=forward action=accept in-interface=v30-handheld dst-address=172.16.30.15 protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v20-office out-interface=v40-iot protocol=tcp \
+    dst-port=443
+add chain=forward action=accept in-interface=v20-office dst-address=10.50.60.10 \
+    protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v30-handheld dst-address=172.16.30.15 \
+    protocol=tcp dst-port=443
 add chain=forward action=accept in-interface=v40-iot dst-address=172.16.40.0/24
-add chain=forward action=accept in-interface=v45-refrig src-address=10.50.45.10 dst-address=172.16.45.20 protocol=tcp dst-port=443
+add chain=forward action=accept in-interface=v45-refrig src-address=10.50.45.10 \
+    dst-address=172.16.45.20 protocol=tcp dst-port=443
 add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
 
   <div class="callout gotcha">
@@ -1226,7 +1240,8 @@ ip route 10.50.0.0 255.255.0.0 10.50.255.2</pre><pre class="term vt-pane" data-v
 /ip address add address=10.50.255.1/29 interface=v900
 /ip address add address=10.50.50.1/24 interface=v50-guest
 /ip dhcp-server add name=d-guest interface=v50-guest address-pool=p-guest lease-time=2h
-/ip dhcp-server network add address=10.50.50.0/24 gateway=10.50.50.1 dns-server=9.9.9.9,149.112.112.112
+/ip dhcp-server network add address=10.50.50.0/24 gateway=10.50.50.1 \
+    dns-server=9.9.9.9,149.112.112.112
 # the whole store is reached through CORE; guests are the only locally-routed subnet
 /ip route add dst-address=10.50.0.0/16 gateway=10.50.255.2
 # guest total 20 Mb/s both ways
@@ -1245,10 +1260,12 @@ interface Vlan900
  ip address 10.50.255.2 255.255.255.248
  ip access-group V900-IN in
 ip route 0.0.0.0 0.0.0.0 10.50.255.1</pre><pre class="term vt-pane" data-v="mikrotik" hidden># CORE — the trunk down to R1 carries only guest (50) and transit (900)
-/interface bridge port add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="R1-EDGE"
+/interface bridge port add bridge=bridge interface=sfp-sfpplus1 \
+    frame-types=admit-only-vlan-tagged comment="R1-EDGE"
 /interface bridge vlan add bridge=bridge vlan-ids=50,900 tagged=sfp-sfpplus1,bridge
 # backstop: a guest-sourced packet must never arrive on the transit interface
-/ip firewall filter add chain=forward action=drop in-interface=v900-transit src-address=10.50.50.0/24 \
+/ip firewall filter add chain=forward action=drop in-interface=v900-transit \
+    src-address=10.50.50.0/24 \
     log=yes log-prefix=V900-DROP
 /ip route add gateway=10.50.255.1</pre></div>
 
@@ -1323,12 +1340,15 @@ interface GigabitEthernet0/0/0
 add list=NAT-SRC address=10.50.20.0/24
 add list=NAT-SRC address=10.50.40.0/24
 add list=NAT-SRC address=10.50.50.0/24
-/ip firewall nat add chain=srcnat action=masquerade out-interface=ether1 src-address-list=NAT-SRC
+/ip firewall nat add chain=srcnat action=masquerade out-interface=ether1 \
+    src-address-list=NAT-SRC
 # office: any out; store-iot: HTTPS only; guest: any out. CDE/handheld/refrig/cctv: never.
 /ip firewall filter
 add chain=forward action=accept src-address=10.50.20.0/24 out-interface=ether1
-add chain=forward action=accept src-address=10.50.40.0/24 out-interface=ether1 protocol=tcp dst-port=443
-add chain=forward action=accept src-address=10.50.50.0/24 out-interface=ether1 comment="guest -&gt; internet"
+add chain=forward action=accept src-address=10.50.40.0/24 out-interface=ether1 \
+    protocol=tcp dst-port=443
+add chain=forward action=accept src-address=10.50.50.0/24 out-interface=ether1 \
+    comment="guest -&gt; internet"
 add chain=forward action=drop out-interface=ether1 log=yes log-prefix=INET-DROP</pre></div>
 
   <p>The CDE is kept off the internet three times over: the core's <code>V10-IN</code> only permits HQ addresses, the NAT list doesn't include 10.50.10.0/24, and the zone firewall's INSIDE→OUTSIDE class doesn't match it. Each of those alone would be enough. Together they mean a single mistake never creates an internet path for a till.</p>
@@ -1401,12 +1421,15 @@ ip route 172.16.0.0 255.255.0.0 Tunnel0
 ip route 198.51.100.20 255.255.255.255 203.0.113.41         <span class="cmt">! HQ head-end 1 only via fibre</span>
 ip route 198.51.100.20 255.255.255.255 Null0 250</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 — RouterOS has no static VTI: chains running MikroTik usually use WireGuard to HQ
 /interface wireguard add name=wg-hq1 listen-port=13231
-/interface wireguard peers add interface=wg-hq1 comment=&quot;HQ head-end 1&quot; public-key=&quot;&lt;head-end 1 key&gt;&quot; \
-    endpoint-address=198.51.100.20 endpoint-port=51820 allowed-address=172.16.0.0/16,10.255.142.0/30 \
+/interface wireguard peers add interface=wg-hq1 comment=&quot;HQ head-end 1&quot; \
+    public-key=&quot;&lt;head-end 1 key&gt;&quot; \
+endpoint-address=198.51.100.20 endpoint-port=51820 \
+        allowed-address=172.16.0.0/16,10.255.142.0/30 \
     persistent-keepalive=25s
 /ip address add address=10.255.142.2/30 interface=wg-hq1
 /interface list member add list=HQ interface=wg-hq1
-/ip route add dst-address=172.16.0.0/16 gateway=10.255.142.1 check-gateway=ping distance=1 comment=&quot;HQ via fibre tunnel&quot;
+/ip route add dst-address=172.16.0.0/16 gateway=10.255.142.1 check-gateway=ping distance=1 \
+    comment=&quot;HQ via fibre tunnel&quot;
 # IKEv2 + GRE is the alternative if HQ&#x27;s head-ends must stay IPsec</pre></div>
 
   <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1-EDGE — what may cross the tunnel, in each direction</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">ip access-list extended STORE-TO-HQ
@@ -1460,18 +1483,28 @@ zone-pair security ZP-OUT-SELF source OUTSIDE destination self
 /ip firewall address-list add list=HQ address=172.16.0.0/16
 # STORE -&gt; HQ (leaving via wg-hq1)
 /ip firewall filter
-add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.10.0/24 dst-address=172.16.0.0/16 comment="CDE -&gt; HQ"
-add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.20.0/24 dst-address=172.16.0.0/16
-add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.30.0/24 dst-address=172.16.0.0/16
-add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.40.0/24 dst-address=172.16.40.0/24
-add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.45.10 dst-address=172.16.45.20 protocol=tcp dst-port=443
+add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.10.0/24 \
+    dst-address=172.16.0.0/16 comment="CDE -&gt; HQ"
+add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.20.0/24 \
+    dst-address=172.16.0.0/16
+add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.30.0/24 \
+    dst-address=172.16.0.0/16
+add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.40.0/24 \
+    dst-address=172.16.40.0/24
+add chain=forward action=accept out-interface=wg-hq1 src-address=10.50.45.10 \
+    dst-address=172.16.45.20 protocol=tcp dst-port=443
 add chain=forward action=drop out-interface=wg-hq1 log=yes log-prefix=HQ-OUT
 # HQ -&gt; STORE (arriving on wg-hq1) — HQ is not trusted blindly
-add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.10.0/24 dst-address=10.50.10.0/24 protocol=tcp dst-port=443 comment="POS mgmt"
-add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.10.0/24 dst-address=10.50.10.0/24 protocol=tcp dst-port=22
-add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.40.0/24 dst-address=10.50.40.0/24 protocol=tcp comment="price push to scales/ESL"
-add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.20.0/24 dst-address=10.50.20.0/24 protocol=tcp dst-port=3389 comment="IT support"
-add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.60.0/24 dst-address=10.50.60.10 protocol=tcp dst-port=443 comment="security viewing"
+add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.10.0/24 \
+    dst-address=10.50.10.0/24 protocol=tcp dst-port=443 comment="POS mgmt"
+add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.10.0/24 \
+    dst-address=10.50.10.0/24 protocol=tcp dst-port=22
+add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.40.0/24 \
+    dst-address=10.50.40.0/24 protocol=tcp comment="price push to scales/ESL"
+add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.20.0/24 \
+    dst-address=10.50.20.0/24 protocol=tcp dst-port=3389 comment="IT support"
+add chain=forward action=accept in-interface=wg-hq1 src-address=172.16.60.0/24 \
+    dst-address=10.50.60.10 protocol=tcp dst-port=443 comment="security viewing"
 add chain=forward action=drop in-interface=wg-hq1 log=yes log-prefix=HQ-IN</pre></div>
 
   <div class="callout gotcha">
@@ -1548,15 +1581,20 @@ interface Tunnel1
  tunnel protection ipsec profile IP-HQ-LTE
  zone-member security HQ
 ip route 172.16.0.0 255.255.0.0 Tunnel1 250</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 — second tunnel over LTE, pinned to its own head-end, standby by distance
-/ip dhcp-client add interface=ether5 add-default-route=no use-peer-dns=no comment=&quot;LTE passthrough&quot;
-/ip route add dst-address=198.51.100.21/32 gateway=ether5 comment=&quot;head-end 2 only via LTE&quot;
+/ip dhcp-client add interface=ether5 add-default-route=no use-peer-dns=no \
+    comment=&quot;LTE passthrough&quot;
+/ip route add dst-address=198.51.100.21/32 gateway=ether5 comment=&quot;head-end 2 only \
+    via LTE&quot;
 /interface wireguard add name=wg-hq2 listen-port=13232
-/interface wireguard peers add interface=wg-hq2 comment=&quot;HQ head-end 2&quot; public-key=&quot;&lt;head-end 2 key&gt;&quot; \
-    endpoint-address=198.51.100.21 endpoint-port=51820 allowed-address=172.16.0.0/16,10.255.142.4/30 \
+/interface wireguard peers add interface=wg-hq2 comment=&quot;HQ head-end 2&quot; \
+    public-key=&quot;&lt;head-end 2 key&gt;&quot; \
+endpoint-address=198.51.100.21 endpoint-port=51820 \
+        allowed-address=172.16.0.0/16,10.255.142.4/30 \
     persistent-keepalive=25s
 /ip address add address=10.255.142.6/30 interface=wg-hq2
 /interface list member add list=HQ interface=wg-hq2
-/ip route add dst-address=172.16.0.0/16 gateway=10.255.142.5 check-gateway=ping distance=2 comment=&quot;HQ via LTE tunnel&quot;
+/ip route add dst-address=172.16.0.0/16 gateway=10.255.142.5 check-gateway=ping distance=2 \
+    comment=&quot;HQ via LTE tunnel&quot;
 # no default route via LTE at all: office and guests simply have no path to it</pre></div>
 
   <p><code>IP-HQ-LTE</code> is the same IPsec profile with an IKEv2 profile matching head-end 2. Both tunnels are up all the time, because each head-end address is pinned to one physical path. When the fibre fails, DPD takes Tunnel0 down within ~30 s, its route to 172.16.0.0/16 disappears, and the floating route via Tunnel1 is already there: no IKE negotiation has to happen during the outage. There's no default route via LTE at all, and no zone pair from INSIDE or GUEST to LTE, so the office and guests get nothing during an outage, by design.</p>
@@ -1606,9 +1644,10 @@ policy-map type inspect PM-HQ-IN
   inspect
  class class-default
   drop log</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 — the firewall&#x27;s time matcher does the window
-/ip firewall filter add chain=forward action=accept src-address=172.16.5.10 dst-address=10.50.45.10 \
+/ip firewall filter add chain=forward action=accept src-address=172.16.5.10 \
+    dst-address=10.50.45.10 \
     protocol=tcp dst-port=443 time=9h-12h,tue log=yes log-prefix=VENDOR \
-    place-before=[find log-prefix=FWD-DROP] comment=&quot;refrigeration vendor window&quot;
+place-before=[find log-prefix=FWD-DROP] comment=&quot;refrigeration vendor window&quot;
 /system logging action add name=hq target=remote remote=172.16.50.5
 /system logging add topics=firewall action=hq</pre></div>
 
@@ -1668,7 +1707,8 @@ policy-map WAN-OUT
   service-policy WAN-CHILD
 interface GigabitEthernet0/0/0
  service-policy output WAN-OUT</pre><pre class="term vt-pane" data-v="mikrotik" hidden># R1 — WireGuard re-encapsulates, so queue the tunnel interface itself
-/ip firewall mangle add chain=forward action=mark-packet new-packet-mark=crit out-interface-list=HQ \
+/ip firewall mangle add chain=forward action=mark-packet new-packet-mark=crit \
+    out-interface-list=HQ \
     src-address-list=CRITICAL passthrough=no
 /ip firewall address-list
 add list=CRITICAL address=10.50.10.0/24
