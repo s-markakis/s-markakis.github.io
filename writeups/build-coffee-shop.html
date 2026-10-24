@@ -632,7 +632,36 @@
 
   <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">SW-COUNTER — CRS112-8P-4S</span><span class="cfg-meta">21 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=SW-COUNTER
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-COUNTER — CRS112-8P-4S</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-COUNTER — Catalyst 1000/9200: VLANs, access ports, one trunk to R1
+vtp mode transparent
+vlan 20,25,30,40,99
+interface range GigabitEthernet1/0/1 - 2
+ description card terminals
+ switchport mode access
+ switchport access vlan 25
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface GigabitEthernet1/0/3
+ description receipt printer
+ switchport access vlan 20
+interface range GigabitEthernet1/0/4 - 5
+ description music streamer + menu screen
+ switchport access vlan 30
+interface range GigabitEthernet1/0/6 - 8
+ description cameras (PoE)
+ switchport access vlan 40
+ spanning-tree portfast
+interface GigabitEthernet1/0/9
+ description trunk to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 20,25,30,40,99
+interface Vlan99
+ ip address 10.40.99.11 255.255.255.0
+ no shutdown
+ip default-gateway 10.40.99.1
+! only the cameras draw PoE; nothing else is powered
+interface range GigabitEthernet1/0/1 - 5
+ power inline never</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=SW-COUNTER
 <span class="cmt"># enforcement OFF now, ON at the end (lock-out safety)</span>
 /interface bridge add name=bridge vlan-filtering=no
 /interface bridge port
@@ -654,7 +683,7 @@ add bridge=bridge vlan-ids=99 tagged=bridge,sfp1
 <span class="cmt"># only the cameras take power</span>
 /interface ethernet poe set ether1,ether2,ether3,ether4,ether5 poe-out=off
 /interface ethernet disable sfp2,sfp3,sfp4
-/interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span></pre></details>
+/interface bridge set bridge vlan-filtering=yes          <span class="cmt"># now safe to enforce VLANs</span></pre></div>
 
   <p>The eight copper ports are all in use, so the uplink to the router uses an SFP port with a 1G copper module (S-RJ01). PoE output is switched off on every port that doesn't power a camera. Passive PoE into a card terminal's Ethernet port is a classic way to kill one.</p>
 
@@ -670,7 +699,35 @@ add bridge=bridge vlan-ids=99 tagged=bridge,sfp1
 
   <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — hAP ax³ · bridge, trunks, VLAN interfaces</span><span class="cfg-meta">28 lines · this step's additions · click to expand</span></summary><pre class="term">/system identity set name=R1
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — hAP ax³ · bridge, trunks, VLAN interfaces</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — C1121X: the integrated switch ports plus SVIs do the inter-VLAN routing
+ip routing
+vlan 10,20,25,30,40,50,99
+interface GigabitEthernet0/1/0
+ description SW-COUNTER trunk
+ switchport mode trunk
+ switchport trunk allowed vlan 20,25,30,40,99
+interface GigabitEthernet0/1/1
+ description patio AP trunk (mgmt native)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,50,99
+interface GigabitEthernet0/1/2
+ description office PC
+ switchport access vlan 10
+interface Vlan10
+ ip address 10.40.10.1 255.255.255.0
+interface Vlan20
+ ip address 10.40.20.1 255.255.255.0
+interface Vlan25
+ ip address 10.40.25.1 255.255.255.0
+interface Vlan30
+ ip address 10.40.30.1 255.255.255.0
+interface Vlan40
+ ip address 10.40.40.1 255.255.255.0
+interface Vlan50
+ ip address 10.40.50.1 255.255.255.0
+interface Vlan99
+ ip address 10.40.99.1 255.255.255.0</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=R1
 /interface bridge add name=bridge vlan-filtering=no
 /interface bridge port
 add bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment="SW-COUNTER trunk"
@@ -697,9 +754,35 @@ add address=10.40.25.1/24 interface=v25-pay
 add address=10.40.30.1/24 interface=v30-iot
 add address=10.40.40.1/24 interface=v40-cctv
 add address=10.40.50.1/24 interface=v50-guest
-add address=10.40.99.1/24 interface=v99-mgmt</pre></details>
+add address=10.40.99.1/24 interface=v99-mgmt</pre></div>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — DHCP and DNS (one pool + server + network per VLAN)</span><span class="cfg-meta">17 lines · this step's additions · click to expand</span></summary><pre class="term">/ip pool
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — DHCP and DNS (one pool + server + network per VLAN)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — one DHCP pool per VLAN; the card terminals are reserved by MAC
+ip dhcp excluded-address 10.40.20.1 10.40.20.49
+ip dhcp excluded-address 10.40.50.1 10.40.50.19
+ip dhcp pool POS
+ network 10.40.20.0 255.255.255.0
+ default-router 10.40.20.1
+ dns-server 10.40.20.1
+ lease 1
+ip dhcp pool GUEST
+ network 10.40.50.0 255.255.255.0
+ default-router 10.40.50.1
+ dns-server 10.40.50.1
+ lease 0 0 30
+! … OFFICE, IOT, CCTV pools the same way
+! no dynamic pool on the payment VLAN — only these two reservations
+ip dhcp pool PAY-T1
+ host 10.40.25.11 255.255.255.0
+ client-identifier 010b.4f00.0011
+ default-router 10.40.25.1
+ip dhcp pool PAY-T2
+ host 10.40.25.12 255.255.255.0
+ client-identifier 010b.4f00.0012
+ default-router 10.40.25.1
+! the router as a DNS forwarder to Quad9
+ip name-server 9.9.9.9 149.112.112.112
+ip dns server
+ip domain lookup</pre><pre class="term vt-pane" data-v="mikrotik">/ip pool
 add name=p-pos ranges=10.40.20.50-10.40.20.99
 add name=p-guest ranges=10.40.50.20-10.40.50.250
 <span class="cmt"># … p-office, p-iot, p-cctv the same way</span>
@@ -716,7 +799,7 @@ add address=10.40.50.0/24 gateway=10.40.50.1 dns-server=10.40.50.1
 add server=d-pay mac-address=00:0B:4F:00:00:11 address=10.40.25.11 comment="card terminal 1"
 add server=d-pay mac-address=00:0B:4F:00:00:12 address=10.40.25.12 comment="card terminal 2"
 /ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112
-/interface bridge set bridge vlan-filtering=yes</pre></details>
+/interface bridge set bridge vlan-filtering=yes</pre></div>
 
   <p>The payment VLAN has no pool at all (<code>static-only</code>): only the two known terminals get an address, so an unknown device on a payment port gets nothing. The guest lease is 30 minutes: phones come and go all day, and a long lease would exhaust the pool by lunchtime. Every device that the firewall treats individually (card terminals, music, menu screen, printer) gets a reservation, so its address never changes under a rule.</p>
 
@@ -732,7 +815,27 @@ add server=d-pay mac-address=00:0B:4F:00:00:12 address=10.40.25.12 comment="card
 
   <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — local radios + CAPsMAN for the patio wAP</span><span class="cfg-meta">20 lines · this step's additions · click to expand</span></summary><pre class="term">/interface wifi security
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — local radios + CAPsMAN for the patio wAP</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Embedded Wireless Controller (Catalyst 9800, e.g. on a C9105 AP):
+! three WLANs mapped to three VLANs — the Cisco equivalent of CAPsMAN
+wlan CAFE-POS 1 CAFE-POS
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+wlan CAFE-Staff 2 CAFE-Staff
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no shutdown
+! CAFE-Guest (open + web consent) is defined in the guest-portal step
+wireless profile policy POS
+ vlan 20
+ no shutdown
+wireless profile policy STAFF
+ vlan 10
+ no shutdown
+wireless tag policy CAFE
+ wlan CAFE-POS policy POS
+ wlan CAFE-Staff policy STAFF
+! the patio AP joins the controller and inherits the CAFE tag — one config, every AP</pre><pre class="term vt-pane" data-v="mikrotik">/interface wifi security
 add name=sec-pos authentication-types=wpa3-psk passphrase="********"
 add name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase="********"
 <span class="cmt"># a datapath ties an SSID to its VLAN — that's the per-SSID isolation</span>
@@ -753,7 +856,7 @@ add name=cfg-staff ssid=CAFE-Staff security=sec-staff datapath=dp-staff country=
 <span class="cmt"># one controller pushes this Wi-Fi config to every AP</span>
 /interface wifi capsman set enabled=yes interfaces=v99-mgmt
 /interface wifi provisioning add action=create-dynamic-enabled \
-    master-configuration=cfg-guest slave-configurations=cfg-pos,cfg-staff</pre></details>
+    master-configuration=cfg-guest slave-configurations=cfg-pos,cfg-staff</pre></div>
 
   <p>CAFE-POS uses WPA3 only: the iPads support it, and a staff member who learns the password can't easily join it from an old phone. Hiding the SSID isn't security; it only stops it from appearing in guests' lists. The real control is that the password is set on the tablets by the manager and never told to staff. Rotate it whenever someone with a manager role leaves. The guest SSID is open. The portal in step 6 adds terms of use, not encryption. Modern guest traffic is HTTPS anyway, and client isolation stops guests from reaching each other.</p>
 
@@ -850,7 +953,44 @@ add chain=forward action=drop out-interface=v25-pay log=yes log-prefix=PAY-IN co
   <h2 class="section-title">The Rest of the Firewall</h2>
   <p class="section-thesis"><em>Protect the router, then the matrix, then a logged drop.</em></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 — interface lists, input chain, the rest of forward</span><span class="cfg-meta">26 lines · this step's additions · click to expand</span></summary><pre class="term">/interface list
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — interface lists, input chain, the rest of forward</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — Zone-Based Firewall. A pair that doesn't exist = dropped, so this is
+! default-deny by design (no "drop rule at the bottom" needed).
+zone security OFFICE
+zone security POS
+zone security IOT
+zone security CCTV
+zone security GUEST
+zone security WAN
+interface Vlan10
+ zone-member security OFFICE
+interface Vlan20
+ zone-member security POS
+interface Vlan30
+ zone-member security IOT
+interface Vlan40
+ zone-member security CCTV
+interface Vlan50
+ zone-member security GUEST
+interface Dialer1
+ zone-member security WAN
+class-map type inspect match-any CM-GENERAL
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GENERAL
+  inspect
+ class class-default
+  drop
+! every inside zone may start sessions to the internet (PAY is handled in step 4)
+zone-pair security ZP-OFFICE-WAN source OFFICE destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-POS-WAN source POS destination WAN
+ service-policy type inspect PM-OUT
+! … IOT, CCTV, GUEST -&gt; WAN the same way
+! the owner views the cameras on site
+zone-pair security ZP-OFFICE-CCTV source OFFICE destination CCTV
+ service-policy type inspect PM-OUT</pre><pre class="term vt-pane" data-v="mikrotik">/interface list
 add name=WAN
 add name=LAN
 add name=MGMT
@@ -875,7 +1015,7 @@ add chain=forward action=accept in-interface=v50-guest out-interface-list=WAN
 add chain=forward action=accept in-interface=v10-office out-interface=v40-cctv protocol=tcp dst-port=443,554 \
     comment="owner views cameras on site"
 add chain=forward action=accept in-interface-list=MGMT
-add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></details>
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
 
   <p>The WAN list stays empty until step 8, so nothing reaches the internet yet. There's deliberately no FastTrack rule: the hAP ax³ easily handles a 300 Mb/s line with queues, and FastTrack would bypass the guest limits in step 7.</p>
 
@@ -1181,7 +1321,32 @@ interface Tunnel1
   <h2 class="section-title">Hardening &amp; Off-Site Backups</h2>
   <p class="section-thesis"><em>Management only from the MGMT list, no default accounts, and a config copy that lives somewhere else.</em></p>
 
-  <details class="term-wrap cfg"><summary><span class="term-label">R1 (and the switch) — management plane and nightly backup</span><span class="cfg-meta">18 lines · this step's additions · click to expand</span></summary><pre class="term">/ip service disable telnet,ftp,www,api,api-ssl
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 (and the switch) — management plane and nightly backup</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — management plane: SSH only, from mgmt and the tunnel; config archived nightly
+no ip http server
+no ip http secure-server
+ip ssh version 2
+username netadmin privilege 15 secret 0 ********
+no username admin
+ip access-list standard MGMT-IN
+ permit 10.40.99.0 0.0.0.255
+ permit 10.250.0.0 0.0.0.255
+line vty 0 4
+ transport input ssh
+ access-class MGMT-IN in
+ login local
+ntp server time.cloudflare.com
+! nightly config backup over SCP (archive + kron)
+archive
+ path scp://backup@10.250.0.1/cafe-r1
+kron occurrence NIGHTLY at 3:30 recurring
+ policy-list BACKUP
+kron policy-list BACKUP
+ cli show running-config | redirect scp://backup@10.250.0.1/cafe-r1-latest.cfg
+! on SW-COUNTER: DHCP snooping, only the uplink to R1 is trusted
+ip dhcp snooping vlan 20,25,30,50
+ip dhcp snooping
+interface GigabitEthernet1/0/9
+ ip dhcp snooping trust</pre><pre class="term vt-pane" data-v="mikrotik">/ip service disable telnet,ftp,www,api,api-ssl
 /ip service set ssh address=10.40.99.0/24,10.250.0.0/24
 /ip service set winbox address=10.40.99.0/24,10.250.0.0/24
 /tool mac-server set allowed-interface-list=MGMT
@@ -1198,7 +1363,7 @@ interface Tunnel1
 }
 <span class="cmt"># on SW-COUNTER: only the uplink may answer DHCP</span>
 /interface bridge set bridge dhcp-snooping=yes
-/interface bridge port set [find interface=sfp1] trusted=yes</pre></details>
+/interface bridge port set [find interface=sfp1] trusted=yes</pre></div>
 
   <p>The nightly export goes through the WireGuard tunnel to the contractor's hub, so a dead router is replaced by a spare hAP and one import, not by an afternoon of reconfiguring. <code>show-sensitive</code> includes the Wi-Fi and PPPoE passwords, so the hub stores those files encrypted (see <a href="mikrotik-backup.html">backups</a> and <a href="mikrotik-hardening.html">hardening</a>).</p>
 
