@@ -20,6 +20,10 @@ en_date = {p['html']: p['date'] for p in posts}
 
 static = [
     ('/', '1.0'),
+    ('/index-el.html', '0.9'),
+    ('/services-el.html', '0.8'),
+    ('/consulting-el.html', '0.9'),
+    ('/pentest-el.html', '0.9'),
     ('/services.html', '0.8'),
     ('/managed.html', '0.9'),
     ('/managed-el.html', '0.9'),

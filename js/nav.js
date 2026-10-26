@@ -4,7 +4,7 @@
 
 (function () {
   const NAV_LINKS = [
-    { href: 'services.html', i18n: 'nav.services' },
+    { href: 'services.html', i18n: 'nav.services', elHref: 'services-el.html' },
     { href: 'managed.html', i18n: 'nav.managed', elHref: 'managed-el.html' },
     { href: 'projects.html', i18n: 'nav.projects' },
     { href: 'blog.html', i18n: 'nav.blog' },
