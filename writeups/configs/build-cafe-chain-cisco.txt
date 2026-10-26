@@ -1,0 +1,235 @@
+! Build: The Café Chain — full Cisco IOS config
+! s-markakis.github.io/writeups/build-cafe-chain.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== HQ-R1 — CCR2004: the hub, server VLAN, WireGuard head-end =====
+! HQ-R1 — C8300: the DMVPN hub + server VLAN + NOC. One mGRE tunnel; every shop is a spoke.
+hostname HQ-R1
+ip routing
+vlan 20,30,99
+interface GigabitEthernet0/0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 20,30,99
+interface Vlan20
+ ip address 10.0.20.1 255.255.255.0
+interface Vlan30
+ ip address 10.0.30.1 255.255.255.0
+interface Vlan99
+ ip address 10.0.99.1 255.255.255.0
+! the overlay hub: one multipoint GRE tunnel, IPsec-protected; shops register via NHRP
+interface Tunnel0
+ ip address 10.255.0.1 255.255.255.0
+ ip nhrp network-id 1
+ ip nhrp map multicast dynamic
+ tunnel source GigabitEthernet0/0/0
+ tunnel mode gre multipoint
+ tunnel protection ipsec profile DMVPN
+! phase-1 DMVPN (no spoke-to-spoke): the hub routes everything, so shops never reach each other
+router eigrp 1
+ network 10.255.0.0 0.0.0.255
+ network 10.0.0.0 0.0.255.255
+! ===== SHOP-R1 — hAP ax: VLANs, DHCP, DNS ($SITE per shop) =====
+! SHOP-R1 — C1121X: the templated shop. PnP / a template renders the per-site values (site 3 here).
+hostname SHOP-3
+ip routing
+vlan 10,20,30,40,50,99
+interface GigabitEthernet0/0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,50,99
+interface Vlan10
+ ip address 10.3.10.1 255.255.255.0
+interface Vlan20
+ ip address 10.3.20.1 255.255.255.0
+interface Vlan30
+ ip address 10.3.30.1 255.255.255.0
+interface Vlan40
+ ip address 10.3.40.1 255.255.255.0
+interface Vlan50
+ ip address 10.3.50.1 255.255.255.0
+interface Vlan99
+ ip address 10.3.99.1 255.255.255.0
+! the fleet plan: every address is 10.<site>.<vlan>.1 — the template substitutes the site octet
+ip dhcp excluded-address 10.3.50.1 10.3.50.9
+ip dhcp pool GUEST
+ network 10.3.50.0 255.255.255.0
+ default-router 10.3.50.1
+ dns-server 9.9.9.9 1.1.1.1
+ lease 0 2
+! tills + card terminals are reserved by MAC (no dynamic pool on VLAN 10)
+ip name-server 9.9.9.9 1.1.1.1
+! ===== SHOP-SW — CRS112: tills, KDS, cameras, AP trunk =====
+! SHOP-SW — Catalyst 1000-8P: tills, KDS, camera, AP trunk, uplink. Identical in every shop.
+vtp mode transparent
+vlan 10,20,30,40,50,99
+interface range GigabitEthernet1/0/1 - 2
+ description tills / card terminal
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+interface GigabitEthernet1/0/3
+ description KDS / menu screen
+ switchport access vlan 30
+interface GigabitEthernet1/0/4
+ description camera
+ switchport access vlan 40
+interface GigabitEthernet1/0/8
+ description cAP AP (trunk)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 20,50,99
+interface GigabitEthernet1/0/10
+ description uplink SHOP-R1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,50,99
+! ===== SHOP-R1 — one WireGuard tunnel up to HQ (spoke isolation) =====
+! SHOP-R1 — a DMVPN spoke to the HQ hub. Spokes register with the hub, never each other.
+interface Tunnel0
+ ip address 10.255.0.4 255.255.255.0
+ ip nhrp network-id 1
+ ip nhrp nhs 10.255.0.1 nbma hq.cafe.example multicast
+ tunnel source GigabitEthernet0/0/0
+ tunnel mode gre multipoint
+ tunnel protection ipsec profile DMVPN
+router eigrp 1
+ network 10.255.0.0 0.0.0.255
+ network 10.3.0.0 0.0.255.255
+! no NHRP shortcut here on purpose — phase-1 hub-spoke, so a shop reaches HQ and central
+! services but has no route to a sister shop; the hub is the only meeting point
+! ===== SHOP-R1 — two WANs, steered by application not just by route =====
+! SHOP-R1 — two WANs; PBR pins the card path to WAN1 with a tracked fallback to WAN2.
+interface GigabitEthernet0/0/0
+ description WAN1 fibre
+ ip address dhcp
+ ip nat outside
+interface Cellular0/1/0
+ description WAN2 4G
+ ip nat outside
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+! the money path: tills -> acquirer, pinned to WAN1, falling to 4G if the track drops
+ip access-list extended MONEY
+ permit tcp 10.3.10.0 0.0.0.255 host <acquirer> eq 443
+route-map PBR-MONEY permit 10
+ match ip address MONEY
+ set ip next-hop verify-availability <wan1-gw> 1 track 1
+ set ip next-hop <wan2-gw>
+interface Vlan10
+ ip policy route-map PBR-MONEY
+! everything else: WAN1 primary, WAN2 floating backup
+ip route 0.0.0.0 0.0.0.0 dhcp 1 track 1
+ip route 0.0.0.0 0.0.0.0 Cellular0/1/0 2
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload
+! ===== SHOP-R1 — tills reach the acquirer + HQ only; guests isolated =====
+! SHOP-R1 — Zone-Based Firewall. The payment zone reaches the acquirer + HQ only.
+zone security POS
+zone security OFFICE
+zone security IOT
+zone security CCTV
+zone security GUEST
+zone security HQ
+zone security WAN
+interface Vlan10
+ zone-member security POS
+interface Vlan20
+ zone-member security OFFICE
+interface Vlan30
+ zone-member security IOT
+interface Vlan40
+ zone-member security CCTV
+interface Vlan50
+ zone-member security GUEST
+interface Tunnel0
+ zone-member security HQ
+interface GigabitEthernet0/0/0
+ zone-member security WAN
+class-map type inspect match-any CM-GEN
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GEN
+  inspect
+ class class-default
+  drop
+! tills -> the acquirer (443) and the HQ POS server, nothing else
+ip access-list extended ACL-POS
+ permit tcp 10.3.10.0 0.0.0.255 host <acquirer> eq 443
+ permit ip 10.3.10.0 0.0.0.255 10.0.30.0 0.0.0.255
+class-map type inspect match-all CM-POS
+ match access-group name ACL-POS
+policy-map type inspect PM-POS
+ class type inspect CM-POS
+  inspect
+ class class-default
+  drop
+zone-pair security ZP-POS-WAN source POS destination WAN
+ service-policy type inspect PM-POS
+zone-pair security ZP-POS-HQ source POS destination HQ
+ service-policy type inspect PM-POS
+! guest -> internet only; cameras -> HQ NVR; office -> HQ + internet
+zone-pair security ZP-GUEST-WAN source GUEST destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-CCTV-HQ source CCTV destination HQ
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OFFICE-WAN source OFFICE destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OFFICE-HQ source OFFICE destination HQ
+ service-policy type inspect PM-OUT
+! ===== SHOP-R1 — captive-portal guest Wi-Fi; the tills always win =====
+! SHOP-R1 — MQC gives the tills priority and shares the rest to guests; guest portal is CWA on the EWC.
+class-map match-all CM-TILLS
+ match access-group name ACL-POS
+class-map match-all CM-GUEST
+ match vlan 50
+policy-map SHOP-WAN
+ class CM-TILLS
+  priority percent 10
+ class CM-GUEST
+  bandwidth remaining percent 80
+  fair-queue
+ class class-default
+  fair-queue
+interface GigabitEthernet0/0/0
+ service-policy output SHOP-WAN
+! the guest Wi-Fi itself is a Catalyst 9800 EWC WLAN with web-consent (as in the coffee-shop build)
+! ===== SHOP-R1 — a new shop self-configures from HQ on first boot =====
+! Cisco's zero-touch is Network Plug-and-Play (PnP): a factory-fresh router finds the PnP server
+! (DHCP option 43, DNS, or the cloud redirect) and pulls its config + image with no console session.
+pnp profile ztp
+ transport https ipv4 pnp.cafe.example port 443
+! the per-site config is a template in Cisco DNA Center (or a lightweight PnP server) with the site
+! variables — exactly like the rendered .rsc on the MikroTik side. For eight cafés a small PnP server
+! is plenty; DNA Center is the product you reach for at hundreds of sites.
+! ===== HQ — the NOC: scrape every shop, alert on a dark one =====
+! HQ + shops — SNMP/syslog to the NOC over the overlay. The monitoring stack is vendor-neutral:
+! argus (VictoriaMetrics + Grafana + Alertmanager) scrapes SNMP the same whatever the routers are.
+snmp-server community <ro> RO 99
+snmp-server host 10.0.99.20 version 2c <ro>
+logging host 10.0.99.20
+logging trap warnings
+! on IOS-XE you can push model-driven telemetry (gNMI/gRPC) instead of polling
+! an ACL (step 9) keeps SNMP/SSH reachable only from the overlay + the NOC
+! ===== SHOP-R1 — SSH from the NOC only, nightly config to HQ, PCI-clean card path =====
+! SHOP-R1 — SSH from the NOC/overlay only; config archived to HQ nightly; card path kept PCI-clean.
+no ip http server
+no ip http secure-server
+ip ssh version 2
+username netadmin privilege 15 secret 0 ********
+no username admin
+ip access-list standard MGMT-IN
+ permit 10.0.99.0 0.0.0.255
+ permit 10.255.0.0 0.0.0.255
+line vty 0 4
+ transport input ssh
+ access-class MGMT-IN in
+ login local
+archive
+ path scp://backup@10.0.99.20/cafe-shop
+kron occurrence NIGHTLY at 3:30 recurring
+ policy-list SAVE
+kron policy-list SAVE
+ cli show running-config | redirect scp://backup@10.0.99.20/shop-latest.cfg
+! PCI: the card path stays on VLAN 10 end to end, logged, never shared with guest or office

@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Café Chain — S. Markakis</title>
+<meta name="description" content="A growing café and bakery chain across Crete — eight shops plus a central roastery/HQ — built as one MikroTik template stamped out per site: a WireGuard hub-spoke overlay, app-aware dual-WAN steering so the tills never stop, zero-touch provisioning for new shops, and one NOC view of the whole fleet. The DIY mechanics behind SD-WAN, dual-vendor MikroTik/Cisco.">
+<meta property="og:title" content="Build: The Café Chain — S. Markakis">
+<meta property="og:description" content="A growing café and bakery chain across Crete — eight shops plus a central roastery/HQ — built as one MikroTik template stamped out per site: a WireGuard hub-spoke overlay, app-aware dual-WAN steering so the tills never stop, zero-touch provisioning for new shops, and one NOC view of the whole fleet. The DIY mechanics behind SD-WAN, dual-vendor MikroTik/Cisco.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-cafe-chain.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-cafe-chain.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-cafe-chain.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-cafe-chain.html">
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#3a7ca5;--v20:#d9822b;--v30:#8a5bb5;--v40:#a14a4a;--v99:#2f8f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Café Chain",
+  "description": "A growing café and bakery chain across Crete — eight shops plus a central roastery/HQ — built as one MikroTik template stamped out per site: a WireGuard hub-spoke overlay, app-aware dual-WAN steering so the tills never stop, zero-touch provisioning for new shops, and one NOC view of the whole fleet. The DIY mechanics behind SD-WAN, dual-vendor MikroTik/Cisco. With an interactive, step-by-step topology explorer.",
+  "datePublished": "2026-10-24",
+  "dateModified": "2026-10-24",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-cafe-chain.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-cafe-chain.png",
+  "keywords": [
+    "mikrotik",
+    "architecture",
+    "vpn",
+    "automation"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-cafe-chain"
+  },
+  "timeRequired": "PT38M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; MikroTik RouterOS 7 &nbsp;·&nbsp; Multi-Site / SD-WAN &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Build: The<br>Café Chain</h1>
+  <p class="post-subtitle">A growing specialty-coffee and bakery chain across Crete: eight shops from Heraklion to Chania, a central roastery that doubles as HQ, tills and card terminals that cannot stop, guest Wi-Fi people actually work from, and a new shop opening every few months. One network, built once as a template and stamped out per site — the do-it-yourself mechanics behind what SD-WAN products automate.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">RouterOS 7</span>
+    <span class="tag">Multi-Site</span>
+    <span class="tag">SD-WAN</span>
+    <span class="tag">Hub-Spoke VPN</span>
+    <span class="tag">Zero-Touch</span>
+    <span class="tag">WireGuard</span>
+    <span class="tag">QoS</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 560" role="img" aria-label="Interactive topology of the café-chain network: HQ hub, a WireGuard overlay, and two representative shops as spokes. Use the step slider to build it up, select a device to see its configuration">
+<!-- links -->
+<g class="bx-el" data-step="1"><line class="bx-line" x1="380" y1="120" x2="380" y2="170" style="stroke:var(--defender);stroke-width:2.4;"/><text class="lft-port lft-c" x="380" y="150">servers · NOC</text></g>
+<g class="bx-el" data-step="3"><path class="bx-blink" d="M352 196 Q180 230 150 330" style="stroke:var(--accent);stroke-width:1.6;fill:none;stroke-dasharray:6,4;"/><text class="lft-port lft-c" x="210" y="250" style="fill:var(--accent);">WireGuard overlay</text></g>
+<g class="bx-el" data-step="3"><path class="bx-blink" d="M408 196 Q600 230 620 330" style="stroke:var(--accent);stroke-width:1.6;fill:none;stroke-dasharray:6,4;"/></g>
+<g class="bx-el" data-step="4"><line class="bx-line" x1="380" y1="196" x2="300" y2="96" style="stroke:var(--body);stroke-width:1.6;"/><text class="lft-port lft-c" x="320" y="140">HQ WAN</text></g>
+<g class="bx-el" data-step="2"><line class="bx-line" x1="150" y1="356" x2="150" y2="410" style="stroke:var(--defender);stroke-width:2;"/></g>
+<g class="bx-el" data-step="2"><line class="bx-line" x1="120" y1="436" x2="70" y2="500" style="stroke:var(--body);stroke-width:1.6;"/></g>
+<g class="bx-el" data-step="2"><line class="bx-line" x1="150" y1="436" x2="150" y2="500" style="stroke:var(--body);stroke-width:1.6;"/></g>
+<g class="bx-el" data-step="2"><line class="bx-line" x1="180" y1="436" x2="230" y2="500" style="stroke:var(--body);stroke-width:1.6;"/></g>
+<g class="bx-el" data-step="4"><line class="bx-line" x1="150" y1="330" x2="90" y2="250" style="stroke:var(--body);stroke-width:1.6;"/><text class="lft-port lft-c" x="96" y="296">WAN1 fibre</text></g>
+<g class="bx-el" data-step="4"><line class="bx-blink" x1="150" y1="330" x2="210" y2="250" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/><text class="lft-port lft-c" x="210" y="296">WAN2 4G</text></g>
+<g class="bx-el" data-step="2"><line class="bx-line" x1="620" y1="356" x2="620" y2="430" style="stroke:var(--defender);stroke-width:2;"/></g>
+<g class="bx-el" data-step="7"><path class="bx-blink" d="M470 90 Q560 140 640 326" style="stroke:var(--gotcha);stroke-width:1.5;fill:none;stroke-dasharray:3,4;"/><text class="lft-port lft-c" x="600" y="150" style="fill:var(--gotcha);">ZTP: new shop self-configures</text></g>
+<g class="bx-el" data-step="5"><line class="bx-blink" x1="150" y1="330" x2="380" y2="40" style="stroke:var(--accent);stroke-width:1.4;fill:none;stroke-dasharray:2,5;"/><text class="lft-port lft-c" x="250" y="150" style="fill:var(--accent);">POS → acquirer</text></g>
+<!-- clouds / HQ -->
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="380" cy="40" r="40"/>
+<use href="#lfi-cloud" x="344" y="22" width="72" height="34" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="380" y="44">Card acquirer</text>
+<text class="lft-chip lft-c" x="380" y="86" style="fill:var(--body);">+ the internet</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="hq" tabindex="0" role="button" aria-label="Show the HQ hub configuration">
+<circle class="bx-ring lft-ring" cx="380" cy="196" r="32"/>
+<circle class="bx-sel" cx="380" cy="196" r="28"/>
+<use href="#lfi-router" x="357" y="180" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="411" y="195">HQ-R1</text>
+<text class="lft-chip" x="411" y="205" style="fill:var(--body);">hub · WireGuard head-end</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="340" cy="96" r="22"/>
+<use href="#lfi-server" x="329" y="80" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="340" y="76">HQ servers</text>
+<text class="lft-chip lft-c" x="340" y="120" style="fill:var(--body);">POS/ERP · NOC</text>
+</g>
+<!-- shop A (representative) -->
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="shop" tabindex="0" role="button" aria-label="Show the shop-router configuration">
+<circle class="bx-ring lft-ring" cx="150" cy="330" r="28"/>
+<circle class="bx-sel" cx="150" cy="330" r="24"/>
+<use href="#lfi-router" x="129" y="316" width="42" height="28" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="150" y="302">SHOP-R1</text>
+<text class="lft-chip lft-c" x="150" y="312" style="fill:var(--body);">the template (×8)</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="sw" tabindex="0" role="button" aria-label="Show the shop-switch configuration">
+<circle class="bx-ring lft-ring" cx="150" cy="430" r="24"/>
+<circle class="bx-sel" cx="150" cy="430" r="20"/>
+<use href="#lfi-l2" x="125" y="419" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="150" y="462">SHOP-SW</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="70" cy="510" r="20"/>
+<use href="#lfi-pos" x="56" y="496" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="70" y="536">Tills</text>
+<text class="lft-chip lft-c" x="70" y="546" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="150" cy="510" r="20"/>
+<use href="#lfi-display" x="131" y="497" width="38" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="150" y="536">KDS · menu</text>
+<text class="lft-chip lft-c" x="150" y="546" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="230" cy="510" r="20"/>
+<use href="#lfi-camera" x="216" y="499" width="28" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="230" y="536">Cameras</text>
+<text class="lft-chip lft-c" x="230" y="546" style="fill:var(--v40);">V40</text>
+</g>
+<!-- shop B (opening) -->
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="620" cy="330" r="28"/>
+<use href="#lfi-router" x="599" y="316" width="42" height="28" style="color:var(--gotcha);"/>
+<text class="lft-name lft-c" x="620" y="302">SHOP-R2</text>
+<text class="lft-chip lft-c" x="620" y="312" style="fill:var(--gotcha);">opening · zero-touch</text>
+</g>
+<g class="bx-el bx-dev" data-step="2">
+<circle class="bx-ring lft-ring" cx="620" cy="440" r="22"/>
+<use href="#lfi-ap" x="603" y="427" width="34" height="26" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="620" y="472">shop devices</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="24" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="38">all 9 steps built</text>
+<text class="lft-chip" x="20" y="550">Drag the slider to build it step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="9" value="9" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The HQ Hub", "adds": "HQ-R1, HQ servers"}, {"n": 2, "title": "The Shop Template", "adds": "SHOP-R1, SHOP-SW, Tills, KDS, Cameras"}, {"n": 3, "title": "The Overlay: Every Shop Dials HQ", "adds": "WireGuard hub-spoke"}, {"n": 4, "title": "Dual-WAN & App-Aware Steering", "adds": "WAN1 fibre, WAN2 4G"}, {"n": 5, "title": "Firewall: Tills, Guests, Cameras", "adds": "policy"}, {"n": 6, "title": "Guest Wi-Fi & Tills-First QoS", "adds": "policy"}, {"n": 7, "title": "Zero-Touch Provisioning", "adds": "SHOP-R2 (opening)"}, {"n": 8, "title": "Centralised Monitoring", "adds": "NOC"}, {"n": 9, "title": "Hardening & Central Backup", "adds": "policy"}], "devices": {"hq": "HQ-R1 (hub)", "shop": "SHOP-R1 (template)", "sw": "SHOP-SW"}, "configs": {"hq": [{"step": 1, "title": "The HQ Hub", "label": "HQ-R1 — CCR2004: the hub, server VLAN, WireGuard head-end", "text": "# HQ-R1 — CCR2004: the hub. Server VLAN, the NOC, and the WireGuard head-end every shop dials.\n/system identity set name=HQ-R1\n/interface bridge add name=bridge vlan-filtering=yes\n/interface bridge port add bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment=\"HQ switch\"\n/interface bridge vlan add bridge=bridge vlan-ids=20,30,99 tagged=bridge,ether2\n/interface vlan\nadd name=v20-office interface=bridge vlan-id=20\nadd name=v30-srv interface=bridge vlan-id=30\nadd name=v99-noc interface=bridge vlan-id=99\n/ip address\nadd address=10.0.20.1/24 interface=v20-office\nadd address=10.0.30.1/24 interface=v30-srv\nadd address=10.0.99.1/24 interface=v99-noc\n# the overlay head-end: one WireGuard interface, one peer per shop\n/interface wireguard add name=wg-hub listen-port=51820\n/ip address add address=10.255.0.1/24 interface=wg-hub\n# each shop is a peer: its overlay /32 + its whole 10.<id>.0.0/16 behind it\n/interface wireguard peers add interface=wg-hub public-key=\"<shop-03 pubkey>\" \\\n    allowed-address=10.255.0.4/32,10.3.0.0/16 comment=\"shop-03 Rethymno\"\n# HQ routes each shop's block back down its tunnel\n/ip route add dst-address=10.3.0.0/16 gateway=10.255.0.4", "cisco": "! HQ-R1 — C8300: the DMVPN hub + server VLAN + NOC. One mGRE tunnel; every shop is a spoke.\nhostname HQ-R1\nip routing\nvlan 20,30,99\ninterface GigabitEthernet0/0/1\n switchport mode trunk\n switchport trunk allowed vlan 20,30,99\ninterface Vlan20\n ip address 10.0.20.1 255.255.255.0\ninterface Vlan30\n ip address 10.0.30.1 255.255.255.0\ninterface Vlan99\n ip address 10.0.99.1 255.255.255.0\n! the overlay hub: one multipoint GRE tunnel, IPsec-protected; shops register via NHRP\ninterface Tunnel0\n ip address 10.255.0.1 255.255.255.0\n ip nhrp network-id 1\n ip nhrp map multicast dynamic\n tunnel source GigabitEthernet0/0/0\n tunnel mode gre multipoint\n tunnel protection ipsec profile DMVPN\n! phase-1 DMVPN (no spoke-to-spoke): the hub routes everything, so shops never reach each other\nrouter eigrp 1\n network 10.255.0.0 0.0.0.255\n network 10.0.0.0 0.0.255.255", "mikrotik": "# HQ-R1 — CCR2004: the hub. Server VLAN, the NOC, and the WireGuard head-end every shop dials.\n/system identity set name=HQ-R1\n/interface bridge add name=bridge vlan-filtering=yes\n/interface bridge port add bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment=\"HQ switch\"\n/interface bridge vlan add bridge=bridge vlan-ids=20,30,99 tagged=bridge,ether2\n/interface vlan\nadd name=v20-office interface=bridge vlan-id=20\nadd name=v30-srv interface=bridge vlan-id=30\nadd name=v99-noc interface=bridge vlan-id=99\n/ip address\nadd address=10.0.20.1/24 interface=v20-office\nadd address=10.0.30.1/24 interface=v30-srv\nadd address=10.0.99.1/24 interface=v99-noc\n# the overlay head-end: one WireGuard interface, one peer per shop\n/interface wireguard add name=wg-hub listen-port=51820\n/ip address add address=10.255.0.1/24 interface=wg-hub\n# each shop is a peer: its overlay /32 + its whole 10.<id>.0.0/16 behind it\n/interface wireguard peers add interface=wg-hub public-key=\"<shop-03 pubkey>\" \\\n    allowed-address=10.255.0.4/32,10.3.0.0/16 comment=\"shop-03 Rethymno\"\n# HQ routes each shop's block back down its tunnel\n/ip route add dst-address=10.3.0.0/16 gateway=10.255.0.4"}, {"step": 8, "title": "Centralised Monitoring", "label": "HQ — the NOC: scrape every shop, alert on a dark one", "text": "# HQ — the NOC watches the fleet. A shop that goes dark pages before a barista calls.\n# argus stack (VictoriaMetrics + Grafana + vmalert + Alertmanager) scrapes each shop over the overlay\n/snmp set enabled=yes contact=noc@cafe.example\n/snmp community set [find default=yes] addresses=10.255.0.0/24 comment=\"poll only over the tunnel\"\n/system logging action add name=noc target=remote remote=10.0.99.20\n/system logging add topics=warning,error action=noc\n# a per-site Grafana dashboard + one fleet-overview; Alertmanager -> the on-call bot\n# (every shop pushes the same metric names, so one dashboard template fits all 8)", "cisco": "! HQ + shops — SNMP/syslog to the NOC over the overlay. The monitoring stack is vendor-neutral:\n! argus (VictoriaMetrics + Grafana + Alertmanager) scrapes SNMP the same whatever the routers are.\nsnmp-server community <ro> RO 99\nsnmp-server host 10.0.99.20 version 2c <ro>\nlogging host 10.0.99.20\nlogging trap warnings\n! on IOS-XE you can push model-driven telemetry (gNMI/gRPC) instead of polling\n! an ACL (step 9) keeps SNMP/SSH reachable only from the overlay + the NOC", "mikrotik": "# HQ — the NOC watches the fleet. A shop that goes dark pages before a barista calls.\n# argus stack (VictoriaMetrics + Grafana + vmalert + Alertmanager) scrapes each shop over the overlay\n/snmp set enabled=yes contact=noc@cafe.example\n/snmp community set [find default=yes] addresses=10.255.0.0/24 comment=\"poll only over the tunnel\"\n/system logging action add name=noc target=remote remote=10.0.99.20\n/system logging add topics=warning,error action=noc\n# a per-site Grafana dashboard + one fleet overview; Alertmanager -> the on-call bot\n# (every shop pushes the same metric names, so one dashboard template fits all 8)"}], "sw": [{"step": 2, "title": "The Shop Template", "label": "SHOP-SW — CRS112: tills, KDS, cameras, AP trunk", "text": "# SHOP-SW — CRS112-8P-4S: tills, KDS, cameras, an AP trunk, uplink to the router. Identical in every shop.\n/system identity set name=(\"SHOP-\" . $SITE . \"-SW\")\n/interface bridge add name=bridge vlan-filtering=yes\n/interface bridge port\nadd bridge=bridge interface=ether1 frame-types=admit-only-vlan-tagged comment=\"uplink SHOP-R1\"\nadd bridge=bridge interface=ether2 pvid=10 comment=\"till 1\"\nadd bridge=bridge interface=ether3 pvid=10 comment=\"till 2 / card terminal\"\nadd bridge=bridge interface=ether4 pvid=30 comment=\"KDS / menu screen\"\nadd bridge=bridge interface=ether5 pvid=40 comment=\"camera\"\nadd bridge=bridge interface=ether8 pvid=99 comment=\"cAP ax (trunk)\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,30,40 tagged=ether1\nadd bridge=bridge vlan-ids=20,50,99 tagged=ether1,ether8\nadd bridge=bridge vlan-ids=99 tagged=bridge", "cisco": "! SHOP-SW — Catalyst 1000-8P: tills, KDS, camera, AP trunk, uplink. Identical in every shop.\nvtp mode transparent\nvlan 10,20,30,40,50,99\ninterface range GigabitEthernet1/0/1 - 2\n description tills / card terminal\n switchport mode access\n switchport access vlan 10\n spanning-tree portfast\ninterface GigabitEthernet1/0/3\n description KDS / menu screen\n switchport access vlan 30\ninterface GigabitEthernet1/0/4\n description camera\n switchport access vlan 40\ninterface GigabitEthernet1/0/8\n description cAP AP (trunk)\n switchport mode trunk\n switchport trunk native vlan 99\n switchport trunk allowed vlan 20,50,99\ninterface GigabitEthernet1/0/10\n description uplink SHOP-R1\n switchport mode trunk\n switchport trunk allowed vlan 10,20,30,40,50,99", "mikrotik": "# SHOP-SW — CRS112-8P-4S: tills, KDS, cameras, an AP trunk, uplink to the router. Identical in every shop.\n/system identity set name=(\"SHOP-\" . $SITE . \"-SW\")\n/interface bridge add name=bridge vlan-filtering=yes\n/interface bridge port\nadd bridge=bridge interface=ether1 frame-types=admit-only-vlan-tagged comment=\"uplink SHOP-R1\"\nadd bridge=bridge interface=ether2 pvid=10 comment=\"till 1\"\nadd bridge=bridge interface=ether3 pvid=10 comment=\"till 2 / card terminal\"\nadd bridge=bridge interface=ether4 pvid=30 comment=\"KDS / menu screen\"\nadd bridge=bridge interface=ether5 pvid=40 comment=\"camera\"\nadd bridge=bridge interface=ether8 pvid=99 comment=\"cAP ax (trunk)\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,30,40 tagged=ether1\nadd bridge=bridge vlan-ids=20,50,99 tagged=ether1,ether8\nadd bridge=bridge vlan-ids=99 tagged=bridge"}], "shop": [{"step": 2, "title": "The Shop Template", "label": "SHOP-R1 — hAP ax: VLANs, DHCP, DNS (one template, $SITE per shop)", "text": "# SHOP-R1 — hAP ax: the shop template. The ONLY thing that changes per shop is $SITE.\n:global SITE 3\n/system identity set name=(\"SHOP-\" . $SITE)\n/interface bridge add name=bridge vlan-filtering=yes\n/interface bridge port add bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment=\"SHOP switch\"\n/interface bridge vlan add bridge=bridge vlan-ids=10,20,30,40,50,99 tagged=bridge,ether2\n/interface vlan\nadd name=v10-pos interface=bridge vlan-id=10\nadd name=v20-office interface=bridge vlan-id=20\nadd name=v30-iot interface=bridge vlan-id=30\nadd name=v40-cctv interface=bridge vlan-id=40\nadd name=v50-guest interface=bridge vlan-id=50\nadd name=v99-mgmt interface=bridge vlan-id=99\n# the fleet plan: 10.<SITE>.<vlan>.1/24 — identical everywhere but the SITE octet\n/ip address add address=(\"10.\" . $SITE . \".10.1/24\") interface=v10-pos\n# … .20 / .30 / .40 / .50 / .99 the same way\n/ip dhcp-server add name=d-guest interface=v50-guest address-pool=p-guest lease-time=2h\n/ip dhcp-server add name=d-pos interface=v10-pos address-pool=static-only lease-time=1d\n# … office + iot pools; the tills and card terminals are reserved by MAC\n/ip dns set allow-remote-requests=yes servers=9.9.9.9,1.1.1.1", "cisco": "! SHOP-R1 — C1121X: the templated shop. PnP / a template renders the per-site values (site 3 here).\nhostname SHOP-3\nip routing\nvlan 10,20,30,40,50,99\ninterface GigabitEthernet0/0/1\n switchport mode trunk\n switchport trunk allowed vlan 10,20,30,40,50,99\ninterface Vlan10\n ip address 10.3.10.1 255.255.255.0\ninterface Vlan20\n ip address 10.3.20.1 255.255.255.0\ninterface Vlan30\n ip address 10.3.30.1 255.255.255.0\ninterface Vlan40\n ip address 10.3.40.1 255.255.255.0\ninterface Vlan50\n ip address 10.3.50.1 255.255.255.0\ninterface Vlan99\n ip address 10.3.99.1 255.255.255.0\n! the fleet plan: every address is 10.<site>.<vlan>.1 — the template substitutes the site octet\nip dhcp excluded-address 10.3.50.1 10.3.50.9\nip dhcp pool GUEST\n network 10.3.50.0 255.255.255.0\n default-router 10.3.50.1\n dns-server 9.9.9.9 1.1.1.1\n lease 0 2\n! tills + card terminals are reserved by MAC (no dynamic pool on VLAN 10)\nip name-server 9.9.9.9 1.1.1.1", "mikrotik": "# SHOP-R1 — hAP ax: the shop template. The ONLY thing that changes per shop is $SITE.\n:global SITE 3\n/system identity set name=(\"SHOP-\" . $SITE)\n/interface bridge add name=bridge vlan-filtering=yes\n/interface bridge port add bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment=\"SHOP switch\"\n/interface bridge vlan add bridge=bridge vlan-ids=10,20,30,40,50,99 tagged=bridge,ether2\n/interface vlan\nadd name=v10-pos interface=bridge vlan-id=10\nadd name=v20-office interface=bridge vlan-id=20\nadd name=v30-iot interface=bridge vlan-id=30\nadd name=v40-cctv interface=bridge vlan-id=40\nadd name=v50-guest interface=bridge vlan-id=50\nadd name=v99-mgmt interface=bridge vlan-id=99\n# the fleet plan: 10.<SITE>.<vlan>.1/24 — identical everywhere but the SITE octet\n/ip address add address=(\"10.\" . $SITE . \".10.1/24\") interface=v10-pos\n# … .20 / .30 / .40 / .50 / .99 the same way\n/ip dhcp-server add name=d-guest interface=v50-guest address-pool=p-guest lease-time=2h\n/ip dhcp-server add name=d-pos interface=v10-pos address-pool=static-only lease-time=1d\n# … office + iot pools; the tills and card terminals are reserved by MAC\n/ip dns set allow-remote-requests=yes servers=9.9.9.9,1.1.1.1"}, {"step": 3, "title": "The Overlay: Every Shop Dials HQ", "label": "SHOP-R1 — one WireGuard tunnel up to HQ (spoke isolation)", "text": "# SHOP-R1 — one tunnel up to HQ. A shop reaches HQ and central services, never another shop.\n/interface wireguard add name=wg-hq listen-port=51820\n/interface wireguard peers add interface=wg-hq public-key=\"<HQ hub pubkey>\" \\\n    endpoint-address=hq.cafe.example endpoint-port=51820 \\\n    allowed-address=10.0.0.0/16,10.255.0.0/24 persistent-keepalive=25s\n/ip address add address=(\"10.255.0.\" . ($SITE + 1) . \"/24\") interface=wg-hq\n# central services (POS/ERP/loyalty at HQ) are reached over the tunnel; the default stays local (step 4)\n/ip route add dst-address=10.0.0.0/16 gateway=10.255.0.1\n# allowed-address scopes the tunnel to HQ's blocks only — there is no route to 10.<other-shop>,\n# so a compromised shop cannot reach a sister shop; the hub is the only meeting point", "cisco": "! SHOP-R1 — a DMVPN spoke to the HQ hub. Spokes register with the hub, never each other.\ninterface Tunnel0\n ip address 10.255.0.4 255.255.255.0\n ip nhrp network-id 1\n ip nhrp nhs 10.255.0.1 nbma hq.cafe.example multicast\n tunnel source GigabitEthernet0/0/0\n tunnel mode gre multipoint\n tunnel protection ipsec profile DMVPN\nrouter eigrp 1\n network 10.255.0.0 0.0.0.255\n network 10.3.0.0 0.0.255.255\n! no NHRP shortcut here on purpose — phase-1 hub-spoke, so a shop reaches HQ and central\n! services but has no route to a sister shop; the hub is the only meeting point", "mikrotik": "# SHOP-R1 — one tunnel up to HQ. A shop reaches HQ and central services, never another shop.\n/interface wireguard add name=wg-hq listen-port=51820\n/interface wireguard peers add interface=wg-hq public-key=\"<HQ hub pubkey>\" \\\n    endpoint-address=hq.cafe.example endpoint-port=51820 \\\n    allowed-address=10.0.0.0/16,10.255.0.0/24 persistent-keepalive=25s\n/ip address add address=(\"10.255.0.\" . ($SITE + 1) . \"/24\") interface=wg-hq\n# central services (POS/ERP/loyalty at HQ) are reached over the tunnel; the default stays local (step 4)\n/ip route add dst-address=10.0.0.0/16 gateway=10.255.0.1\n# allowed-address scopes the tunnel to HQ's blocks only — there is no route to 10.<other-shop>,\n# so a compromised shop cannot reach a sister shop; the hub is the only meeting point"}, {"step": 4, "title": "Dual-WAN & App-Aware Steering", "label": "SHOP-R1 — two WANs, steered by application not just by route", "text": "# SHOP-R1 — two WANs; the money traffic is steered by APPLICATION, not just a backup route.\n/interface list add name=WAN\n/interface list member\nadd list=WAN interface=ether1\nadd list=WAN interface=lte1\n/ip dhcp-client add interface=ether1 use-peer-dns=no comment=\"WAN1 fibre/VDSL\"\n/ip dhcp-client add interface=lte1 use-peer-dns=no add-default-route=no comment=\"WAN2 4G\"\n/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN\n# mark what MUST take the reliable path: tills, card terminals, and the HQ tunnel\n/ip firewall mangle\nadd chain=prerouting src-address-list=POS dst-address-list=ACQUIRER action=mark-routing new-routing-mark=money passthrough=no\nadd chain=prerouting out-interface=wg-hq action=mark-routing new-routing-mark=money passthrough=no\n# the money mark prefers WAN1, fails to WAN2; the default (guest + bulk) does the same, separately\n/ip route add dst-address=0.0.0.0/0 gateway=ether1 routing-mark=money check-gateway=ping distance=1\n/ip route add dst-address=0.0.0.0/0 gateway=lte1 routing-mark=money check-gateway=ping distance=2\n/ip route add dst-address=0.0.0.0/0 gateway=ether1 check-gateway=ping distance=1\n/ip route add dst-address=0.0.0.0/0 gateway=lte1 check-gateway=ping distance=2", "cisco": "! SHOP-R1 — two WANs; PBR pins the card path to WAN1 with a tracked fallback to WAN2.\ninterface GigabitEthernet0/0/0\n description WAN1 fibre\n ip address dhcp\n ip nat outside\ninterface Cellular0/1/0\n description WAN2 4G\n ip nat outside\nip sla 1\n icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0\n frequency 5\nip sla schedule 1 life forever start-time now\ntrack 1 ip sla 1 reachability\n! the money path: tills -> acquirer, pinned to WAN1, falling to 4G if the track drops\nip access-list extended MONEY\n permit tcp 10.3.10.0 0.0.0.255 host <acquirer> eq 443\nroute-map PBR-MONEY permit 10\n match ip address MONEY\n set ip next-hop verify-availability <wan1-gw> 1 track 1\n set ip next-hop <wan2-gw>\ninterface Vlan10\n ip policy route-map PBR-MONEY\n! everything else: WAN1 primary, WAN2 floating backup\nip route 0.0.0.0 0.0.0.0 dhcp 1 track 1\nip route 0.0.0.0 0.0.0.0 Cellular0/1/0 2\nip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload", "mikrotik": "# SHOP-R1 — two WANs; the money traffic is steered by APPLICATION, not just a backup route.\n/interface list add name=WAN\n/interface list member\nadd list=WAN interface=ether1\nadd list=WAN interface=lte1\n/ip dhcp-client add interface=ether1 use-peer-dns=no comment=\"WAN1 fibre/VDSL\"\n/ip dhcp-client add interface=lte1 use-peer-dns=no add-default-route=no comment=\"WAN2 4G\"\n/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN\n# mark what MUST take the reliable path: tills, card terminals, and the HQ tunnel\n/ip firewall mangle\nadd chain=prerouting src-address-list=POS dst-address-list=ACQUIRER action=mark-routing new-routing-mark=money passthrough=no\nadd chain=prerouting out-interface=wg-hq action=mark-routing new-routing-mark=money passthrough=no\n# the money mark prefers WAN1, fails to WAN2; the default (guest + bulk) does the same, separately\n/ip route add dst-address=0.0.0.0/0 gateway=ether1 routing-mark=money check-gateway=ping distance=1\n/ip route add dst-address=0.0.0.0/0 gateway=lte1 routing-mark=money check-gateway=ping distance=2\n/ip route add dst-address=0.0.0.0/0 gateway=ether1 check-gateway=ping distance=1\n/ip route add dst-address=0.0.0.0/0 gateway=lte1 check-gateway=ping distance=2"}, {"step": 5, "title": "Firewall: Tills, Guests, Cameras", "label": "SHOP-R1 — tills reach the acquirer + HQ only; guests isolated", "text": "# SHOP-R1 — the tills reach the card acquirer and HQ only; guests get the internet and nothing of ours.\n/ip firewall address-list\nadd list=ACQUIRER address=pay.acquirer.example\nadd list=POS address=10.3.10.0/24\n/ip firewall filter\nadd chain=forward connection-state=established,related,untracked action=accept\nadd chain=forward connection-state=invalid action=drop\n# tills: the acquirer (card, 443) + the HQ POS/ERP over the tunnel, nothing else\nadd chain=forward in-interface=v10-pos dst-address-list=ACQUIRER protocol=tcp dst-port=443 action=accept\nadd chain=forward in-interface=v10-pos out-interface=wg-hq dst-address=10.0.30.0/24 action=accept comment=\"POS -> HQ ERP/loyalty\"\nadd chain=forward in-interface=v10-pos action=drop log=yes log-prefix=POS-DROP\n# cameras record to the HQ NVR over the tunnel; office reaches HQ + internet; guest internet only\nadd chain=forward in-interface=v40-cctv out-interface=wg-hq dst-address=10.0.30.20 action=accept comment=\"cameras -> HQ NVR\"\nadd chain=forward in-interface=v50-guest out-interface-list=WAN action=accept comment=\"guest -> internet only\"\nadd chain=forward in-interface=v20-office action=accept\nadd chain=forward in-interface=v30-iot out-interface-list=WAN protocol=tcp dst-port=443 action=accept comment=\"music/KDS cloud\"\nadd chain=forward action=drop log=yes log-prefix=FWD-DROP", "cisco": "! SHOP-R1 — Zone-Based Firewall. The payment zone reaches the acquirer + HQ only.\nzone security POS\nzone security OFFICE\nzone security IOT\nzone security CCTV\nzone security GUEST\nzone security HQ\nzone security WAN\ninterface Vlan10\n zone-member security POS\ninterface Vlan20\n zone-member security OFFICE\ninterface Vlan30\n zone-member security IOT\ninterface Vlan40\n zone-member security CCTV\ninterface Vlan50\n zone-member security GUEST\ninterface Tunnel0\n zone-member security HQ\ninterface GigabitEthernet0/0/0\n zone-member security WAN\nclass-map type inspect match-any CM-GEN\n match protocol tcp\n match protocol udp\n match protocol icmp\npolicy-map type inspect PM-OUT\n class type inspect CM-GEN\n  inspect\n class class-default\n  drop\n! tills -> the acquirer (443) and the HQ POS server, nothing else\nip access-list extended ACL-POS\n permit tcp 10.3.10.0 0.0.0.255 host <acquirer> eq 443\n permit ip 10.3.10.0 0.0.0.255 10.0.30.0 0.0.0.255\nclass-map type inspect match-all CM-POS\n match access-group name ACL-POS\npolicy-map type inspect PM-POS\n class type inspect CM-POS\n  inspect\n class class-default\n  drop\nzone-pair security ZP-POS-WAN source POS destination WAN\n service-policy type inspect PM-POS\nzone-pair security ZP-POS-HQ source POS destination HQ\n service-policy type inspect PM-POS\n! guest -> internet only; cameras -> HQ NVR; office -> HQ + internet\nzone-pair security ZP-GUEST-WAN source GUEST destination WAN\n service-policy type inspect PM-OUT\nzone-pair security ZP-CCTV-HQ source CCTV destination HQ\n service-policy type inspect PM-OUT\nzone-pair security ZP-OFFICE-WAN source OFFICE destination WAN\n service-policy type inspect PM-OUT\nzone-pair security ZP-OFFICE-HQ source OFFICE destination HQ\n service-policy type inspect PM-OUT", "mikrotik": "# SHOP-R1 — the tills reach the card acquirer and HQ only; guests get the internet and nothing of ours.\n/ip firewall address-list\nadd list=ACQUIRER address=pay.acquirer.example\nadd list=POS address=10.3.10.0/24\n/ip firewall filter\nadd chain=forward connection-state=established,related,untracked action=accept\nadd chain=forward connection-state=invalid action=drop\n# tills: the acquirer (card, 443) + the HQ POS/ERP over the tunnel, nothing else\nadd chain=forward in-interface=v10-pos dst-address-list=ACQUIRER protocol=tcp dst-port=443 action=accept\nadd chain=forward in-interface=v10-pos out-interface=wg-hq dst-address=10.0.30.0/24 action=accept comment=\"POS -> HQ ERP/loyalty\"\nadd chain=forward in-interface=v10-pos action=drop log=yes log-prefix=POS-DROP\n# cameras record to the HQ NVR over the tunnel; office reaches HQ + internet; guest internet only\nadd chain=forward in-interface=v40-cctv out-interface=wg-hq dst-address=10.0.30.20 action=accept comment=\"cameras -> HQ NVR\"\nadd chain=forward in-interface=v50-guest out-interface-list=WAN action=accept comment=\"guest -> internet only\"\nadd chain=forward in-interface=v20-office action=accept\nadd chain=forward in-interface=v30-iot out-interface-list=WAN protocol=tcp dst-port=443 action=accept comment=\"music/KDS cloud\"\nadd chain=forward action=drop log=yes log-prefix=FWD-DROP"}, {"step": 6, "title": "Guest Wi-Fi & Tills-First QoS", "label": "SHOP-R1 — captive-portal guest Wi-Fi; the tills always win", "text": "# SHOP-R1 — captive-portal guest Wi-Fi, fair per device, and a guarantee the tills always transmit.\n/ip hotspot setup\n# (guest on v50, a click-through 'trial' profile; per-device pcq limits, as in the coffee-shop build)\n# mark the money traffic so the queue can protect it\n/ip firewall mangle add chain=forward src-address-list=POS action=mark-packet new-packet-mark=pos passthrough=no\n/ip firewall mangle add chain=forward in-interface=v50-guest action=mark-packet new-packet-mark=guest passthrough=no\n/queue type add name=guest-pcq kind=pcq pcq-rate=5M pcq-classifier=dst-address\n/queue tree\nadd name=up parent=global max-limit=50M\nadd name=pos-up parent=up packet-mark=pos limit-at=5M max-limit=50M priority=1\nadd name=guest-up parent=up packet-mark=guest max-limit=40M queue=guest-pcq priority=8\n# priority 1 vs 8: under contention the tills get served first, guests share what is left", "cisco": "! SHOP-R1 — MQC gives the tills priority and shares the rest to guests; guest portal is CWA on the EWC.\nclass-map match-all CM-TILLS\n match access-group name ACL-POS\nclass-map match-all CM-GUEST\n match vlan 50\npolicy-map SHOP-WAN\n class CM-TILLS\n  priority percent 10\n class CM-GUEST\n  bandwidth remaining percent 80\n  fair-queue\n class class-default\n  fair-queue\ninterface GigabitEthernet0/0/0\n service-policy output SHOP-WAN\n! the guest Wi-Fi itself is a Catalyst 9800 EWC WLAN with web-consent (as in the coffee-shop build)", "mikrotik": "# SHOP-R1 — captive-portal guest Wi-Fi, fair per device, and a guarantee the tills always transmit.\n/ip hotspot setup\n# (guest on v50, a click-through 'trial' profile; per-device pcq limits, as in the coffee-shop build)\n# mark the money traffic so the queue can protect it\n/ip firewall mangle add chain=forward src-address-list=POS action=mark-packet new-packet-mark=pos passthrough=no\n/ip firewall mangle add chain=forward in-interface=v50-guest action=mark-packet new-packet-mark=guest passthrough=no\n/queue type add name=guest-pcq kind=pcq pcq-rate=5M pcq-classifier=dst-address\n/queue tree\nadd name=up parent=global max-limit=50M\nadd name=pos-up parent=up packet-mark=pos limit-at=5M max-limit=50M priority=1\nadd name=guest-up parent=up packet-mark=guest max-limit=40M queue=guest-pcq priority=8\n# priority 1 vs 8: under contention the tills get served first, guests share what is left"}, {"step": 7, "title": "Zero-Touch Provisioning", "label": "SHOP-R1 — a new shop self-configures from HQ on first boot", "text": "# Opening a shop: plug the router in, it fetches its own config from HQ. No truck roll with a laptop.\n# the factory/default config carries only a bootstrap WAN DHCP + the provisioning key, then runs ztp:\n/system script add name=ztp source={\n  :global SITE [/system routerboard get serial-number]\n  /tool fetch url=(\"https://provision.cafe.example/sites/\" . $SITE . \".rsc\") dst-path=site.rsc\n  /import file-name=site.rsc\n}\n/system scheduler add name=firstboot start-time=startup interval=0 on-event=ztp\n# HQ renders sites/<serial>.rsc from the ONE template + that site's variables (SITE id, keys, WAN type).\n# opening shop #9 is: ship a pre-keyed router, staff plug it in, it joins the overlay in minutes.", "cisco": "! Cisco's zero-touch is Network Plug-and-Play (PnP): a factory-fresh router finds the PnP server\n! (DHCP option 43, DNS, or the cloud redirect) and pulls its config + image with no console session.\npnp profile ztp\n transport https ipv4 pnp.cafe.example port 443\n! the per-site config is a template in Cisco DNA Center (or a lightweight PnP server) with the site\n! variables — exactly like the rendered .rsc on the MikroTik side. For eight cafés a small PnP server\n! is plenty; DNA Center is the product you reach for at hundreds of sites.", "mikrotik": "# Opening a shop: plug the router in, it fetches its own config from HQ. No truck roll with a laptop.\n# the factory/default config carries only a bootstrap WAN DHCP + the provisioning key, then runs ztp:\n/system script add name=ztp source={\n  :global SITE [/system routerboard get serial-number]\n  /tool fetch url=(\"https://provision.cafe.example/sites/\" . $SITE . \".rsc\") dst-path=site.rsc\n  /import file-name=site.rsc\n}\n/system scheduler add name=firstboot start-time=startup interval=0 on-event=ztp\n# HQ renders sites/<serial>.rsc from the ONE template + that site's variables (SITE id, keys, WAN type)\n# opening shop #9 is: ship a pre-keyed router, staff plug it in, it joins the overlay in minutes"}, {"step": 9, "title": "Hardening & Central Backup", "label": "SHOP-R1 — SSH from the NOC only, nightly config to HQ, PCI-clean card path", "text": "# SHOP-R1 — managed from the NOC over the tunnel; config backed up to HQ nightly; the card path kept clean.\n/ip service disable telnet,ftp,www,api,api-ssl\n/ip service set ssh address=10.0.99.0/24,10.255.0.0/24\n/ip service set winbox address=10.0.99.0/24,10.255.0.0/24\n/user set admin disabled=yes\n/user add name=netadmin group=full password=********\n# nightly export up to HQ over the tunnel; rollback = re-render from the template + re-push\n/system scheduler add name=nightly start-time=03:30:00 interval=1d on-event={\n  /export file=latest ; /tool fetch upload=yes url=\"sftp://10.0.99.20/backups/\" src-path=latest.rsc user=backup\n}\n# PCI: the card path (tills -> acquirer) sits on its own VLAN, is logged, and never shares with guest or office", "cisco": "! SHOP-R1 — SSH from the NOC/overlay only; config archived to HQ nightly; card path kept PCI-clean.\nno ip http server\nno ip http secure-server\nip ssh version 2\nusername netadmin privilege 15 secret 0 ********\nno username admin\nip access-list standard MGMT-IN\n permit 10.0.99.0 0.0.0.255\n permit 10.255.0.0 0.0.0.255\nline vty 0 4\n transport input ssh\n access-class MGMT-IN in\n login local\narchive\n path scp://backup@10.0.99.20/cafe-shop\nkron occurrence NIGHTLY at 3:30 recurring\n policy-list SAVE\nkron policy-list SAVE\n cli show running-config | redirect scp://backup@10.0.99.20/shop-latest.cfg\n! PCI: the card path stays on VLAN 10 end to end, logged, never shared with guest or office", "mikrotik": "# SHOP-R1 — managed from the NOC over the tunnel; config backed up to HQ nightly; the card path kept clean.\n/ip service disable telnet,ftp,www,api,api-ssl\n/ip service set ssh address=10.0.99.0/24,10.255.0.0/24\n/ip service set winbox address=10.0.99.0/24,10.255.0.0/24\n/user set admin disabled=yes\n/user add name=netadmin group=full password=********\n# nightly export up to HQ over the tunnel; rollback = re-render from the template + re-push\n/system scheduler add name=nightly start-time=03:30:00 interval=1d on-event={\n  /export file=latest ; /tool fetch upload=yes url=\"sftp://10.0.99.20/backups/\" src-path=latest.rsc user=backup\n}\n# PCI: the card path (tills -> acquirer) sits on its own VLAN, is logged, and never shares with guest or office"}]}}</script>
+</div>
+  </div>
+
+  <div class="thesis-card">
+    <p>This is the Build series' first <strong>multi-site</strong> design. The earlier eight were one building each; a chain is a different problem — not a bigger network but the <em>same</em> network, eight times, plus a head office that ties them together and a tenth shop that has to come online next month without a van full of engineers.</p>
+    <p>It leans on three ideas that none of the single-site builds needed: write the shop <strong>once as a template</strong> and stamp it out per site, join the sites with an <strong>overlay</strong> so every shop talks to HQ and no shop talks to another, and steer the traffic that matters — the tills and the card terminals — onto the reliable link <em>by application</em>, not just by a backup route. That last trio is what the SD-WAN products sell; here we build the mechanics by hand so you can see what they automate.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>The <a href="build-coffee-shop.html">coffee shop build</a> — a single café is one node of this chain</li>
+      <li><a href="mikrotik-wireguard.html">WireGuard</a>, <a href="mikrotik-vlans.html">VLANs</a>, <a href="mikrotik-firewall.html">the RouterOS firewall</a>, <a href="mikrotik-qos.html">QoS</a></li>
+      <li>RouterOS 7.x, a head-end with a public endpoint (or a dynamic-DNS name), and two WANs per shop</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but very typical Cretan chain: eight shops, a roastery that is also the office, and an owner who wants the ninth open by spring.</em></p>
+
+  <p>Each <strong>shop</strong> is small and the same: two tills with card terminals, a kitchen-display and a menu screen, three or four cameras, a back-office PC, and <strong>guest Wi-Fi that people treat like an office</strong>. The <strong>roastery / HQ</strong> holds the central POS and ERP, the loyalty and online-ordering backend, the accounts office, and a small <strong>NOC</strong> that is supposed to notice a dead shop before the shop phones in. Shops run on whatever the street offers — <strong>fibre where it exists, VDSL or 4G where it doesn't</strong> — and the card terminals must keep working through a flaky line. A new shop opens <strong>every few months</strong>, and nobody wants to send an engineer with a laptop each time.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Eight shops, one design</td><td>Each shop must be identical bar a site number, so a fix or a new VLAN rolls out everywhere the same way. A template, not eight hand-built routers.</td></tr>
+      <tr><td>R2 Shops reach HQ, not each other</td><td>Central POS, loyalty, CCTV viewing and config all live at HQ. A compromised shop must not be a path to a sister shop. Hub-spoke, not mesh.</td></tr>
+      <tr><td>R3 The tills cannot stop</td><td>Card payments and the HQ sync ride the reliable link and fail over on their own; guest traffic is never allowed to crowd them out.</td></tr>
+      <tr><td>R4 Two uplinks, used by purpose</td><td>Every shop has a primary and a backup WAN. The money traffic is pinned to the good one by application; bulk uses whatever is spare.</td></tr>
+      <tr><td>R5 Open a shop in a day</td><td>Ship a pre-keyed router, plug it in, it configures itself from HQ and joins the overlay. Zero-touch, no on-site engineer.</td></tr>
+      <tr><td>R6 See the whole fleet</td><td>One NOC view of all shops; a down link or a dead till pages someone before a customer notices.</td></tr>
+      <tr><td>R7 Card data stays clean</td><td>The payment path is its own segment end to end, logged, and never shares a VLAN with guests or the office (PCI hygiene).</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>Each is a choice about building a fleet rather than a single site.</em></p>
+
+  <h3 class="sub">1 · The shop is a template, not a config</h3>
+  <p>Every shop runs the same file; the only thing that changes is a site number. Addresses are <code>10.&lt;site&gt;.&lt;vlan&gt;.0/24</code>, so site 3's guest network is <code>10.3.50.0/24</code> and site 7's is <code>10.7.50.0/24</code> — the config computes them from one variable. A new VLAN, a firewall fix, a DNS change: edit the template, re-render, push to all eight. Eight hand-maintained routers drift; one template doesn't.</p>
+
+  <h3 class="sub">2 · Hub-spoke, because shops have nothing to say to each other</h3>
+  <p>A café in Chania never needs to reach a café in Heraklion — only HQ. So the overlay is a <strong>hub and spokes</strong>: every shop dials one WireGuard tunnel to HQ, and each shop's tunnel is scoped to HQ's addresses only. There is no route from one shop to another, which means a till compromised in one shop is a dead end, not a doorway to the chain.</p>
+
+  <h3 class="sub">3 · Steer by application, not just by route</h3>
+  <p>Plain failover moves <em>everything</em> to the backup when the primary drops. That's not enough here: on a congested fibre line the card terminals can stall long before the line is "down". So the <strong>money traffic</strong> — tills to the acquirer, and the HQ tunnel — is marked and pinned to the primary with its own tracked route, while guest and bulk traffic are steered separately. This is the one idea that makes "SD-WAN" more than "dual-WAN", and RouterOS does it with mangle marks and routing tables.</p>
+
+  <h3 class="sub">4 · Opening a shop is plug-and-wait</h3>
+  <p>Growth is the point of a chain, so provisioning can't be a bottleneck. A new router ships with a one-line bootstrap: get online, fetch <code>sites/&lt;serial&gt;.rsc</code> from HQ, import it. HQ renders that file from the same template, so the ninth shop is configured <em>identically</em> to the first — no laptop, no SSH session, no chance to fat-finger a VLAN at 7am before opening.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Fleet Address Plan</h2>
+  <p class="section-thesis"><em>One octet is the site; the rest is identical everywhere. That is what makes a template possible.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Block</th><th>Who lives here</th></tr></thead>
+    <tbody>
+      <tr><td>10.0.0.0/16 — HQ</td><td>Servers (POS/ERP .30.10, loyalty .30.11, NVR .30.20), office 10.0.20.0/24, NOC 10.0.99.0/24.</td></tr>
+      <tr><td>10.&lt;s&gt;.0.0/16 — shop s</td><td>Each shop's whole network. Site 3 = 10.3.0.0/16, site 7 = 10.7.0.0/16, and so on (s = 1–8).</td></tr>
+      <tr><td>· 10.&lt;s&gt;.10.0/24 POS</td><td>Tills + card terminals (reserved by MAC).</td></tr>
+      <tr><td>· 10.&lt;s&gt;.20/30/40/50</td><td>Office, IoT (KDS/music/menu), CCTV, Guest.</td></tr>
+      <tr><td>· 10.&lt;s&gt;.99.0/24 MGMT</td><td>The shop's router, switch and AP.</td></tr>
+      <tr><td>10.255.0.0/24 — overlay</td><td>WireGuard: HQ hub .1, shop s = .&lt;s+1&gt;. The only subnet every device shares.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Because a shop's whole estate is one <code>/16</code>, HQ needs exactly one route per shop (<code>10.&lt;s&gt;.0.0/16</code> down its tunnel), and a shop needs exactly one route to the centre (<code>10.0.0.0/16</code> up its tunnel). The plan is the routing table.</p>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Who may start a connection to whom, across the whole chain.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>From ↓ / To →</th><th>May reach</th></tr></thead>
+    <tbody>
+      <tr><td>Shop POS (tills)</td><td>The card acquirer (443) and the HQ POS/ERP over the tunnel. Nothing else, not even the shop's own office.</td></tr>
+      <tr><td>Shop office</td><td>HQ (files, mail) over the tunnel, and the internet.</td></tr>
+      <tr><td>Shop IoT / cameras</td><td>IoT: its vendor cloud only. Cameras: the HQ NVR over the tunnel only.</td></tr>
+      <tr><td>Shop guest</td><td>The internet only — never HQ, never the tills, never another shop.</td></tr>
+      <tr><td>HQ → shop</td><td>The NOC (management) and the central apps' return traffic. HQ is the only thing that may start a connection into a shop.</td></tr>
+      <tr><td>Shop → shop</td><td>Nothing. There is no route; the hub is the only meeting point.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 05 -->
+  <p class="section-num" id="sec-05">05</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, and the step that satisfies it.</em></p>
+
+  <table class="cheat trace">
+    <thead><tr><th>Req</th><th>Satisfied by</th></tr></thead>
+    <tbody>
+      <tr><td>R1 One design, eight shops</td><td>Step 2 — the templated shop config (one variable, $SITE)</td></tr>
+      <tr><td>R2 Shops reach HQ, not each other</td><td>Step 3 — hub-spoke overlay with per-tunnel scoping</td></tr>
+      <tr><td>R3 The tills cannot stop</td><td>Steps 4 + 6 — app-aware steering + tills-first QoS</td></tr>
+      <tr><td>R4 Two uplinks by purpose</td><td>Step 4 — dual-WAN, money traffic pinned by routing mark</td></tr>
+      <tr><td>R5 Open a shop in a day</td><td>Step 7 — zero-touch provisioning from HQ</td></tr>
+      <tr><td>R6 See the whole fleet</td><td>Step 8 — centralised monitoring + alerting (the NOC)</td></tr>
+      <tr><td>R7 Card data stays clean</td><td>Steps 5 + 9 — payment segment, logging, PCI hygiene</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-1">06 · Step 1 of 9</p>
+  <h2 class="section-title">The HQ Hub</h2>
+  <p class="section-thesis"><em>The head office is the centre of the star: the central servers, the NOC, and the one WireGuard endpoint every shop dials.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · select HQ-R1 for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">HQ-R1 — CCR2004: the hub, server VLAN, WireGuard head-end</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! HQ-R1 — C8300: the DMVPN hub + server VLAN + NOC. One mGRE tunnel; every shop is a spoke.
+hostname HQ-R1
+ip routing
+vlan 20,30,99
+interface GigabitEthernet0/0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 20,30,99
+interface Vlan20
+ ip address 10.0.20.1 255.255.255.0
+interface Vlan30
+ ip address 10.0.30.1 255.255.255.0
+interface Vlan99
+ ip address 10.0.99.1 255.255.255.0
+! the overlay hub: one multipoint GRE tunnel, IPsec-protected; shops register via NHRP
+interface Tunnel0
+ ip address 10.255.0.1 255.255.255.0
+ ip nhrp network-id 1
+ ip nhrp map multicast dynamic
+ tunnel source GigabitEthernet0/0/0
+ tunnel mode gre multipoint
+ tunnel protection ipsec profile DMVPN
+! phase-1 DMVPN (no spoke-to-spoke): the hub routes everything, so shops never reach each other
+router eigrp 1
+ network 10.255.0.0 0.0.0.255
+ network 10.0.0.0 0.0.255.255</pre><pre class="term vt-pane" data-v="mikrotik"># HQ-R1 — CCR2004: the hub. Server VLAN, the NOC, and the WireGuard head-end every shop dials.
+/system identity set name=HQ-R1
+/interface bridge add name=bridge vlan-filtering=yes
+/interface bridge port add bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment="HQ switch"
+/interface bridge vlan add bridge=bridge vlan-ids=20,30,99 tagged=bridge,ether2
+/interface vlan
+add name=v20-office interface=bridge vlan-id=20
+add name=v30-srv interface=bridge vlan-id=30
+add name=v99-noc interface=bridge vlan-id=99
+/ip address
+add address=10.0.20.1/24 interface=v20-office
+add address=10.0.30.1/24 interface=v30-srv
+add address=10.0.99.1/24 interface=v99-noc
+<span class="cmt"># the overlay head-end: one WireGuard interface, one peer per shop</span>
+/interface wireguard add name=wg-hub listen-port=51820
+/ip address add address=10.255.0.1/24 interface=wg-hub
+<span class="cmt"># each shop is a peer: its overlay /32 + its whole 10.&lt;id&gt;.0.0/16 behind it</span>
+/interface wireguard peers add interface=wg-hub public-key="&lt;shop-03 pubkey&gt;" \
+    allowed-address=10.255.0.4/32,10.3.0.0/16 comment="shop-03 Rethymno"
+<span class="cmt"># HQ routes each shop's block back down its tunnel</span>
+/ip route add dst-address=10.3.0.0/16 gateway=10.255.0.4</pre></div>
+
+  <p>HQ is deliberately simple: a server VLAN for the central POS/ERP, loyalty and the NVR; a management VLAN for the NOC; and a single WireGuard interface that is the hub of the star. Every shop is one peer, scoped with <code>allowed-address</code> to its own overlay address plus its <code>/16</code> — so HQ knows exactly which block sits behind each tunnel, and a shop can't claim another shop's addresses.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>The hub interface is up and listening on 51820; the public endpoint (or dynamic-DNS name) resolves.</li><li>Once a shop connects, <code>/interface wireguard peers print</code> shows a recent handshake.</li><li>From HQ you can ping the shop's gateway (10.3.10.1) over the tunnel.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-2">07 · Step 2 of 9</p>
+  <h2 class="section-title">The Shop Template</h2>
+  <p class="section-thesis"><em>One config, stamped out per site. The only thing that changes is a number.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · select SHOP-R1 or SHOP-SW</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SHOP-R1 — hAP ax: VLANs, DHCP, DNS ($SITE per shop)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SHOP-R1 — C1121X: the templated shop. PnP / a template renders the per-site values (site 3 here).
+hostname SHOP-3
+ip routing
+vlan 10,20,30,40,50,99
+interface GigabitEthernet0/0/1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,50,99
+interface Vlan10
+ ip address 10.3.10.1 255.255.255.0
+interface Vlan20
+ ip address 10.3.20.1 255.255.255.0
+interface Vlan30
+ ip address 10.3.30.1 255.255.255.0
+interface Vlan40
+ ip address 10.3.40.1 255.255.255.0
+interface Vlan50
+ ip address 10.3.50.1 255.255.255.0
+interface Vlan99
+ ip address 10.3.99.1 255.255.255.0
+! the fleet plan: every address is 10.&lt;site&gt;.&lt;vlan&gt;.1 — the template substitutes the site octet
+ip dhcp excluded-address 10.3.50.1 10.3.50.9
+ip dhcp pool GUEST
+ network 10.3.50.0 255.255.255.0
+ default-router 10.3.50.1
+ dns-server 9.9.9.9 1.1.1.1
+ lease 0 2
+! tills + card terminals are reserved by MAC (no dynamic pool on VLAN 10)
+ip name-server 9.9.9.9 1.1.1.1</pre><pre class="term vt-pane" data-v="mikrotik"># SHOP-R1 — hAP ax: the shop template. The ONLY thing that changes per shop is $SITE.
+:global SITE 3
+/system identity set name=("SHOP-" . $SITE)
+/interface bridge add name=bridge vlan-filtering=yes
+/interface bridge port add bridge=bridge interface=ether2 frame-types=admit-only-vlan-tagged comment="SHOP switch"
+/interface bridge vlan add bridge=bridge vlan-ids=10,20,30,40,50,99 tagged=bridge,ether2
+/interface vlan
+add name=v10-pos interface=bridge vlan-id=10
+add name=v20-office interface=bridge vlan-id=20
+add name=v30-iot interface=bridge vlan-id=30
+add name=v40-cctv interface=bridge vlan-id=40
+add name=v50-guest interface=bridge vlan-id=50
+add name=v99-mgmt interface=bridge vlan-id=99
+<span class="cmt"># the fleet plan: 10.&lt;SITE&gt;.&lt;vlan&gt;.1/24 — identical everywhere but the SITE octet</span>
+/ip address add address=("10." . $SITE . ".10.1/24") interface=v10-pos
+<span class="cmt"># … .20 / .30 / .40 / .50 / .99 the same way</span>
+/ip dhcp-server add name=d-guest interface=v50-guest address-pool=p-guest lease-time=2h
+/ip dhcp-server add name=d-pos interface=v10-pos address-pool=static-only lease-time=1d
+<span class="cmt"># … office + iot pools; the tills and card terminals are reserved by MAC</span>
+/ip dns set allow-remote-requests=yes servers=9.9.9.9,1.1.1.1</pre></div>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SHOP-SW — CRS112: tills, KDS, cameras, AP trunk</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SHOP-SW — Catalyst 1000-8P: tills, KDS, camera, AP trunk, uplink. Identical in every shop.
+vtp mode transparent
+vlan 10,20,30,40,50,99
+interface range GigabitEthernet1/0/1 - 2
+ description tills / card terminal
+ switchport mode access
+ switchport access vlan 10
+ spanning-tree portfast
+interface GigabitEthernet1/0/3
+ description KDS / menu screen
+ switchport access vlan 30
+interface GigabitEthernet1/0/4
+ description camera
+ switchport access vlan 40
+interface GigabitEthernet1/0/8
+ description cAP AP (trunk)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 20,50,99
+interface GigabitEthernet1/0/10
+ description uplink SHOP-R1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,50,99</pre><pre class="term vt-pane" data-v="mikrotik"># SHOP-SW — CRS112-8P-4S: tills, KDS, cameras, an AP trunk, uplink to the router. Identical in every shop.
+/system identity set name=("SHOP-" . $SITE . "-SW")
+/interface bridge add name=bridge vlan-filtering=yes
+/interface bridge port
+add bridge=bridge interface=ether1 frame-types=admit-only-vlan-tagged comment="uplink SHOP-R1"
+add bridge=bridge interface=ether2 pvid=10 comment="till 1"
+add bridge=bridge interface=ether3 pvid=10 comment="till 2 / card terminal"
+add bridge=bridge interface=ether4 pvid=30 comment="KDS / menu screen"
+add bridge=bridge interface=ether5 pvid=40 comment="camera"
+add bridge=bridge interface=ether8 pvid=99 comment="cAP ax (trunk)"
+/interface bridge vlan
+add bridge=bridge vlan-ids=10,30,40 tagged=ether1
+add bridge=bridge vlan-ids=20,50,99 tagged=ether1,ether8
+add bridge=bridge vlan-ids=99 tagged=bridge</pre></div>
+
+  <p>The shop is the coffee-shop build in miniature, but written so a machine can produce it: every address is derived from <code>$SITE</code>. In production you don't type <code>$SITE</code> by hand — HQ substitutes it when it renders the file (step 7). The switch is the same in every shop, so there is nothing site-specific on it at all.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint</span>
+    <ul class="prereqs-list"><li>A till on an access port gets 10.3.10.x; a phone on guest gets 10.3.50.x.</li><li>Change <code>$SITE</code> to 7 and re-run on a lab router: every address becomes 10.7.x with no other edit.</li><li><code>/interface bridge vlan print</code>: the POS VLAN is tagged only toward the router, never on the AP trunk.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-3">08 · Step 3 of 9</p>
+  <h2 class="section-title">The Overlay: Every Shop Dials HQ</h2>
+  <p class="section-thesis"><em>One tunnel per shop, up to the hub. Shops reach HQ and central services — and, by design, nothing of each other.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · select SHOP-R1</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SHOP-R1 — one WireGuard tunnel up to HQ (spoke isolation)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SHOP-R1 — a DMVPN spoke to the HQ hub. Spokes register with the hub, never each other.
+interface Tunnel0
+ ip address 10.255.0.4 255.255.255.0
+ ip nhrp network-id 1
+ ip nhrp nhs 10.255.0.1 nbma hq.cafe.example multicast
+ tunnel source GigabitEthernet0/0/0
+ tunnel mode gre multipoint
+ tunnel protection ipsec profile DMVPN
+router eigrp 1
+ network 10.255.0.0 0.0.0.255
+ network 10.3.0.0 0.0.255.255
+! no NHRP shortcut here on purpose — phase-1 hub-spoke, so a shop reaches HQ and central
+! services but has no route to a sister shop; the hub is the only meeting point</pre><pre class="term vt-pane" data-v="mikrotik"># SHOP-R1 — one tunnel up to HQ. A shop reaches HQ and central services, never another shop.
+/interface wireguard add name=wg-hq listen-port=51820
+/interface wireguard peers add interface=wg-hq public-key="&lt;HQ hub pubkey&gt;" \
+    endpoint-address=hq.cafe.example endpoint-port=51820 \
+    allowed-address=10.0.0.0/16,10.255.0.0/24 persistent-keepalive=25s
+/ip address add address=("10.255.0." . ($SITE + 1) . "/24") interface=wg-hq
+<span class="cmt"># central services (POS/ERP/loyalty at HQ) are reached over the tunnel; the default stays local (step 4)</span>
+/ip route add dst-address=10.0.0.0/16 gateway=10.255.0.1
+<span class="cmt"># allowed-address scopes the tunnel to HQ's blocks only — there is no route to 10.&lt;other-shop&gt;,</span>
+<span class="cmt"># so a compromised shop cannot reach a sister shop; the hub is the only meeting point</span></pre></div>
+
+  <p>This is the heart of hub-spoke. A shop's tunnel is allowed to carry only HQ's <code>10.0.0.0/16</code> and the overlay subnet — not <code>10.&lt;other&gt;.0.0/16</code>. So even though all eight shops terminate on the same hub, no shop has a route to any other. HQ, holding every peer, <em>could</em> route shop-to-shop, but doesn't: the policy matrix (and step 5's firewall) keep the hub a destination, not a transit.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">The hub can see everyone — so lock the hub down</span>
+    <p>Hub-spoke isolation lives at the hub. Because HQ terminates every tunnel, a misconfigured HQ firewall (or a compromised HQ) <em>can</em> bridge shops. HQ's own forward rules must permit shop↔HQ only, never shop↔shop, and the hub gets the hardening of the whole chain's crown jewels — it is the one box that, if lost, loses everyone.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint</span>
+    <ul class="prereqs-list"><li>From a shop, you can reach the HQ POS server (10.0.30.10) but a scan of 10.7.0.0/16 (another shop) times out.</li><li><code>/ping 10.255.0.1</code> (the hub) succeeds; the handshake is recent at both ends.</li><li>Pull the tunnel: central apps fail, but local POS-to-till and guest internet keep working.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-4">09 · Step 4 of 9</p>
+  <h2 class="section-title">Dual-WAN &amp; App-Aware Steering</h2>
+  <p class="section-thesis"><em>Two uplinks, but the card terminals don't just "fail over" — they ride the good link by name, and move only when they have to.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · select SHOP-R1</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SHOP-R1 — two WANs, steered by application not just by route</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SHOP-R1 — two WANs; PBR pins the card path to WAN1 with a tracked fallback to WAN2.
+interface GigabitEthernet0/0/0
+ description WAN1 fibre
+ ip address dhcp
+ ip nat outside
+interface Cellular0/1/0
+ description WAN2 4G
+ ip nat outside
+ip sla 1
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+! the money path: tills -&gt; acquirer, pinned to WAN1, falling to 4G if the track drops
+ip access-list extended MONEY
+ permit tcp 10.3.10.0 0.0.0.255 host &lt;acquirer&gt; eq 443
+route-map PBR-MONEY permit 10
+ match ip address MONEY
+ set ip next-hop verify-availability &lt;wan1-gw&gt; 1 track 1
+ set ip next-hop &lt;wan2-gw&gt;
+interface Vlan10
+ ip policy route-map PBR-MONEY
+! everything else: WAN1 primary, WAN2 floating backup
+ip route 0.0.0.0 0.0.0.0 dhcp 1 track 1
+ip route 0.0.0.0 0.0.0.0 Cellular0/1/0 2
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload</pre><pre class="term vt-pane" data-v="mikrotik"># SHOP-R1 — two WANs; the money traffic is steered by APPLICATION, not just a backup route.
+/interface list add name=WAN
+/interface list member
+add list=WAN interface=ether1
+add list=WAN interface=lte1
+/ip dhcp-client add interface=ether1 use-peer-dns=no comment="WAN1 fibre/VDSL"
+/ip dhcp-client add interface=lte1 use-peer-dns=no add-default-route=no comment="WAN2 4G"
+/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN
+<span class="cmt"># mark what MUST take the reliable path: tills, card terminals, and the HQ tunnel</span>
+/ip firewall mangle
+add chain=prerouting src-address-list=POS dst-address-list=ACQUIRER action=mark-routing new-routing-mark=money passthrough=no
+add chain=prerouting out-interface=wg-hq action=mark-routing new-routing-mark=money passthrough=no
+<span class="cmt"># the money mark prefers WAN1, fails to WAN2; the default (guest + bulk) does the same, separately</span>
+/ip route add dst-address=0.0.0.0/0 gateway=ether1 routing-mark=money check-gateway=ping distance=1
+/ip route add dst-address=0.0.0.0/0 gateway=lte1 routing-mark=money check-gateway=ping distance=2
+/ip route add dst-address=0.0.0.0/0 gateway=ether1 check-gateway=ping distance=1
+/ip route add dst-address=0.0.0.0/0 gateway=lte1 check-gateway=ping distance=2</pre></div>
+
+  <p>Two routing tables, one per purpose. Traffic tagged <code>money</code> (tills to the acquirer, and the HQ tunnel) has its own default route that prefers WAN1 and falls to WAN2 on a failed <code>check-gateway</code> ping. Everything else uses the main table, which is steered the same way but independently — so you can, for example, hold guests on WAN1 while pushing the card path to WAN2 during a partial outage, or cap the 4G so a failover doesn't produce a surprise bill. That selectivity — moving an <em>application</em>, not the whole site — is the difference between dual-WAN and SD-WAN.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Metered backup: don't let bulk follow the tills onto 4G</span>
+    <p>When WAN1 drops, the money traffic belongs on 4G — but a shop full of guests streaming does not. Keep the guest/bulk default's failover conservative (or shape it hard on WAN2), or a ten-minute fibre blip becomes a data-cap overage. The point of steering by application is precisely to send the €2 of card traffic over 4G and leave the €200 of video behind.</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint</span>
+    <ul class="prereqs-list"><li>A card transaction while WAN1 is up takes WAN1; unplug WAN1 and it moves to 4G within seconds, the sale completing.</li><li>With WAN1 down, a guest speed test is throttled (or blocked) on 4G while the tills stay responsive.</li><li><code>/ip route print where routing-mark=money</code> shows the active gateway following the healthy WAN.</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-5">10 · Step 5 of 9</p>
+  <h2 class="section-title">Firewall: Tills, Guests, Cameras</h2>
+  <p class="section-thesis"><em>The payment path reaches two things and no more; guests reach the internet and nothing of ours.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · select SHOP-R1</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SHOP-R1 — tills reach the acquirer + HQ only; guests isolated</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SHOP-R1 — Zone-Based Firewall. The payment zone reaches the acquirer + HQ only.
+zone security POS
+zone security OFFICE
+zone security IOT
+zone security CCTV
+zone security GUEST
+zone security HQ
+zone security WAN
+interface Vlan10
+ zone-member security POS
+interface Vlan20
+ zone-member security OFFICE
+interface Vlan30
+ zone-member security IOT
+interface Vlan40
+ zone-member security CCTV
+interface Vlan50
+ zone-member security GUEST
+interface Tunnel0
+ zone-member security HQ
+interface GigabitEthernet0/0/0
+ zone-member security WAN
+class-map type inspect match-any CM-GEN
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GEN
+  inspect
+ class class-default
+  drop
+! tills -&gt; the acquirer (443) and the HQ POS server, nothing else
+ip access-list extended ACL-POS
+ permit tcp 10.3.10.0 0.0.0.255 host &lt;acquirer&gt; eq 443
+ permit ip 10.3.10.0 0.0.0.255 10.0.30.0 0.0.0.255
+class-map type inspect match-all CM-POS
+ match access-group name ACL-POS
+policy-map type inspect PM-POS
+ class type inspect CM-POS
+  inspect
+ class class-default
+  drop
+zone-pair security ZP-POS-WAN source POS destination WAN
+ service-policy type inspect PM-POS
+zone-pair security ZP-POS-HQ source POS destination HQ
+ service-policy type inspect PM-POS
+! guest -&gt; internet only; cameras -&gt; HQ NVR; office -&gt; HQ + internet
+zone-pair security ZP-GUEST-WAN source GUEST destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-CCTV-HQ source CCTV destination HQ
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OFFICE-WAN source OFFICE destination WAN
+ service-policy type inspect PM-OUT
+zone-pair security ZP-OFFICE-HQ source OFFICE destination HQ
+ service-policy type inspect PM-OUT</pre><pre class="term vt-pane" data-v="mikrotik"># SHOP-R1 — the tills reach the card acquirer and HQ only; guests get the internet and nothing of ours.
+/ip firewall address-list
+add list=ACQUIRER address=pay.acquirer.example
+add list=POS address=10.3.10.0/24
+/ip firewall filter
+add chain=forward connection-state=established,related,untracked action=accept
+add chain=forward connection-state=invalid action=drop
+<span class="cmt"># tills: the acquirer (card, 443) + the HQ POS/ERP over the tunnel, nothing else</span>
+add chain=forward in-interface=v10-pos dst-address-list=ACQUIRER protocol=tcp dst-port=443 action=accept
+add chain=forward in-interface=v10-pos out-interface=wg-hq dst-address=10.0.30.0/24 action=accept comment="POS -&gt; HQ ERP/loyalty"
+add chain=forward in-interface=v10-pos action=drop log=yes log-prefix=POS-DROP
+<span class="cmt"># cameras record to the HQ NVR over the tunnel; office reaches HQ + internet; guest internet only</span>
+add chain=forward in-interface=v40-cctv out-interface=wg-hq dst-address=10.0.30.20 action=accept comment="cameras -&gt; HQ NVR"
+add chain=forward in-interface=v50-guest out-interface-list=WAN action=accept comment="guest -&gt; internet only"
+add chain=forward in-interface=v20-office action=accept
+add chain=forward in-interface=v30-iot out-interface-list=WAN protocol=tcp dst-port=443 action=accept comment="music/KDS cloud"
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
+
+  <p>The payment VLAN is the tightest thing in the shop: it may reach the acquirer on 443 and the HQ POS server over the tunnel, and that is the whole list — not the office PC two metres away, not the internet at large. Guests are the opposite extreme: the internet and nothing else, enforced by sending them straight out the WAN and dropping anything aimed inward. Cameras don't keep footage locally; they stream to the HQ NVR over the tunnel, which also means a shop break-in can't erase the recording.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint</span>
+    <ul class="prereqs-list"><li>From a till, 443 to the acquirer works and so does the HQ POS; a scan of the office or guest VLAN times out (and lands in <code>POS-DROP</code>).</li><li>From guest Wi-Fi, nothing on 10.3.0.0/16 or 10.0.0.0/16 answers.</li><li>The HQ NVR shows the shop's cameras; the shop has no local recorder to lose.</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-6">11 · Step 6 of 9</p>
+  <h2 class="section-title">Guest Wi-Fi &amp; Tills-First QoS</h2>
+  <p class="section-thesis"><em>People treat café Wi-Fi like an office. Let them — but never at the cost of a card going through.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="6">▲ Show step 6 in the interactive topology</a><span> · select SHOP-R1</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SHOP-R1 — captive-portal guest Wi-Fi; the tills always win</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SHOP-R1 — MQC gives the tills priority and shares the rest to guests; guest portal is CWA on the EWC.
+class-map match-all CM-TILLS
+ match access-group name ACL-POS
+class-map match-all CM-GUEST
+ match vlan 50
+policy-map SHOP-WAN
+ class CM-TILLS
+  priority percent 10
+ class CM-GUEST
+  bandwidth remaining percent 80
+  fair-queue
+ class class-default
+  fair-queue
+interface GigabitEthernet0/0/0
+ service-policy output SHOP-WAN
+! the guest Wi-Fi itself is a Catalyst 9800 EWC WLAN with web-consent (as in the coffee-shop build)</pre><pre class="term vt-pane" data-v="mikrotik"># SHOP-R1 — captive-portal guest Wi-Fi, fair per device, and a guarantee the tills always transmit.
+/ip hotspot setup
+<span class="cmt"># (guest on v50, a click-through 'trial' profile; per-device pcq limits, as in the coffee-shop build)</span>
+<span class="cmt"># mark the money traffic so the queue can protect it</span>
+/ip firewall mangle add chain=forward src-address-list=POS action=mark-packet new-packet-mark=pos passthrough=no
+/ip firewall mangle add chain=forward in-interface=v50-guest action=mark-packet new-packet-mark=guest passthrough=no
+/queue type add name=guest-pcq kind=pcq pcq-rate=5M pcq-classifier=dst-address
+/queue tree
+add name=up parent=global max-limit=50M
+add name=pos-up parent=up packet-mark=pos limit-at=5M max-limit=50M priority=1
+add name=guest-up parent=up packet-mark=guest max-limit=40M queue=guest-pcq priority=8
+<span class="cmt"># priority 1 vs 8: under contention the tills get served first, guests share what is left</span></pre></div>
+
+  <p>Guest Wi-Fi is a feature customers choose the café for, so it gets real bandwidth — but it sits under a queue that hands the tills a guaranteed slice and the highest priority. On a busy Saturday with forty phones streaming, a card transaction is a tiny, high-priority flow that jumps the queue; the guests simply share whatever is left, fairly, per device. The captive portal (a click-through "trial" page) keeps the shop out of arguments about who was on the Wi-Fi when.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint</span>
+    <ul class="prereqs-list"><li>Saturate the guest VLAN with downloads, then run a card sale: it completes without a perceptible delay.</li><li><code>/queue tree print stats</code>: drops land on the guest queue, not the POS queue.</li><li>A new phone hits the portal, accepts, and gets its per-device share — not the whole pipe.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-7">12 · Step 7 of 9</p>
+  <h2 class="section-title">Zero-Touch Provisioning</h2>
+  <p class="section-thesis"><em>Opening the ninth shop should be: ship a router, plug it in, pour the coffee. No engineer, no laptop.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · select SHOP-R1</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SHOP-R1 — a new shop self-configures from HQ on first boot</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Cisco's zero-touch is Network Plug-and-Play (PnP): a factory-fresh router finds the PnP server
+! (DHCP option 43, DNS, or the cloud redirect) and pulls its config + image with no console session.
+pnp profile ztp
+ transport https ipv4 pnp.cafe.example port 443
+! the per-site config is a template in Cisco DNA Center (or a lightweight PnP server) with the site
+! variables — exactly like the rendered .rsc on the MikroTik side. For eight cafés a small PnP server
+! is plenty; DNA Center is the product you reach for at hundreds of sites.</pre><pre class="term vt-pane" data-v="mikrotik"># Opening a shop: plug the router in, it fetches its own config from HQ. No truck roll with a laptop.
+<span class="cmt"># the factory/default config carries only a bootstrap WAN DHCP + the provisioning key, then runs ztp:</span>
+/system script add name=ztp source={
+  :global SITE [/system routerboard get serial-number]
+  /tool fetch url=("https://provision.cafe.example/sites/" . $SITE . ".rsc") dst-path=site.rsc
+  /import file-name=site.rsc
+}
+/system scheduler add name=firstboot start-time=startup interval=0 on-event=ztp
+<span class="cmt"># HQ renders sites/&lt;serial&gt;.rsc from the ONE template + that site's variables (SITE id, keys, WAN type)</span>
+<span class="cmt"># opening shop #9 is: ship a pre-keyed router, staff plug it in, it joins the overlay in minutes</span></pre></div>
+
+  <p>Zero-touch turns a site opening from an engineering visit into a logistics task. The router ships with a one-screen default: come up on WAN DHCP, reach the provisioning server, pull <code>sites/&lt;serial&gt;.rsc</code>, import it, reboot into the real config. HQ generates that file from the same template every other shop uses — so the ninth shop is, byte for byte, configured like the first. The serial number (or a QR sticker scanned at HQ when the box is keyed) is the only thing that ties a physical router to a site.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">Bootstrap trust is the whole game</span>
+    <p>The dangerous moment is first boot, before the tunnel exists: the router fetches config over the open internet. Serve the provisioning file over HTTPS with a pinned CA, key each router at HQ (so a stolen serial can't pull a config), and make the provisioning server refuse a serial that's already claimed. Get this wrong and "zero-touch" becomes "anyone-touch".</p>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint</span>
+    <ul class="prereqs-list"><li>A factory-reset router with the default config boots, fetches its <code>.rsc</code>, and comes up fully configured with its tunnel to HQ.</li><li>HQ's provisioning log shows the serial being served once; a second request for the same serial is refused.</li><li>The resulting config is identical to a hand-stamped one for that site (diff them).</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-8">13 · Step 8 of 9</p>
+  <h2 class="section-title">Centralised Monitoring</h2>
+  <p class="section-thesis"><em>The NOC should know a shop is down before the shop knows. One view of eight sites, and a page when one goes dark.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="8">▲ Show step 8 in the interactive topology</a><span> · select HQ-R1</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">HQ — the NOC: scrape every shop, alert on a dark one</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! HQ + shops — SNMP/syslog to the NOC over the overlay. The monitoring stack is vendor-neutral:
+! argus (VictoriaMetrics + Grafana + Alertmanager) scrapes SNMP the same whatever the routers are.
+snmp-server community &lt;ro&gt; RO 99
+snmp-server host 10.0.99.20 version 2c &lt;ro&gt;
+logging host 10.0.99.20
+logging trap warnings
+! on IOS-XE you can push model-driven telemetry (gNMI/gRPC) instead of polling
+! an ACL (step 9) keeps SNMP/SSH reachable only from the overlay + the NOC</pre><pre class="term vt-pane" data-v="mikrotik"># HQ — the NOC watches the fleet. A shop that goes dark pages before a barista calls.
+<span class="cmt"># argus stack (VictoriaMetrics + Grafana + vmalert + Alertmanager) scrapes each shop over the overlay</span>
+/snmp set enabled=yes contact=noc@cafe.example
+/snmp community set [find default=yes] addresses=10.255.0.0/24 comment="poll only over the tunnel"
+/system logging action add name=noc target=remote remote=10.0.99.20
+/system logging add topics=warning,error action=noc
+<span class="cmt"># a per-site Grafana dashboard + one fleet overview; Alertmanager -&gt; the on-call bot</span>
+<span class="cmt"># (every shop pushes the same metric names, so one dashboard template fits all 8)</span></pre></div>
+
+  <p>Because every shop is identical, monitoring is too: the same SNMP metrics and log topics from all eight, scraped over the overlay (never the public internet), into one time-series store. A single Grafana dashboard template renders per-site, and a fleet overview shows all eight at a glance. The alert that matters most is the simplest — a shop whose tunnel or WAN has been down for two minutes pages the on-call before the morning queue notices the card machine is dead.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint</span>
+    <ul class="prereqs-list"><li>The NOC dashboard shows all eight shops; each tile is green with live WAN/tunnel/queue stats.</li><li>Pull a shop's WANs: within two minutes an alert reaches the on-call channel naming that shop.</li><li>SNMP answers only from the overlay — a poll from the public internet gets nothing.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-9">14 · Step 9 of 9</p>
+  <h2 class="section-title">Hardening &amp; Central Backup</h2>
+  <p class="section-thesis"><em>Managed from one place, backed up to one place, and the card path kept clean end to end.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="9">▲ Show step 9 in the interactive topology</a><span> · select SHOP-R1</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SHOP-R1 — SSH from the NOC only, nightly config to HQ, PCI-clean card path</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SHOP-R1 — SSH from the NOC/overlay only; config archived to HQ nightly; card path kept PCI-clean.
+no ip http server
+no ip http secure-server
+ip ssh version 2
+username netadmin privilege 15 secret 0 ********
+no username admin
+ip access-list standard MGMT-IN
+ permit 10.0.99.0 0.0.0.255
+ permit 10.255.0.0 0.0.0.255
+line vty 0 4
+ transport input ssh
+ access-class MGMT-IN in
+ login local
+archive
+ path scp://backup@10.0.99.20/cafe-shop
+kron occurrence NIGHTLY at 3:30 recurring
+ policy-list SAVE
+kron policy-list SAVE
+ cli show running-config | redirect scp://backup@10.0.99.20/shop-latest.cfg
+! PCI: the card path stays on VLAN 10 end to end, logged, never shared with guest or office</pre><pre class="term vt-pane" data-v="mikrotik"># SHOP-R1 — managed from the NOC over the tunnel; config backed up to HQ nightly; the card path kept clean.
+/ip service disable telnet,ftp,www,api,api-ssl
+/ip service set ssh address=10.0.99.0/24,10.255.0.0/24
+/ip service set winbox address=10.0.99.0/24,10.255.0.0/24
+/user set admin disabled=yes
+/user add name=netadmin group=full password=********
+<span class="cmt"># nightly export up to HQ over the tunnel; rollback = re-render from the template + re-push</span>
+/system scheduler add name=nightly start-time=03:30:00 interval=1d on-event={
+  /export file=latest ; /tool fetch upload=yes url="sftp://10.0.99.20/backups/" src-path=latest.rsc user=backup
+}
+<span class="cmt"># PCI: the card path (tills -&gt; acquirer) sits on its own VLAN, is logged, and never shares with guest or office</span></pre></div>
+
+  <p>Management only happens from the NOC, over the tunnel — the shops expose nothing to the street. Every shop exports its config to HQ nightly, which gives both a backup and an audit trail of drift; because the real source of truth is the template, "rollback" is just re-rendering and re-pushing. The card path keeps the discipline PCI expects: its own VLAN from till to acquirer, logged at the drop, and never co-mingled with guest or office traffic — the segmentation isn't a nicety, it's what keeps the chain's card handling in scope-control.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint</span>
+    <ul class="prereqs-list"><li>SSH/Winbox answer only from the NOC and the overlay; from the shop LAN or the WAN, nothing.</li><li>This morning's export for every shop is in HQ's backup store.</li><li>A card-path trace shows traffic staying on VLAN 10 end to end, with the drop log clean.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="sec-15">15</p>
+  <h2 class="section-title">Verify Across the Fleet</h2>
+  <p class="section-thesis"><em>A chain fails one shop at a time, quietly. Test the failures, and test that a change rolls out the same everywhere.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Test</th><th>Pass looks like</th></tr></thead>
+    <tbody>
+      <tr><td>Template parity</td><td>Re-render the template for two different sites; the configs differ only in the site octet and keys.</td></tr>
+      <tr><td>Spoke isolation</td><td>From shop 3, every address in shop 7 is unreachable; only HQ answers.</td></tr>
+      <tr><td>App-aware failover</td><td>Kill WAN1: a card sale completes on 4G in seconds; guests are throttled, not the tills.</td></tr>
+      <tr><td>Zero-touch</td><td>A factory-reset router joins the overlay from the provisioning server with no console session.</td></tr>
+      <tr><td>Fleet alerting</td><td>A dark shop pages the on-call within two minutes, naming the site.</td></tr>
+      <tr><td>Backup + rollback</td><td>Restore a shop from HQ's nightly export (or re-render) and it comes back identical.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 16 -->
+  <p class="section-num" id="sec-16">16</p>
+  <h2 class="section-title">Residual Risk</h2>
+  <p class="section-thesis"><em>What the network can't do on its own, and what covers each gap.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>The hub is the single point of everything.</strong> Lose HQ and every shop loses central services (local POS keeps working, but loyalty, reporting and CCTV viewing stop). HQ needs a redundant head-end (a second WireGuard endpoint the shops also hold) and real backups — it is the crown jewels.</li>
+    <li><strong>The payment application, not the network.</strong> Segmentation keeps the card path isolated, but the acquirer integration, the terminals' own firmware and the PCI paperwork are the merchant's responsibility. The network puts the card path in scope-control; it doesn't make the chain compliant by itself.</li>
+    <li><strong>Provisioning trust.</strong> Zero-touch is only as safe as the bootstrap. A leaked provisioning URL or an unpinned CA turns "plug it in" into "anyone can pull a shop's config". Per-router keys and a claim-once server are the controls.</li>
+    <li><strong>Shop physical security.</strong> A router behind the counter is reachable by a determined person. Lockable enclosures, disabled unused ports, and management only over the tunnel mean a plugged-in laptop lands nowhere — but the box itself should be out of reach.</li>
+    <li><strong>Template blast radius.</strong> One template is the strength and the danger: a bad push hits all eight shops at once. Stage changes to one shop, verify, then roll the fleet — and keep the one-command rollback honest.</li>
+  </ul>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">The Attacker's View</h2>
+  <p class="section-thesis"><em>I test networks like this for a living. On a chain the prize is the card data and the hub — here's what I'd try, and why each stays bounded.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Pop one shop, pivot to the others.</strong> The obvious chain attack — own a till in Chania, walk to Heraklion. But a shop's tunnel is scoped to HQ only; there is no route to a sister shop, so a compromised shop is an island with a single door, and that door leads to the hub's firewall, not to the fleet.</li>
+    <li><strong>Sit on the guest Wi-Fi and reach the tills.</strong> Guest is forwarded straight to the WAN and dropped inward; from a café table a scan of the shop's own VLANs and of HQ returns nothing. The payment VLAN doesn't answer the office two metres away, let alone a guest.</li>
+    <li><strong>Grab the card traffic in flight.</strong> The tills talk TLS to the acquirer and ride a scoped path; the interesting target is the terminal and the acquirer integration, not the wire. The network keeps the card path on its own segment end to end so there's nothing to sniff from an adjacent VLAN.</li>
+    <li><strong>Impersonate a new shop at provisioning.</strong> Zero-touch is the soft spot: fetch a config before the tunnel exists. So I'd try a guessed serial against the provisioning server — which refuses an unknown or already-claimed serial and serves only over a pinned HTTPS, so a guess returns nothing useful.</li>
+    <li><strong>Go for the hub.</strong> The efficient attack skips the shops entirely and targets HQ, because the hub can reach everyone. That's exactly why the design treats HQ as the crown jewels: it is the one box that is hardened, MFA'd, backed up and watched hardest — compromising a shop is noise; compromising the hub is the whole chain, and it's the thing defended accordingly.</li>
+  </ul>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">Lab It in CHR / GNS3</h2>
+  <p class="section-thesis"><em>Almost all of this runs in a lab — a fleet is exactly the kind of thing you want to test before it's eight real shops.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Runs in a lab</th><th>Doesn't — needs the real thing</th></tr></thead>
+    <tbody>
+      <tr><td>One CHR as HQ and three as shops: the overlay, spoke isolation, routing and firewall all behave exactly as on metal.</td><td>The 4G link's real behaviour (latency, caps) — a lab gives you failover logic, not a true cellular path.</td></tr>
+      <tr><td>Zero-touch: a provisioning web server + a factory-default CHR that fetches and imports — the whole flow, end to end.</td><td>The physical "ship a box, staff plug it in" step — but the config side is fully testable.</td></tr>
+      <tr><td>App-aware steering: give the shop CHR two upstream CHRs as WAN1/WAN2 and pull one; watch the money mark follow.</td><td>Captive-portal UX and per-device Wi-Fi fairness — a bench AP proves the config, not the café.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT. Per shop plus the one-off HQ.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>Per shop · router (hAP ax³ or RB5009) + 4G</td><td>180 – 320, plus a data SIM</td></tr>
+      <tr><td>Per shop · switch (CRS112-8P) + cAP ax</td><td>180 – 260</td></tr>
+      <tr><td>Per shop total</td><td>≈ 360 – 580 + cabling</td></tr>
+      <tr><td>HQ · hub router (CCR2004) + switch</td><td>700 – 1,000</td></tr>
+      <tr><td>HQ · provisioning + monitoring (one small server/VM for argus + the ZTP web server)</td><td>reuse existing, or ≈ 400 – 800</td></tr>
+      <tr><td>Eight shops + HQ</td><td>≈ 4,000 – 6,000, plus per-shop WAN and SIM running costs</td></tr>
+    </tbody>
+  </table>
+
+  <!-- appendix -->
+  <p class="section-num">Appendix</p>
+  <h2 class="section-title">The Same Design on Cisco</h2>
+  <p class="section-thesis"><em>Most of this maps to IOS; one word of honesty about "SD-WAN".</em></p>
+
+  <p>The shop and HQ routers become <strong>ISRs</strong> (a C1121X per shop, a C8300 at HQ); VLANs and SVIs, DHCP, the Zone-Based Firewall and the QoS (MQC with a priority class for the tills) all have direct equivalents. The overlay is <strong>DMVPN</strong> (a hub-spoke design by nature) or FlexVPN, and app-aware steering is PBR with tracked next-hops — the same mechanics by different names.</p>
+
+  <div class="callout defender">
+    <span class="callout-label">"SD-WAN" the product vs the mechanism</span>
+    <p><strong>Real Cisco SD-WAN is Catalyst SD-WAN (Viptela) with vManage</strong> — a controller that automates exactly what we built by hand: the overlay, the per-application policy, and zero-touch onboarding through PnP. For eight cafés the DIY DMVPN + PBR approach is the right size and cost; vManage (or Meraki, or a Fortinet/VeloCloud fabric) earns its licensing when the fleet is hundreds of sites and the policy changes weekly. This build teaches the <em>mechanics</em> those products package; knowing them is how you tell whether you need the product.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Write the site once as a template.</strong> One variable per site; eight identical shops that can't drift.</li>
+      <li><strong>Hub-spoke, scoped per tunnel.</strong> Shops reach HQ, never each other — a compromised shop is an island.</li>
+      <li><strong>Steer by application.</strong> Pin the card path to the good link by name and fail it over on its own; that's what makes dual-WAN into SD-WAN.</li>
+      <li><strong>Make opening a shop plug-and-wait.</strong> Zero-touch from HQ — and treat the bootstrap as the security boundary it is.</li>
+      <li><strong>Guard the hub above all.</strong> It can reach everyone, so it is the crown jewels; a shop is noise, the hub is the chain.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">Part of the <a href="build-index.html"><strong>Build series</strong></a>. A single node of this chain is <a href="build-coffee-shop.html">the coffee shop</a>; the operator-hub idea also appears in <a href="build-villa.html">the villa</a> and <a href="build-farm.html">the farm</a>.</p>
+
+  <div class="cta-card">
+    <h3>Running more than one site in Crete?</h3>
+    <p>I build and manage multi-site networks for chains and franchises: one templated design across every branch, an encrypted overlay to head office, payments kept clean, and a new site online in a day — all watched from one place so a dead shop pages me before it costs you a morning's sales.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/index.html#contact">Talk about your sites →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>
