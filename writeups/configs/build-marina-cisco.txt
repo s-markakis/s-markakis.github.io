@@ -1,0 +1,182 @@
+! Build: The Marina Network — full Cisco IOS config
+! s-markakis.github.io/writeups/build-marina.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== SW-CORE — CRS328-24P-4S+ =====
+! SW-CORE — Catalyst 9300-24P: office access + one trunk to R1, two fibre uplinks
+vlan 10,20,30,40,50,99
+interface range GigabitEthernet1/0/1 - 3
+ description staff / berth-mgmt / VoIP
+ switchport mode access
+ switchport access vlan 10
+interface GigabitEthernet1/0/8
+ description chandlery card terminal
+ switchport access vlan 50
+interface TenGigabitEthernet1/1/1
+ description uplink to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,50,99
+interface range TenGigabitEthernet1/1/2 - 3
+ description fibre to pontoon-head switches
+ switchport mode trunk
+ switchport trunk allowed vlan 20,30,40,99
+interface Vlan99
+ ip address 10.80.99.11 255.255.255.0
+ip default-gateway 10.80.99.1
+interface range GigabitEthernet1/0/9 - 24
+ shutdown
+! ===== R1 — CCR2004-16G-2S+ · bridge, VLAN gateways, DHCP, DNS =====
+! R1 — Catalyst 8200: SVIs as VLAN gateways; the berth SVI is a /22
+ip routing
+vlan 10,20,30,40,50,99
+interface Vlan10
+ ip address 10.80.10.1 255.255.255.0
+interface Vlan20
+ ip address 10.80.20.1 255.255.252.0
+interface Vlan30
+ ip address 10.80.30.1 255.255.255.0
+interface Vlan40
+ ip address 10.80.40.1 255.255.255.0
+interface Vlan50
+ ip address 10.80.50.1 255.255.255.0
+interface Vlan99
+ ip address 10.80.99.1 255.255.255.0
+ip dhcp excluded-address 10.80.20.1 10.80.20.9
+ip dhcp pool BERTH
+ network 10.80.20.0 255.255.252.0
+ default-router 10.80.20.1
+ dns-server 10.80.20.1
+ lease 0 1
+ip name-server 9.9.9.9 149.112.112.112
+ip dns server
+ntp server time.cloudflare.com
+! ===== Pontoon A head — netPower 16P, fed by single-mode fibre =====
+! Pontoon A head — Catalyst IE3300 (IP-rated): SFP fibre uplink, PoE to the sector AP
+vlan 20,30,40,99
+interface GigabitEthernet1/1 (SFP)
+ description fibre to core
+ switchport mode trunk
+ switchport trunk allowed vlan 20,30,40,99
+interface GigabitEthernet1/0/1
+ description sector AP (PoE trunk)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 20,99
+interface GigabitEthernet1/0/2
+ description shore-power pedestals A
+ switchport access vlan 30
+interface GigabitEthernet1/0/3
+ description pontoon-head camera
+ switchport access vlan 40
+interface Vlan99
+ ip address 10.80.99.21 255.255.255.0
+! ===== R1 — CAPsMAN: an open berth SSID over the water, a hidden staff SSID =====
+! Catalyst 9800 embedded controller: an open 'webauth' WLAN + a hidden staff WLAN
+wlan Marina-WiFi 1 Marina-WiFi
+ no security wpa
+ security web-auth
+ security web-auth authentication-list GUEST-RADIUS
+ no shutdown
+wlan Marina-Staff 2 Marina-Staff
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no broadcast-ssid
+ no shutdown
+wireless profile policy BERTH
+ vlan 20
+ no shutdown
+! the berth WLAN is 2.4 GHz only (radio policy) for reach over the water
+! ===== R1 — Hotspot on V20, User Manager (RADIUS) on the same box =====
+! IOS has no on-box billing. The marina pattern is ISE (or an external captive portal
+! appliance) as the RADIUS/guest server, with the controller pointed at it:
+aaa new-model
+aaa authentication login GUEST-RADIUS group radius
+radius server ISE
+ address ipv4 10.80.10.20 auth-port 1812 acct-port 1813
+ key ********
+! vouchers, quotas and per-berth accounting are created in ISE's guest portal,
+! not in the switch; the walled garden (pre-auth ACL) permits the booking + card hosts.
+! ===== R1 — interface lists, input and forward chains =====
+! R1 — Zone-Based Firewall. No zone-pair = dropped (default-deny).
+zone security STAFF
+zone security BERTH
+zone security OT
+zone security CCTV
+zone security PAY
+zone security WAN
+! each inside VLAN joins its zone (interface VlanXX / zone-member security ...)
+class-map type inspect match-any CM-GEN
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GEN
+  inspect
+ class class-default
+  drop
+! payment reaches only the acquirer, on 443
+ip access-list extended ACL-ACQ
+ permit tcp any 203.0.113.0 0.0.0.255 eq 443
+class-map type inspect match-all CM-ACQ
+ match access-group name ACL-ACQ
+policy-map type inspect PM-ACQ
+ class type inspect CM-ACQ
+  inspect
+zone-pair security ZP-PAY-WAN source PAY destination WAN
+ service-policy type inspect PM-ACQ
+! staff -> OT, CCTV, WAN ; OT/CCTV/BERTH -> WAN only ; no pair = no path
+zone-pair security ZP-STAFF-OT source STAFF destination OT
+ service-policy type inspect PM-OUT
+zone-pair security ZP-BERTH-WAN source BERTH destination WAN
+ service-policy type inspect PM-OUT
+! ===== R1 — fibre primary, 5G backup, failover by recursive route =====
+! R1 — fibre on Gi0/0/0 (DHCP), 5G on the cellular interface as the backup
+interface GigabitEthernet0/0/0
+ description fibre
+ ip address dhcp
+ ip nat outside
+ip sla 1
+ icmp-echo 1.1.1.1
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ip route 0.0.0.0 0.0.0.0 dhcp 1 track 1
+ip route 0.0.0.0 0.0.0.0 Cellular0/2/0 2
+ip access-list standard NAT-ALL
+ permit 10.80.0.0 0.0.255.255
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload
+! police the berth VLAN down hard when it rides the cellular backup
+! ===== R1 — CAKE for the berths, priority for VoIP and card auth =====
+! IOS: no CAKE. A shaper with fair-queue + an LLQ priority class for VoIP and card auth.
+class-map match-any PRIORITY
+ match dscp ef
+ match dscp af41
+policy-map WAN-CHILD
+ class PRIORITY
+  priority percent 20
+ class class-default
+  fair-queue
+policy-map WAN-OUT
+ class class-default
+  shape average 90000000
+  service-policy WAN-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output WAN-OUT
+! ===== R1 — WireGuard to the operator hub, alerts and remote logs =====
+! R1 — FlexVPN client dials out to the operator hub through the harbour's NAT
+crypto ikev2 profile TO-HUB
+ match identity remote fqdn hub.example.net
+ identity local fqdn marina-r1.example.net
+ authentication local rsa-sig
+ authentication remote rsa-sig
+ pki trustpoint OP-CA
+interface Tunnel1
+ ip address 10.251.0.31 255.255.255.0
+ tunnel source GigabitEthernet0/0/0
+ tunnel destination dynamic
+ tunnel protection ipsec profile TO-HUB
+logging host 10.251.0.1
+logging trap warnings
+event manager applet WAN-DOWN
+ event track 1 state down
+ action 1 syslog msg "fibre DOWN"
