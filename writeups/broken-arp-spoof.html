@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Broken by Design: The Gateway That Lied — S. Markakis</title>
+<meta name="description" content="ARP has no authentication: how a single gratuitous ARP can redirect a whole subnet through an attacker or into a black hole, how a duplicate IP does the same by accident, and how Dynamic ARP Inspection stops both.">
+<meta property="og:title" content="Broken by Design: The Gateway That Lied — S. Markakis">
+<meta property="og:description" content="ARP has no authentication: how a single gratuitous ARP can redirect a whole subnet through an attacker or into a black hole, how a duplicate IP does the same by accident, and how Dynamic ARP Inspection stops both.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/broken-arp-spoof.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/broken-arp-spoof.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/broken-arp-spoof.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/broken-arp-spoof.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* arp spoof (bas-) */
+  .bas-box{fill:var(--bg);stroke:var(--mid);stroke-width:1.6;}
+  .bas-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12px;fill:var(--mid);text-anchor:middle;}
+  .bas-cap{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  .bas-link{stroke:var(--body);stroke-width:1.6;fill:none;opacity:.6;}
+  .bas-lie{fill:var(--accent);offset-path:path('M380 214 L120 168');animation:baslie 5s linear infinite;}
+  @keyframes baslie{0%{offset-distance:0%;opacity:0;}4%{opacity:1;}30%{offset-distance:100%;opacity:1;}36%,100%{offset-distance:100%;opacity:0;}}
+  .bas-flow{fill:var(--gotcha);offset-path:path('M120 168 L380 214');animation:basflow 5s linear infinite;}
+  @keyframes basflow{0%,40%{offset-distance:0%;opacity:0;}46%{opacity:1;}82%{offset-distance:100%;opacity:1;}88%,100%{offset-distance:100%;opacity:0;}}
+  @media (prefers-reduced-motion:reduce){.bas-lie,.bas-flow{animation:none;opacity:0;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Broken by Design: The Gateway That Lied",
+  "description": "ARP spoofing and duplicate-IP conflicts: how an unauthenticated ARP reply redirects a subnet through an attacker or a black hole, and how Dynamic ARP Inspection stops it.",
+  "datePublished": "2026-10-27",
+  "dateModified": "2026-10-27",
+  "author": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "publisher": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "url": "https://s-markakis.github.io/writeups/broken-arp-spoof.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/broken-arp-spoof.png",
+  "keywords": [ "broken-by-design", "arp", "layer2" ],
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://s-markakis.github.io/blog.html#broken-arp-spoof" },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span class="series-chip">Broken by Design</span> &nbsp;·&nbsp; Layer 2 &middot; How Networks Fail &middot; October 2026</p>
+  <h1 class="post-title">Broken by Design<br>The Gateway That Lied</h1>
+  <p class="post-subtitle">Connections slow to a crawl, the odd TLS certificate warning appears, and traffic that should go to the router is quietly flowing through a laptop in the corner. Nothing is &ldquo;down.&rdquo; A device on the LAN has simply announced &mdash; with no proof required &mdash; that it is the default gateway, and everyone believed it. This is ARP spoofing, and the same mechanism causes the accidental version: the duplicate IP.</p>
+  <div class="tags">
+    <span class="tag">Broken by Design</span>
+    <span class="tag">ARP Spoofing</span>
+    <span class="tag">MITM</span>
+    <span class="tag">Dynamic ARP Inspection</span>
+    <span class="tag">Layer 2</span>
+    <span class="tag">Duplicate IP</span></div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p><strong>ARP</strong> is how a device turns an IP address into the MAC address it actually sends frames to. It works on trust: a host asks &ldquo;who has 10.0.0.1?&rdquo;, something answers &ldquo;I do, at this MAC&rdquo;, and the asker caches it &mdash; with <em>no authentication whatsoever</em>. Worse, most stacks accept an unsolicited (&ldquo;gratuitous&rdquo;) ARP reply and overwrite their cache with it, no question asked.</p>
+    <p>So any device on the segment can announce that it holds the gateway&rsquo;s IP, and every host that hears it will send its off-subnet traffic to that device instead of the router. Done maliciously, that is a <strong>man-in-the-middle</strong>: the attacker relays (and reads, or alters) everything. Done by accident &mdash; two devices with the same IP, a mis-cloned VM &mdash; it is a <strong>duplicate-IP black hole</strong> where traffic flips between two MACs. Same unauthenticated mechanism, two faces.</p>
+    <div class="prereqs-label">Part of</div>
+    <ul class="prereqs-list">
+      <li><strong><a href="broken-index.html">Broken by Design</a></strong> &mdash; how networks actually fail, and how to catch each one fast</li>
+      <li>Reads alongside <a href="cisco-switch-security.html">switch security</a>, <a href="detecting-mikrotik-attacks.html">detecting LAN attacks</a>, <a href="surgery-flat-to-segmented.html">segmentation</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">One Lie, a Whole Subnet Redirected</h2>
+  <p class="section-thesis"><em>The attacker announces &ldquo;the gateway is at my MAC.&rdquo; The victim&rsquo;s ARP cache updates, and its traffic now flows to the attacker &mdash; who relays it on so nothing looks broken.</em></p>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 290" role="img" aria-label="An attacker sends a gratuitous ARP claiming the gateway IP; the victim caches the attacker MAC and its traffic flows through the attacker, who relays it to the real gateway as a man in the middle">
+      <line class="bas-link" x1="120" y1="168" x2="620" y2="100"/>
+      <line class="bas-link" x1="120" y1="168" x2="380" y2="214"/>
+      <line class="bas-link" x1="380" y1="214" x2="620" y2="100" style="stroke-dasharray:5,4;"/>
+      <rect class="bas-box" x="60" y="150" width="120" height="40" rx="5"/><text class="bas-name" x="120" y="175">Victim</text>
+      <rect class="bas-box" x="560" y="80" width="120" height="40" rx="5" style="stroke:var(--defender);stroke-width:1.8;"/><text class="bas-name" x="620" y="105" style="fill:var(--defender);">Gateway .1</text>
+      <rect class="bas-box" x="320" y="214" width="120" height="40" rx="5" style="stroke:var(--accent);stroke-width:1.8;"/><text class="bas-name" x="380" y="239" style="fill:var(--accent);">Attacker</text>
+      <rect class="bas-lie" x="-7" y="-5" width="14" height="10" rx="2"/>
+      <circle class="bas-flow" cx="0" cy="0" r="5"/>
+      <text class="bas-cap" x="236" y="182" style="fill:var(--accent);">&ldquo;.1 is at MY MAC&rdquo;</text>
+      <text class="bas-cap" x="250" y="246" style="fill:var(--gotcha);">victim traffic &rarr; attacker</text>
+      <text class="bas-cap" x="520" y="150" style="fill:var(--body);">relayed on &rarr; nothing looks down</text>
+      <text class="bas-cap" x="380" y="278" style="fill:var(--mid);font-weight:700;">No authentication in ARP: the last answer wins, and the victim believes it.</text>
+    </svg>
+  </div>
+  <p>Because the attacker relays the traffic onward to the real gateway, connectivity still works &mdash; just slower, through an extra hop that can read or tamper with everything not independently encrypted. The accidental version (duplicate IP) is messier: two devices answer for the same address, switches learn the MAC on different ports in turn, and traffic flaps between them &mdash; intermittent for everyone, not a clean MITM.</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Why It Works</h2>
+  <p class="section-thesis"><em>Three ARP facts combine: no authentication, caches accept unsolicited replies, and the most recent answer wins.</em></p>
+  <table class="cheat">
+    <thead><tr><th>ARP behaviour</th><th>Why it enables this</th></tr></thead>
+    <tbody>
+      <tr><td>No authentication</td><td>Any host can answer for any IP. Nothing proves the claim.</td></tr>
+      <tr><td>Gratuitous ARP accepted</td><td>Most stacks update the cache from an unsolicited reply &mdash; the attacker does not even need to be asked.</td></tr>
+      <tr><td>Last answer wins</td><td>The attacker just has to answer more often than the gateway; the newest mapping overwrites the real one.</td></tr>
+      <tr><td>One flat broadcast domain</td><td>Everyone hears everyone&rsquo;s ARP. A big flat LAN is a big blast radius &mdash; another reason to <a href="surgery-flat-to-segmented.html">segment</a>.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">The Symptoms</h2>
+  <p class="section-thesis"><em>Subtle for the MITM, noisy for the duplicate IP &mdash; both show up in the ARP table.</em></p>
+  <table class="cheat">
+    <thead><tr><th>What you see</th><th>What it tells you</th></tr></thead>
+    <tbody>
+      <tr><td>The gateway&rsquo;s MAC in your ARP table changed</td><td>Something else is answering for .1 &mdash; spoof or misconfig.</td></tr>
+      <tr><td>Intermittent slowness, odd TLS warnings</td><td>Traffic detouring through a MITM that is re-terminating or tampering.</td></tr>
+      <tr><td>OS &ldquo;duplicate IP address&rdquo; warnings</td><td>Two devices claim one IP &mdash; the accidental black hole.</td></tr>
+      <tr><td>Two IPs mapping to the same MAC</td><td>A device impersonating several hosts (classic spoofing tool behaviour).</td></tr>
+    </tbody>
+  </table>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">The Fix: Make the Switch the Source of Truth</h2>
+  <p class="section-thesis"><em>Dynamic ARP Inspection validates every ARP against the DHCP-snooping database and drops the lies at the port they enter.</em></p>
+  <p><strong>Dynamic ARP Inspection (DAI)</strong> builds on DHCP snooping: the switch knows which IP legitimately belongs to which MAC on which port (from the snooping database), and drops any ARP that contradicts it &mdash; before it ever reaches a victim. For the handful of static servers that do not use DHCP, add explicit ARP-to-port bindings. On the hosts that matter most, a static ARP entry for the gateway is cheap insurance.</p>
+  <div class="term-wrap"><span class="term-label">Dynamic ARP Inspection (Cisco), static gateway ARP (RouterOS)</span><pre class="term"><span class="cmt">! Cisco: DAI on the user VLAN, trusting only the uplink</span>
+ip dhcp snooping
+ip dhcp snooping vlan 20
+ip arp inspection vlan 20
+interface Gi1/0/48
+ ip dhcp snooping trust
+ ip arp inspection trust
+
+<span class="cmt"># RouterOS: pin the gateway ARP and reply only from static on sensitive bridges</span>
+/ip arp add address=10.20.20.1 mac-address=AA:BB:CC:DD:EE:01 interface=v20-guest
+/interface bridge set v20-bridge arp=reply-only</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; ARP security needs the snooping database to be real</span>
+    <p>DAI is only as good as the DHCP-snooping bindings behind it. If snooping is not configured, or static hosts are not bound, DAI either drops legitimate traffic or has nothing to validate against. And <code>arp=reply-only</code> on RouterOS means every legitimate host on that bridge needs a static ARP entry &mdash; powerful for a server VLAN, maintenance-heavy for a user one. Match the control to the segment.</p>
+  </div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Catch It in 30 Seconds <span class="safe-badge">Field check</span></h2>
+  <p class="section-thesis"><em>The ARP table is the witness: watch the gateway&rsquo;s MAC, and watch for one MAC claiming many IPs.</em></p>
+  <div class="term-wrap"><span class="term-label">Read the ARP table</span><pre class="term"><span class="cmt"># RouterOS: has the gateway MAC changed? is one MAC claiming many IPs?</span>
+/ip arp print
+<span class="cmt"># host side: note the gateway MAC when healthy, compare when it misbehaves</span>
+ip neigh show | grep -w 10.20.20.1
+<span class="cmt"># watch for changes over time (the spoof is a moving target)</span>
+sudo arpwatch -i eth0        <span class="cmt"># logs &ldquo;flip flop&rdquo; / changed ethernet address</span></pre></div>
+  <p>If the gateway&rsquo;s MAC does not match the router&rsquo;s real MAC &mdash; or one MAC is suddenly answering for several IPs &mdash; you have a spoof or a duplicate. Turn on DHCP snooping and DAI, and the switch stops believing anyone but the real owner.</p>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>ARP has no authentication</strong> &mdash; any device can claim any IP, and the newest, unsolicited answer wins.</li>
+      <li><strong>Malicious = MITM, accidental = duplicate-IP black hole</strong> &mdash; the same mechanism, two faces.</li>
+      <li><strong>Connectivity often still &ldquo;works&rdquo;</strong> through the attacker&rsquo;s relay &mdash; slower, with the odd cert warning &mdash; which is why it hides.</li>
+      <li><strong>DHCP snooping + Dynamic ARP Inspection</strong> make the switch the source of truth and drop the lie at the port.</li>
+      <li><strong>Static ARP for the gateway</strong> on critical hosts, and <code>reply-only</code> on server bridges, are cheap insurance.</li>
+      <li><strong>The ARP table is the witness</strong> &mdash; a changed gateway MAC or one MAC claiming many IPs is the tell.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Traffic taking a path you did not design?</h3>
+    <p>ARP has no authentication, so one device can speak for the whole subnet. I lock the LAN down with DHCP snooping and Dynamic ARP Inspection so only the real gateway can claim to be the gateway.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

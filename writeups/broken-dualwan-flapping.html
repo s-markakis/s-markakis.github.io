@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Broken by Design: The Failover That Flaps — S. Markakis</title>
+<meta name="description" content="When a dual-WAN health probe is wrong, the default route oscillates between links every few seconds, resetting sessions on each flip — worse than a clean outage. How bad probes and missing hold-down cause it, and how to make failover sticky.">
+<meta property="og:title" content="Broken by Design: The Failover That Flaps — S. Markakis">
+<meta property="og:description" content="When a dual-WAN health probe is wrong, the default route oscillates between links every few seconds, resetting sessions on each flip — worse than a clean outage. How bad probes and missing hold-down cause it, and how to make failover sticky.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/broken-dualwan-flapping.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/broken-dualwan-flapping.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/broken-dualwan-flapping.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/broken-dualwan-flapping.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* dual-wan flap (bdf-) */
+  .bdf-box{fill:var(--bg);stroke:var(--mid);stroke-width:1.6;}
+  .bdf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12px;fill:var(--mid);text-anchor:middle;}
+  .bdf-cap{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  .bdf-link{stroke:var(--body);stroke-width:1.6;fill:none;opacity:.5;}
+  @keyframes bdfA{0%,46%{opacity:1;}50%,96%{opacity:.12;}100%{opacity:1;}}
+  @keyframes bdfB{0%,46%{opacity:.12;}50%,96%{opacity:1;}100%{opacity:.12;}}
+  .bdf-a{animation:bdfA 3.2s ease-in-out infinite;}
+  .bdf-b{animation:bdfB 3.2s ease-in-out infinite;}
+  @keyframes bdfX{0%,42%{opacity:0;}47%,53%{opacity:1;}58%,92%{opacity:0;}95%,100%{opacity:1;}}
+  .bdf-x{animation:bdfX 3.2s ease-in-out infinite;}
+  @media (prefers-reduced-motion:reduce){.bdf-a{animation:none;opacity:1;}.bdf-b{animation:none;opacity:.12;}.bdf-x{animation:none;opacity:1;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Broken by Design: The Failover That Flaps",
+  "description": "Dual-WAN route flapping: why a bad health probe makes the default route oscillate and reset sessions constantly, and how a reliable probe plus hold-down makes failover sticky.",
+  "datePublished": "2026-10-27",
+  "dateModified": "2026-10-27",
+  "author": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "publisher": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "url": "https://s-markakis.github.io/writeups/broken-dualwan-flapping.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/broken-dualwan-flapping.png",
+  "keywords": [ "broken-by-design", "dual-wan", "failover" ],
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://s-markakis.github.io/blog.html#broken-dualwan-flapping" },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span class="series-chip">Broken by Design</span> &nbsp;·&nbsp; Layer 3 / WAN &middot; How Networks Fail &middot; October 2026</p>
+  <h1 class="post-title">Broken by Design<br>The Failover<br>That Flaps</h1>
+  <p class="post-subtitle">Dual-WAN was supposed to make outages invisible. Instead, connectivity &ldquo;comes and goes&rdquo; every few seconds: VoIP calls drop, VPNs re-establish constantly, downloads restart. The primary link is actually fine &mdash; the failover logic is switching back and forth on a health check it should never have trusted, and every flip tears down every session. A flapping failover is worse than the outage it was meant to cover.</p>
+  <div class="tags">
+    <span class="tag">Broken by Design</span>
+    <span class="tag">Dual-WAN</span>
+    <span class="tag">Failover</span>
+    <span class="tag">Flapping</span>
+    <span class="tag">Hold-down</span>
+    <span class="tag">Health Probe</span></div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Dual-WAN failover rests on a <strong>health probe</strong>: the router repeatedly tests whether the primary link is alive, and if the test fails, it promotes the backup. The design assumption is that the test fails <em>rarely</em> and <em>decisively</em> &mdash; a real outage. When the probe is unreliable instead, it fails and recovers constantly, and the router dutifully switches back and forth on every blink.</p>
+    <p>Each switch is not free: changing the default route re-sources NAT, invalidates conntrack, and tears down every stateful session &mdash; VoIP, VPN, SSH, downloads &mdash; which then try to re-establish just in time for the next flip. The result is a network that is <em>never</em> stable, which is worse than a clean outage you can wait out. The link is fine; the failover is the fault.</p>
+    <div class="prereqs-label">Part of</div>
+    <ul class="prereqs-list">
+      <li><strong><a href="broken-index.html">Broken by Design</a></strong> &mdash; how networks actually fail, and how to catch each one fast</li>
+      <li>Reads alongside <a href="cisco-ipsla-failover.html">dual-WAN failover</a>, <a href="mikrotik-routing-rules.html">routing rules</a>, <a href="broken-asymmetric-routing.html">asymmetric routing</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">The Route That Will Not Settle</h2>
+  <p class="section-thesis"><em>The probe says down, the router fails over, the probe says up, it fails back &mdash; and every flip resets every session.</em></p>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="The default route oscillates between WAN1 and WAN2 as a flapping health probe reports up and down; each switch resets the active sessions">
+      <rect class="bdf-box" x="60" y="110" width="110" height="46" rx="5"/><text class="bdf-name" x="115" y="131">Router</text><text class="bdf-cap" x="115" y="147">dual-WAN</text>
+      <line class="bdf-link bdf-a" x1="170" y1="124" x2="520" y2="70"/>
+      <line class="bdf-link bdf-b" x1="170" y1="142" x2="520" y2="200"/>
+      <rect class="bdf-box bdf-a" x="520" y="50" width="120" height="40" rx="5"/><text class="bdf-name bdf-a" x="580" y="75">WAN1 (primary)</text>
+      <rect class="bdf-box bdf-b" x="520" y="180" width="120" height="40" rx="5"/><text class="bdf-name bdf-b" x="580" y="205">WAN2 (backup)</text>
+      <rect class="bdf-box" x="665" y="110" width="80" height="46" rx="5" style="stroke:var(--defender);stroke-width:1.6;"/><text class="bdf-name" x="705" y="137" style="fill:var(--defender);">Internet</text>
+      <line class="bdf-link bdf-a" x1="640" y1="70" x2="700" y2="110"/>
+      <line class="bdf-link bdf-b" x1="640" y1="200" x2="700" y2="150"/>
+      <g class="bdf-x"><circle cx="345" cy="110" r="13" style="fill:var(--bg);stroke:var(--accent);stroke-width:2;"/><text x="345" y="115" style="font-family:var(--font-disp),sans-serif;font-weight:800;font-size:16px;fill:var(--accent);text-anchor:middle;">&times;</text><text class="bdf-cap" x="345" y="90" style="fill:var(--accent);">session reset</text></g>
+      <text class="bdf-cap" x="300" y="60" style="fill:var(--body);">active path flips WAN1 &harr; WAN2 every few seconds</text>
+      <text class="bdf-cap" x="380" y="250" style="fill:var(--mid);font-weight:700;">The primary is fine &mdash; the probe is wrong, and every flip tears down every session.</text>
+    </svg>
+  </div>
+  <p>The tell that distinguishes this from a genuinely bad link is the <em>rhythm</em>: it recovers and dies on a regular beat, not randomly, and the logs show the gateway going up and down far more often than any real link would. A link that is actually failing stays down; a flapping probe toggles like a metronome.</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Why the Probe Lies</h2>
+  <p class="section-thesis"><em>Almost always the health check, not the link: the wrong target, timers too tight, or no hold-down to damp the oscillation.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Cause</th><th>Why it flaps</th></tr></thead>
+    <tbody>
+      <tr><td>Probing an unreliable target</td><td>Pinging a host that rate-limits or deprioritises ICMP (or is just flaky) makes the probe fail on a healthy link.</td></tr>
+      <tr><td>Timers too aggressive</td><td>One missed ping flips the route. Normal jitter looks like an outage.</td></tr>
+      <tr><td>No hold-down / hysteresis</td><td>Nothing stops it switching back the instant the probe recovers, so it oscillates instead of settling.</td></tr>
+      <tr><td>Probe reachable via both WANs</td><td>If the target is reachable through either link, the probe can succeed/fail ambiguously &mdash; pin it to the interface under test.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">The Symptoms</h2>
+  <p class="section-thesis"><em>Regular, rhythmic instability and a log full of up/down &mdash; not the steady silence of a dead link.</em></p>
+  <table class="cheat">
+    <thead><tr><th>What you see</th><th>What it tells you</th></tr></thead>
+    <tbody>
+      <tr><td>Connectivity &ldquo;comes and goes&rdquo; on a beat</td><td>The route is oscillating, not the link failing.</td></tr>
+      <tr><td>VoIP drops, VPN reconnects constantly</td><td>Stateful sessions torn down on every flip.</td></tr>
+      <tr><td>Logs full of gateway up/down, route change</td><td>The probe toggling far more often than a real link would.</td></tr>
+      <tr><td>Public IP keeps changing</td><td>Traffic keeps re-sourcing as the active WAN flips.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">The Fix: Make Failover Rare and Sticky</h2>
+  <p class="section-thesis"><em>Probe a reliable, diverse target through the right interface, and add hold-down so a recovered link does not instantly steal the route back.</em></p>
+  <p>Probe something that is reliable and actually diverse from the backup path, and bind the probe to the interface under test so it measures <em>that</em> link, not &ldquo;the internet via whatever route.&rdquo; Then damp it: require several consecutive failures before failing over, and a hold-down before failing back, so a link that is merely twitchy does not drag every session with it.</p>
+  <div class="term-wrap"><span class="term-label">A sticky recursive probe (RouterOS)</span><pre class="term"><span class="cmt"># probe a reliable IP THROUGH wan1 only (recursive route pins the path)</span>
+/ip route add dst-address=9.9.9.9/32 gateway=WAN1-GW scope=10
+/ip route add dst-address=0.0.0.0/0 gateway=9.9.9.9 target-scope=11 \
+    check-gateway=ping distance=1 comment="primary: wan1"
+/ip route add dst-address=0.0.0.0/0 gateway=WAN2-GW distance=2 comment="backup: wan2"
+<span class="cmt"># netwatch with a tolerant interval/timeout so one blip is not an outage</span>
+/tool netwatch add host=9.9.9.9 interval=10s timeout=2s</pre></div>
+  <div class="term-wrap"><span class="term-label">Cisco: IP SLA with a delay so it does not flap</span><pre class="term">ip sla 1
+ icmp-echo 9.9.9.9 source-interface GigabitEthernet0/0/0
+ threshold 1500
+ timeout 2000
+ frequency 5
+track 1 ip sla 1 reachability
+ delay down 15 up 30        <span class="cmt">! hold-down: 15s to fail over, 30s before failing back</span></pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; the probe target reachable via both links</span>
+    <p>If the health-check target can be reached through <em>either</em> WAN, the probe never cleanly tells you the primary is down &mdash; and worse, after failover it may still &ldquo;succeed&rdquo; via the backup and immediately fail back. Always pin the probe to the specific interface (a recursive route or <code>source-interface</code>), and pick a target that is not anycast-reachable everywhere. Testing &ldquo;is the internet up?&rdquo; is not the same as &ldquo;is <em>this link</em> up?&rdquo;</p>
+  </div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Catch It in 30 Seconds <span class="safe-badge">Field check</span></h2>
+  <p class="section-thesis"><em>The route log and the gateway history tell flapping from failing at a glance.</em></p>
+  <div class="term-wrap"><span class="term-label">See the flap</span><pre class="term"><span class="cmt"># RouterOS: is the primary route toggling active/inactive on a beat?</span>
+/log print where message~"gateway"        <span class="cmt"># rhythmic up/down = flap</span>
+/tool netwatch print                        <span class="cmt"># status + since: how often is it flipping?</span>
+/ip route print where comment~"primary"     <span class="cmt"># active or not, right now?</span>
+
+<span class="cmt"># Cisco: the track and SLA history</span>
+show track 1
+show ip sla statistics 1</pre></div>
+  <p>A gateway that goes up and down on a regular cadence &mdash; versus staying down &mdash; is the signature of a flap, not a failure. Fix the probe target and add hold-down, and the route settles on the primary where it belongs, failing over only when the link truly dies.</p>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>A flapping failover is worse than the outage</strong> &mdash; every flip resets every stateful session.</li>
+      <li><strong>The link is usually fine</strong> &mdash; the health probe is wrong. Rhythmic up/down, not steady silence, is the tell.</li>
+      <li><strong>Probe a reliable, diverse target through the interface under test</strong> &mdash; not &ldquo;the internet via any route.&rdquo;</li>
+      <li><strong>Add hold-down / hysteresis</strong> so a twitchy link does not keep stealing the route back.</li>
+      <li><strong>A probe reachable via both WANs is ambiguous</strong> &mdash; pin it to the link, and avoid anycast targets.</li>
+      <li><strong>Read the gateway history</strong> &mdash; a metronome of up/down is a flap; a flat line down is a real failure.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Dual-WAN that drops sessions every few seconds?</h3>
+    <p>A flapping failover is almost always a bad health probe or missing hold-down, not a bad link. I fix the probe, add hysteresis so failover is rare and sticky, and prove it by pulling the primary for real.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

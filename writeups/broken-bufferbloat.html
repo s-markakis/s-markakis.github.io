@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Broken by Design: The Link Isn't Slow, the Queue Is Full — S. Markakis</title>
+<meta name="description" content="Why latency balloons under load even when bandwidth is fine: oversized unmanaged buffers fill up and every packet waits behind the backlog. The bufferbloat failure, and why AQM like CAKE or fq_codel is the fix.">
+<meta property="og:title" content="Broken by Design: The Link Isn't Slow, the Queue Is Full — S. Markakis">
+<meta property="og:description" content="Why latency balloons under load even when bandwidth is fine: oversized unmanaged buffers fill up and every packet waits behind the backlog. The bufferbloat failure, and why AQM like CAKE or fq_codel is the fix.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/broken-bufferbloat.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/broken-bufferbloat.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/broken-bufferbloat.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/broken-bufferbloat.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* bufferbloat (bbl-) */
+  .bbl-box{fill:var(--bg);stroke:var(--mid);stroke-width:1.6;}
+  .bbl-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12px;fill:var(--mid);text-anchor:middle;}
+  .bbl-cap{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  @keyframes bblBloat{0%,44%{opacity:1;}50%,94%{opacity:0;}100%{opacity:1;}}
+  @keyframes bblOk{0%,44%{opacity:0;}50%,94%{opacity:1;}100%{opacity:0;}}
+  .bbl-bloat{animation:bblBloat 12s ease-in-out infinite;}
+  .bbl-ok{animation:bblOk 12s ease-in-out infinite;}
+  .bbl-needle{transform-box:fill-box;transform-origin:left center;}
+  @keyframes bblHigh{0%{transform:rotate(8deg);}30%{transform:rotate(74deg);}44%{transform:rotate(74deg);}100%{transform:rotate(74deg);}}
+  @keyframes bblLow{0%{transform:rotate(8deg);}100%{transform:rotate(20deg);}}
+  .bbl-nh{animation:bblHigh 12s ease-in-out infinite;}
+  .bbl-nl{animation:bblLow 12s ease-in-out infinite;}
+  @media (prefers-reduced-motion:reduce){.bbl-bloat{animation:none;opacity:0;}.bbl-ok{animation:none;opacity:1;}.bbl-nh,.bbl-nl{animation:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Broken by Design: The Link Isn't Slow, the Queue Is Full",
+  "description": "Bufferbloat: why latency explodes under load while bandwidth looks fine, how oversized buffers cause it, and why AQM like CAKE or fq_codel sized under the line rate fixes it.",
+  "datePublished": "2026-10-27",
+  "dateModified": "2026-10-27",
+  "author": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "publisher": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "url": "https://s-markakis.github.io/writeups/broken-bufferbloat.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/broken-bufferbloat.png",
+  "keywords": [ "broken-by-design", "bufferbloat", "qos" ],
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://s-markakis.github.io/blog.html#broken-bufferbloat" },
+  "timeRequired": "PT6M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span class="series-chip">Broken by Design</span> &nbsp;·&nbsp; Queueing &middot; How Networks Fail &middot; October 2026</p>
+  <h1 class="post-title">Broken by Design<br>The Link Isn&rsquo;t Slow,<br>the Queue Is Full</h1>
+  <p class="post-subtitle">The speed test says the line is fast. Yet the moment someone uploads a file, the video call turns to slideshow, the game lags, and a ping that was 12&nbsp;ms is suddenly 800. The bandwidth is fine &mdash; the problem is a buffer somewhere filling to the brim, so every latency-sensitive packet waits behind a backlog of bulk traffic. This is bufferbloat, and it is a queueing failure, not a capacity one.</p>
+  <div class="tags">
+    <span class="tag">Broken by Design</span>
+    <span class="tag">Bufferbloat</span>
+    <span class="tag">Latency</span>
+    <span class="tag">AQM</span>
+    <span class="tag">CAKE</span>
+    <span class="tag">fq_codel</span></div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Bandwidth and latency are different things, and a buffer trades one for the other. A buffer exists to absorb a brief burst so packets are not dropped &mdash; useful, in moderation. But the buffers in a lot of consumer modems, NICs and drivers are <strong>enormous and unmanaged</strong>, and TCP, by design, fills any buffer it finds until it sees a drop. So under sustained load the bottleneck buffer fills to the top and <em>stays</em> full.</p>
+    <p>Once it is full, every new packet &mdash; including a tiny, urgent VoIP or game packet &mdash; has to sit behind the entire backlog of bulk data before it is sent. That wait is pure added latency: a 12&nbsp;ms link becomes a 500&ndash;800&nbsp;ms one, while the throughput graph looks perfect. This is <strong>bufferbloat</strong>, and because the speed test still passes, it is routinely misdiagnosed as &ldquo;the internet is slow&rdquo; when it is really &ldquo;the queue is mismanaged.&rdquo;</p>
+    <div class="prereqs-label">Part of</div>
+    <ul class="prereqs-list">
+      <li><strong><a href="broken-index.html">Broken by Design</a></strong> &mdash; how networks actually fail, and how to catch each one fast</li>
+      <li>Reads alongside <a href="mikrotik-qos.html">QoS &amp; queues</a>, <a href="build-villa.html">the CAKE build</a>, <a href="cisco-qos-voip.html">QoS for VoIP</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">A Full Buffer, and the Latency It Hides</h2>
+  <p class="section-thesis"><em>Left, the unmanaged buffer is full and the urgent packet waits behind the backlog &mdash; ping spikes. Right, AQM keeps the queue short &mdash; ping stays low at the same bandwidth.</em></p>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 280" role="img" aria-label="With an oversized unmanaged buffer a small latency-sensitive packet waits behind a long backlog and the latency gauge reads high; with AQM the queue stays short and the gauge reads low at the same throughput">
+      <!-- gauge -->
+      <path d="M560 200 A90 90 0 0 1 740 200" style="fill:none;stroke:var(--rule);stroke-width:8;"/>
+      <text class="bbl-cap" x="650" y="150">latency under load</text>
+      <text class="bbl-cap" x="572" y="216" style="fill:var(--defender);">low</text><text class="bbl-cap" x="728" y="216" style="fill:var(--accent);">high</text>
+      <g class="bbl-bloat"><rect class="bbl-needle bbl-nh" x="650" y="197" width="86" height="5" rx="2" style="fill:var(--accent);"/></g>
+      <g class="bbl-ok"><rect class="bbl-needle bbl-nl" x="650" y="197" width="86" height="5" rx="2" style="fill:var(--defender);"/></g>
+      <circle cx="650" cy="200" r="6" style="fill:var(--mid);"/>
+      <!-- BLOAT -->
+      <g class="bbl-bloat">
+        <text class="bbl-cap" x="240" y="44" style="fill:var(--accent);font-weight:700;">Unmanaged buffer: FULL</text>
+        <rect x="70" y="60" width="360" height="46" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+        <rect x="74" y="64" width="80" height="38" rx="2" style="fill:var(--defender);opacity:.5;"/>
+        <rect x="158" y="64" width="80" height="38" rx="2" style="fill:var(--defender);opacity:.5;"/>
+        <rect x="242" y="64" width="80" height="38" rx="2" style="fill:var(--defender);opacity:.5;"/>
+        <rect x="326" y="64" width="54" height="38" rx="2" style="fill:var(--defender);opacity:.5;"/>
+        <rect x="384" y="64" width="20" height="38" rx="2" style="fill:var(--accent);"/>
+        <text class="bbl-cap" x="240" y="130">a big download fills the buffer; the small call packet (red) is stuck at the back</text>
+      </g>
+      <!-- OK -->
+      <g class="bbl-ok">
+        <text class="bbl-cap" x="240" y="44" style="fill:var(--defender);font-weight:700;">AQM (CAKE): queue kept SHORT</text>
+        <rect x="70" y="60" width="360" height="46" rx="5" style="fill:none;stroke:var(--mid);stroke-width:1.6;"/>
+        <rect x="74" y="64" width="46" height="38" rx="2" style="fill:var(--defender);opacity:.5;"/>
+        <rect x="124" y="64" width="20" height="38" rx="2" style="fill:var(--accent);"/>
+        <text class="bbl-cap" x="240" y="130">AQM signals senders early, so the small call packet goes almost straight out</text>
+      </g>
+      <text class="bbl-cap" x="380" y="190">Same download, same bandwidth &mdash; the only difference is how the queue is managed.</text>
+      <text class="bbl-cap" x="380" y="262" style="fill:var(--mid);font-weight:700;">Bufferbloat is latency hiding inside a &ldquo;fast&rdquo; link. The fix is the queue, not more Mbps.</text>
+    </svg>
+  </div>
+  <p>More bandwidth does not fix this; it just takes a little longer to fill a bigger buffer. The only cure is to manage the queue so it never builds a standing backlog &mdash; which means the queue has to live somewhere you control, not in the ISP&rsquo;s modem.</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Why It Happens</h2>
+  <p class="section-thesis"><em>Big dumb buffers plus greedy TCP, at a bottleneck you do not manage.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Ingredient</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td>Oversized unmanaged buffers</td><td>Modems, NICs and drivers ship with huge FIFO buffers &mdash; room to build a half-second of backlog.</td></tr>
+      <tr><td>TCP fills any buffer</td><td>Loss-based congestion control keeps sending faster until it sees a drop, so it drives the buffer to full.</td></tr>
+      <tr><td>Bottleneck in the ISP gear</td><td>If the standing queue forms in the modem, your router&rsquo;s QoS cannot touch it.</td></tr>
+      <tr><td>Speed test hides it</td><td>Throughput is unaffected &mdash; the damage is latency, which a Mbps number does not show.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">The Symptoms</h2>
+  <p class="section-thesis"><em>Idle latency fine, load latency terrible &mdash; the gap between the two is the whole diagnosis.</em></p>
+  <table class="cheat">
+    <thead><tr><th>What you see</th><th>What it tells you</th></tr></thead>
+    <tbody>
+      <tr><td>Ping 12&nbsp;ms idle, 500&ndash;800&nbsp;ms under load</td><td>A standing queue forming at the bottleneck &mdash; textbook bufferbloat.</td></tr>
+      <tr><td>Calls/games fall apart when someone uploads</td><td>Uplink buffer fills; small packets wait behind the upload.</td></tr>
+      <tr><td>Speed test fast, experience bad</td><td>Plenty of bandwidth, badly managed latency.</td></tr>
+      <tr><td>A bufferbloat test grades C&ndash;F</td><td>Direct measurement of the latency-under-load gap.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">The Fix: Move the Queue Somewhere You Manage</h2>
+  <p class="section-thesis"><em>Put modern AQM at the bottleneck and set the rate just under the real line speed, so the standing queue forms in your router where the algorithm can keep it short.</em></p>
+  <p><strong>CAKE</strong> (or fq_codel) is an active queue-management discipline that signals senders to slow down <em>before</em> a big backlog builds, and shares the link fairly per flow so one bulk transfer cannot monopolise it. The crucial detail is the rate limit: set it a little <em>under</em> what the line actually delivers, so the bottleneck &mdash; and therefore the queue &mdash; sits in your router, not in the ISP&rsquo;s modem where AQM cannot reach.</p>
+  <div class="term-wrap"><span class="term-label">CAKE at ~90% of the real line rate (RouterOS)</span><pre class="term">/queue type
+add name=cake-up kind=cake cake-diffserv=diffserv4 cake-nat=yes cake-flowmode=dual-srchost
+/queue tree
+add name=up parent=ether1-wan queue=cake-up max-limit=18M    <span class="cmt"># ~90% of a 20M uplink</span>
+<span class="cmt"># NOTE: no FastTrack &mdash; fast-tracked packets skip the queue entirely</span>
+/ip firewall filter remove [find action=fasttrack-connection]</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; set the limit too high and the queue escapes you</span>
+    <p>If you shape at or above the real line rate, the bottleneck stays in the ISP&rsquo;s modem and the standing queue forms <em>there</em>, where CAKE has no control &mdash; so bufferbloat persists even though you &ldquo;added QoS.&rdquo; Set it a touch under measured throughput (start ~90%, tune down until the latency-under-load gap closes). And never FastTrack: a fast-tracked connection bypasses the queue, which is the one thing you are trying to run it through.</p>
+  </div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Catch It in 30 Seconds <span class="safe-badge">Field check</span></h2>
+  <p class="section-thesis"><em>Ping while you saturate the link. The jump from idle to loaded is bufferbloat, measured.</em></p>
+  <div class="term-wrap"><span class="term-label">Measure the latency-under-load gap</span><pre class="term"><span class="cmt"># baseline: ping while the link is idle</span>
+ping -c 20 1.1.1.1            <span class="cmt"># e.g. ~12 ms</span>
+<span class="cmt"># now saturate the UPLINK and ping again at the same time</span>
+<span class="cmt"># (start a big upload, or: iperf3 -c HOST -t 30 &amp; )</span>
+ping -c 20 1.1.1.1            <span class="cmt"># 500-800 ms under load = bufferbloat</span>
+<span class="cmt"># or just run a browser bufferbloat grade (waveform / dslreports)</span></pre></div>
+  <p>A ping that is fine at idle and explodes under load is the entire diagnosis &mdash; no deeper tooling needed. Put CAKE at the bottleneck, sized under the line rate, re-run the test, and the loaded ping should stay within a few milliseconds of idle.</p>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Bandwidth and latency are different</strong> &mdash; a full buffer trades latency away while the Mbps number looks fine.</li>
+      <li><strong>Oversized unmanaged buffers + greedy TCP</strong> build a standing backlog that every urgent packet waits behind.</li>
+      <li><strong>More bandwidth does not fix it</strong> &mdash; it just fills a bigger buffer; the queue is the problem.</li>
+      <li><strong>AQM (CAKE / fq_codel) is the cure</strong> &mdash; it keeps the queue short and shares the link fairly per flow.</li>
+      <li><strong>Set the rate under the real line speed</strong> so the queue lives in your router, not the ISP modem &mdash; and never FastTrack past it.</li>
+      <li><strong>Ping under load to prove it</strong> &mdash; the idle-to-loaded latency gap is the whole measurement.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Fast line, terrible calls the moment anyone uploads?</h3>
+    <p>Bufferbloat is a queueing problem that no amount of bandwidth fixes. I put modern AQM (CAKE / fq_codel) at the real bottleneck, sized so the queue lives where it can be managed, and your calls stay smooth under load.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

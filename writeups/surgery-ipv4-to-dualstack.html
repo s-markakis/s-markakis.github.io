@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Surgery on a Running Network: Adding IPv6 Without Breaking IPv4 — S. Markakis</title>
+<meta name="description" content="How to add IPv6 to a live IPv4 network safely: request a prefix, hand it out per VLAN, and — the step everyone forgets — mirror every IPv4 firewall rule in IPv6 before clients become reachable, or you have silently published an unfirewalled network.">
+<meta property="og:title" content="Surgery on a Running Network: Adding IPv6 Without Breaking IPv4 — S. Markakis">
+<meta property="og:description" content="How to add IPv6 to a live IPv4 network safely: request a prefix, hand it out per VLAN, and — the step everyone forgets — mirror every IPv4 firewall rule in IPv6 before clients become reachable, or you have silently published an unfirewalled network.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/surgery-ipv4-to-dualstack.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/surgery-ipv4-to-dualstack.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/surgery-ipv4-to-dualstack.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/surgery-ipv4-to-dualstack.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* dualstack (sds-) */
+  .sds-box{fill:var(--bg);stroke:var(--mid);stroke-width:1.6;}
+  .sds-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:11px;fill:var(--mid);text-anchor:middle;}
+  .sds-cap{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  .sds-link{stroke:var(--body);stroke-width:1.6;fill:none;opacity:.6;}
+  @keyframes sdsA{0%,42%{opacity:1;}48%,94%{opacity:0;}100%{opacity:1;}}
+  @keyframes sdsB{0%,42%{opacity:0;}48%,94%{opacity:1;}100%{opacity:0;}}
+  .sds-a{animation:sdsA 12s ease-in-out infinite;}.sds-b{animation:sdsB 12s ease-in-out infinite;}
+  @media (prefers-reduced-motion:reduce){.sds-a{animation:none;opacity:0;}.sds-b{animation:none;opacity:1;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Surgery on a Running Network: Adding IPv6 Without Breaking IPv4",
+  "description": "Adding IPv6 to a live IPv4 network: request a prefix, hand it out per VLAN, and mirror every IPv4 firewall rule in IPv6 first, because v6 does not use the v4 ruleset.",
+  "datePublished": "2026-10-27",
+  "dateModified": "2026-10-27",
+  "author": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "publisher": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "url": "https://s-markakis.github.io/writeups/surgery-ipv4-to-dualstack.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/surgery-ipv4-to-dualstack.png",
+  "keywords": [ "surgery", "migration", "ipv6" ],
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://s-markakis.github.io/blog.html#surgery-ipv4-to-dualstack" },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span class="series-chip">Surgery on a Running Network</span> &nbsp;·&nbsp; Migration &middot; October 2026</p>
+  <h1 class="post-title">Surgery on a Running Network<br><span style="font-size:1.5rem;color:var(--accent);">Adding IPv6 Without Breaking IPv4</span></h1>
+  <p class="post-subtitle">Adding IPv6 feels low-risk: IPv4 keeps working, you are only <em>adding</em> a second protocol. That is exactly the trap. The moment you hand out an IPv6 prefix, every client auto-configures a globally reachable address &mdash; and your carefully built IPv4 firewall does not apply to a single byte of it. Dual-stack done carelessly turns a NAT-protected network into a publicly routable one with no filter. Done right, it is a clean additive migration.</p>
+  <div class="tags">
+    <span class="tag">Surgery</span>
+    <span class="tag">Migration</span>
+    <span class="tag">IPv6</span>
+    <span class="tag">Dual-Stack</span>
+    <span class="tag">Firewall Parity</span>
+    <span class="tag">SLAAC</span></div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>IPv4 on a typical LAN is protected partly by a firewall and partly by an accident of history: NAT means inside hosts have no publicly routable address, so even a weak ruleset is not directly reachable from the internet. <strong>IPv6 removes that accident.</strong> Addresses are global and end-to-end by design &mdash; which is the point &mdash; so the firewall is now the <em>only</em> thing between the internet and every device.</p>
+    <p>And here is the sharp edge: an IPv6 firewall is a completely separate ruleset from IPv4. Your <code>/ip firewall</code> rules do nothing for <code>/ipv6 firewall</code>. Clients turn IPv6 on by themselves the instant a router advertisement appears, so if you hand out a prefix before building the v6 filter, every host is globally reachable with <strong>no firewall at all</strong>. The migration is safe only if the v6 ruleset exists <em>first</em>.</p>
+    <div class="prereqs-label">Part of</div>
+    <ul class="prereqs-list">
+      <li><strong><a href="surgery-index.html">Surgery on a Running Network</a></strong> &mdash; changing live networks without downtime</li>
+      <li>Reads alongside <a href="mikrotik-ipv6.html">IPv6 on RouterOS</a>, <a href="cisco-ipv6.html">IPv6 on IOS</a>, <a href="mikrotik-firewall.html">the firewall</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">The Second Protocol Needs Its Own Filter</h2>
+  <p class="section-thesis"><em>IPv4 keeps its firewall and its NAT. IPv6 arrives global and end-to-end &mdash; and unless you built its filter, it is wide open.</em></p>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 240" role="img" aria-label="Before, IPv4 only, protected by a firewall and NAT; after, dual-stack where IPv4 keeps its firewall but IPv6 reaches clients directly and needs its own mirrored firewall or the network is unprotected on v6">
+      <g class="sds-a">
+        <rect class="sds-box" x="60" y="90" width="110" height="46" rx="5" style="stroke:var(--defender);stroke-width:1.6;"/><text class="sds-name" x="115" y="110" style="fill:var(--defender);">Internet</text>
+        <rect class="sds-box" x="300" y="86" width="90" height="54" rx="5"/><text class="sds-name" x="345" y="108">FW + NAT</text><text class="sds-cap" x="345" y="124">v4</text>
+        <rect class="sds-box" x="560" y="90" width="120" height="46" rx="5"/><text class="sds-name" x="620" y="115">LAN (v4, NAT)</text>
+        <line class="sds-link" x1="170" y1="113" x2="300" y2="113"/><line class="sds-link" x1="390" y1="113" x2="560" y2="113"/>
+        <text class="sds-cap" x="380" y="190" style="fill:var(--defender);font-weight:700;">IPv4 only: the firewall and NAT stand between the internet and the LAN.</text>
+      </g>
+      <g class="sds-b">
+        <rect class="sds-box" x="60" y="90" width="110" height="46" rx="5" style="stroke:var(--defender);stroke-width:1.6;"/><text class="sds-name" x="115" y="117" style="fill:var(--defender);">Internet</text>
+        <rect class="sds-box" x="300" y="50" width="90" height="40" rx="5"/><text class="sds-name" x="345" y="68">FW v4 + NAT</text><text class="sds-cap" x="345" y="83" style="fill:var(--defender);">built &#10003;</text>
+        <rect class="sds-box" x="300" y="138" width="90" height="40" rx="5" style="stroke:var(--accent);stroke-width:1.8;"/><text class="sds-name" x="345" y="156" style="fill:var(--accent);">FW v6</text><text class="sds-cap" x="345" y="171" style="fill:var(--accent);">must exist first!</text>
+        <rect class="sds-box" x="560" y="90" width="120" height="46" rx="5"/><text class="sds-name" x="620" y="110">LAN (dual-stack)</text><text class="sds-cap" x="620" y="126">global v6 addrs</text>
+        <line class="sds-link" x1="170" y1="100" x2="300" y2="70"/><line class="sds-link" x1="390" y1="70" x2="560" y2="104"/>
+        <line class="sds-link" x1="170" y1="126" x2="300" y2="158" style="stroke:var(--accent);opacity:1;"/><line class="sds-link" x1="390" y1="158" x2="560" y2="122" style="stroke:var(--accent);opacity:1;"/>
+        <text class="sds-cap" x="380" y="210" style="fill:var(--accent);font-weight:700;">Dual-stack: v6 is global and end-to-end &mdash; with no v6 firewall, every host is directly reachable.</text>
+      </g>
+    </svg>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">The Cutover, Per VLAN</h2>
+  <p class="section-thesis"><em>Build the v6 firewall before anything is reachable, then enable addressing one VLAN at a time &mdash; v4 is never touched.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Step</th><th>Do</th><th>Rollback</th></tr></thead>
+    <tbody>
+      <tr><td>1 · Get the prefix</td><td>Request a prefix via DHCPv6-PD on the WAN. Do not advertise anything to clients yet.</td><td>Release the PD.</td></tr>
+      <tr><td>2 · Build the v6 firewall</td><td>Write the <code>/ipv6 firewall</code> ruleset to mirror v4: default-deny inbound, allow established/related, permit only what v4 permits. <em>Before</em> any RA.</td><td>&mdash; (nothing reachable yet).</td></tr>
+      <tr><td>3 · Pilot one VLAN</td><td>Enable SLAAC/DHCPv6 and router advertisements on one low-risk VLAN. Clients gain a v6 address.</td><td>Disable RA on that VLAN &mdash; clients drop v6.</td></tr>
+      <tr><td>4 · Verify parity</td><td>From outside, confirm v6 reachability matches v4 exactly (nothing extra open). From inside, confirm v6 connectivity works.</td><td>&mdash;</td></tr>
+      <tr><td>5 · Roll out + RA guard</td><td>Repeat per VLAN; enable RA guard on access ports so only the router advertises.</td><td>Per-VLAN disable RA.</td></tr>
+    </tbody>
+  </table>
+  <div class="term-wrap"><span class="term-label">Step 2 &mdash; the v6 firewall FIRST (RouterOS)</span><pre class="term"><span class="cmt"># default-deny inbound on v6, mirroring the v4 input/forward policy</span>
+/ipv6 firewall filter
+add chain=input action=accept connection-state=established,related,untracked
+<span class="cmt"># ICMPv6 is load-bearing &mdash; do NOT drop it (ND, PMTUD, SLAAC)</span>
+add chain=input action=accept protocol=icmpv6
+add chain=input action=accept in-interface-list=MGMT
+add chain=input action=drop
+add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=accept in-interface-list=LAN out-interface-list=WAN
+add chain=forward action=drop     <span class="cmt"># no inbound from the internet, same as v4</span>
+<span class="cmt"># ONLY NOW enable addressing (step 3):</span>
+/ipv6 dhcp-client add interface=ether1-wan request=prefix pool-name=v6pd \
+    pool-prefix-length=56</pre></div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; do not drop ICMPv6, and do not reach for NAT</span>
+    <p>Two reflexes to resist. First, ICMPv6 is not optional like ICMP felt in v4 &mdash; Neighbor Discovery, PMTUD and address configuration all ride it, so a blanket drop breaks v6 entirely (and gives you a <a href="broken-mtu-blackhole.html">black hole</a>). Permit it. Second, the instinct to &ldquo;NAT v6 like v4 for safety&rdquo; (NPTv6/NAT66) throws away the end-to-end addressing that is the whole point; the correct protection is the <em>firewall</em>, default-deny inbound, not NAT. Build the filter, keep the global addresses.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">The Window Checklist <span class="safe-badge">Field check</span></h2>
+  <table class="cheat">
+    <thead><tr><th>Before you advertise a prefix</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>The v6 firewall exists and is default-deny</td><td>Clients auto-enable v6 the instant an RA appears &mdash; the filter must predate it.</td></tr>
+      <tr><td>ICMPv6 permitted</td><td>v6 does not work at all without it.</td></tr>
+      <tr><td>External scan v4 vs v6 after each VLAN</td><td>Prove v6 exposes exactly what v4 does &mdash; nothing extra.</td></tr>
+      <tr><td>RA guard on access ports</td><td>Stop a rogue device advertising itself as the v6 router.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>IPv6 is global and end-to-end</strong> &mdash; the firewall, not NAT, is the only thing protecting hosts.</li>
+      <li><strong>The v6 ruleset is separate from v4</strong> and must be built <em>before</em> you advertise a prefix, or the LAN is wide open on v6.</li>
+      <li><strong>Mirror every v4 rule in v6</strong>, default-deny inbound &mdash; parity is the goal.</li>
+      <li><strong>Never drop ICMPv6</strong> &mdash; Neighbor Discovery and PMTUD depend on it.</li>
+      <li><strong>Roll out per VLAN with RA guard</strong>, and scan v4-vs-v6 after each to prove nothing extra is exposed.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Rolling out IPv6 without accidentally publishing your LAN?</h3>
+    <p>Dual-stack is safe when the IPv6 firewall is built before the prefix is handed out. I roll IPv6 across a live network per VLAN, mirroring every v4 rule in v6, so nothing becomes reachable that was not meant to be.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

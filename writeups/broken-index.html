@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Broken by Design — How Networks Fail — S. Markakis</title>
+<meta name="description" content="A series on how networks actually fail — the switching loop, asymmetric routing, the MTU black hole, DHCP exhaustion, ARP spoofing, DNS dependency loops, flapping failover and bufferbloat — each with an animated diagram, the symptoms, and how to catch it in 30 seconds.">
+<meta property="og:title" content="Broken by Design — How Networks Fail — S. Markakis">
+<meta property="og:description" content="A series on how networks actually fail — the switching loop, asymmetric routing, the MTU black hole, DHCP exhaustion, ARP spoofing, DNS dependency loops, flapping failover and bufferbloat — each with an animated diagram, the symptoms, and how to catch it in 30 seconds.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/broken-index.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/broken-index.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/broken-index.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/broken-index.html">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:820px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3.1rem;line-height:1.02;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.08rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.55;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:1.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .chapter{margin-top:2.6rem;}
+  .chapter-num{font-family:var(--font-disp);font-weight:700;font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:.15rem;}
+  .chapter-title{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:.2rem;}
+  .chapter-desc{font-style:italic;color:var(--body);font-size:.9rem;margin-bottom:1rem;border-bottom:1px solid var(--rule);padding-bottom:.7rem;}
+  .ci-row{display:flex;align-items:baseline;gap:1rem;padding:.8rem .3rem;border-bottom:1px solid var(--rule);text-decoration:none;transition:background .12s,padding .15s;}
+  .ci-row:first-of-type{border-top:1px solid var(--rule);}
+  .ci-row:hover{background:var(--card);padding-left:.7rem;text-decoration:none;}
+  .ci-num{font-family:var(--font-disp);font-weight:800;font-size:.82rem;color:var(--accent);min-width:2.1ch;text-align:right;}
+  .ci-main{flex:1;min-width:0;}
+  .ci-title{display:block;font-family:var(--font-disp);font-weight:600;font-size:1.04rem;color:var(--head);line-height:1.25;}
+  .ci-desc{display:block;color:var(--body);font-size:.85rem;margin-top:.15rem;line-height:1.45;}
+  .ci-time{font-family:var(--font-disp);font-size:.72rem;letter-spacing:.05em;color:var(--body);white-space:nowrap;}
+  .ci-arrow{color:var(--rule);font-size:1rem;align-self:center;}
+  .ci-row:hover .ci-arrow{color:var(--accent);}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:3rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+  @media (max-width: 600px) {
+    .ci-time { display: none; }
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Broken by Design — How Networks Fail",
+  "description": "A series on how networks actually fail — the switching loop, asymmetric routing, the MTU black hole, DHCP exhaustion, ARP spoofing, DNS dependency loops, flapping failover and bufferbloat — each with an animated diagram, the symptoms, and how to catch it in 30 seconds.",
+  "datePublished": "2026-10-23",
+  "dateModified": "2026-10-23",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/broken-index.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/broken-index.png",
+  "keywords": [
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#broken-index"
+  },
+  "timeRequired": "PT3M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+
+  <p class="post-meta"><span>Broken by Design &nbsp;·&nbsp; How networks fail &nbsp;·&nbsp; Symptom → cause → fix</span></p>
+  <h1 class="post-title">Broken by Design</h1>
+  <p class="post-subtitle">Every network fails in a handful of classic ways, and each one has a shape you can learn to recognise on sight. This series walks the most common failures &mdash; what the user sees, why it happens, an animated diagram of the mechanism, how to catch it in thirty seconds, and how to stop it coming back.</p>
+  <div class="tags">
+    <span class="tag">Broken by Design</span>
+    <span class="tag">Failure Modes</span>
+    <span class="tag">Troubleshooting</span>
+    <span class="tag">Animated Diagrams</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>The <a href="arch-index.html">architecture guides</a> show how to build networks right; this series shows how they go wrong. Each post takes one failure mode that every network engineer meets eventually and dissects it: the <strong>symptom</strong> as the user reports it, the <strong>mechanism</strong> with an animated diagram, the <strong>field check</strong> to confirm it in seconds, and the <strong>fix</strong>. The companion series, <a href="surgery-index.html">Surgery on a Running Network</a>, is how you change a live network without causing these.</p>
+    <p>They are filed under the <a href="../blog.html?tag=broken-by-design"><strong>broken-by-design</strong> category</a> on the blog.</p>
+  </div>
+
+  <div class="chapter">
+    <p class="chapter-num">Layer 2</p>
+    <h2 class="chapter-title">Where one cable takes down everything</h2>
+    <p class="chapter-desc">The broadcast domain is a shared fate: a loop or a lie on it hits every device at once.</p>
+    <a class="ci-row" href="broken-stp-loop.html"><span class="ci-num">01</span><span class="ci-main"><span class="ci-title">The Switching Loop</span><span class="ci-desc">A second cable &ldquo;for redundancy&rdquo; with no spanning tree: a broadcast circles, re-floods and multiplies until every CPU is pinned and the site is down. STP, BPDU guard and storm control, animated.</span></span><span class="ci-time">7 min</span><span class="ci-arrow">→</span></a>
+    <a class="ci-row" href="broken-arp-spoof.html"><span class="ci-num">02</span><span class="ci-main"><span class="ci-title">The Gateway That Lied</span><span class="ci-desc">ARP has no authentication, so one device can claim the gateway IP and redirect the subnet through itself &mdash; or a duplicate IP does it by accident. Dynamic ARP Inspection stops both.</span></span><span class="ci-time">6 min</span><span class="ci-arrow">→</span></a>
+  </div>
+
+  <div class="chapter">
+    <p class="chapter-num">Layer 3 &amp; the WAN</p>
+    <h2 class="chapter-title">Where packets go the wrong way, or too big, or nowhere stable</h2>
+    <p class="chapter-desc">Routing and firewalls that each work alone combine into one-way valves, black holes and flapping links.</p>
+    <a class="ci-row" href="broken-asymmetric-routing.html"><span class="ci-num">03</span><span class="ci-main"><span class="ci-title">The Return Path That Vanished</span><span class="ci-desc">Traffic leaves one way and returns another, into a stateful firewall that never saw the connection start &mdash; so it drops the reply and the connection half-opens. Pin flows symmetric.</span></span><span class="ci-time">7 min</span><span class="ci-arrow">→</span></a>
+    <a class="ci-row" href="broken-mtu-blackhole.html"><span class="ci-num">04</span><span class="ci-main"><span class="ci-title">The Ping Works, the Transfer Hangs</span><span class="ci-desc">A packet too big for a tunnel link, a blocked ICMP that would have said so, and a sender that keeps resending into the void. Why pings pass and transfers freeze &mdash; and why MSS clamping fixes it.</span></span><span class="ci-time">7 min</span><span class="ci-arrow">→</span></a>
+    <a class="ci-row" href="broken-dualwan-flapping.html"><span class="ci-num">05</span><span class="ci-main"><span class="ci-title">The Failover That Flaps</span><span class="ci-desc">A bad health probe makes the default route oscillate every few seconds, resetting every session &mdash; worse than the outage it was meant to cover. Make failover rare and sticky.</span></span><span class="ci-time">6 min</span><span class="ci-arrow">→</span></a>
+  </div>
+
+  <div class="chapter">
+    <p class="chapter-num">Addressing &amp; Services</p>
+    <h2 class="chapter-title">Where the plumbing everything depends on quietly stops</h2>
+    <p class="chapter-desc">DHCP and DNS are invisible until they fail, and then nothing new works &mdash; or everything goes slow.</p>
+    <a class="ci-row" href="broken-dhcp-exhaustion.html"><span class="ci-num">06</span><span class="ci-main"><span class="ci-title">No One Can Get an Address</span><span class="ci-desc">New devices get a useless 169.254 address while everything already online keeps working. Starvation, an undersized pool, or a rogue server &mdash; three causes, told apart by the lease list.</span></span><span class="ci-time">6 min</span><span class="ci-arrow">→</span></a>
+    <a class="ci-row" href="broken-dns-dependency-loop.html"><span class="ci-num">07</span><span class="ci-main"><span class="ci-title">The Resolver That Needed Itself</span><span class="ci-desc">&ldquo;Everything is slow&rdquo; on an idle link: a forwarder loop, a resolver that depends on what it resolves, or a dead first entry taxing every lookup five seconds. Break the loop, fail fast.</span></span><span class="ci-time">6 min</span><span class="ci-arrow">→</span></a>
+  </div>
+
+  <div class="chapter">
+    <p class="chapter-num">Queueing</p>
+    <h2 class="chapter-title">Where the link is fast and the experience is terrible</h2>
+    <p class="chapter-desc">Bandwidth is not latency, and a full buffer trades one for the other.</p>
+    <a class="ci-row" href="broken-bufferbloat.html"><span class="ci-num">08</span><span class="ci-main"><span class="ci-title">The Link Isn't Slow, the Queue Is Full</span><span class="ci-desc">Latency explodes under load while the speed test looks perfect: an oversized buffer fills and every urgent packet waits behind the backlog. Why more bandwidth does not help, and why AQM does.</span></span><span class="ci-time">6 min</span><span class="ci-arrow">→</span></a>
+  </div>
+
+  <div class="cta-card">
+    <h3>Want these caught before they take you down?</h3>
+    <p>I audit networks for exactly these failure modes &mdash; loop exposure, asymmetric paths, MTU and ICMP handling, DHCP and DNS resilience, bufferbloat &mdash; and fix the ones you are one bad day away from meeting.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

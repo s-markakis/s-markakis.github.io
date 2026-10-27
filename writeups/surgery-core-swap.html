@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Surgery on a Running Network: Replacing the Core Without Downtime — S. Markakis</title>
+<meta name="description" content="How to swap the core switch or router of a live network without an outage: bring the new core up in parallel, pair it with the old via FHRP and a routing adjacency, migrate uplinks one at a time, move the active gateway, then decommission the old.">
+<meta property="og:title" content="Surgery on a Running Network: Replacing the Core Without Downtime — S. Markakis">
+<meta property="og:description" content="How to swap the core switch or router of a live network without an outage: bring the new core up in parallel, pair it with the old via FHRP and a routing adjacency, migrate uplinks one at a time, move the active gateway, then decommission the old.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/surgery-core-swap.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/surgery-core-swap.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/surgery-core-swap.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/surgery-core-swap.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* core swap (scs-) */
+  .scs-box{fill:var(--bg);stroke:var(--mid);stroke-width:1.6;}
+  .scs-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:11px;fill:var(--mid);text-anchor:middle;}
+  .scs-cap{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  .scs-link{stroke:var(--body);stroke-width:1.6;fill:none;opacity:.6;}
+  @keyframes scsA{0%,42%{opacity:1;}48%,94%{opacity:0;}100%{opacity:1;}}
+  @keyframes scsB{0%,42%{opacity:0;}48%,94%{opacity:1;}100%{opacity:0;}}
+  .scs-a{animation:scsA 12s ease-in-out infinite;}.scs-b{animation:scsB 12s ease-in-out infinite;}
+  @media (prefers-reduced-motion:reduce){.scs-a{animation:none;opacity:0;}.scs-b{animation:none;opacity:1;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Surgery on a Running Network: Replacing the Core Without Downtime",
+  "description": "Replacing a live core switch/router without downtime: parallel the new core, pair via FHRP and routing, migrate uplinks one at a time, move the active gateway, decommission the old.",
+  "datePublished": "2026-10-27",
+  "dateModified": "2026-10-27",
+  "author": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "publisher": { "@type": "Person", "name": "S. Markakis", "url": "https://s-markakis.github.io/" },
+  "url": "https://s-markakis.github.io/writeups/surgery-core-swap.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/surgery-core-swap.png",
+  "keywords": [ "surgery", "migration", "core-swap" ],
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://s-markakis.github.io/blog.html#surgery-core-swap" },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span class="series-chip">Surgery on a Running Network</span> &nbsp;·&nbsp; Migration &middot; October 2026</p>
+  <h1 class="post-title">Surgery on a Running Network<br><span style="font-size:1.5rem;color:var(--accent);">Replacing the Core</span></h1>
+  <p class="post-subtitle">The core switch is end-of-life, or it is a single box holding the whole site together, and it has to be replaced. Everything routes through it, every VLAN&rsquo;s gateway lives on it, and it cannot simply be unplugged and swapped. The way to replace a core without downtime is to never actually turn it off until nothing depends on it &mdash; bring the new one up beside it, pair them, move the traffic across link by link, and only then retire the old.</p>
+  <div class="tags">
+    <span class="tag">Surgery</span>
+    <span class="tag">Migration</span>
+    <span class="tag">Core Swap</span>
+    <span class="tag">FHRP</span>
+    <span class="tag">Dual-Homing</span>
+    <span class="tag">Zero Downtime</span></div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>A core is the one box you cannot casually reboot: it holds every VLAN&rsquo;s gateway and every inter-VLAN and WAN path. Replacing it by unplugging the old and cabling the new is a planned outage measured in hours if it goes well, and a disaster if a config detail was missed. Neither is acceptable for most sites.</p>
+    <p>The surgical replacement keeps the old core running the whole time. You rack the new core beside it, give it the config and a routing adjacency so both can forward, make the gateway a <strong>virtual address</strong> (FHRP) that can live on either, then move access-switch uplinks and the active gateway across <strong>one at a time</strong>. If anything misbehaves, that one link or that one gateway flips back. The old core is powered off only when it is demonstrably carrying nothing.</p>
+    <div class="prereqs-label">Part of</div>
+    <ul class="prereqs-list">
+      <li><strong><a href="surgery-index.html">Surgery on a Running Network</a></strong> &mdash; changing live networks without downtime</li>
+      <li>Reads alongside <a href="cisco-hsrp.html">FHRP (HSRP/VRRP)</a>, <a href="mikrotik-stp-bonding.html">bonding</a>, <a href="arch-designing-for-failure.html">designing for failure</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Two Cores, Briefly</h2>
+  <p class="section-thesis"><em>The new core runs in parallel with the old, sharing a virtual gateway, while uplinks move across one by one. The old is retired only when idle.</em></p>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Before, a single core with all gateways is a single point of failure; during the swap the new core runs in parallel sharing an FHRP virtual gateway while uplinks migrate one at a time; after, only the new core remains">
+      <g class="scs-a">
+        <rect class="scs-box" x="320" y="40" width="120" height="44" rx="5" style="stroke:var(--accent);stroke-width:1.8;"/><text class="scs-name" x="380" y="60" style="fill:var(--accent);">OLD CORE</text><text class="scs-cap" x="380" y="76" style="fill:var(--accent);">all gateways &mdash; SPOF</text>
+        <rect class="scs-box" x="180" y="170" width="100" height="34" rx="5"/><text class="scs-name" x="230" y="191">Access</text>
+        <rect class="scs-box" x="480" y="170" width="100" height="34" rx="5"/><text class="scs-name" x="530" y="191">Access</text>
+        <line class="scs-link" x1="360" y1="84" x2="230" y2="170"/><line class="scs-link" x1="400" y1="84" x2="530" y2="170"/>
+        <text class="scs-cap" x="380" y="228" style="fill:var(--accent);font-weight:700;">One core: unplug it and the site is down.</text>
+      </g>
+      <g class="scs-b">
+        <rect class="scs-box" x="200" y="40" width="120" height="44" rx="5"/><text class="scs-name" x="260" y="60">OLD CORE</text><text class="scs-cap" x="260" y="76">draining</text>
+        <rect class="scs-box" x="440" y="40" width="120" height="44" rx="5" style="stroke:var(--defender);stroke-width:1.8;"/><text class="scs-name" x="500" y="60" style="fill:var(--defender);">NEW CORE</text><text class="scs-cap" x="500" y="76" style="fill:var(--defender);">taking over</text>
+        <line class="scs-link" x1="320" y1="62" x2="440" y2="62" style="stroke:var(--defender);stroke-width:2;opacity:1;"/><text class="scs-cap" x="380" y="54" style="fill:var(--defender);">FHRP + routing peer</text>
+        <rect class="scs-box" x="180" y="170" width="100" height="34" rx="5"/><text class="scs-name" x="230" y="191">Access</text>
+        <rect class="scs-box" x="480" y="170" width="100" height="34" rx="5"/><text class="scs-name" x="530" y="191">Access</text>
+        <line class="scs-link" x1="250" y1="84" x2="230" y2="170" style="stroke-dasharray:5,4;"/><line class="scs-link" x1="500" y1="84" x2="530" y2="170" style="stroke:var(--defender);stroke-width:2;opacity:1;"/>
+        <text class="scs-cap" x="380" y="228" style="fill:var(--defender);font-weight:700;">Both live, virtual gateway shared; move each uplink across, then power the old core off.</text>
+      </g>
+    </svg>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">The Cutover, Link by Link</h2>
+  <p class="section-thesis"><em>Parallel, pair, migrate, flip the gateway, decommission &mdash; and the virtual gateway means hosts never notice the move.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Step</th><th>Do</th><th>Rollback</th></tr></thead>
+    <tbody>
+      <tr><td>1 · Stage the new core</td><td>Rack and cable it, load the config, but leave its access uplinks shut. Verify it off to the side.</td><td>Leave shut / unrack.</td></tr>
+      <tr><td>2 · Make the gateway virtual</td><td>Convert each VLAN gateway to an FHRP virtual IP on the old core (hosts now point at the virtual, same IP).</td><td>Revert to the plain SVI.</td></tr>
+      <tr><td>3 · Pair the cores</td><td>Bring up FHRP between old (active) and new (standby), and a routing adjacency / shared trunk between them.</td><td>Remove the new core from the FHRP group.</td></tr>
+      <tr><td>4 · Migrate uplinks</td><td>Dual-home each access switch to both cores, then move its primary one at a time. STP/bond keeps a path throughout.</td><td>Move the uplink back to the old core.</td></tr>
+      <tr><td>5 · Flip the active gateway</td><td>Raise the new core&rsquo;s FHRP priority so it becomes active for each VLAN. Sub-second, no IP change.</td><td>Lower priority &mdash; old core resumes active.</td></tr>
+      <tr><td>6 · Decommission</td><td>Confirm the old core carries no traffic and is not active for any group, then power it off.</td><td>Power on + re-raise priority (kept in export).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; the gateway MAC and the STP root</span>
+    <p>Two traps. First, if hosts point at the core&rsquo;s <em>real</em> MAC rather than an FHRP <em>virtual</em> MAC, moving the gateway changes the MAC and strands ARP caches until they age out &mdash; convert to FHRP (step 2) <em>before</em> the swap so the gateway IP and MAC are portable. Second, decide the <strong>spanning-tree root</strong> deliberately: during the parallel phase the new core should take over as root in a controlled step, not win or lose an election by surprise and reconverge the whole campus. Set bridge priorities explicitly.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">The Window Checklist <span class="safe-badge">Field check</span></h2>
+  <table class="cheat">
+    <thead><tr><th>Before you start</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Config parity old &rarr; new, reviewed</td><td>The new core must match VLANs, routing, ACLs, services &mdash; drift here is the outage.</td></tr>
+      <tr><td>Gateways already virtual (FHRP)</td><td>Makes the gateway IP and MAC portable so the flip is invisible.</td></tr>
+      <tr><td>STP root priorities set explicitly</td><td>No surprise re-election when the second core appears.</td></tr>
+      <tr><td>Dual-home before you move</td><td>Every access switch has a path to both cores before any primary moves.</td></tr>
+      <tr><td>Prove the old core idle before power-off</td><td>No active FHRP groups, no traffic &mdash; then retire it.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Never turn the old core off until nothing depends on it</strong> &mdash; run the new one in parallel.</li>
+      <li><strong>Make the gateway virtual first (FHRP)</strong> so the IP and MAC move with a priority change, not a recable.</li>
+      <li><strong>Dual-home access switches, then migrate uplinks one at a time</strong> &mdash; a path survives throughout.</li>
+      <li><strong>Flip the active gateway with FHRP priority</strong> &mdash; sub-second, no address change for hosts.</li>
+      <li><strong>Set STP root deliberately</strong> and review config parity &mdash; the surprises are a MAC change and a root re-election.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>End-of-life core you are afraid to touch?</h3>
+    <p>A core swap is low-drama when the new box runs beside the old and traffic moves across gradually. I parallel the cores, migrate uplinks and gateways one at a time, and retire the old one only when it is carrying nothing.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
