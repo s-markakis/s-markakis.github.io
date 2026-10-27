@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Marina Network — S. Markakis</title>
+<meta name="description" content="A working marina in a Cretan harbour on MikroTik, built bottom-up in 10 tested steps: single-mode fibre down the pontoons for galvanic isolation, 2.4 GHz sector Wi-Fi over the water to the boats, metered per-berth billing with Hotspot and User Manager, a sealed fuel-dock payment VLAN, shore-power and CCTV fenced off, fibre-primary with 5G backup, and remote management behind the harbour.">
+<meta property="og:title" content="Build: The Marina Network — S. Markakis">
+<meta property="og:description" content="A working marina in a Cretan harbour on MikroTik, built bottom-up in 10 tested steps: single-mode fibre down the pontoons for galvanic isolation, 2.4 GHz sector Wi-Fi over the water to the boats, metered per-berth billing with Hotspot and User Manager, a sealed fuel-dock payment VLAN, shore-power and CCTV fenced off, fibre-primary with 5G backup, and remote management behind the harbour.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-marina.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-marina.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-marina.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-marina.html">
+
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#3a7ca5;--v20:#d9822b;--v30:#8a5bb5;--v40:#a14a4a;--v99:#2f8f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Marina Network",
+  "description": "A working marina in a Cretan harbour on MikroTik, built bottom-up in 10 tested steps: single-mode fibre down the pontoons for galvanic isolation, 2.4 GHz sector Wi-Fi over the water to the boats, metered per-berth billing with Hotspot and User Manager, a sealed fuel-dock payment VLAN, shore-power and CCTV fenced off, fibre-primary with 5G backup, and remote management behind the harbour.",
+  "datePublished": "2026-10-27",
+  "dateModified": "2026-10-27",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-marina.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-marina.png",
+  "keywords": [
+    "mikrotik",
+    "build",
+    "hotspot",
+    "marina"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-marina"
+  },
+  "timeRequired": "PT40M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; MikroTik RouterOS 7 &nbsp;·&nbsp; Real-World Network &nbsp;·&nbsp; October 2026</p>
+  <h1 class="post-title">Build: The<br>Marina Network</h1>
+  <p class="post-subtitle">A working harbour on the Cretan coast: eighty berths on four floating pontoons, liveaboards who stay for months, transients who arrive at dusk and leave at dawn, a fuel dock, a chandlery, and a capitaneria office that runs the booking system and takes the money. The sea eats copper and draws lightning, and the paying customers are strangers on boats a hundred metres out over the water. We build it on MikroTik in 10 tested steps.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">RouterOS 7</span>
+    <span class="tag">Marina</span>
+    <span class="tag">Hotspot + RADIUS</span>
+    <span class="tag">Fibre over water</span>
+    <span class="tag">2.4 GHz sector</span>
+    <span class="tag">PCI</span>
+    <span class="tag">5G backup</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 540" role="img" aria-label="Interactive topology of the marina network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="352" x2="235" y2="452" style="stroke:var(--body);stroke-width:1.6;"/>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="352" x2="305" y2="452" style="stroke:var(--body);stroke-width:1.6;"/>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="352" x2="380" y2="452" style="stroke:var(--body);stroke-width:1.6;"/>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="352" x2="455" y2="452" style="stroke:var(--body);stroke-width:1.6;"/>
+<text class="lft-port lft-c" x="430" y="408">access · V10/V50</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="352" x2="525" y2="452" style="stroke:var(--body);stroke-width:1.6;"/>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="380" y1="222" x2="380" y2="352" style="stroke:var(--defender);stroke-width:2.6;"/>
+<text class="lft-port" x="386" y="290">sfp+ ⇄ sfp+1 · 10G trunk</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="352" x2="110" y2="312" style="stroke:var(--gotcha);stroke-width:2;"/>
+<text class="lft-port lft-c" x="238" y="320">single-mode fibre</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="352" x2="650" y2="312" style="stroke:var(--gotcha);stroke-width:2;"/>
+<text class="lft-port lft-c" x="520" y="320">single-mode fibre</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="110" y1="312" x2="110" y2="408" style="stroke:var(--body);stroke-width:1.6;"/>
+<text class="lft-port lft-e" x="104" y="362">PoE trunk</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="650" y1="312" x2="650" y2="408" style="stroke:var(--body);stroke-width:1.6;"/>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-blink" x1="110" y1="408" x2="110" y2="478" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port lft-e" x="104" y="448">2.4 GHz sector</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-blink" x1="650" y1="408" x2="650" y2="478" style="stroke:var(--defender);stroke-width:2.2;stroke-dasharray:2,4;stroke-linecap:round;"/>
+<text class="lft-port" x="656" y="448">2.4 GHz sector</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="380" y1="222" x2="300" y2="120" style="stroke:var(--body);stroke-width:1.6;"/>
+<text class="lft-port lft-c" x="322" y="178">ether1 · fibre</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="300" y1="120" x2="368" y2="64" style="stroke:var(--body);stroke-width:1.6;"/>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-blink" x1="380" y1="222" x2="470" y2="120" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+<text class="lft-port lft-c" x="448" y="178">ether2 · 5G</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-blink" x1="470" y1="120" x2="392" y2="64" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+</g>
+<g class="bx-el" data-step="9">
+<path class="bx-blink" d="M668 96 Q648 24 432 44" style="stroke:var(--accent);stroke-width:1.6;fill:none;stroke-dasharray:6,4;"/><text class="lft-port lft-c" x="588" y="38" style="fill:var(--accent);">WireGuard (R1 dials out)</text></g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="380" cy="44" r="54"/>
+<use href="#lfi-cloud" x="328" y="20" width="104" height="48" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="380" y="49" style="fill:var(--defender);">Internet</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="300" cy="120" r="26"/>
+<use href="#lfi-modem" x="283" y="111" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="300" y="141">Fibre ONT</text>
+<text class="lft-chip lft-c" x="300" y="151" style="fill:var(--body);">harbour FTTH</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="470" cy="120" r="25"/>
+<use href="#lfi-lte" x="456" y="104" width="28" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="470" y="148">5G backup</text>
+<text class="lft-chip lft-c" x="470" y="158" style="fill:var(--body);">Chateau · passthrough</text>
+</g>
+<g class="bx-el bx-dev" data-step="9">
+<circle class="bx-ring lft-ring" cx="668" cy="108" r="25"/>
+<use href="#lfi-server" x="657" y="92" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="668" y="136">Operator hub</text>
+<text class="lft-chip lft-c" x="668" y="146" style="fill:var(--body);">WireGuard · monitoring</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="r1" tabindex="0" role="button" aria-label="Show the configuration of R1 · CCR2004">
+<circle class="bx-ring lft-ring" cx="380" cy="222" r="32"/>
+<circle class="bx-sel" cx="380" cy="222" r="28"/>
+<use href="#lfi-router" x="357" y="206" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="411" y="221">R1 · CCR2004</text>
+<text class="lft-chip" x="411" y="231" style="fill:var(--body);">router · hotspot · RADIUS</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="sw" tabindex="0" role="button" aria-label="Show the configuration of SW-CORE">
+<circle class="bx-ring lft-ring" cx="380" cy="352" r="34"/>
+<circle class="bx-sel" cx="380" cy="352" r="30"/>
+<use href="#lfi-l2" x="355" y="341" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name" x="413" y="351">SW-CORE</text>
+<text class="lft-chip" x="413" y="361" style="fill:var(--body);">CRS328-24P-4S+</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="3" data-dev="swp" tabindex="0" role="button" aria-label="Show the configuration of the Pontoon A head switch">
+<circle class="bx-ring lft-ring" cx="110" cy="312" r="27"/>
+<circle class="bx-sel" cx="110" cy="312" r="23"/>
+<use href="#lfi-l2" x="86" y="301" width="48" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="110" y="338">Pontoon A box</text>
+<text class="lft-chip lft-c" x="110" y="348" style="fill:var(--body);">netPower · IP66</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="650" cy="312" r="27"/>
+<use href="#lfi-l2" x="626" y="301" width="48" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="650" y="338">Pontoon C box</text>
+<text class="lft-chip lft-c" x="650" y="348" style="fill:var(--body);">netPower · IP66</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="110" cy="408" r="24"/>
+<use href="#lfi-ap" x="93" y="395" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="110" y="432">Sector AP · A</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="650" cy="408" r="24"/>
+<use href="#lfi-ap" x="633" y="395" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="650" y="432">Sector AP · C</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="110" cy="490" r="22"/>
+<use href="#lfi-phone" x="99" y="479" width="22" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="110" y="512">Boats · A</text>
+<text class="lft-chip lft-c" x="110" y="522" style="fill:var(--v20);">V20 · metered</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="650" cy="490" r="22"/>
+<use href="#lfi-phone" x="639" y="479" width="22" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="650" y="512">Boats · C</text>
+<text class="lft-chip lft-c" x="650" y="522" style="fill:var(--v20);">V20 · metered</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="235" cy="452" r="22"/>
+<use href="#lfi-pc" x="221" y="438" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="235" y="478">Office PCs</text>
+<text class="lft-chip lft-c" x="235" y="488" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="305" cy="452" r="21"/>
+<use href="#lfi-server" x="294" y="436" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="305" y="478">Berth mgmt</text>
+<text class="lft-chip lft-c" x="305" y="488" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="380" cy="452" r="20"/>
+<use href="#lfi-phone" x="369" y="441" width="22" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="380" y="478">VoIP</text>
+<text class="lft-chip lft-c" x="380" y="488" style="fill:var(--v10);">V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="455" cy="452" r="22"/>
+<use href="#lfi-pos" x="439" y="437" width="32" height="30" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="455" y="478">Chandlery till</text>
+<text class="lft-chip lft-c" x="455" y="488" style="fill:var(--gotcha);">V50 · pay</text>
+</g>
+<g class="bx-el bx-dev" data-step="1">
+<circle class="bx-ring lft-ring" cx="525" cy="452" r="21"/>
+<use href="#lfi-camera" x="511" y="441" width="28" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="525" y="478">Gate camera</text>
+<text class="lft-chip lft-c" x="525" y="488" style="fill:var(--v40);">V40</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="24" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="38">all 10 steps built</text>
+<text class="lft-chip" x="20" y="530">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="10" value="10" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The Core Switch & the Office", "adds": "SW-CORE, Office PCs, Berth mgmt, VoIP, Chandlery till, Gate camera"}, {"n": 2, "title": "The Router: VLANs, DHCP, DNS", "adds": "R1 · CCR2004"}, {"n": 3, "title": "Fibre Down the Pontoons", "adds": "Pontoon A box, Pontoon C box"}, {"n": 4, "title": "Wi-Fi Over the Water", "adds": "Sector AP · A, Sector AP · C, Boats · A, Boats · C"}, {"n": 5, "title": "Metered Berth Billing", "adds": "policy / services"}, {"n": 6, "title": "Firewall: Money, Power, Strangers", "adds": "policy / services"}, {"n": 7, "title": "Dual-WAN: Fibre & 5G", "adds": "Internet, Fibre ONT, 5G backup"}, {"n": 8, "title": "Fair Share, Priority Where It Pays", "adds": "policy / services"}, {"n": 9, "title": "Remote Management & Monitoring", "adds": "Operator hub"}, {"n": 10, "title": "Power, Lightning & Salt", "adds": "policy / services"}], "devices": {"sw": "SW-CORE", "r1": "R1 · CCR2004", "swp": "Pontoon A box"}, "configs": {"sw": [{"step": 1, "title": "The Core Switch & the Office", "label": "SW-CORE — CRS328-24P-4S+", "text": "/system identity set name=SW-CORE\n# enforcement OFF now, ON at the end (lock-out safety)\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\n# uplink to R1 (10G) + two fibre runs to the pontoon-head switches\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"R1\"\nadd bridge=bridge interface=sfp-sfpplus2 frame-types=admit-only-vlan-tagged comment=\"ptA/B\"\nadd bridge=bridge interface=sfp-sfpplus3 frame-types=admit-only-vlan-tagged comment=\"ptC/D\"\n# office access ports: staff on V10, the chandlery till on the payment V50\nadd bridge=bridge interface=ether1 pvid=10 comment=\"staff PCs\"\nadd bridge=bridge interface=ether2 pvid=10 comment=\"berth-management server\"\nadd bridge=bridge interface=ether3 pvid=10 comment=\"VoIP\"\nadd bridge=bridge interface=ether8 pvid=50 comment=\"chandlery card terminal\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,20,30,40,50 tagged=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.80.99.11/24 interface=v99-mgmt\n/ip route add gateway=10.80.99.1\n# a quay is a public place: dead-end every unused jack\n/interface ethernet disable ether9,ether10,ether11,ether12,ether13,ether14,ether15\n/interface bridge set bridge vlan-filtering=yes", "cisco": "! SW-CORE — Catalyst 9300-24P: office access + one trunk to R1, two fibre uplinks\nvlan 10,20,30,40,50,99\ninterface range GigabitEthernet1/0/1 - 3\n description staff / berth-mgmt / VoIP\n switchport mode access\n switchport access vlan 10\ninterface GigabitEthernet1/0/8\n description chandlery card terminal\n switchport access vlan 50\ninterface TenGigabitEthernet1/1/1\n description uplink to R1\n switchport mode trunk\n switchport trunk allowed vlan 10,20,30,40,50,99\ninterface range TenGigabitEthernet1/1/2 - 3\n description fibre to pontoon-head switches\n switchport mode trunk\n switchport trunk allowed vlan 20,30,40,99\ninterface Vlan99\n ip address 10.80.99.11 255.255.255.0\nip default-gateway 10.80.99.1\ninterface range GigabitEthernet1/0/9 - 24\n shutdown", "mikrotik": "/system identity set name=SW-CORE\n# enforcement OFF now, ON at the end (lock-out safety)\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\n# uplink to R1 (10G) + two fibre runs to the pontoon-head switches\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"R1\"\nadd bridge=bridge interface=sfp-sfpplus2 frame-types=admit-only-vlan-tagged comment=\"ptA/B\"\nadd bridge=bridge interface=sfp-sfpplus3 frame-types=admit-only-vlan-tagged comment=\"ptC/D\"\n# office access ports: staff on V10, the chandlery till on the payment V50\nadd bridge=bridge interface=ether1 pvid=10 comment=\"staff PCs\"\nadd bridge=bridge interface=ether2 pvid=10 comment=\"berth-management server\"\nadd bridge=bridge interface=ether3 pvid=10 comment=\"VoIP\"\nadd bridge=bridge interface=ether8 pvid=50 comment=\"chandlery card terminal\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,20,30,40,50 tagged=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.80.99.11/24 interface=v99-mgmt\n/ip route add gateway=10.80.99.1\n# a quay is a public place: dead-end every unused jack\n/interface ethernet disable ether9,ether10,ether11,ether12,ether13,ether14,ether15\n/interface bridge set bridge vlan-filtering=yes"}], "r1": [{"step": 2, "title": "The Router: VLANs, DHCP, DNS", "label": "R1 — CCR2004-16G-2S+ · bridge, VLAN gateways, DHCP, DNS", "text": "/system identity set name=R1\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"core\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,20,30,40,50 tagged=bridge,sfp-sfpplus1\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1\n/interface vlan\n# one interface per VLAN = router-on-a-stick; each is that VLAN gateway\nadd name=v10-staff interface=bridge vlan-id=10\nadd name=v20-berth interface=bridge vlan-id=20\nadd name=v30-ot    interface=bridge vlan-id=30\nadd name=v40-cctv  interface=bridge vlan-id=40\nadd name=v50-pay   interface=bridge vlan-id=50\nadd name=v99-mgmt  interface=bridge vlan-id=99\n/ip address\nadd address=10.80.10.1/24 interface=v10-staff\n# /22 for berths: room for a full marina of boats plus their guests\nadd address=10.80.20.1/22 interface=v20-berth\nadd address=10.80.30.1/24 interface=v30-ot\nadd address=10.80.40.1/24 interface=v40-cctv\nadd address=10.80.50.1/24 interface=v50-pay\nadd address=10.80.99.1/24 interface=v99-mgmt\n# the berth pool is handed out behind the hotspot (step 5); 1h leases\n/ip pool add name=p-berth ranges=10.80.20.10-10.80.23.254\n/ip dhcp-server add name=d-berth interface=v20-berth address-pool=p-berth lease-time=1h\n/ip dhcp-server network add address=10.80.20.0/22 gateway=10.80.20.1 dns-server=10.80.20.1\n# … staff, OT, CCTV and payment all use host reservations\n/ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112\n/system ntp client set enabled=yes servers=time.cloudflare.com\n/interface bridge set bridge vlan-filtering=yes", "cisco": "! R1 — Catalyst 8200: SVIs as VLAN gateways; the berth SVI is a /22\nip routing\nvlan 10,20,30,40,50,99\ninterface Vlan10\n ip address 10.80.10.1 255.255.255.0\ninterface Vlan20\n ip address 10.80.20.1 255.255.252.0\ninterface Vlan30\n ip address 10.80.30.1 255.255.255.0\ninterface Vlan40\n ip address 10.80.40.1 255.255.255.0\ninterface Vlan50\n ip address 10.80.50.1 255.255.255.0\ninterface Vlan99\n ip address 10.80.99.1 255.255.255.0\nip dhcp excluded-address 10.80.20.1 10.80.20.9\nip dhcp pool BERTH\n network 10.80.20.0 255.255.252.0\n default-router 10.80.20.1\n dns-server 10.80.20.1\n lease 0 1\nip name-server 9.9.9.9 149.112.112.112\nip dns server\nntp server time.cloudflare.com", "mikrotik": "/system identity set name=R1\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\nadd bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment=\"core\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=10,20,30,40,50 tagged=bridge,sfp-sfpplus1\nadd bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1\n/interface vlan\n# one interface per VLAN = router-on-a-stick; each is that VLAN gateway\nadd name=v10-staff interface=bridge vlan-id=10\nadd name=v20-berth interface=bridge vlan-id=20\nadd name=v30-ot    interface=bridge vlan-id=30\nadd name=v40-cctv  interface=bridge vlan-id=40\nadd name=v50-pay   interface=bridge vlan-id=50\nadd name=v99-mgmt  interface=bridge vlan-id=99\n/ip address\nadd address=10.80.10.1/24 interface=v10-staff\n# /22 for berths: room for a full marina of boats plus their guests\nadd address=10.80.20.1/22 interface=v20-berth\nadd address=10.80.30.1/24 interface=v30-ot\nadd address=10.80.40.1/24 interface=v40-cctv\nadd address=10.80.50.1/24 interface=v50-pay\nadd address=10.80.99.1/24 interface=v99-mgmt\n# the berth pool is handed out behind the hotspot (step 5); 1h leases\n/ip pool add name=p-berth ranges=10.80.20.10-10.80.23.254\n/ip dhcp-server add name=d-berth interface=v20-berth address-pool=p-berth lease-time=1h\n/ip dhcp-server network add address=10.80.20.0/22 gateway=10.80.20.1 dns-server=10.80.20.1\n# … staff, OT, CCTV and payment all use host reservations\n/ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112\n/system ntp client set enabled=yes servers=time.cloudflare.com\n/interface bridge set bridge vlan-filtering=yes"}, {"step": 4, "title": "Wi-Fi Over the Water", "label": "R1 — CAPsMAN: an open berth SSID over the water, a hidden staff SSID", "text": "/interface wifi datapath\nadd name=dp-berth bridge=bridge vlan-id=20\nadd name=dp-staff bridge=bridge vlan-id=10\n/interface wifi security\n# berth SSID is OPEN — the hotspot (step 5) does the authentication, not WPA\nadd name=sec-open authentication-types=\"\" disabled=no\nadd name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase=\"********\"\n/interface wifi configuration\n# 2.4 GHz: it reaches further over open water and bends around masts better than 5 GHz\nadd name=cfg-berth ssid=Marina-WiFi security=sec-open datapath=dp-berth country=Greece \\\n    .channel.band=2ghz-ax\nadd name=cfg-staff ssid=Marina-Staff security=sec-staff datapath=dp-staff country=Greece \\\n    hide-ssid=yes\n/interface wifi capsman set enabled=yes interfaces=v99-mgmt\n# the sector antennas point down the fairway; one config provisions every pontoon AP\n/interface wifi provisioning\nadd action=create-dynamic-enabled supported-bands=2ghz-ax \\\n    master-configuration=cfg-berth slave-configurations=cfg-staff", "cisco": "! Catalyst 9800 embedded controller: an open 'webauth' WLAN + a hidden staff WLAN\nwlan Marina-WiFi 1 Marina-WiFi\n no security wpa\n security web-auth\n security web-auth authentication-list GUEST-RADIUS\n no shutdown\nwlan Marina-Staff 2 Marina-Staff\n security wpa psk set-key ascii 0 ********\n security wpa akm psk\n no broadcast-ssid\n no shutdown\nwireless profile policy BERTH\n vlan 20\n no shutdown\n! the berth WLAN is 2.4 GHz only (radio policy) for reach over the water", "mikrotik": "/interface wifi datapath\nadd name=dp-berth bridge=bridge vlan-id=20\nadd name=dp-staff bridge=bridge vlan-id=10\n/interface wifi security\n# berth SSID is OPEN — the hotspot (step 5) does the authentication, not WPA\nadd name=sec-open authentication-types=\"\" disabled=no\nadd name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase=\"********\"\n/interface wifi configuration\n# 2.4 GHz: it reaches further over open water and bends around masts better than 5 GHz\nadd name=cfg-berth ssid=Marina-WiFi security=sec-open datapath=dp-berth country=Greece \\\n    .channel.band=2ghz-ax\nadd name=cfg-staff ssid=Marina-Staff security=sec-staff datapath=dp-staff country=Greece \\\n    hide-ssid=yes\n/interface wifi capsman set enabled=yes interfaces=v99-mgmt\n# the sector antennas point down the fairway; one config provisions every pontoon AP\n/interface wifi provisioning\nadd action=create-dynamic-enabled supported-bands=2ghz-ax \\\n    master-configuration=cfg-berth slave-configurations=cfg-staff"}, {"step": 5, "title": "Metered Berth Billing", "label": "R1 — Hotspot on V20, User Manager (RADIUS) on the same box", "text": "# the captive portal lives on the berth gateway\n/ip hotspot profile\nadd name=marina hotspot-address=10.80.20.1 dns-name=wifi.marina login-by=http-chap,cookie \\\n    use-radius=yes\n/ip hotspot add name=berth interface=v20-berth address-pool=p-berth profile=marina\n# User Manager v5 is the RADIUS server, running on R1 itself → point RADIUS at loopback\n/radius add service=hotspot address=127.0.0.1 secret=\"********\"\n/user-manager set enabled=yes\n/user-manager/router add name=self address=127.0.0.1 shared-secret=\"********\"\n# a rate cap and a fair daily quota per boat; a week-long profile for a transient berth\n/user-manager/limitation add name=lim-berth rate-limit=20M/5M\n/user-manager/profile add name=berth-week name-for-users=\"7-day berth\" validity=7d\n/user-manager/profile-limitation add profile=berth-week limitation=lim-berth\n# one voucher per slip, printed at the office on arrival; the code is never logged\n/user-manager/user add name=A17 password=\"<voucher>\" shared-users=3\n/user-manager/user add name=A17 attributes=... # bind to profile berth-week\n# walled garden: the booking page and the card host stay reachable before login\n/ip hotspot walled-garden\nadd dst-host=book.marina.example action=allow\nadd dst-host=*.acquirer.example action=allow", "cisco": "! IOS has no on-box billing. The marina pattern is ISE (or an external captive portal\n! appliance) as the RADIUS/guest server, with the controller pointed at it:\naaa new-model\naaa authentication login GUEST-RADIUS group radius\nradius server ISE\n address ipv4 10.80.10.20 auth-port 1812 acct-port 1813\n key ********\n! vouchers, quotas and per-berth accounting are created in ISE's guest portal,\n! not in the switch; the walled garden (pre-auth ACL) permits the booking + card hosts.", "mikrotik": "# the captive portal lives on the berth gateway\n/ip hotspot profile\nadd name=marina hotspot-address=10.80.20.1 dns-name=wifi.marina login-by=http-chap,cookie \\\n    use-radius=yes\n/ip hotspot add name=berth interface=v20-berth address-pool=p-berth profile=marina\n# User Manager v5 is the RADIUS server, running on R1 itself → point RADIUS at loopback\n/radius add service=hotspot address=127.0.0.1 secret=\"********\"\n/user-manager set enabled=yes\n/user-manager/router add name=self address=127.0.0.1 shared-secret=\"********\"\n# a rate cap and a fair daily quota per boat; a week-long profile for a transient berth\n/user-manager/limitation add name=lim-berth rate-limit=20M/5M\n/user-manager/profile add name=berth-week name-for-users=\"7-day berth\" validity=7d\n/user-manager/profile-limitation add profile=berth-week limitation=lim-berth\n# one voucher per slip, printed at the office on arrival; the code is never logged\n/user-manager/user add name=A17 password=\"<voucher>\" shared-users=3\n/user-manager/user add name=A17 attributes=... # bind to profile berth-week\n# walled garden: the booking page and the card host stay reachable before login\n/ip hotspot walled-garden\nadd dst-host=book.marina.example action=allow\nadd dst-host=*.acquirer.example action=allow"}, {"step": 6, "title": "Firewall: Money, Power, Strangers", "label": "R1 — interface lists, input and forward chains", "text": "/interface list\nadd name=WAN\nadd name=MGMT\n/interface list member\nadd list=MGMT interface=v99-mgmt\n# a named host group: where the card terminals are allowed to talk\n/ip firewall address-list\nadd list=ACQUIRER address=203.0.113.0/24 comment=\"card acquirer (example)\"\n/ip firewall filter\n# input = TO the router; established back in, then judge only NEW\nadd chain=input action=accept connection-state=established,related,untracked\nadd chain=input action=drop connection-state=invalid\nadd chain=input action=accept in-interface-list=MGMT\n# berths reach the router only for DNS/DHCP and the hotspot portal\nadd chain=input action=accept in-interface=v20-berth protocol=udp dst-port=53,67\nadd chain=input action=accept in-interface=v20-berth protocol=tcp dst-port=53,64872,64873\nadd chain=input action=drop log=yes log-prefix=IN-DROP\n# forward = THROUGH the router; default-deny at the end\nadd chain=forward action=accept connection-state=established,related,untracked\nadd chain=forward action=drop connection-state=invalid\n# payment: the till VLAN reaches ONLY the acquirer, nothing on the LAN, nothing else out\nadd chain=forward action=accept in-interface=v50-pay dst-address-list=ACQUIRER \\\n    protocol=tcp dst-port=443\n# staff run the marina: book boats, read the meters, watch the cameras\nadd chain=forward action=accept in-interface=v10-staff out-interface=v30-ot\nadd chain=forward action=accept in-interface=v10-staff out-interface=v40-cctv\nadd chain=forward action=accept in-interface=v10-staff out-interface-list=WAN\n# OT and cameras reach only their own clouds (step 8 shapes them), never the LAN\nadd chain=forward action=accept in-interface=v30-ot out-interface-list=WAN\nadd chain=forward action=accept in-interface=v40-cctv out-interface-list=WAN\n# berths: the internet and nothing else — and never each other\nadd chain=forward action=accept in-interface=v20-berth out-interface-list=WAN\nadd chain=forward action=accept in-interface-list=MGMT\nadd chain=forward action=drop log=yes log-prefix=FWD-DROP", "cisco": "! R1 — Zone-Based Firewall. No zone-pair = dropped (default-deny).\nzone security STAFF\nzone security BERTH\nzone security OT\nzone security CCTV\nzone security PAY\nzone security WAN\n! each inside VLAN joins its zone (interface VlanXX / zone-member security ...)\nclass-map type inspect match-any CM-GEN\n match protocol tcp\n match protocol udp\n match protocol icmp\npolicy-map type inspect PM-OUT\n class type inspect CM-GEN\n  inspect\n class class-default\n  drop\n! payment reaches only the acquirer, on 443\nip access-list extended ACL-ACQ\n permit tcp any 203.0.113.0 0.0.0.255 eq 443\nclass-map type inspect match-all CM-ACQ\n match access-group name ACL-ACQ\npolicy-map type inspect PM-ACQ\n class type inspect CM-ACQ\n  inspect\nzone-pair security ZP-PAY-WAN source PAY destination WAN\n service-policy type inspect PM-ACQ\n! staff -> OT, CCTV, WAN ; OT/CCTV/BERTH -> WAN only ; no pair = no path\nzone-pair security ZP-STAFF-OT source STAFF destination OT\n service-policy type inspect PM-OUT\nzone-pair security ZP-BERTH-WAN source BERTH destination WAN\n service-policy type inspect PM-OUT", "mikrotik": "/interface list\nadd name=WAN\nadd name=MGMT\n/interface list member\nadd list=MGMT interface=v99-mgmt\n# a named host group: where the card terminals are allowed to talk\n/ip firewall address-list\nadd list=ACQUIRER address=203.0.113.0/24 comment=\"card acquirer (example)\"\n/ip firewall filter\n# input = TO the router; established back in, then judge only NEW\nadd chain=input action=accept connection-state=established,related,untracked\nadd chain=input action=drop connection-state=invalid\nadd chain=input action=accept in-interface-list=MGMT\n# berths reach the router only for DNS/DHCP and the hotspot portal\nadd chain=input action=accept in-interface=v20-berth protocol=udp dst-port=53,67\nadd chain=input action=accept in-interface=v20-berth protocol=tcp dst-port=53,64872,64873\nadd chain=input action=drop log=yes log-prefix=IN-DROP\n# forward = THROUGH the router; default-deny at the end\nadd chain=forward action=accept connection-state=established,related,untracked\nadd chain=forward action=drop connection-state=invalid\n# payment: the till VLAN reaches ONLY the acquirer, nothing on the LAN, nothing else out\nadd chain=forward action=accept in-interface=v50-pay dst-address-list=ACQUIRER \\\n    protocol=tcp dst-port=443\n# staff run the marina: book boats, read the meters, watch the cameras\nadd chain=forward action=accept in-interface=v10-staff out-interface=v30-ot\nadd chain=forward action=accept in-interface=v10-staff out-interface=v40-cctv\nadd chain=forward action=accept in-interface=v10-staff out-interface-list=WAN\n# OT and cameras reach only their own clouds (step 8 shapes them), never the LAN\nadd chain=forward action=accept in-interface=v30-ot out-interface-list=WAN\nadd chain=forward action=accept in-interface=v40-cctv out-interface-list=WAN\n# berths: the internet and nothing else — and never each other\nadd chain=forward action=accept in-interface=v20-berth out-interface-list=WAN\nadd chain=forward action=accept in-interface-list=MGMT\nadd chain=forward action=drop log=yes log-prefix=FWD-DROP"}, {"step": 7, "title": "Dual-WAN: Fibre & 5G", "label": "R1 — fibre primary, 5G backup, failover by recursive route", "text": "/interface list member add list=WAN interface=ether1\n/interface list member add list=WAN interface=ether2\n/ip dhcp-client add interface=ether1 add-default-route=no use-peer-dns=no comment=\"fibre\"\n# 5G as a passthrough modem; its default route sits at a worse distance (backup)\n/ip dhcp-client add interface=ether2 default-route-distance=2 use-peer-dns=no comment=\"5G\"\n/ip route\n# recursive main route: reachable only while the probe through fibre answers\nadd dst-address=1.1.1.1/32 gateway=ether1 scope=10 comment=\"probe via fibre\"\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 \\\n    comment=\"main: fibre\"\n/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN\n# on 5G, the hotspot (berth Wi-Fi) is throttled hard; staff, payments and VoIP are not\n/ip firewall mangle add chain=forward action=mark-packet new-packet-mark=berth-5g \\\n    in-interface=v20-berth out-interface=ether2 passthrough=no\n/queue tree add name=berth-on-5g parent=global packet-mark=berth-5g max-limit=15M \\\n    queue=pcq-download-default", "cisco": "! R1 — fibre on Gi0/0/0 (DHCP), 5G on the cellular interface as the backup\ninterface GigabitEthernet0/0/0\n description fibre\n ip address dhcp\n ip nat outside\nip sla 1\n icmp-echo 1.1.1.1\n frequency 5\nip sla schedule 1 life forever start-time now\ntrack 1 ip sla 1 reachability\nip route 0.0.0.0 0.0.0.0 dhcp 1 track 1\nip route 0.0.0.0 0.0.0.0 Cellular0/2/0 2\nip access-list standard NAT-ALL\n permit 10.80.0.0 0.0.255.255\nip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload\n! police the berth VLAN down hard when it rides the cellular backup", "mikrotik": "/interface list member add list=WAN interface=ether1\n/interface list member add list=WAN interface=ether2\n/ip dhcp-client add interface=ether1 add-default-route=no use-peer-dns=no comment=\"fibre\"\n# 5G as a passthrough modem; its default route sits at a worse distance (backup)\n/ip dhcp-client add interface=ether2 default-route-distance=2 use-peer-dns=no comment=\"5G\"\n/ip route\n# recursive main route: reachable only while the probe through fibre answers\nadd dst-address=1.1.1.1/32 gateway=ether1 scope=10 comment=\"probe via fibre\"\nadd dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 \\\n    comment=\"main: fibre\"\n/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN\n# on 5G, the hotspot (berth Wi-Fi) is throttled hard; staff, payments and VoIP are not\n/ip firewall mangle add chain=forward action=mark-packet new-packet-mark=berth-5g \\\n    in-interface=v20-berth out-interface=ether2 passthrough=no\n/queue tree add name=berth-on-5g parent=global packet-mark=berth-5g max-limit=15M \\\n    queue=pcq-download-default"}, {"step": 8, "title": "Fair Share, Priority Where It Pays", "label": "R1 — CAKE for the berths, priority for VoIP and card auth", "text": "# CAKE shares the fibre fairly per host first: one busy boat cannot starve the others\n/queue type\nadd name=cake-up kind=cake cake-diffserv=diffserv4 cake-nat=yes cake-flowmode=dual-srchost\nadd name=cake-down kind=cake cake-diffserv=diffserv4 cake-flowmode=dual-dsthost\n/ip firewall mangle\n# lift VoIP and card-auth into the priority tin so a full hotspot never delays them\nadd chain=prerouting action=change-dscp new-dscp=46 src-address=10.80.10.0/24 \\\n    protocol=udp dst-port=10000-20000 comment=\"VoIP RTP\"\nadd chain=prerouting action=change-dscp new-dscp=34 src-address=10.80.50.0/24 \\\n    comment=\"card auth\"\nadd chain=forward action=mark-packet new-packet-mark=from-fibre in-interface=ether1 \\\n    passthrough=no\n/queue tree\nadd name=wan-up parent=ether1 queue=cake-up max-limit=90M\nadd name=wan-down parent=global packet-mark=from-fibre queue=cake-down max-limit=450M", "cisco": "! IOS: no CAKE. A shaper with fair-queue + an LLQ priority class for VoIP and card auth.\nclass-map match-any PRIORITY\n match dscp ef\n match dscp af41\npolicy-map WAN-CHILD\n class PRIORITY\n  priority percent 20\n class class-default\n  fair-queue\npolicy-map WAN-OUT\n class class-default\n  shape average 90000000\n  service-policy WAN-CHILD\ninterface GigabitEthernet0/0/0\n service-policy output WAN-OUT", "mikrotik": "# CAKE shares the fibre fairly per host first: one busy boat cannot starve the others\n/queue type\nadd name=cake-up kind=cake cake-diffserv=diffserv4 cake-nat=yes cake-flowmode=dual-srchost\nadd name=cake-down kind=cake cake-diffserv=diffserv4 cake-flowmode=dual-dsthost\n/ip firewall mangle\n# lift VoIP and card-auth into the priority tin so a full hotspot never delays them\nadd chain=prerouting action=change-dscp new-dscp=46 src-address=10.80.10.0/24 \\\n    protocol=udp dst-port=10000-20000 comment=\"VoIP RTP\"\nadd chain=prerouting action=change-dscp new-dscp=34 src-address=10.80.50.0/24 \\\n    comment=\"card auth\"\nadd chain=forward action=mark-packet new-packet-mark=from-fibre in-interface=ether1 \\\n    passthrough=no\n/queue tree\nadd name=wan-up parent=ether1 queue=cake-up max-limit=90M\nadd name=wan-down parent=global packet-mark=from-fibre queue=cake-down max-limit=450M"}, {"step": 9, "title": "Remote Management & Monitoring", "label": "R1 — WireGuard to the operator hub, alerts and remote logs", "text": "/interface wireguard add name=wg-ops listen-port=13231\n/interface wireguard peers add interface=wg-ops comment=\"operator hub\" \\\n    public-key=\"<hub public key>\" endpoint-address=hub.example.net endpoint-port=51820 \\\n    allowed-address=10.251.0.0/24 persistent-keepalive=25s\n/ip address add address=10.251.0.31/24 interface=wg-ops\n/interface list member add list=MGMT interface=wg-ops\n/system logging action add name=hub target=remote remote=10.251.0.1\n/system logging add topics=warning action=hub\n# watch the fibre path and every pontoon switch; a dead pontoon is a silent outage\n/tool netwatch add host=1.1.1.1 interval=30s type=simple \\\n    down-script=\":log warning \\\"fibre DOWN\\\"\" up-script=\":log warning \\\"fibre UP\\\"\"\n/tool netwatch add host=10.80.99.21 interval=60s type=simple \\\n    down-script=\":log warning \\\"Pontoon A offline\\\"\"", "cisco": "! R1 — FlexVPN client dials out to the operator hub through the harbour's NAT\ncrypto ikev2 profile TO-HUB\n match identity remote fqdn hub.example.net\n identity local fqdn marina-r1.example.net\n authentication local rsa-sig\n authentication remote rsa-sig\n pki trustpoint OP-CA\ninterface Tunnel1\n ip address 10.251.0.31 255.255.255.0\n tunnel source GigabitEthernet0/0/0\n tunnel destination dynamic\n tunnel protection ipsec profile TO-HUB\nlogging host 10.251.0.1\nlogging trap warnings\nevent manager applet WAN-DOWN\n event track 1 state down\n action 1 syslog msg \"fibre DOWN\"", "mikrotik": "/interface wireguard add name=wg-ops listen-port=13231\n/interface wireguard peers add interface=wg-ops comment=\"operator hub\" \\\n    public-key=\"<hub public key>\" endpoint-address=hub.example.net endpoint-port=51820 \\\n    allowed-address=10.251.0.0/24 persistent-keepalive=25s\n/ip address add address=10.251.0.31/24 interface=wg-ops\n/interface list member add list=MGMT interface=wg-ops\n/system logging action add name=hub target=remote remote=10.251.0.1\n/system logging add topics=warning action=hub\n# watch the fibre path and every pontoon switch; a dead pontoon is a silent outage\n/tool netwatch add host=1.1.1.1 interval=30s type=simple \\\n    down-script=\":log warning \\\"fibre DOWN\\\"\" up-script=\":log warning \\\"fibre UP\\\"\"\n/tool netwatch add host=10.80.99.21 interval=60s type=simple \\\n    down-script=\":log warning \\\"Pontoon A offline\\\"\""}], "swp": [{"step": 3, "title": "Fibre Down the Pontoons", "label": "Pontoon A head — netPower 16P, fed by single-mode fibre", "text": "/system identity set name=SW-PONTOON-A\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\n# fibre back to SW-CORE: no copper over the water, so no galvanic path\nadd bridge=bridge interface=sfp1 frame-types=admit-only-vlan-tagged comment=\"fibre to core\"\n# the sector AP rides a trunk: mgmt V99 untagged, berth SSID on V20\nadd bridge=bridge interface=ether1 pvid=99 comment=\"sector AP (PoE, trunk)\"\n# wired pontoon plant: shore-power pedestals (OT) and the pontoon-head camera\nadd bridge=bridge interface=ether2 pvid=30 comment=\"shore-power pedestals A\"\nadd bridge=bridge interface=ether3 pvid=40 comment=\"pontoon-head camera\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=20,99 tagged=sfp1,ether1\nadd bridge=bridge vlan-ids=30,40 tagged=sfp1\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.80.99.21/24 interface=v99-mgmt\n/ip route add gateway=10.80.99.1\n# salt and lightning will kill this box one day; its config restores from the hub\n/interface bridge set bridge vlan-filtering=yes", "cisco": "! Pontoon A head — Catalyst IE3300 (IP-rated): SFP fibre uplink, PoE to the sector AP\nvlan 20,30,40,99\ninterface GigabitEthernet1/1 (SFP)\n description fibre to core\n switchport mode trunk\n switchport trunk allowed vlan 20,30,40,99\ninterface GigabitEthernet1/0/1\n description sector AP (PoE trunk)\n switchport mode trunk\n switchport trunk native vlan 99\n switchport trunk allowed vlan 20,99\ninterface GigabitEthernet1/0/2\n description shore-power pedestals A\n switchport access vlan 30\ninterface GigabitEthernet1/0/3\n description pontoon-head camera\n switchport access vlan 40\ninterface Vlan99\n ip address 10.80.99.21 255.255.255.0", "mikrotik": "/system identity set name=SW-PONTOON-A\n/interface bridge add name=bridge vlan-filtering=no\n/interface bridge port\n# fibre back to SW-CORE: no copper over the water, so no galvanic path\nadd bridge=bridge interface=sfp1 frame-types=admit-only-vlan-tagged comment=\"fibre to core\"\n# the sector AP rides a trunk: mgmt V99 untagged, berth SSID on V20\nadd bridge=bridge interface=ether1 pvid=99 comment=\"sector AP (PoE, trunk)\"\n# wired pontoon plant: shore-power pedestals (OT) and the pontoon-head camera\nadd bridge=bridge interface=ether2 pvid=30 comment=\"shore-power pedestals A\"\nadd bridge=bridge interface=ether3 pvid=40 comment=\"pontoon-head camera\"\n/interface bridge vlan\nadd bridge=bridge vlan-ids=20,99 tagged=sfp1,ether1\nadd bridge=bridge vlan-ids=30,40 tagged=sfp1\n/interface vlan add name=v99-mgmt interface=bridge vlan-id=99\n/ip address add address=10.80.99.21/24 interface=v99-mgmt\n/ip route add gateway=10.80.99.1\n# salt and lightning will kill this box one day; its config restores from the hub\n/interface bridge set bridge vlan-filtering=yes"}]}}</script>
+</div>
+  </div>
+
+    <p class="dl-configs" style="font-size:.85rem;margin:-.4rem 0 2rem;"><strong>Download the full config:</strong> <a href="configs/build-marina-mikrotik.rsc" download>MikroTik .rsc</a> · <a href="configs/build-marina-cisco.txt" download>Cisco IOS .txt</a> <span style="color:var(--body);">— illustrative, review before use</span></p>
+
+<div class="thesis-card">
+    <p>This is part 11 of the <a href="build-index.html">Build series</a>, and the one that fights the environment hardest. A marina is a small ISP sitting on a pier: the paying customers are strangers on boats out over the water, the plant runs down floating pontoons that move and corrode, and the two things that must never stop — card payments at the fuel dock and the shore-power that keeps bilge pumps running — share a site with a public hotspot for eighty boats.</p>
+    <p>The design leans on three ideas: carry everything to the pontoons on <strong>fibre</strong>, not copper, so the sea can't bridge a fault or a surge back into the office; treat <strong>every boat as a stranger</strong> and bill it like one; and keep the money and the operational systems on their own islands that the guest Wi-Fi can't touch even when it's full.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-vlans.html">VLANs</a>, <a href="mikrotik-firewall.html">the RouterOS firewall</a>, <a href="mikrotik-hotspot.html">Hotspot &amp; User Manager</a></li>
+      <li>The <a href="build-coffee-shop.html">coffee shop build</a> for the sealed payment VLAN and dial-out WireGuard, and the <a href="build-cafe-chain.html">café chain</a> for dual-WAN</li>
+      <li>RouterOS 7.x (the <code>wifi</code> package, User Manager v5, CAKE)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but very typical Cretan marina: a sheltered harbour, eighty berths, open all year, busiest from Easter to October.</em></p>
+
+  <p>Four floating pontoons (A–D) hold eighty berths, from small day-boats to a few forty-metre yachts. A stone quay runs along the shore with the <strong>capitaneria office</strong> (booking system, VoIP, staff PCs), a <strong>chandlery and café</strong> with a till, and a <strong>fuel dock</strong> at the end of the breakwater with its own card terminal. Each berth has a <strong>shore-power pedestal</strong> with a metered socket and water. <strong>Liveaboards</strong> stay for months and work from their boats; <strong>transients</strong> arrive in the evening and want Wi-Fi and a shower. Cameras watch the pontoon heads, the fuel dock and the gate. Internet is <strong>fibre</strong> to the office, with <strong>5G</strong> as backup. The installer manages it from Heraklion.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Wi-Fi to every berth</td><td>Boats are 30–120 m out over open water, behind masts and rigging. Sector antennas on the pontoon heads, on a band that carries over water.</td></tr>
+      <tr><td>R2 Every boat is a stranger</td><td>Unlike a villa, no two berths are one group. Client isolation on the berth network, and a credential per berth, not one shared key.</td></tr>
+      <tr><td>R3 Metered, billed access</td><td>Wi-Fi is a product the marina sells. Per-berth vouchers with a rate cap and a quota, issued and accounted on equipment the marina owns.</td></tr>
+      <tr><td>R4 Payments never share fate</td><td>The fuel dock and chandlery take cards. That VLAN talks only to the acquirer — not to the LAN, not to the hotspot, not to the internet at large.</td></tr>
+      <tr><td>R5 Staff and payments stay online</td><td>A busy hotspot must never slow a card authorisation or a VoIP call. Fibre primary, 5G backup, and the berths shaped hard on the backup.</td></tr>
+      <tr><td>R6 Survive the sea</td><td>Salt corrodes, masts draw lightning, and runs are long. Fibre down the pontoons (no copper over water), surge protection at every entry, replaceable outdoor boxes.</td></tr>
+      <tr><td>R7 Operational safety</td><td>Shore-power metering and the fuel controller are operational systems. They sit on their own VLAN, reachable only by staff, never by a boat.</td></tr>
+      <tr><td>R8 Remote management</td><td>The harbour's fibre and the 5G are both behind carrier NAT. Management dials out; a dead pontoon must raise an alert, not wait for a complaint.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>Each one is where a marina stops behaving like the other networks in this series.</em></p>
+
+  <h3 class="sub">1 · Every boat is a stranger</h3>
+  <p>The <a href="build-villa.html">villa</a> treats one booking as one trust group and lets devices see each other. A marina is the opposite: the boat in A17 and the boat in A18 are two unrelated customers who happen to share an antenna. So the berth network has <strong>client isolation on</strong>, and access is sold per berth as a voucher, not handed out as one shared key that leaks down the dock.</p>
+
+  <h3 class="sub">2 · Fibre, not copper, down the pontoons</h3>
+  <p>Copper between the shore and a floating pontoon is a bad idea three ways: the run is long, the two ends sit at different ground potentials over salt water (galvanic current), and a mast is a lightning rod wired straight back to your office switch. <strong>Single-mode fibre</strong> solves all three — it carries hundreds of metres, it's a dielectric so there's no galvanic path and no surge conductor, and PoE for the antenna is generated locally in the pontoon box.</p>
+
+  <h3 class="sub">3 · 2.4 GHz sectors over the water</h3>
+  <p>Over open water with masts in the way, <strong>reach beats throughput</strong>. 2.4 GHz travels further and diffracts around rigging better than 5 GHz, and a boat only needs enough for streaming and video calls, not a gigabit. Sector antennas on each pontoon head aim down the fairway so the signal follows the line of boats instead of spraying across the harbour.</p>
+
+  <h3 class="sub">4 · Billing on the box, not in the cloud</h3>
+  <p>A cloud captive-portal is one more thing that breaks when the WAN does — and it puts the customer list on someone else's server. RouterOS runs the <strong>Hotspot and User Manager</strong> on the router itself: vouchers, quotas and per-berth accounting live on hardware the marina owns, and a boat that's already logged in keeps working through a WAN outage.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>Six VLANs. The berth VLAN is a /22 because a full marina plus guests is a lot of phones; the rest are small and quiet.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>VLAN · subnet</th><th>Who lives here · notes</th></tr></thead>
+    <tbody>
+      <tr><td>10 STAFF · 10.80.10.0/24</td><td>Office PCs, the berth-management/booking server .20, VoIP phones. Runs the marina.</td></tr>
+      <tr><td>20 BERTH · 10.80.20.0/22</td><td>The metered hotspot, SSID Marina-WiFi, client-isolated. Pool 10.80.20.10–10.80.23.254.</td></tr>
+      <tr><td>30 OT · 10.80.30.0/24</td><td>Shore-power pedestals &amp; meters, the fuel-dock controller, AIS receiver and weather station.</td></tr>
+      <tr><td>40 CCTV · 10.80.40.0/24</td><td>Cameras at the pontoon heads, the fuel dock, the gate and the boatyard. Reservations.</td></tr>
+      <tr><td>50 PAY · 10.80.50.0/24</td><td>Card terminals: fuel dock and chandlery. Sealed — reaches the acquirer and nothing else.</td></tr>
+      <tr><td>99 MGMT · 10.80.99.0/24</td><td>R1 .1, SW-CORE .11, pontoon boxes .21–.24, APs. WireGuard to the operator hub: 10.251.0.0/24.</td></tr>
+      <tr><td>WAN</td><td>ether1: fibre (DHCP, carrier NAT). ether2: 5G in passthrough (DHCP, carrier NAT).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 300" role="img" aria-label="Site plan of the marina colour-coded by VLAN: the shore with the office, chandlery and fuel dock, and four floating pontoons reaching out over the water, each with a sector antenna, shore-power and a camera">
+    <rect x="12" y="24" width="736" height="60" rx="4" style="fill:var(--v10);fill-opacity:.08;stroke:var(--mid);stroke-width:1.4;"/>
+    <text class="lf-name" x="20" y="42">SHORE · QUAY</text>
+    <rect x="30" y="48" width="150" height="28" rx="3" style="fill:var(--v10);fill-opacity:.14;stroke:var(--v10);stroke-width:1.3;"/><text class="lf-sm lf-c" x="105" y="66">Capitaneria office · V10</text>
+    <rect x="195" y="48" width="150" height="28" rx="3" style="fill:var(--gotcha);fill-opacity:.14;stroke:var(--gotcha);stroke-width:1.3;"/><text class="lf-sm lf-c" x="270" y="66">Chandlery till · V50</text>
+    <rect x="360" y="48" width="150" height="28" rx="3" style="fill:var(--v99);fill-opacity:.14;stroke:var(--v99);stroke-width:1.3;"/><text class="lf-mono lf-c" x="435" y="65">SW-CORE · R1 · rack</text>
+    <rect x="565" y="48" width="165" height="28" rx="3" style="fill:var(--gotcha);fill-opacity:.14;stroke:var(--gotcha);stroke-width:1.3;"/><text class="lf-sm lf-c" x="647" y="66">Fuel dock · V50 + V30</text>
+    <rect x="12" y="92" width="736" height="196" rx="4" style="fill:var(--defender);fill-opacity:.06;stroke:var(--defender);stroke-width:1.2;stroke-dasharray:4,4;"/>
+    <text class="lf-name" x="20" y="110" style="fill:var(--defender);">THE WATER</text>
+    <g>
+    <rect x="70" y="120" width="40" height="150" rx="5" style="fill:var(--card);stroke:var(--mid);stroke-width:1.3;"/><text class="lf-sm lf-c" x="90" y="285">A</text>
+    <rect x="235" y="120" width="40" height="150" rx="5" style="fill:var(--card);stroke:var(--mid);stroke-width:1.3;"/><text class="lf-sm lf-c" x="255" y="285">B</text>
+    <rect x="400" y="120" width="40" height="150" rx="5" style="fill:var(--card);stroke:var(--mid);stroke-width:1.3;"/><text class="lf-sm lf-c" x="420" y="285">C</text>
+    <rect x="565" y="120" width="40" height="150" rx="5" style="fill:var(--card);stroke:var(--mid);stroke-width:1.3;"/><text class="lf-sm lf-c" x="585" y="285">D</text>
+    </g>
+    <g>
+    <circle cx="90" cy="132" r="9" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="90" y="135" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="255" cy="132" r="9" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="255" y="135" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="420" cy="132" r="9" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="420" y="135" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    <circle cx="585" cy="132" r="9" style="fill:var(--card);stroke:var(--defender);stroke-width:1.4;"/><text class="lf-mono lf-c" x="585" y="135" style="font-size:7px;fill:var(--defender);font-weight:700;">AP</text>
+    </g>
+    <line x1="90" y1="84" x2="90" y2="123" style="stroke:var(--gotcha);stroke-width:2;"/>
+    <line x1="255" y1="84" x2="255" y2="123" style="stroke:var(--gotcha);stroke-width:2;"/>
+    <line x1="420" y1="84" x2="420" y2="123" style="stroke:var(--gotcha);stroke-width:2;"/>
+    <line x1="585" y1="84" x2="585" y2="123" style="stroke:var(--gotcha);stroke-width:2;"/>
+    <text class="lf-cap" x="120" y="150">sector →</text><text class="lf-cap" x="120" y="250" style="fill:var(--v30);">shore-power V30 · camera V40</text>
+    <text class="lf-cap lf-c" x="380" y="298">Each pontoon head is an IP66 box fed by single-mode fibre (gold); it powers the sector antenna and the pontoon's shore-power meters and camera.</text>
+    </svg>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start, columns receive. Default deny. Payment reaches one destination; the berths reach only the sea of the internet.</em></p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 286" role="img" aria-label="Policy matrix for the marina: which zones may start connections to the staff office, the berths, the operational systems, the cameras, the payment terminals, and the internet">
+<text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM &#8595;  &#183;  TO &#8594;</text>
+<text class="lf-sm lf-c" x="222.5" y="38">Staff</text>
+<text class="lf-sm lf-c" x="317.5" y="38">Berths</text>
+<text class="lf-sm lf-c" x="412.5" y="38">OT</text>
+<text class="lf-sm lf-c" x="507.5" y="38">Cameras</text>
+<text class="lf-sm lf-c" x="602.5" y="38">Payment</text>
+<text class="lf-sm lf-c" x="697.5" y="38">Internet</text>
+<rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="70">Staff &#183; V10</text>
+<rect x="177" y="54" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="222.5" y="71" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="272" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="367" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="412.5" y="71" style="fill:var(--defender);font-weight:700;">✓ meters</text>
+<rect x="462" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="507.5" y="71" style="fill:var(--defender);font-weight:700;">✓ view</text>
+<rect x="557" y="54" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="652" y="54" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="71" style="fill:var(--defender);font-weight:700;">✓</text>
+<rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="100">Berths &#183; V20</text>
+<rect x="177" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="272" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="101" style="fill:var(--accent);font-weight:700;">✕ isolated</text>
+<rect x="367" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="462" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="557" y="84" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="652" y="84" width="91" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="697.5" y="101" style="fill:var(--defender);font-weight:700;">✓ metered</text>
+<rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="130">OT &#183; V30</text>
+<rect x="177" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="272" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="367" y="114" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="412.5" y="131" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="462" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="557" y="114" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="652" y="114" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="131" style="fill:var(--gotcha);font-weight:700;">◐ vendor</text>
+<rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v40);"/><text class="lf-sm" x="38" y="160">Cameras &#183; V40</text>
+<rect x="177" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="272" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="367" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="462" y="144" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="507.5" y="161" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="557" y="144" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="652" y="144" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="161" style="fill:var(--gotcha);font-weight:700;">◐ cloud</text>
+<rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--gotcha);"/><text class="lf-sm" x="38" y="190">Payment &#183; V50</text>
+<rect x="177" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="222.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="272" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="367" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="412.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="462" y="174" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="507.5" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="557" y="174" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="602.5" y="191" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="652" y="174" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="697.5" y="191" style="fill:var(--gotcha);font-weight:700;">◐ acquirer</text>
+<rect x="20" y="211" width="10" height="10" rx="2" style="fill:var(--accent);"/><text class="lf-sm" x="38" y="220">Operator &#183; WG</text>
+<rect x="177" y="204" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="222.5" y="221" style="fill:var(--gotcha);font-weight:700;">◐ support</text>
+<rect x="272" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="317.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="367" y="204" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="412.5" y="221" style="fill:var(--gotcha);font-weight:700;">◐ support</text>
+<rect x="462" y="204" width="91" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="507.5" y="221" style="fill:var(--gotcha);font-weight:700;">◐ support</text>
+<rect x="557" y="204" width="91" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="602.5" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="652" y="204" width="91" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="697.5" y="221" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="20" y="244" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="254">allowed</text>
+<rect x="140" y="244" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="254">limited to the host/port shown</text>
+<rect x="360" y="244" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="254">denied (default)</text>
+<rect x="520" y="244" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="254">same zone / n.a.</text>
+<text class="lf-cap" x="20" y="270">All enforced in R1's forward chain. Berths are client-isolated: every boat is a separate customer, so unlike the villa, devices in V20 cannot see each other.</text>
+</svg>
+  </div>
+
+  <p>Two cells carry the design. <strong>Payment → Internet</strong> is limited to the acquirer's hosts on 443 and nothing else, so a compromised till can't be a pivot. <strong>Berths → Berths</strong> is denied: client isolation means the boat next door is as unreachable as a boat in another harbour, which is the opposite of the villa's rule and the whole point of selling access per berth.</p>
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+  <table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Wi-Fi to every berth</td><td><a href="#step-4">step 4</a></td><td>2.4 GHz sector APs, CAPsMAN, one SSID over the fairway</td><td>"Walk the pontoons" drill</td></tr>
+      <tr><td>R2 Every boat a stranger</td><td><a href="#step-4">step 4</a> · <a href="#step-5">step 5</a></td><td>client isolation on V20; per-berth vouchers</td><td>"Neighbour sweep" drill</td></tr>
+      <tr><td>R3 Metered, billed access</td><td><a href="#step-5">step 5</a></td><td>Hotspot + User Manager, rate cap + quota per profile</td><td>"Voucher" drill</td></tr>
+      <tr><td>R4 Payments never share fate</td><td><a href="#step-6">step 6</a></td><td>V50 forward rule: acquirer-only on 443; nothing else</td><td>"Payment isolation" drill</td></tr>
+      <tr><td>R5 Staff &amp; payments online</td><td><a href="#step-7">step 7</a> · <a href="#step-8">step 8</a></td><td>fibre/5G failover; berth throttled on 5G; VoIP + card auth prioritised</td><td>"Busy pontoon" &amp; "WAN out" drills</td></tr>
+      <tr><td>R6 Survive the sea</td><td><a href="#step-3">step 3</a> · <a href="#step-10">step 10</a></td><td>single-mode fibre; surge at entries; replaceable pontoon boxes</td><td>"Pull a pontoon box" drill</td></tr>
+      <tr><td>R7 Operational safety</td><td><a href="#step-6">step 6</a></td><td>OT on V30, reachable only from staff V10</td><td>"OT reach" drill</td></tr>
+      <tr><td>R8 Remote management</td><td><a href="#step-9">step 9</a></td><td>WireGuard dial-out; netwatch per pontoon</td><td>"Remote care" drill</td></tr>
+    </tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">Bottom to Top, One Layer at a Time</h2>
+  <p class="section-thesis"><em>Rack and office first, water last, billing and backup at the end. Every step ends with a checkpoint.</em></p>
+  <p>Ten steps: the core switch, the router, fibre to the pontoons, Wi-Fi over the water, the hotspot and billing, the firewall, dual-WAN, fair-sharing, remote care, and power with hardening. Configure on the bench with the pontoon boxes before they go out over the water, and use Safe Mode (<kbd>Ctrl</kbd>+<kbd>X</kbd>) for every bridge change. A mistake at the end of a 120-metre pontoon in a gale is a different kind of mistake.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 10</p>
+  <h2 class="section-title">The Core Switch &amp; the Office</h2>
+  <p class="section-thesis"><em>One PoE switch in the office rack: the staff, the booking server, the till and the gate camera, with trunks waiting for R1 and the pontoons.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">&#9650; Show step 1 in the interactive topology</a><span> &#183; see what this step adds, and click any device for its config</span></p>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">SW-CORE — CRS328-24P-4S+</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! SW-CORE — Catalyst 9300-24P: office access + one trunk to R1, two fibre uplinks
+vlan 10,20,30,40,50,99
+interface range GigabitEthernet1/0/1 - 3
+ description staff / berth-mgmt / VoIP
+ switchport mode access
+ switchport access vlan 10
+interface GigabitEthernet1/0/8
+ description chandlery card terminal
+ switchport access vlan 50
+interface TenGigabitEthernet1/1/1
+ description uplink to R1
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30,40,50,99
+interface range TenGigabitEthernet1/1/2 - 3
+ description fibre to pontoon-head switches
+ switchport mode trunk
+ switchport trunk allowed vlan 20,30,40,99
+interface Vlan99
+ ip address 10.80.99.11 255.255.255.0
+ip default-gateway 10.80.99.1
+interface range GigabitEthernet1/0/9 - 24
+ shutdown</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=SW-CORE
+<span class="cmt"># enforcement OFF now, ON at the end (lock-out safety)</span>
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+<span class="cmt"># uplink to R1 (10G) + two fibre runs to the pontoon-head switches</span>
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="R1"
+add bridge=bridge interface=sfp-sfpplus2 frame-types=admit-only-vlan-tagged comment="ptA/B"
+add bridge=bridge interface=sfp-sfpplus3 frame-types=admit-only-vlan-tagged comment="ptC/D"
+<span class="cmt"># office access ports: staff on V10, the chandlery till on the payment V50</span>
+add bridge=bridge interface=ether1 pvid=10 comment="staff PCs"
+add bridge=bridge interface=ether2 pvid=10 comment="berth-management server"
+add bridge=bridge interface=ether3 pvid=10 comment="VoIP"
+add bridge=bridge interface=ether8 pvid=50 comment="chandlery card terminal"
+/interface bridge vlan
+add bridge=bridge vlan-ids=10,20,30,40,50 tagged=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3
+add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.80.99.11/24 interface=v99-mgmt
+/ip route add gateway=10.80.99.1
+<span class="cmt"># a quay is a public place: dead-end every unused jack</span>
+/interface ethernet disable ether9,ether10,ether11,ether12,ether13,ether14,ether15
+/interface bridge set bridge vlan-filtering=yes</pre></div>
+  <p>The core switch carries every office device and hands three trunks upward: one to R1, two to the fibre runs that will feed the pontoons. The chandlery till is the only office port on the payment VLAN, and it's a physically separate jack in a locked position behind the counter. As everywhere in this series, VLAN filtering goes on last, after the uplink is proven, so a typo can't lock you out of the rack.</p>
+  <div class="callout defender"><span class="callout-label">Checkpoint: test this before building the next step</span><ul class="prereqs-list"><li><code>/interface bridge vlan print</code>: V10 on ether1–3, V50 on ether8, all tagged on the three SFP+ ports.</li><li>The staff PCs and the booking server get 10.80.10.x; the till gets 10.80.50.x.</li></ul></div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 10</p>
+  <h2 class="section-title">The Router: VLANs, DHCP, DNS</h2>
+  <p class="section-thesis"><em>A CCR2004 as router-on-a-stick: a gateway per VLAN, a big /22 pool for the boats, upstream DNS that doesn't clash with the failover probe.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">&#9650; Show step 2 in the interactive topology</a><span> &#183; see what this step adds, and click any device for its config</span></p>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — CCR2004-16G-2S+ · bridge, VLAN gateways, DHCP, DNS</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — Catalyst 8200: SVIs as VLAN gateways; the berth SVI is a /22
+ip routing
+vlan 10,20,30,40,50,99
+interface Vlan10
+ ip address 10.80.10.1 255.255.255.0
+interface Vlan20
+ ip address 10.80.20.1 255.255.252.0
+interface Vlan30
+ ip address 10.80.30.1 255.255.255.0
+interface Vlan40
+ ip address 10.80.40.1 255.255.255.0
+interface Vlan50
+ ip address 10.80.50.1 255.255.255.0
+interface Vlan99
+ ip address 10.80.99.1 255.255.255.0
+ip dhcp excluded-address 10.80.20.1 10.80.20.9
+ip dhcp pool BERTH
+ network 10.80.20.0 255.255.252.0
+ default-router 10.80.20.1
+ dns-server 10.80.20.1
+ lease 0 1
+ip name-server 9.9.9.9 149.112.112.112
+ip dns server
+ntp server time.cloudflare.com</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=R1
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 frame-types=admit-only-vlan-tagged comment="core"
+/interface bridge vlan
+add bridge=bridge vlan-ids=10,20,30,40,50 tagged=bridge,sfp-sfpplus1
+add bridge=bridge vlan-ids=99 tagged=bridge,sfp-sfpplus1
+/interface vlan
+<span class="cmt"># one interface per VLAN = router-on-a-stick; each is that VLAN gateway</span>
+add name=v10-staff interface=bridge vlan-id=10
+add name=v20-berth interface=bridge vlan-id=20
+add name=v30-ot    interface=bridge vlan-id=30
+add name=v40-cctv  interface=bridge vlan-id=40
+add name=v50-pay   interface=bridge vlan-id=50
+add name=v99-mgmt  interface=bridge vlan-id=99
+/ip address
+add address=10.80.10.1/24 interface=v10-staff
+<span class="cmt"># /22 for berths: room for a full marina of boats plus their guests</span>
+add address=10.80.20.1/22 interface=v20-berth
+add address=10.80.30.1/24 interface=v30-ot
+add address=10.80.40.1/24 interface=v40-cctv
+add address=10.80.50.1/24 interface=v50-pay
+add address=10.80.99.1/24 interface=v99-mgmt
+<span class="cmt"># the berth pool is handed out behind the hotspot (step 5); 1h leases</span>
+/ip pool add name=p-berth ranges=10.80.20.10-10.80.23.254
+/ip dhcp-server add name=d-berth interface=v20-berth address-pool=p-berth lease-time=1h
+/ip dhcp-server network add address=10.80.20.0/22 gateway=10.80.20.1 dns-server=10.80.20.1
+<span class="cmt"># … staff, OT, CCTV and payment all use host reservations</span>
+/ip dns set allow-remote-requests=yes servers=9.9.9.9,149.112.112.112
+/system ntp client set enabled=yes servers=time.cloudflare.com
+/interface bridge set bridge vlan-filtering=yes</pre></div>
+  <p>The CCR2004 has the headroom a marina's NAT table needs — a full hotspot is hundreds of devices behind one address. Each VLAN gets its <code>.1</code> gateway; the berth VLAN is a <code>/22</code> so a packed summer weekend plus every guest's phone still fits. The berth DHCP leases are short (an hour) because boats come and go all day. Upstream DNS is Quad9, leaving 1.1.1.1 free to become the failover probe in step 7.</p>
+  <div class="callout defender"><span class="callout-label">Checkpoint: test this before building the next step</span><ul class="prereqs-list"><li>A laptop tagged into V20 gets a 10.80.20.x–10.80.23.x lease and resolves names.</li><li>Each VLAN gateway pings from a client on that VLAN; no VLAN yet reaches another (that's step 6).</li></ul></div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 10</p>
+  <h2 class="section-title">Fibre Down the Pontoons</h2>
+  <p class="section-thesis"><em>Single-mode fibre out to each pontoon head, into an IP66 box that powers the antenna and the pontoon's wired plant.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">&#9650; Show step 3 in the interactive topology</a><span> &#183; see what this step adds, and click any device for its config</span></p>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">Pontoon A head — netPower 16P, fed by single-mode fibre</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Pontoon A head — Catalyst IE3300 (IP-rated): SFP fibre uplink, PoE to the sector AP
+vlan 20,30,40,99
+interface GigabitEthernet1/1 (SFP)
+ description fibre to core
+ switchport mode trunk
+ switchport trunk allowed vlan 20,30,40,99
+interface GigabitEthernet1/0/1
+ description sector AP (PoE trunk)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 20,99
+interface GigabitEthernet1/0/2
+ description shore-power pedestals A
+ switchport access vlan 30
+interface GigabitEthernet1/0/3
+ description pontoon-head camera
+ switchport access vlan 40
+interface Vlan99
+ ip address 10.80.99.21 255.255.255.0</pre><pre class="term vt-pane" data-v="mikrotik">/system identity set name=SW-PONTOON-A
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+<span class="cmt"># fibre back to SW-CORE: no copper over the water, so no galvanic path</span>
+add bridge=bridge interface=sfp1 frame-types=admit-only-vlan-tagged comment="fibre to core"
+<span class="cmt"># the sector AP rides a trunk: mgmt V99 untagged, berth SSID on V20</span>
+add bridge=bridge interface=ether1 pvid=99 comment="sector AP (PoE, trunk)"
+<span class="cmt"># wired pontoon plant: shore-power pedestals (OT) and the pontoon-head camera</span>
+add bridge=bridge interface=ether2 pvid=30 comment="shore-power pedestals A"
+add bridge=bridge interface=ether3 pvid=40 comment="pontoon-head camera"
+/interface bridge vlan
+add bridge=bridge vlan-ids=20,99 tagged=sfp1,ether1
+add bridge=bridge vlan-ids=30,40 tagged=sfp1
+/interface vlan add name=v99-mgmt interface=bridge vlan-id=99
+/ip address add address=10.80.99.21/24 interface=v99-mgmt
+/ip route add gateway=10.80.99.1
+<span class="cmt"># salt and lightning will kill this box one day; its config restores from the hub</span>
+/interface bridge set bridge vlan-filtering=yes</pre></div>
+  <p>This is the step that keeps the sea out of the office. Each pontoon head is a sealed outdoor box with an SFP fibre uplink and a small PoE switch; the fibre is a dielectric, so there is no copper bridging two different ground potentials over salt water and no metallic path for a mast strike to follow back to the rack. The box powers the sector antenna locally and picks up the pontoon's shore-power meters and camera. Treat it as a consumable: when salt or lightning eventually takes one, a replacement restores its config from the hub and is back in minutes.</p>
+  <div class="callout gotcha"><span class="callout-label">Fibre over water is not fibre in a building</span><p>Use outdoor, gel-filled or armoured single-mode with marine-rated conduit along the pontoon, and leave a service loop at the hinge where the pontoon moves against the shore — that flex point is where a cable dies first. Terminate with pre-polished connectors in the dry box, not in the open air over the water.</p></div>
+  <div class="callout defender"><span class="callout-label">Checkpoint: test this before building the next step</span><ul class="prereqs-list"><li>On SW-CORE, <code>/interface ethernet monitor sfp-sfpplus2</code>: link up, running at the fibre SFP's rate.</li><li>From the office, the pontoon box answers on 10.80.99.21; the shore-power meters and the camera get their reserved addresses.</li></ul></div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 10</p>
+  <h2 class="section-title">Wi-Fi Over the Water</h2>
+  <p class="section-thesis"><em>Sector antennas on the pontoon heads, one open SSID over the fairway, a hidden one for staff — all pushed from R1.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="4">&#9650; Show step 4 in the interactive topology</a><span> &#183; see what this step adds, and click any device for its config</span></p>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — CAPsMAN: an open berth SSID over the water, a hidden staff SSID</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! Catalyst 9800 embedded controller: an open 'webauth' WLAN + a hidden staff WLAN
+wlan Marina-WiFi 1 Marina-WiFi
+ no security wpa
+ security web-auth
+ security web-auth authentication-list GUEST-RADIUS
+ no shutdown
+wlan Marina-Staff 2 Marina-Staff
+ security wpa psk set-key ascii 0 ********
+ security wpa akm psk
+ no broadcast-ssid
+ no shutdown
+wireless profile policy BERTH
+ vlan 20
+ no shutdown
+! the berth WLAN is 2.4 GHz only (radio policy) for reach over the water</pre><pre class="term vt-pane" data-v="mikrotik">/interface wifi datapath
+add name=dp-berth bridge=bridge vlan-id=20
+add name=dp-staff bridge=bridge vlan-id=10
+/interface wifi security
+<span class="cmt"># berth SSID is OPEN — the hotspot (step 5) does the authentication, not WPA</span>
+add name=sec-open authentication-types="" disabled=no
+add name=sec-staff authentication-types=wpa2-psk,wpa3-psk passphrase="********"
+/interface wifi configuration
+<span class="cmt"># 2.4 GHz: it reaches further over open water and bends around masts better than 5 GHz</span>
+add name=cfg-berth ssid=Marina-WiFi security=sec-open datapath=dp-berth country=Greece \
+    .channel.band=2ghz-ax
+add name=cfg-staff ssid=Marina-Staff security=sec-staff datapath=dp-staff country=Greece \
+    hide-ssid=yes
+/interface wifi capsman set enabled=yes interfaces=v99-mgmt
+<span class="cmt"># the sector antennas point down the fairway; one config provisions every pontoon AP</span>
+/interface wifi provisioning
+add action=create-dynamic-enabled supported-bands=2ghz-ax \
+    master-configuration=cfg-berth slave-configurations=cfg-staff</pre></div>
+  <p>One controller on R1 provisions every pontoon AP with the same two SSIDs: an <strong>open</strong> Marina-WiFi that the hotspot will gate in step 5, and a hidden WPA3 Marina-Staff for the harbour-master's tablet. The berth SSID runs on 2.4 GHz on purpose — over open water, with masts and rigging in the way, reach and diffraction matter more than the throughput 5 GHz would add. The sectors point down the fairway so the beam follows the line of boats.</p>
+  <div class="callout gotcha"><span class="callout-label">The mast is the obstacle</span><p>A metal mast and a boom full of rigging sit right between the antenna and the cockpit where people use their phones. Mount the sector high on the pontoon-head pole so it looks over the near boats, accept that 2.4 GHz is congested (every boat's own hotspot is on it), and plan co-channel reuse across pontoons the way you would cells, not like one big AP.</p></div>
+  <div class="callout defender"><span class="callout-label">Checkpoint: test this before building the next step</span><ul class="prereqs-list"><li><code>/interface wifi registration-table print</code> shows boats associating on each pontoon.</li><li>Signal is usable at the far berth of the longest pontoon, from a phone held below deck.</li></ul></div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 10</p>
+  <h2 class="section-title">Metered Berth Billing</h2>
+  <p class="section-thesis"><em>The open SSID becomes a product: a voucher per berth, a rate cap, a fair quota, all issued and accounted on the router.</em></p>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — Hotspot on V20, User Manager (RADIUS) on the same box</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! IOS has no on-box billing. The marina pattern is ISE (or an external captive portal
+! appliance) as the RADIUS/guest server, with the controller pointed at it:
+aaa new-model
+aaa authentication login GUEST-RADIUS group radius
+radius server ISE
+ address ipv4 10.80.10.20 auth-port 1812 acct-port 1813
+ key ********
+! vouchers, quotas and per-berth accounting are created in ISE's guest portal,
+! not in the switch; the walled garden (pre-auth ACL) permits the booking + card hosts.</pre><pre class="term vt-pane" data-v="mikrotik"><span class="cmt"># the captive portal lives on the berth gateway</span>
+/ip hotspot profile
+add name=marina hotspot-address=10.80.20.1 dns-name=wifi.marina login-by=http-chap,cookie \
+    use-radius=yes
+/ip hotspot add name=berth interface=v20-berth address-pool=p-berth profile=marina
+<span class="cmt"># User Manager v5 is the RADIUS server, running on R1 itself → point RADIUS at loopback</span>
+/radius add service=hotspot address=127.0.0.1 secret="********"
+/user-manager set enabled=yes
+/user-manager/router add name=self address=127.0.0.1 shared-secret="********"
+<span class="cmt"># a rate cap and a fair daily quota per boat; a week-long profile for a transient berth</span>
+/user-manager/limitation add name=lim-berth rate-limit=20M/5M
+/user-manager/profile add name=berth-week name-for-users="7-day berth" validity=7d
+/user-manager/profile-limitation add profile=berth-week limitation=lim-berth
+<span class="cmt"># one voucher per slip, printed at the office on arrival; the code is never logged</span>
+/user-manager/user add name=A17 password="&lt;voucher&gt;" shared-users=3
+/user-manager/user add name=A17 attributes=... # bind to profile berth-week
+<span class="cmt"># walled garden: the booking page and the card host stay reachable before login</span>
+/ip hotspot walled-garden
+add dst-host=book.marina.example action=allow
+add dst-host=*.acquirer.example action=allow</pre></div>
+  <p>The hotspot turns the open Wi-Fi into something the office sells. User Manager — RouterOS's own RADIUS server — runs on R1 itself, so the customer list and the accounting never leave the marina's hardware, and a boat that has already logged in keeps working even if the WAN drops. The office prints a voucher per berth on arrival, tied to a profile that sets the stay length, the rate cap and a fair daily quota. The walled garden keeps the booking page and the card host reachable before anyone logs in, so a guest can pay for access and the fuel dock can take a card without a session.</p>
+  <div class="callout gotcha"><span class="callout-label">The voucher is loot — treat it like it</span><p>Generate voucher codes with real randomness, hand them out on paper, and never write the code to the log or an e-mail body (log <em>that</em> a voucher was issued, not the code). Set <code>shared-users</code> to match a boat's realistic device count; one voucher for a whole pontoon is how a marina ends up running an open relay.</p></div>
+  <div class="callout defender"><span class="callout-label">Checkpoint: test this before building the next step</span><ul class="prereqs-list"><li>A phone on Marina-WiFi is redirected to the portal; a valid voucher logs in and the rate cap applies.</li><li><code>/ip hotspot active print</code> and <code>/user-manager/session print</code> show the session and its accounting.</li><li>Before login, the booking and acquirer hosts load; nothing else does.</li></ul></div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 10</p>
+  <h2 class="section-title">Firewall: Money, Power, Strangers</h2>
+  <p class="section-thesis"><em>Payment reaches the acquirer and nothing else. OT answers only to staff. Every boat gets the internet and no neighbours.</em></p>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — interface lists, input and forward chains</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — Zone-Based Firewall. No zone-pair = dropped (default-deny).
+zone security STAFF
+zone security BERTH
+zone security OT
+zone security CCTV
+zone security PAY
+zone security WAN
+! each inside VLAN joins its zone (interface VlanXX / zone-member security ...)
+class-map type inspect match-any CM-GEN
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+policy-map type inspect PM-OUT
+ class type inspect CM-GEN
+  inspect
+ class class-default
+  drop
+! payment reaches only the acquirer, on 443
+ip access-list extended ACL-ACQ
+ permit tcp any 203.0.113.0 0.0.0.255 eq 443
+class-map type inspect match-all CM-ACQ
+ match access-group name ACL-ACQ
+policy-map type inspect PM-ACQ
+ class type inspect CM-ACQ
+  inspect
+zone-pair security ZP-PAY-WAN source PAY destination WAN
+ service-policy type inspect PM-ACQ
+! staff -&gt; OT, CCTV, WAN ; OT/CCTV/BERTH -&gt; WAN only ; no pair = no path
+zone-pair security ZP-STAFF-OT source STAFF destination OT
+ service-policy type inspect PM-OUT
+zone-pair security ZP-BERTH-WAN source BERTH destination WAN
+ service-policy type inspect PM-OUT</pre><pre class="term vt-pane" data-v="mikrotik">/interface list
+add name=WAN
+add name=MGMT
+/interface list member
+add list=MGMT interface=v99-mgmt
+<span class="cmt"># a named host group: where the card terminals are allowed to talk</span>
+/ip firewall address-list
+add list=ACQUIRER address=203.0.113.0/24 comment="card acquirer (example)"
+/ip firewall filter
+<span class="cmt"># input = TO the router; established back in, then judge only NEW</span>
+add chain=input action=accept connection-state=established,related,untracked
+add chain=input action=drop connection-state=invalid
+add chain=input action=accept in-interface-list=MGMT
+<span class="cmt"># berths reach the router only for DNS/DHCP and the hotspot portal</span>
+add chain=input action=accept in-interface=v20-berth protocol=udp dst-port=53,67
+add chain=input action=accept in-interface=v20-berth protocol=tcp dst-port=53,64872,64873
+add chain=input action=drop log=yes log-prefix=IN-DROP
+<span class="cmt"># forward = THROUGH the router; default-deny at the end</span>
+add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+<span class="cmt"># payment: the till VLAN reaches ONLY the acquirer, nothing on the LAN, nothing else out</span>
+add chain=forward action=accept in-interface=v50-pay dst-address-list=ACQUIRER \
+    protocol=tcp dst-port=443
+<span class="cmt"># staff run the marina: book boats, read the meters, watch the cameras</span>
+add chain=forward action=accept in-interface=v10-staff out-interface=v30-ot
+add chain=forward action=accept in-interface=v10-staff out-interface=v40-cctv
+add chain=forward action=accept in-interface=v10-staff out-interface-list=WAN
+<span class="cmt"># OT and cameras reach only their own clouds (step 8 shapes them), never the LAN</span>
+add chain=forward action=accept in-interface=v30-ot out-interface-list=WAN
+add chain=forward action=accept in-interface=v40-cctv out-interface-list=WAN
+<span class="cmt"># berths: the internet and nothing else — and never each other</span>
+add chain=forward action=accept in-interface=v20-berth out-interface-list=WAN
+add chain=forward action=accept in-interface-list=MGMT
+add chain=forward action=drop log=yes log-prefix=FWD-DROP</pre></div>
+  <p>The forward chain is the marina's property line. The payment VLAN is allowed exactly one thing — the acquirer on 443 — so a compromised terminal is a dead end, not a pivot onto the booking server or the hotspot. The operational VLAN (shore-power, fuel controller, AIS) answers only to staff on V10 and otherwise reaches just its vendors' clouds. The berths reach the internet and, by the absence of any rule and by client isolation, nothing and no one else on the network.</p>
+  <div class="callout defender"><span class="callout-label">Checkpoint: test this before building the next step</span><ul class="prereqs-list"><li>From the till VLAN, only the acquirer answers on 443; the booking server and the internet at large do not.</li><li>From Marina-WiFi, a scan of 10.80.0.0/16 finds only the gateway; no other boat, no camera, no meter.</li><li>From a boat, the shore-power controller and the fuel dock don't answer; from a staff PC they do.</li></ul></div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 10</p>
+  <h2 class="section-title">Dual-WAN: Fibre &amp; 5G</h2>
+  <p class="section-thesis"><em>Fibre carries the harbour; 5G catches it when the fibre drops, with the hotspot throttled so staff and payments keep their share.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">&#9650; Show step 7 in the interactive topology</a><span> &#183; see what this step adds, and click any device for its config</span></p>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — fibre primary, 5G backup, failover by recursive route</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — fibre on Gi0/0/0 (DHCP), 5G on the cellular interface as the backup
+interface GigabitEthernet0/0/0
+ description fibre
+ ip address dhcp
+ ip nat outside
+ip sla 1
+ icmp-echo 1.1.1.1
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ip route 0.0.0.0 0.0.0.0 dhcp 1 track 1
+ip route 0.0.0.0 0.0.0.0 Cellular0/2/0 2
+ip access-list standard NAT-ALL
+ permit 10.80.0.0 0.0.255.255
+ip nat inside source list NAT-ALL interface GigabitEthernet0/0/0 overload
+! police the berth VLAN down hard when it rides the cellular backup</pre><pre class="term vt-pane" data-v="mikrotik">/interface list member add list=WAN interface=ether1
+/interface list member add list=WAN interface=ether2
+/ip dhcp-client add interface=ether1 add-default-route=no use-peer-dns=no comment="fibre"
+<span class="cmt"># 5G as a passthrough modem; its default route sits at a worse distance (backup)</span>
+/ip dhcp-client add interface=ether2 default-route-distance=2 use-peer-dns=no comment="5G"
+/ip route
+<span class="cmt"># recursive main route: reachable only while the probe through fibre answers</span>
+add dst-address=1.1.1.1/32 gateway=ether1 scope=10 comment="probe via fibre"
+add dst-address=0.0.0.0/0 gateway=1.1.1.1 target-scope=11 check-gateway=ping distance=1 \
+    comment="main: fibre"
+/ip firewall nat add chain=srcnat action=masquerade out-interface-list=WAN
+<span class="cmt"># on 5G, the hotspot (berth Wi-Fi) is throttled hard; staff, payments and VoIP are not</span>
+/ip firewall mangle add chain=forward action=mark-packet new-packet-mark=berth-5g \
+    in-interface=v20-berth out-interface=ether2 passthrough=no
+/queue tree add name=berth-on-5g parent=global packet-mark=berth-5g max-limit=15M \
+    queue=pcq-download-default</pre></div>
+  <p>Fibre is the primary path with a recursive route whose health is a ping through the fibre gateway; 5G sits behind it at a worse distance and takes over on failure. The difference from the villa is who gets protected: here the <em>guests</em> are the ones squeezed on the backup. When the harbour runs on 5G, the berth hotspot is throttled to a trickle so that a card authorisation, a VoIP call to a chandler, and the booking system keep working. Paying boats stay connected, just slowly, which is the honest trade on a backup link.</p>
+  <div class="callout defender"><span class="callout-label">Checkpoint: test this before building the next step</span><ul class="prereqs-list"><li>Pull the fibre: within ~20 s the harbour is on 5G; a card payment and a VoIP call still complete.</li><li>During the outage, a speed test on Marina-WiFi shows the berth throttle; staff traffic is not throttled.</li><li>Fibre back: the main route returns within a minute.</li></ul></div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 10</p>
+  <h2 class="section-title">Fair Share, Priority Where It Pays</h2>
+  <p class="section-thesis"><em>CAKE shares the fibre fairly between boats; VoIP and card authorisations ride above the crowd.</em></p>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — CAKE for the berths, priority for VoIP and card auth</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! IOS: no CAKE. A shaper with fair-queue + an LLQ priority class for VoIP and card auth.
+class-map match-any PRIORITY
+ match dscp ef
+ match dscp af41
+policy-map WAN-CHILD
+ class PRIORITY
+  priority percent 20
+ class class-default
+  fair-queue
+policy-map WAN-OUT
+ class class-default
+  shape average 90000000
+  service-policy WAN-CHILD
+interface GigabitEthernet0/0/0
+ service-policy output WAN-OUT</pre><pre class="term vt-pane" data-v="mikrotik"><span class="cmt"># CAKE shares the fibre fairly per host first: one busy boat cannot starve the others</span>
+/queue type
+add name=cake-up kind=cake cake-diffserv=diffserv4 cake-nat=yes cake-flowmode=dual-srchost
+add name=cake-down kind=cake cake-diffserv=diffserv4 cake-flowmode=dual-dsthost
+/ip firewall mangle
+<span class="cmt"># lift VoIP and card-auth into the priority tin so a full hotspot never delays them</span>
+add chain=prerouting action=change-dscp new-dscp=46 src-address=10.80.10.0/24 \
+    protocol=udp dst-port=10000-20000 comment="VoIP RTP"
+add chain=prerouting action=change-dscp new-dscp=34 src-address=10.80.50.0/24 \
+    comment="card auth"
+add chain=forward action=mark-packet new-packet-mark=from-fibre in-interface=ether1 \
+    passthrough=no
+/queue tree
+add name=wan-up parent=ether1 queue=cake-up max-limit=90M
+add name=wan-down parent=global packet-mark=from-fibre queue=cake-down max-limit=450M</pre></div>
+  <p>CAKE gives per-host fairness, so one liveaboard pulling a system update can't starve forty other boats, and its NAT mode sees the real inside host behind the masquerade. On top of that, the two flows that must never wait — VoIP from the office and card authorisations from the payment VLAN — are marked into CAKE's priority tin, so even a saturated hotspot doesn't add a beat of delay to a phone call or a card tap. Set the limit just under the fibre's real throughput, because CAKE only controls latency when the queue lives in R1.</p>
+  <div class="callout defender"><span class="callout-label">Checkpoint: test this before building the next step</span><ul class="prereqs-list"><li>One boat runs a big download while another holds a video call: the call stays clear.</li><li>A card authorisation during a saturated hotspot completes in the same time as on an idle link.</li><li><code>/queue tree print stats</code>: drops on wan-down under load; the priority tin stays near-empty.</li></ul></div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 10</p>
+  <h2 class="section-title">Remote Management &amp; Monitoring</h2>
+  <p class="section-thesis"><em>The marina dials out to the operator. Then it reports a dead pontoon before a sailor does.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="9">&#9650; Show step 9 in the interactive topology</a><span> &#183; see what this step adds, and click any device for its config</span></p>
+  <div class="term-wrap vt" data-vt data-own="mikrotik"><span class="term-label">R1 — WireGuard to the operator hub, alerts and remote logs</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn on" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco" hidden>! R1 — FlexVPN client dials out to the operator hub through the harbour's NAT
+crypto ikev2 profile TO-HUB
+ match identity remote fqdn hub.example.net
+ identity local fqdn marina-r1.example.net
+ authentication local rsa-sig
+ authentication remote rsa-sig
+ pki trustpoint OP-CA
+interface Tunnel1
+ ip address 10.251.0.31 255.255.255.0
+ tunnel source GigabitEthernet0/0/0
+ tunnel destination dynamic
+ tunnel protection ipsec profile TO-HUB
+logging host 10.251.0.1
+logging trap warnings
+event manager applet WAN-DOWN
+ event track 1 state down
+ action 1 syslog msg "fibre DOWN"</pre><pre class="term vt-pane" data-v="mikrotik">/interface wireguard add name=wg-ops listen-port=13231
+/interface wireguard peers add interface=wg-ops comment="operator hub" \
+    public-key="&lt;hub public key&gt;" endpoint-address=hub.example.net endpoint-port=51820 \
+    allowed-address=10.251.0.0/24 persistent-keepalive=25s
+/ip address add address=10.251.0.31/24 interface=wg-ops
+/interface list member add list=MGMT interface=wg-ops
+/system logging action add name=hub target=remote remote=10.251.0.1
+/system logging add topics=warning action=hub
+<span class="cmt"># watch the fibre path and every pontoon switch; a dead pontoon is a silent outage</span>
+/tool netwatch add host=1.1.1.1 interval=30s type=simple \
+    down-script=":log warning \"fibre DOWN\"" up-script=":log warning \"fibre UP\""
+/tool netwatch add host=10.80.99.21 interval=60s type=simple \
+    down-script=":log warning \"Pontoon A offline\""</pre></div>
+  <p>Both WANs are behind carrier NAT, so management is an outgoing WireGuard tunnel to the operator's hub, exactly as in the <a href="build-coffee-shop.html">coffee shop</a>. With the keepalive it survives the switch to 5G and reconnects itself. The valuable addition here is a netwatch per pontoon: a flooded or lightning-struck pontoon box goes quiet, and the operator sees <em>Pontoon A offline</em> in the hub's log — an outage that would otherwise surface as a liveaboard walking up the dock to complain.</p>
+  <div class="callout defender"><span class="callout-label">Checkpoint: test this before building the next step</span><ul class="prereqs-list"><li>From the hub: SSH to 10.251.0.31 works over fibre and, with fibre pulled, over 5G.</li><li>Unplug a pontoon box: the hub logs that pontoon offline within a minute.</li><li>The dashboard shows each pontoon's AP and meter counts.</li></ul></div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 10</p>
+  <h2 class="section-title">Power, Lightning &amp; Salt</h2>
+  <p class="section-thesis"><em>A harbour cuts power, draws lightning and breathes salt. The network rides through the first, survives the second, and is built to be repaired after the third.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>What and why</th></tr></thead>
+    <tbody>
+      <tr><td>UPS</td><td>A line-interactive UPS in the rack carries R1, SW-CORE and the 5G modem through the brown-outs a harbour sees when big boats draw shore power. Set it to <strong>restart loads automatically</strong> when power returns.</td></tr>
+      <tr><td>Lightning &amp; surge</td><td>The pontoon masts are the tallest things for a mile. Fibre keeps a strike off the data path; still fit surge protection on the shore-power feed into every pontoon box, and bond the box to the pontoon's earth.</td></tr>
+      <tr><td>Salt &amp; ingress</td><td>IP66/67 enclosures, stainless fixings, dielectric grease on every outdoor connector, and drip loops so water runs off the cable, not into the gland. Budget a service visit before each season.</td></tr>
+      <tr><td>Replaceable pontoon boxes</td><td>Keep a spare box pre-staged. A swap pulls its config from the hub and it rejoins in minutes; nothing depends on hand-tuning out on the water.</td></tr>
+      <tr><td>Hardening</td><td>Management only from the MGMT list (V99 + the tunnel), the default admin disabled, DHCP snooping on SW-CORE with the uplink trusted, and the hotspot's RADIUS secret and voucher store kept off any synced or world-readable location (see <a href="mikrotik-hardening.html">hardening</a>).</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender"><span class="callout-label">Checkpoint: the handover test</span><ul class="prereqs-list"><li>Kill the rack mains: the UPS carries it; restore power and everything returns with nobody in the rack.</li><li>Unplug a pontoon box and plug the spare: it restores from the hub and the boats on that pontoon are back within minutes.</li><li>The next morning, the hub holds last night's export from R1, SW-CORE and every pontoon box.</li></ul></div>
+
+  <!-- 15 -->
+  <p class="section-num" id="sec-15">15</p>
+  <h2 class="section-title">Verify Before the Season</h2>
+  <p class="section-thesis"><em>Run these at handover, write the results in the marina's documentation, and repeat the WAN and power drills before each season.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody>
+      <tr><td>Walk the pontoons (R1)</td><td>A phone on a video call walks the length of each pontoon without dropping; the far berth is usable.</td></tr>
+      <tr><td>Neighbour sweep (R2)</td><td>From Marina-WiFi, a scan finds only the gateway. No other boat, camera, meter or till answers.</td></tr>
+      <tr><td>Voucher (R3)</td><td>A voucher logs in, applies its rate cap and quota, and expires at the end of the stay; the code never appears in a log.</td></tr>
+      <tr><td>Payment isolation (R4)</td><td>From the till VLAN, only the acquirer answers on 443; the LAN and the rest of the internet do not.</td></tr>
+      <tr><td>Busy pontoon &amp; WAN out (R5)</td><td>Under a saturated hotspot, a card auth and a VoIP call stay fast; on 5G, berths throttle and payments don't.</td></tr>
+      <tr><td>Pull a pontoon box (R6)</td><td>Swapping in the spare restores from the hub; the pontoon is back within minutes with nobody re-typing config.</td></tr>
+      <tr><td>OT reach (R7)</td><td>Staff reach the shore-power controller and the fuel dock; a boat on the berth VLAN cannot.</td></tr>
+      <tr><td>Remote care (R8)</td><td>The operator reaches R1 through the tunnel over fibre and over 5G; a dead pontoon raises a log alert.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 16 -->
+  <p class="section-num" id="sec-16">16</p>
+  <h2 class="section-title">Residual Risk</h2>
+  <p class="section-thesis"><em>What the network can't do on its own, and what covers each gap.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>The berth SSID is open.</strong> Authentication is the hotspot, not WPA, so traffic over the air is unencrypted until the user's own app-layer TLS takes over. That's normal for paid public Wi-Fi, but the welcome card should tell guests to treat it like any café network and lean on a VPN for anything sensitive.</li>
+    <li><strong>2.4 GHz is a shared, crowded band.</strong> Every boat's own hotspot, every Bluetooth speaker and the marina's own APs fight for it. Co-channel planning helps; a bad-neighbour boat with a rogue AP on the same channel is a support call, not a config fix.</li>
+    <li><strong>Payment terminals still trust their vendor.</strong> The network fences them to the acquirer; the terminals' firmware and the vendor's P2PE are what actually protect card data. Keep them in PCI scope and let the acquirer's kit do the cryptography.</li>
+    <li><strong>Shore-power and the fuel controller are safety systems.</strong> The network keeps boats away from them, but a staff PC that gets malware is inside V10 and can reach them. Staff endpoint hygiene and MFA on the management tools matter as much as the VLAN.</li>
+    <li><strong>One operator, many harbours.</strong> The hub's keys open every marina it manages. A per-site WireGuard key and the hub's own MFA are what make a single compromise survivable.</li>
+  </ul>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">The Attacker's View</h2>
+  <p class="section-thesis"><em>I test networks like this for a living. Here's what I'd try against a marina full of strangers on boats, and why each one is a decision rather than an oversight.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Sit on the open berth Wi-Fi and sweep.</strong> The obvious move on an open SSID is to scan the neighbours and the infrastructure. Client isolation on V20 and the default-deny forward chain mean a boat sees only the gateway; the meters, cameras, tills and other boats are on VLANs no berth rule reaches.</li>
+    <li><strong>Evil-twin Marina-WiFi.</strong> A rogue AP from a boat harvests portal credentials and MITMs guests. It buys nothing of the marina's: captured vouchers still only unlock VLAN 20 to the internet, and the payment, OT and staff VLANs are unreachable from there whatever credential you hold.</li>
+    <li><strong>Go after the fuel-dock card terminal.</strong> If I can reach the till VLAN I'd pivot from it — except V50 is allowed exactly one destination, the acquirer on 443. No lateral path to the booking server, no general egress, nothing to pivot to.</li>
+    <li><strong>Reach the shore-power or fuel controller.</strong> These are the systems with physical consequences. They live on V30 with a single inbound door from staff V10; from a boat they don't answer, and they can't be reached from the payment or camera VLANs either.</li>
+    <li><strong>Skip the harbour and phish the operator.</strong> The WireGuard hub holds a key to every marina it manages, so the efficient attack is the operator's laptop, not the dish on the breakwater. The per-site key and the hub's MFA are what make that single compromise survivable — not anything in the marina's config.</li>
+  </ul>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">Lab It in CHR / GNS3</h2>
+  <p class="section-thesis"><em>The routing, the hotspot, billing, failover and queues all run on CHR. The fibre, the sectors and salt water don't.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>This post</th><th>In the lab</th></tr></thead>
+    <tbody>
+      <tr><td>R1 + dual-WAN</td><td>A CHR with two WAN links fed by two "ISP" CHRs handing out carrier-NAT addresses; pull one to test the recursive failover.</td></tr>
+      <tr><td>Hotspot + User Manager</td><td>Fully testable on CHR: create a profile and a voucher, connect a VM to V20, and watch the portal, the rate cap and the accounting.</td></tr>
+      <tr><td>Pontoon boxes, fibre</td><td>CHR bridges; a plain virtual link stands in for each fibre run.</td></tr>
+      <tr><td>Sector Wi-Fi</td><td>Skip it, or tag VMs into V20 to stand in for boats.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT. Fibre, conduit and the marine install labour dwarf the electronics and vary by harbour.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>R1 · CCR2004-16G-2S+</td><td>380 – 480</td></tr>
+      <tr><td>SW-CORE · CRS328-24P-4S+ + DAC</td><td>440 – 560</td></tr>
+      <tr><td>4× pontoon box (netPower 16P + IP66 enclosure + SPD)</td><td>300 – 420 each</td></tr>
+      <tr><td>4× 2.4 GHz sector AP (mANTBox-class)</td><td>150 – 220 each</td></tr>
+      <tr><td>5G backup (Chateau 5G ax)</td><td>220 – 320, plus a data SIM</td></tr>
+      <tr><td>UPS + per-pontoon surge protection</td><td>400 – 700</td></tr>
+      <tr><td>Electronics total</td><td><strong>&#8776; 3,500 – 5,500</strong>, plus single-mode fibre, marine conduit and install</td></tr>
+    </tbody>
+  </table>
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on Cisco</h2>
+  <p class="section-thesis"><em>Same marina and VLANs on Cisco's line. The Cisco tabs on the config blocks above show where it differs; this appendix covers the rest.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Role</th><th>This post &#8594; Cisco</th></tr></thead>
+    <tbody>
+      <tr><td>R1 + 5G</td><td>CCR2004 + Chateau 5G &#8594; Catalyst 8200 with a cellular module</td></tr>
+      <tr><td>SW-CORE (PoE)</td><td>CRS328-24P-4S+ &#8594; Catalyst 9300-24P</td></tr>
+      <tr><td>Pontoon boxes</td><td>netPower &#8594; Catalyst IE3300 rugged, IP-rated switches</td></tr>
+      <tr><td>Sector Wi-Fi</td><td>mANTBox &#8594; Catalyst outdoor APs / Ultra-Reliable Wireless Backhaul</td></tr>
+      <tr><td>Billing / captive portal</td><td>Hotspot + User Manager &#8594; ISE guest portal (a separate appliance/licence)</td></tr>
+      <tr><td>Indicative total</td><td>&#8776; 3,500 – 5,500 &#8594; &#8776; 16,000 – 26,000 EUR ex VAT</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>The billing is the big divergence.</strong> RouterOS runs the hotspot, the RADIUS server and the voucher store on the router you already bought; the Cisco equivalent is ISE (or a third-party captive-portal appliance) as a separate box with its own licence, and the accounting lives there instead of on the marina's router. <strong>And there is no CAKE</strong>, so per-boat fairness becomes a shaper with fair-queue plus an LLQ class for VoIP and card auth.</p><p>For a single marina, MikroTik is the clear fit. Cisco makes sense only when a port authority already standardises on it across many harbours.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Every boat is a stranger.</strong> Client-isolate the berth network and sell access per berth, the mirror image of the villa's one-group rule.</li>
+      <li><strong>Carry the pontoons on fibre, not copper.</strong> It beats the distance, the galvanic path and the lightning conductor in one move, and generates PoE locally.</li>
+      <li><strong>Pick reach over throughput over water.</strong> 2.4 GHz sectors down the fairway, planned like cells, beat a faster band that can't get past a mast.</li>
+      <li><strong>Own the billing.</strong> Hotspot and User Manager on the router keep the customer list and the money-path on the marina's own hardware and survive a WAN outage.</li>
+      <li><strong>Seal the money and the safety systems.</strong> Payment reaches only the acquirer; shore-power and fuel answer only to staff; neither shares fate with a full hotspot.</li>
+      <li><strong>Build the pontoon boxes to be replaced.</strong> Salt and lightning win eventually; a spare that restores from the hub turns an outage into a short swap.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 11 of the <a href="build-index.html"><strong>Build series</strong></a>. Earlier: <a href="build-cafe-chain.html">the caf&eacute; chain</a>, <a href="build-villa.html">the holiday villa</a>, <a href="build-event.html">the festival</a>, <a href="build-farm.html">the off-grid farm</a>. The marina is the one that fights salt water and lightning for a living.</p>
+
+  <div class="cta-card">
+    <h3>Running a marina or harbour in Crete?</h3>
+    <p>I build marina networks like this one: metered Wi-Fi that reaches the far berth, a sealed money-path at the fuel dock, shore-power and cameras kept apart, fibre that keeps the sea out of your rack, and remote care so a dead pontoon is a message, not a complaint.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/consulting.html">Network &amp; IT consulting in Crete &#8594;</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>
