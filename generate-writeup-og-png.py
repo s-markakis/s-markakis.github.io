@@ -33,8 +33,30 @@ FONT_BOLD = '/System/Library/Fonts/Supplemental/Arial Bold.ttf'
 FONT_REG = '/System/Library/Fonts/Supplemental/Arial.ttf'
 
 
+_FONT_ALT = {
+    'Arial Black.ttf': ('LiberationSans-Bold', 'DejaVuSans-Bold'),
+    'Arial Bold.ttf':  ('LiberationSans-Bold', 'DejaVuSans-Bold'),
+    'Arial.ttf':       ('LiberationSans-Regular', 'DejaVuSans'),
+}
+_FONT_DIRS = ('/usr/share/fonts/truetype/liberation',
+              '/usr/share/fonts/truetype/liberation2',
+              '/usr/share/fonts/truetype/dejavu',
+              '/usr/share/fonts/TTF', '/usr/share/fonts')
+
+
 def font(path, size):
-    return ImageFont.truetype(path, size)
+    # Prefer the configured (macOS) font so local output is unchanged; fall back to
+    # Arial-metric-compatible Liberation, then DejaVu, so this also runs on Linux/CI
+    # (where the macOS Arial paths do not exist). load_default() so it never crashes.
+    cands = [path]
+    for stem in _FONT_ALT.get(path.rsplit('/', 1)[-1], ()):
+        cands += [d + '/' + stem + '.ttf' for d in _FONT_DIRS]
+    for c in cands:
+        try:
+            return ImageFont.truetype(c, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
 
 
 def text_w(draw, s, f):
