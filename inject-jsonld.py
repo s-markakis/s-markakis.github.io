@@ -25,7 +25,7 @@ for post in posts:
         'headline': post['title'],
         'description': post['description'],
         'datePublished': post['date'],
-        'dateModified': post['date'],
+        'dateModified': post.get('modified', post['date']),
         'author': {'@type': 'Person', 'name': 'S. Markakis', 'url': f'{SITE}/'},
         'publisher': {'@type': 'Person', 'name': 'S. Markakis', 'url': f'{SITE}/'},
         'url': f'{SITE}/{post["html"]}',

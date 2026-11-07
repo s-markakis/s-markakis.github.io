@@ -111,7 +111,7 @@
   "headline": "MikroTik: Remote-Access VPN (IKEv2 & SSTP)",
   "description": "Get laptops and phones securely back to the office on RouterOS — SSTP over TLS/443 for hostile firewalls, IKEv2 with mode-config for native clients, generate-policy and server-cert gotchas, plus the firewall/NAT rules people forget.",
   "datePublished": "2026-07-30",
-  "dateModified": "2026-07-30",
+  "dateModified": "2026-11-07",
   "author": {
     "@type": "Person",
     "name": "S. Markakis",
@@ -132,7 +132,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#mikrotik-remote-access-vpn"
   },
-  "timeRequired": "PT6M"
+  "timeRequired": "PT7M"
 }
 </script>
 </head>
@@ -169,6 +169,33 @@
   <p class="section-num">01</p>
   <h2 class="section-title">SSTP — the One That Always Works</h2>
   <p class="section-thesis"><em>Start here, because it's the most robust and the simplest. SSTP rides TLS/443, so it traverses NAT and restrictive firewalls transparently. A server cert, a PPP profile, and a user.</em></p>
+  <p>"A server cert" is doing a lot of work in that sentence — and it's the step most guides wave away. SSTP won't enable without one, and IKEv2 (§02) wants certs too, so build a small internal CA on the router <em>first</em>. RouterOS 7 can be its own CA; no external PKI needed for a handful of road warriors.</p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS 7 — build the CA + server cert (the prerequisite)</span>
+    <pre class="term"><span class="cmt"># 1. A self-signed CA to sign everything below, then trust it locally.</span>
+<span class="pc">/certificate</span> <span class="out">add name=ca-tmpl common-name=vpn-ca key-usage=key-cert-sign,crl-sign</span>
+<span class="pc">/certificate</span> <span class="out">sign ca-tmpl name=VPN-CA</span>
+<span class="pc">/certificate</span> <span class="out">set VPN-CA trusted=yes</span>
+
+<span class="cmt"># 2. The server cert SSTP/IKEv2 present. CN/SAN MUST equal the public</span>
+<span class="cmt">#    hostname clients dial, or the client aborts on a name mismatch.</span>
+<span class="pc">/certificate</span> <span class="out">add name=srv-tmpl common-name=vpn.example.com \
+    subject-alt-name=DNS:vpn.example.com key-usage=tls-server</span>
+<span class="pc">/certificate</span> <span class="out">sign srv-tmpl ca=VPN-CA name=ra-cert</span>
+
+<span class="cmt"># 3. A client cert for IKEv2 (SSTP uses user/pass; IKEv2 commonly certs).</span>
+<span class="pc">/certificate</span> <span class="out">add name=cli-tmpl common-name=road-warrior-1 key-usage=tls-client</span>
+<span class="pc">/certificate</span> <span class="out">sign cli-tmpl ca=VPN-CA name=client1</span>
+
+<span class="cmt"># 4. Export the CA (clients install it to trust the server) and the client</span>
+<span class="cmt">#    bundle as PKCS12 (cert+key in one file) to hand to the device.</span>
+<span class="pc">/certificate</span> <span class="out">export-certificate VPN-CA</span>
+<span class="pc">/certificate</span> <span class="out">export-certificate client1 type=pkcs12 export-passphrase=<span class="key">set-a-strong-one</span></span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Signing Is Async; CN Must Match the Dialed Name</span>
+    <p>Two traps here. First, <code>/certificate sign</code> runs in the <em>background</em> and can take a minute — if you sign the server cert before the CA has finished, it fails with an opaque error. Run <code>/certificate print</code> and wait until the CA shows the <code>KAT</code>/signed flags before signing anything against it. Second, the server cert's <strong>common-name/SAN must equal the exact hostname clients dial</strong> (<code>vpn.example.com</code>, not the WAN IP) — a mismatch makes every client reject the TLS handshake, and SSTP's "looks like HTTPS" advantage becomes "fails like HTTPS." Use a DNS name you control and can put a real cert on later.</p>
+  </div>
   <div class="term-wrap">
     <span class="term-label">RouterOS 7 — SSTP server over 443</span>
     <pre class="term"><span class="cmt"># Address pool + a PPP profile that assigns the gateway and client range.</span>

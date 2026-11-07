@@ -103,7 +103,7 @@
   "headline": "Cisco IOS: Device-Admin AAA (TACACS+ & RADIUS)",
   "description": "Centralise who can log into your switches and routers — AAA method lists against TACACS+ (with per-command authorization and accounting) or RADIUS, done the way that won't lock you out of the box.",
   "datePublished": "2026-09-23",
-  "dateModified": "2026-09-23",
+  "dateModified": "2026-11-07",
   "author": {
     "@type": "Person",
     "name": "S. Markakis",
@@ -124,7 +124,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#cisco-aaa-tacacs"
   },
-  "timeRequired": "PT6M"
+  "timeRequired": "PT8M"
 }
 </script>
 </head>
@@ -224,6 +224,52 @@
   </div>
 
   <p class="section-num">04</p>
+  <h2 class="section-title">On the TACACS+ Server — tac_plus</h2>
+  <p class="section-thesis"><em>The router asks; the server decides. Every method list and command-authz line above assumes a daemon that knows your groups and command sets. Here it is — the Debian <code>tacacs+</code> package (Shrubbery tac_plus), the one most SMB networks actually run.</em></p>
+  <p>One file (<code>/etc/tacacs+/tac_plus.conf</code>) defines the shared key, the groups whose command policy the router enforces, and the users. This is where "the network team gets everything, the NOC gets show-only" actually lives — the router just relays the question.</p>
+  <div class="term-wrap">
+    <span class="term-label">/etc/tacacs+/tac_plus.conf — key, groups, command policy</span>
+    <pre class="term"><span class="cmt"># MUST match the `key` on `tacacs server` in section 02 — else every</span>
+<span class="cmt"># request fails authentication with no useful error on the router.</span>
+<span class="out">key = <span class="key">S4me-as-the-tacacs-key</span></span>
+
+<span class="cmt"># Full access: priv-15 exec, every command permitted.</span>
+<span class="out">group = netadmin {</span>
+<span class="out">    default service = permit</span>
+<span class="out">    service = exec { priv-lvl = 15 }</span>
+<span class="out">}</span>
+
+<span class="cmt"># NOC: priv-1 exec, an explicit command whitelist, config denied.</span>
+<span class="cmt"># THIS is per-command authorization — the reason to run TACACS+ at all.</span>
+<span class="out">group = noc {</span>
+<span class="out">    default service = permit</span>
+<span class="out">    service = exec { priv-lvl = 1 }</span>
+<span class="out">    cmd = show       { permit .* }</span>
+<span class="out">    cmd = ping       { permit .* }</span>
+<span class="out">    cmd = traceroute { permit .* }</span>
+<span class="out">    cmd = configure  { deny .* }</span>
+<span class="out">}</span>
+
+<span class="cmt"># Authenticate against the Linux PAM stack (point PAM at AD/LDAP in prod);</span>
+<span class="cmt"># 'breakglass' stays local on the router, never here.</span>
+<span class="out">user = alice { member = netadmin   login = PAM }</span>
+<span class="out">user = bob   { member = noc        login = PAM }</span></pre>
+  </div>
+  <div class="term-wrap">
+    <span class="term-label">Server box — validate, run, and debug</span>
+    <pre class="term"><span class="cmt"># Parse the config before (re)starting — a syntax error fails silently.</span>
+<span class="pc">$</span> <span class="out">sudo tac_plus -C /etc/tacacs+/tac_plus.conf -P</span>   <span class="cmt"># prints OK or the bad line</span>
+<span class="pc">$</span> <span class="out">sudo systemctl restart tacacs_plus</span>
+
+<span class="cmt"># Watch a live decision (foreground, high debug) while you test from R1:</span>
+<span class="pc">$</span> <span class="out">sudo tac_plus -d 16 -C /etc/tacacs+/tac_plus.conf -g</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — A Command Whitelist Needs <code>commands 1</code> Authz Too</span>
+    <p>The <code>noc</code> group runs at <strong>priv-lvl 1</strong>, but section 03 only authorized <code>aaa authorization commands <em>15</em></code> — so level-1 commands never get sent to the server, and the <code>cmd = … deny</code> rules above are never consulted. To actually enforce the NOC whitelist, add <code>aaa authorization commands 1 default group TAC-GRP local</code> on the router as well. Authorize only the privilege levels your users actually operate at, or your carefully-written command policy is dead config that silently permits everything.</p>
+  </div>
+
+  <p class="section-num">05</p>
   <h2 class="section-title">RADIUS — When That's What You Have</h2>
   <p class="section-thesis"><em>RADIUS authenticates admins and can set a privilege level via a vendor attribute, but it can't do clean per-command control. Good enough for read-mostly access or when you're already running it.</em></p>
   <div class="term-wrap">
@@ -247,7 +293,7 @@
     </tbody>
   </table>
 
-  <p class="section-num">05</p>
+  <p class="section-num">06</p>
   <h2 class="section-title">Verify Before You Trust It <span class="safe-badge">Safe to Run</span></h2>
   <p class="section-thesis"><em>Prove authentication, the reachability of the server, and the fallback path — from a second session — before you close the first.</em></p>
   <div class="term-wrap">

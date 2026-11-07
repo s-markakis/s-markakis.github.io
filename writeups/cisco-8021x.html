@@ -111,7 +111,7 @@
   "headline": "Cisco IOS: 802.1X Port Authentication",
   "description": "Authenticate devices before they get network access — 802.1X with RADIUS on Cisco switches: supplicant/authenticator/server roles, dot1x config, MAB fallback, dynamic VLANs, and open-mode rollout.",
   "datePublished": "2026-08-07",
-  "dateModified": "2026-08-07",
+  "dateModified": "2026-11-07",
   "author": {
     "@type": "Person",
     "name": "S. Markakis",
@@ -132,7 +132,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#cisco-8021x"
   },
-  "timeRequired": "PT9M"
+  "timeRequired": "PT12M"
 }
 </script>
 </head>
@@ -330,6 +330,72 @@
 
   <!-- 05 -->
   <p class="section-num">05</p>
+  <h2 class="section-title">On the RADIUS Server — FreeRADIUS</h2>
+  <p class="section-thesis"><em>The switch is only the authenticator; it decides nothing. Every VLAN the last section "pushed" is actually chosen here, by the RADIUS server. This is the half the switch config assumes exists — on the SMB budgets we work, that's FreeRADIUS on a small Linux box, not ISE.</em></p>
+  <p>Three files turn a stock FreeRADIUS 3.x (<code>apt install freeradius</code> on Debian/Ubuntu) into the auth server the switch is already shouting at: tell it the switch is allowed to ask, pick an EAP method, and map each identity to a VLAN.</p>
+  <div class="term-wrap">
+    <span class="term-label">/etc/freeradius/3.0/clients.conf — who may ask</span>
+    <pre class="term"><span class="cmt"># The switch (or the whole mgmt subnet of switches). The secret MUST equal</span>
+<span class="cmt"># the `key` on `radius server` in section 01 — mismatch = silent drops.</span>
+<span class="out">client access-switches {</span>
+<span class="out">    ipaddr   = 10.0.0.0/24</span>
+<span class="out">    secret   = <span class="key">S4me-as-the-switch-key</span></span>
+<span class="out">    nas_type = cisco</span>
+<span class="out">}</span></pre>
+  </div>
+  <div class="term-wrap">
+    <span class="term-label">/etc/freeradius/3.0/mods-config/files/authorize — identity → VLAN</span>
+    <pre class="term"><span class="cmt"># The three attributes below ARE the dynamic VLAN. RFC 2868:</span>
+<span class="cmt">#   Tunnel-Type=VLAN(13), Tunnel-Medium-Type=IEEE-802(6), the VLAN id as a string.</span>
+<span class="cmt"># In production swap Cleartext-Password for an LDAP/AD lookup (see 'Realism' below).</span>
+
+<span class="cmt"># Staff → VLAN 10</span>
+<span class="out">alice   Cleartext-Password := "S3cret-staff!"</span>
+<span class="out">        Tunnel-Type = VLAN,</span>
+<span class="out">        Tunnel-Medium-Type = IEEE-802,</span>
+<span class="out">        Tunnel-Private-Group-Id = "10"</span>
+
+<span class="cmt"># Contractor → restricted VLAN 30, same port, different identity</span>
+<span class="out">bob     Cleartext-Password := "Temp-234!"</span>
+<span class="out">        Tunnel-Type = VLAN,</span>
+<span class="out">        Tunnel-Medium-Type = IEEE-802,</span>
+<span class="out">        Tunnel-Private-Group-Id = "30"</span>
+
+<span class="cmt"># MAB — the lobby printer that can't do 802.1X. Username = its MAC.</span>
+<span class="cmt"># Match whatever format `radius -X` shows the switch sending (see gotcha).</span>
+<span class="out">aabbccddeeff  Cleartext-Password := "aabbccddeeff"</span>
+<span class="out">        Tunnel-Type = VLAN,</span>
+<span class="out">        Tunnel-Medium-Type = IEEE-802,</span>
+<span class="out">        Tunnel-Private-Group-Id = "20"</span></pre>
+  </div>
+  <p>PEAP/MSCHAPv2 (what Windows/macOS/phones do out of the box) is already the default in <code>mods-available/eap</code> — it just needs a server certificate for the outer TLS tunnel. FreeRADIUS ships a self-signed test cert so the lab works immediately; for production, point <code>private_key_file</code>/<code>certificate_file</code> at a cert from your own CA (the same internal CA as the <a href="cisco-syslog.html">syslog TLS</a> trustpoint) so supplicants can validate the server and refuse a rogue one.</p>
+  <div class="term-wrap">
+    <span class="term-label">Collector box — load the files, then watch a real auth happen</span>
+    <pre class="term"><span class="cmt"># Stop the service and run in the foreground — the single best RADIUS tool.</span>
+<span class="pc">$</span> <span class="out">sudo systemctl stop freeradius</span>
+<span class="pc">$</span> <span class="out">sudo freeradius -X</span>              <span class="cmt"># full decode of every request/reply</span>
+
+<span class="cmt"># From another shell, fake Alice's request against localhost:</span>
+<span class="pc">$</span> <span class="out">radtest alice 'S3cret-staff!' 127.0.0.1 0 testing123</span>
+<span class="out">Received Access-Accept</span>
+<span class="out">   Tunnel-Type = VLAN</span>
+<span class="out">   Tunnel-Medium-Type = IEEE-802</span>
+<span class="out">   Tunnel-Private-Group-Id = "10"</span>   <span class="cmt"># ← the VLAN the switch will apply</span>
+
+<span class="cmt"># radtest is PAP; to exercise the actual PEAP tunnel a supplicant uses:</span>
+<span class="pc">$</span> <span class="out">eapol_test -c peap.conf -a 127.0.0.1 -s testing123</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — The MAB Username Format Must Match Exactly</span>
+    <p>MAB sends the device's MAC as <em>both</em> the username and password, but IOS and FreeRADIUS must agree on the spelling. Depending on IOS version and <code>mab request format attribute 1</code>, the switch sends <code>aabbccddeeff</code>, <code>AABBCCDDEEFF</code>, <code>aa:bb:cc:dd:ee:ff</code>, or dotted <code>aabb.ccdd.eeff</code> — and a user line that doesn't match character-for-character gets an Access-Reject that looks exactly like "unknown device." Don't guess: run <code>freeradius -X</code>, read the <code>User-Name</code> in the incoming Access-Request, and make the <code>authorize</code> entry match it (or normalise with a <code>policy</code> that rewrites <code>Calling-Station-Id</code>). This is the single most common reason a printer won't come up on MAB.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Don't Keep Passwords in a Flat File</span>
+    <p>The <code>authorize</code> file is perfect for a lab and for MAB (a MAC isn't a secret). For real staff accounts, bind FreeRADIUS to AD/LDAP (<code>mods-available/ldap</code>) and keep <em>only</em> the VLAN-attribute mapping local — identity lives in the directory, placement policy lives in RADIUS. That's the same split the <a href="mikrotik-radius-login.html">MikroTik RADIUS login</a> post uses for device admin, and it means a disabled AD account loses network access the moment HR clicks the button.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
   <h2 class="section-title">Verify &amp; Troubleshoot <span class="safe-badge">Safe to Run</span></h2>
   <p class="section-thesis"><em>One command shows every port's auth state, method, and assigned VLAN. When a device won't authenticate, the failure is at the supplicant, the switch relay, or RADIUS — these isolate which.</em></p>
 
@@ -350,8 +416,8 @@
     <p>Localize before you dig: if <code>show radius statistics</code> shows requests but no responses, it's the <strong>shared secret or server config</strong> (the switch and RADIUS disagree on the key, or the switch's IP isn't a defined client on the RADIUS side). If requests get an Access-Reject, it's <strong>credentials/policy</strong> on RADIUS. If nothing reaches RADIUS at all, it's <strong>reachability</strong> (routing/ACL to the server). And if the supplicant never starts, it's the <strong>client</strong> — 802.1X disabled on the NIC, or wrong EAP method. <code>test aaa</code> is the fastest way to cut the problem in half: it proves the switch↔RADIUS leg independently of any real device.</p>
   </div>
 
-  <!-- 06 -->
-  <p class="section-num">06</p>
+  <!-- 07 -->
+  <p class="section-num">07</p>
   <h2 class="section-title">Where It Fits — and Realism for SMBs</h2>
   <p class="section-thesis"><em>802.1X is powerful and operationally heavy. Know when it's worth it and when the lighter access-layer controls are enough.</em></p>
 

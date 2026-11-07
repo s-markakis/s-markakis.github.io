@@ -101,9 +101,9 @@
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   "headline": "Cisco IOS: Syslog & Centralized Logging",
-  "description": "Ship Cisco logs somewhere they survive a reboot and an attacker — severity levels, timestamps that depend on NTP, logging to a collector, rate-limiting and discriminators to kill noise, and secure transport.",
+  "description": "Ship Cisco logs somewhere they survive a reboot and an attacker — severity levels, timestamps that depend on NTP, logging to a collector, rate-limiting and discriminators to kill noise, and secure transport. Now with a full worked hotel-edge deployment and the rsyslog collector config.",
   "datePublished": "2026-10-05",
-  "dateModified": "2026-10-05",
+  "dateModified": "2026-11-06",
   "author": {
     "@type": "Person",
     "name": "S. Markakis",
@@ -124,7 +124,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#cisco-syslog"
   },
-  "timeRequired": "PT6M"
+  "timeRequired": "PT11M"
 }
 </script>
 </head>
@@ -311,6 +311,124 @@
   </div>
 
   <p class="section-num">05</p>
+  <h2 class="section-title">A Real Deployment — End to End</h2>
+  <p class="section-thesis"><em>The fragments above are the teaching cut. Here's the actual job: one site, the full edge-router stanza as it was pasted onto the box, and the collector config that nobody shows — because logs the router ships still go nowhere until rsyslog is told to catch and keep them.</em></p>
+  <p><strong>The site.</strong> A 36-room hotel outside Chania — a Cisco <code>C1111-8P</code> as the edge router (<code>CHQ-EDGE-01</code>), a management VLAN carrying a small Ubuntu 22.04 collector VM (<code>log01</code>, <code>10.0.0.5</code>), and the router's own loopback pinned as the source so every log line arrives from one predictable IP. NTP comes from the upstream <code>10.0.0.1</code>. Nothing exotic — this is the shape of most small-site edges I deploy.</p>
+
+  <h3 class="sub">On the router — the stanza as deployed</h3>
+  <div class="term-wrap">
+    <span class="term-label">CHQ-EDGE-01 — the whole logging block, one paste</span>
+    <pre class="term"><span class="cmt">! real timestamps first — Crete is EET (UTC+2), DST handled by the rule below</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">service timestamps log datetime msec localtime show-timezone</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">service timestamps debug datetime msec localtime show-timezone</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">service sequence-numbers</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">clock timezone EET 2 0</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">clock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">ntp server 10.0.0.1</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">interface Loopback0</span>
+<span class="pc">CHQ-EDGE-01(config-if)#</span> <span class="out">ip address 10.0.255.1 255.255.255.255</span>
+<span class="pc">CHQ-EDGE-01(config-if)#</span> <span class="out">exit</span>
+
+<span class="cmt">! ship informational-and-above to log01, pinned to the loopback</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">logging source-interface Loopback0</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">logging host 10.0.0.5 transport udp port 514</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">logging trap informational</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">logging buffered 128000 informational</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">logging console critical</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">logging monitor informational</span>
+
+<span class="cmt">! the guest-facing DHCP pool flaps a dialer on reconnect; mute that one line</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">logging rate-limit 20 except errors</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">logging discriminator NO-DIAL msg-body drops Dialer0</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">logging host 10.0.0.5 discriminator NO-DIAL</span>
+
+<span class="cmt">! make the events that matter for a hotel audit actually exist</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">login on-failure log</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">login on-success log</span>
+<span class="pc">CHQ-EDGE-01(config)#</span> <span class="out">archive</span>
+<span class="pc">CHQ-EDGE-01(config-archive)#</span> <span class="out">log config</span>
+<span class="pc">CHQ-EDGE-01(config-archive-log-cfg)#</span> <span class="out">logging enable</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — DST Is a Config Line, Not Magic</span>
+    <p>IOS does <strong>not</strong> shift for daylight saving on its own. Without <code>clock summer-time</code>, every log is an hour off for half the year — and in an incident post-mortem that hour is exactly where you'll be looking. The <code>recurring</code> rule above is the EU changeover; set it once and the router tracks it. Confirm with <code>show clock</code> showing <code>EEST</code> in summer, <code>EET</code> in winter.</p>
+  </div>
+
+  <h3 class="sub">On the collector — rsyslog catches and keeps it</h3>
+  <p>This is the half every tutorial skips. The router is now shouting to <code>10.0.0.5</code>, but stock rsyslog folds remote messages into <code>/var/log/syslog</code> mixed with the host's own — useless across a fleet. One drop-in file fixes it: listen on 514, and write one file per source IP.</p>
+  <div class="term-wrap">
+    <span class="term-label">log01 — /etc/rsyslog.d/10-netdev.conf</span>
+    <pre class="term"><span class="cmt"># load the network listeners once</span>
+<span class="out">module(load="imudp")</span>
+<span class="out">module(load="imtcp" MaxSessions="200")</span>
+
+<span class="cmt"># one directory + file per device, keyed on the source IP</span>
+<span class="cmt"># (this is why we pinned Loopback0 — the key is stable)</span>
+<span class="out">template(name="PerHost" type="string"</span>
+<span class="out">         string="/var/log/netdev/%FROMHOST-IP%/messages.log")</span>
+
+<span class="out">ruleset(name="netdev") {</span>
+<span class="out">    action(type="omfile" dynaFile="PerHost"</span>
+<span class="out">           dirCreateMode="0750" fileCreateMode="0640"</span>
+<span class="out">           dirOwner="syslog" fileOwner="syslog")</span>
+<span class="out">    stop   <span class="cmt"># don't also append to /var/log/syslog</span></span>
+<span class="out">}</span>
+
+<span class="cmt"># plain 514 is fine ONLY on a trusted mgmt VLAN; TLS block is below</span>
+<span class="out">input(type="imudp" port="514" ruleset="netdev")</span>
+<span class="out">input(type="imtcp" port="514" ruleset="netdev")</span></pre>
+  </div>
+  <div class="term-wrap">
+    <span class="term-label">log01 — the TLS listener (6514), pairs with the router trustpoint</span>
+    <pre class="term"><span class="cmt"># apt install rsyslog-gnutls ; certs issued by your internal CA</span>
+<span class="out">global(</span>
+<span class="out">  defaultNetstreamDriver="gtls"</span>
+<span class="out">  defaultNetstreamDriverCAFile="/etc/rsyslog.d/certs/ca.pem"</span>
+<span class="out">  defaultNetstreamDriverCertFile="/etc/rsyslog.d/certs/log01.pem"</span>
+<span class="out">  defaultNetstreamDriverKeyFile="/etc/rsyslog.d/certs/log01-key.pem"</span>
+<span class="out">)</span>
+<span class="out">input(type="imtcp" port="6514" ruleset="netdev"</span>
+<span class="out">      streamDriver.name="gtls" streamDriver.mode="1"</span>
+<span class="out">      streamDriver.authMode="anon")   <span class="cmt"># server-auth only: IOS checks us, not vice-versa</span></span></pre>
+  </div>
+  <div class="term-wrap">
+    <span class="term-label">log01 — rotate per-device logs, then reload</span>
+    <pre class="term"><span class="cmt"># /etc/logrotate.d/netdev — 30 days, compressed, don't lose the live handle</span>
+<span class="pc">$</span> <span class="out">cat /etc/logrotate.d/netdev</span>
+<span class="out">/var/log/netdev/*/messages.log {</span>
+<span class="out">    daily</span>
+<span class="out">    rotate 30</span>
+<span class="out">    compress</span>
+<span class="out">    missingok</span>
+<span class="out">    notifempty</span>
+<span class="out">    sharedscripts</span>
+<span class="out">    postrotate</span>
+<span class="out">        /usr/lib/rsyslog/rsyslog-rotate</span>
+<span class="out">    endscript</span>
+<span class="out">}</span>
+<span class="pc">$</span> <span class="out">sudo rsyslogd -N1</span>                      <span class="cmt"># validate config before reload</span>
+<span class="pc">$</span> <span class="out">sudo systemctl restart rsyslog</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — AppArmor Silently Eats Logs Outside /var/log/syslog</span>
+    <p>On Ubuntu, rsyslog runs under an AppArmor profile. A fresh <code>/var/log/netdev/</code> tree works because it's under <code>/var/log</code>, but move the path anywhere else and rsyslog starts clean, logs nothing, and leaves no error you'd notice — the denial is in <code>dmesg</code>/<code>audit.log</code>, not rsyslog's own log. Keep dynamic files under <code>/var/log</code>, or add the path to <code>/etc/apparmor.d/local/usr.sbin.rsyslogd</code>. First rsyslog deployment I did, I lost an afternoon to exactly this.</p>
+  </div>
+
+  <h3 class="sub">What actually lands</h3>
+  <p>Fire the test from the router (<code>send log level 6 "syslog test from CHQ-EDGE-01"</code>), then watch it arrive — one file, keyed on the loopback, wall-clock time, in order:</p>
+  <div class="term-wrap">
+    <span class="term-label">log01 — tail the device's file</span>
+    <pre class="term"><span class="pc">$</span> <span class="out">sudo tail -f /var/log/netdev/10.0.255.1/messages.log</span>
+<span class="cmt">2026-11-06T09:14:22+02:00 10.0.255.1 1001847: Nov  6 09:14:22.431 EEST:</span>
+<span class="cmt">  %SYS-5-CONFIG_I: Configured from console by noc on vty0 (10.0.0.42)</span>
+<span class="cmt">2026-11-06T09:14:48+02:00 10.0.255.1 1001849: Nov  6 09:14:48.002 EEST:</span>
+<span class="cmt">  %SEC_LOGIN-4-LOGIN_FAILED: Login failed [user: admin] [Source: 185.x.x.x]</span>
+<span class="cmt">2026-11-06T09:15:03+02:00 10.0.255.1 1001850: Nov  6 09:15:03.774 EEST:</span>
+<span class="cmt">  %SYS-6-LOGGINGHOST_STARTSTOP: Logging to host 10.0.0.5 started - reconnection</span></pre>
+  </div>
+  <p>Three things to notice: the <strong>sequence number</strong> (<code>1001847</code> → <code>1001849</code> — a gap means a dropped or cleared line), the <strong>source IP is the loopback</strong> not whatever egress interface the packet left by, and the <code>CONFIG_I</code> / <code>LOGIN_FAILED</code> lines are the ones a hotel breach review actually needs — present only because we turned them on in section 04.</p>
+
+  <p class="section-num">06</p>
   <h2 class="section-title">Verify <span class="safe-badge">Safe to Run</span></h2>
   <div class="term-wrap">
     <span class="term-label">IOS — confirm the pipeline end to end</span>

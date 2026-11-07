@@ -111,7 +111,7 @@
   "headline": "MikroTik: Logging, SNMP & Traffic-Flow",
   "description": "Make a RouterOS box tell you what it's doing — remote syslog, SNMPv3 monitoring, NTP so timestamps mean something, and Traffic-Flow (NetFlow/IPFIX) export to see what's actually on the wire.",
   "datePublished": "2026-07-30",
-  "dateModified": "2026-07-30",
+  "dateModified": "2026-11-07",
   "author": {
     "@type": "Person",
     "name": "S. Markakis",
@@ -132,7 +132,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#mikrotik-observability"
   },
-  "timeRequired": "PT5M"
+  "timeRequired": "PT6M"
 }
 </script>
 </head>
@@ -222,6 +222,21 @@
 <span class="pc">&gt;</span> <span class="out">/ip traffic-flow target add dst-address=10.10.99.10 port=2055 version=9</span>
 <span class="cmt"># Now "top talkers", per-host usage, and anomaly detection come from
 # the collector, not guesswork. Great for spotting an infected host.</span></pre>
+  </div>
+  <p>But <code>target add dst-address=10.10.99.10</code> only matters if something is <em>listening</em> there. That collector is the half this config assumes — on an SMB budget, <code>nfdump</code> on a small Linux box, same tool the <a href="cisco-observability.html">Cisco twin</a> points at (point both routers at it and the estate reads as one):</p>
+  <div class="term-wrap">
+    <span class="term-label">Collector 10.10.99.10 — catch the IPFIX/v9 export, then query</span>
+    <pre class="term"><span class="cmt"># apt install nfdump. nfcapd understands NetFlow v9 AND IPFIX on one port.</span>
+<span class="pc">$</span> <span class="out">sudo nfcapd -D -l /var/flows -p 2055</span>   <span class="cmt"># match the traffic-flow target port</span>
+
+<span class="cmt"># Top talkers survive a RouterOS reboot now — last hour, by bytes:</span>
+<span class="pc">$</span> <span class="out">nfdump -R /var/flows -t "$(date -d '1 hour ago' +%Y/%m/%d.%H:%M:%S)" -s srcip/bytes -n 10</span>
+<span class="out">Date first seen   Duration  Src IP Addr   Flows  Bytes</span>
+<span class="out">2026-11-07 14:02  00:59:58  10.10.20.37    9120   8.9 G   ← the infected host, kept</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — No Export Appears? It's the Port, Firewall, or Version</span>
+    <p>Traffic-Flow is fire-and-forget UDP — RouterOS never knows if the collector heard it. If <code>nfdump -R</code> is empty, confirm the packets arrive before touching the collector config: <code>tcpdump -ni any udp port 2055</code> on the box. Then check the obvious trio — <code>target … port=2055</code> matches nfcapd's <code>-p</code>, the firewall permits that UDP between router and collector, and <code>version=</code> is one nfcapd supports (use <code>ipfix</code> for IPv6 and MPLS labels, <code>9</code> otherwise).</p>
   </div>
 
   <div class="takeaways">

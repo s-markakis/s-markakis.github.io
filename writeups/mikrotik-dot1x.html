@@ -111,7 +111,7 @@
   "headline": "MikroTik: 802.1X Port Authentication",
   "description": "Require identity before a port passes traffic — RouterOS 7 dot1x server against a RADIUS backend, supplicant basics, and the fallback VLAN for devices that can't authenticate.",
   "datePublished": "2026-07-30",
-  "dateModified": "2026-07-30",
+  "dateModified": "2026-11-07",
   "author": {
     "@type": "Person",
     "name": "S. Markakis",
@@ -132,7 +132,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#mikrotik-dot1x"
   },
-  "timeRequired": "PT4M"
+  "timeRequired": "PT6M"
 }
 </script>
 </head>
@@ -265,6 +265,49 @@
     identity="site-rtr@corp" password="supplicant-secret" \
     eap-methods=eap-peap</span>
 <span class="pc">&gt;</span> <span class="out">/interface dot1x client monitor ether1</span>   <span class="cmt"># status: authenticated</span></pre>
+  </div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">On the RADIUS Server — FreeRADIUS</h2>
+  <p class="section-thesis"><em>Everything above points RouterOS at a RADIUS server "reachable from the switch." Here's that server — because the VLAN RouterOS applies isn't decided by RouterOS at all, it's returned by RADIUS. On SMB budgets that's FreeRADIUS on a small Linux box.</em></p>
+  <p>Two files make a stock FreeRADIUS 3.x (<code>apt install freeradius</code>) answer the MikroTik: trust the switch as a client, and map each identity to a VLAN. The VLAN mechanism is vendor-neutral — the same RFC 2868 <code>Tunnel-*</code> attributes RouterOS, Cisco, and everyone else read.</p>
+  <div class="term-wrap">
+    <span class="term-label">/etc/freeradius/3.0/clients.conf — trust the MikroTik</span>
+    <pre class="term"><span class="cmt"># secret MUST equal the `secret=` on `/radius add` in section 01.</span>
+<span class="out">client mikrotik-access {</span>
+<span class="out">    ipaddr = 10.0.0.0/24</span>
+<span class="out">    secret = <span class="key">S4me-as-the-radius-secret</span></span>
+<span class="out">}</span></pre>
+  </div>
+  <div class="term-wrap">
+    <span class="term-label">/etc/freeradius/3.0/mods-config/files/authorize — identity → VLAN</span>
+    <pre class="term"><span class="cmt"># Tunnel-Type=VLAN(13) + Tunnel-Medium-Type=IEEE-802(6) + the VLAN id.</span>
+<span class="cmt"># RouterOS reads these and puts the port in that VLAN on Access-Accept.</span>
+<span class="out">alice   Cleartext-Password := "S3cret-staff!"</span>
+<span class="out">        Tunnel-Type = VLAN,</span>
+<span class="out">        Tunnel-Medium-Type = IEEE-802,</span>
+<span class="out">        Tunnel-Private-Group-Id = "10"</span>
+
+<span class="cmt"># MAB — the lobby printer. Username = its MAC, format as RouterOS sends it.</span>
+<span class="out">aabbccddeeff  Cleartext-Password := "aabbccddeeff"</span>
+<span class="out">        Tunnel-Type = VLAN,</span>
+<span class="out">        Tunnel-Medium-Type = IEEE-802,</span>
+<span class="out">        Tunnel-Private-Group-Id = "20"</span></pre>
+  </div>
+  <p>PEAP needs a server cert for the outer tunnel; FreeRADIUS ships a test cert so the lab works now, and for production you point <code>mods-available/eap</code> at your own CA. The full <code>clients.conf</code>/EAP/LDAP walk is in the Cisco twin — <a href="cisco-8021x.html">Cisco 802.1X</a> — the server is identical; only the switch dialect changed.</p>
+  <div class="term-wrap">
+    <span class="term-label">Server box + RouterOS — prove the leg end to end</span>
+    <pre class="term"><span class="cmt"># On the FreeRADIUS box: run in foreground, the best RADIUS debugger there is.</span>
+<span class="pc">$</span> <span class="out">sudo systemctl stop freeradius &amp;&amp; sudo freeradius -X</span>
+<span class="pc">$</span> <span class="out">radtest alice 'S3cret-staff!' 127.0.0.1 0 testing123</span>   <span class="cmt"># expect Access-Accept + Tunnel-Private-Group-Id</span>
+
+<span class="cmt"># On RouterOS: is the switch↔RADIUS leg healthy, and did the port auth?</span>
+<span class="pc">&gt;</span> <span class="out">/radius monitor 0</span>                          <span class="cmt"># pending/requests/accepts/rejects</span>
+<span class="pc">&gt;</span> <span class="out">/interface dot1x server monitor [find]</span>     <span class="cmt"># per-port state + assigned vlan</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Match the MAB Username Format RouterOS Actually Sends</span>
+    <p>For MAC-auth, RouterOS sends the device MAC as the RADIUS <code>User-Name</code>, but the exact spelling (case and separators) must match your <code>authorize</code> entry <em>character for character</em> or you get an Access-Reject that looks like "unknown device." Don't assume — run <code>freeradius -X</code>, read the <code>User-Name</code> in the incoming Access-Request, and copy that exact string into the file. The identical trap bites on Cisco MAB; it's the number-one reason a printer won't come up on either platform.</p>
   </div>
 
   <div class="takeaways">

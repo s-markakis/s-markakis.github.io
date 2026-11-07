@@ -111,7 +111,7 @@
   "headline": "Cisco IOS: Observability (NTP, Syslog, SNMP & NetFlow)",
   "description": "You cant troubleshoot what you didnt record — synchronized time with NTP, centralized logs with syslog, monitoring with SNMPv3, and traffic visibility with Flexible NetFlow on Cisco IOS.",
   "datePublished": "2026-08-01",
-  "dateModified": "2026-08-01",
+  "dateModified": "2026-11-07",
   "author": {
     "@type": "Person",
     "name": "S. Markakis",
@@ -132,7 +132,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#cisco-observability"
   },
-  "timeRequired": "PT9M"
+  "timeRequired": "PT10M"
 }
 </script>
 </head>
@@ -319,6 +319,28 @@
 192.168.1.44    140.82.121.4    6     6001 443     31 M
 ...</span>
 <span class="cmt"># "What ate the internet at 2pm" — answered from the device itself.</span></pre>
+  </div>
+
+  <p>On-box cache answers "right now," but it's small and dies on reboot — which is exactly why the exporter ships to <code>192.168.1.50:2055</code>. That collector is the other half the exporter assumes. On an SMB budget it's <code>nfdump</code> on a small Linux box, no SIEM required:</p>
+  <div class="term-wrap">
+    <span class="term-label">Collector 192.168.1.50 — nfcapd catches, nfdump answers</span>
+    <pre class="term"><span class="cmt"># apt install nfdump. nfcapd listens for the flow export and writes</span>
+<span class="cmt"># rotated binary files (5-min buckets) — run it as a daemon.</span>
+<span class="pc">$</span> <span class="out">sudo nfcapd -D -l /var/flows -p 2055</span>   <span class="cmt"># daemon, dir, the port the exporter uses</span>
+
+<span class="cmt"># History survives now. Top 10 source IPs by bytes, last hour:</span>
+<span class="pc">$</span> <span class="out">nfdump -R /var/flows -t "$(date -d '1 hour ago' +%Y/%m/%d.%H:%M:%S)" \
+       -s srcip/bytes -n 10</span>
+<span class="out">Aggregated flows ... </span>
+<span class="out">Date first seen   Duration  Src IP Addr   Flows  Bytes</span>
+<span class="out">2026-11-07 14:02  00:59:58  192.168.1.30   4812   11.4 G   ← the 2pm hog, kept</span>
+
+<span class="cmt"># Who did ONE host talk to? (incident triage, not just totals)</span>
+<span class="pc">$</span> <span class="out">nfdump -R /var/flows 'src ip 192.168.1.30' -s dstip/bytes -n 10</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Exporter Port, Collector Port, and the Firewall Must Agree</span>
+    <p>Three things have to line up or you get a silent empty cache: the exporter's <code>transport udp 2055</code>, nfcapd's <code>-p 2055</code>, and any firewall/ACL between the router and the collector permitting that UDP port. NetFlow is fire-and-forget UDP — nothing tells the router the collector never heard it. If <code>nfdump -R</code> shows nothing, confirm packets actually arrive first: <code>tcpdump -ni any udp port 2055</code> on the collector. Flag types (<code>srcip</code>, <code>dstport</code>, …) only work for fields the <code>flow record</code> actually matched — you can't aggregate on a port you never collected.</p>
   </div>
 
   <!-- 05 -->
