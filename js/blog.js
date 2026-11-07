@@ -62,13 +62,17 @@ function formatDate(d) {
   return date.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-function getAllTags() {
-  const tags = new Set();
-  posts.forEach(p => (p.tags || []).forEach(t => tags.add(t)));
-  // Platform pills first (in this order), then series, then every topic tag alphabetically.
-  const PINNED = ['cisco', 'mikrotik', 'build'];
-  const rest = [...tags].filter(t => !PINNED.includes(t)).sort();
-  return [...PINNED.filter(t => tags.has(t)), ...rest];
+// Named tag groups for the filter bar (fixed order). Any tag not listed here
+// is treated as a Topic and shown alphabetically under that group.
+const TAG_GROUPS = [
+  { key: 'platform', tags: ['cisco', 'mikrotik'] },
+  { key: 'series',   tags: ['build', 'surgery', 'broken-by-design', 'htb', 'labs'] },
+];
+
+function presentTags() {
+  const set = new Set();
+  posts.forEach(p => (p.tags || []).forEach(tg => set.add(tg)));
+  return set;
 }
 
 // Keep the active tag in ?tag= so a category view can be linked (e.g. blog.html?tag=build).
@@ -79,31 +83,62 @@ function syncTagParam() {
   history.replaceState(null, '', url);
 }
 
+function makeFilterPill(tag) {
+  const btn = document.createElement('button');
+  btn.className = 'filter-pill' + (activeFilter === tag ? ' active' : '')
+               + (tag === 'build' ? ' filter-pill-build' : '');
+  btn.textContent = tag;
+  btn.addEventListener('click', () => { activeFilter = tag; syncTagParam(); renderFilterBar(); renderList(); });
+  return btn;
+}
+
+function makeSpecialPill(labelKey, value) {
+  const btn = document.createElement('button');
+  btn.className = 'filter-pill' + (activeFilter === value ? ' active' : '');
+  btn.textContent = t(labelKey);
+  btn.addEventListener('click', () => { activeFilter = value; syncTagParam(); renderFilterBar(); renderList(); });
+  return btn;
+}
+
 function renderFilterBar() {
   const bar = document.getElementById('filter-bar');
   bar.innerHTML = '';
-  const tags = getAllTags();
-  if (tags.length <= 1) { bar.style.display = 'none'; return; }
+  const present = presentTags();
+  if (present.size <= 1) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
 
-  const allBtn = document.createElement('button');
-  allBtn.className = 'filter-pill' + (activeFilter === null ? ' active' : '');
-  allBtn.textContent = t('blog.filter.all');
-  allBtn.addEventListener('click', () => { activeFilter = null; syncTagParam(); renderFilterBar(); renderList(); });
-  bar.appendChild(allBtn);
+  // Primary row: All + Recent. Empty label keeps the pills aligned with groups.
+  const primary = document.createElement('div');
+  primary.className = 'filter-group';
+  const spacer = document.createElement('span');
+  spacer.className = 'filter-group-label';
+  primary.appendChild(spacer);
+  const primaryPills = document.createElement('div');
+  primaryPills.className = 'filter-group-pills';
+  primaryPills.appendChild(makeSpecialPill('blog.filter.all', null));
+  primaryPills.appendChild(makeSpecialPill('blog.filter.recent', RECENT));
+  primary.appendChild(primaryPills);
+  bar.appendChild(primary);
 
-  const recentBtn = document.createElement('button');
-  recentBtn.className = 'filter-pill' + (activeFilter === RECENT ? ' active' : '');
-  recentBtn.textContent = t('blog.filter.recent');
-  recentBtn.addEventListener('click', () => { activeFilter = RECENT; syncTagParam(); renderFilterBar(); renderList(); });
-  bar.appendChild(recentBtn);
+  // Build the groups: named groups in fixed order, then every remaining tag
+  // as an alphabetical Topic group.
+  const claimed = new Set(TAG_GROUPS.flatMap(g => g.tags));
+  const groups = TAG_GROUPS.map(g => ({ key: g.key, tags: g.tags.filter(tg => present.has(tg)) }));
+  groups.push({ key: 'topic', tags: [...present].filter(tg => !claimed.has(tg)).sort() });
 
-  tags.forEach(tag => {
-    const btn = document.createElement('button');
-    btn.className = 'filter-pill' + (activeFilter === tag ? ' active' : '') + (tag === 'build' ? ' filter-pill-build' : '');
-    btn.textContent = tag;
-    btn.addEventListener('click', () => { activeFilter = tag; syncTagParam(); renderFilterBar(); renderList(); });
-    bar.appendChild(btn);
+  groups.forEach(g => {
+    if (!g.tags.length) return;
+    const row = document.createElement('div');
+    row.className = 'filter-group';
+    const label = document.createElement('span');
+    label.className = 'filter-group-label';
+    label.textContent = t('blog.filter.group.' + g.key);
+    row.appendChild(label);
+    const pills = document.createElement('div');
+    pills.className = 'filter-group-pills';
+    g.tags.forEach(tag => pills.appendChild(makeFilterPill(tag)));
+    row.appendChild(pills);
+    bar.appendChild(row);
   });
 }
 
@@ -203,7 +238,7 @@ fetch('posts.json')
     posts = data;
     // Only accept a ?tag= that names a real tag; anything else falls back to "All".
     const wanted = new URLSearchParams(location.search).get('tag');
-    if (wanted && getAllTags().includes(wanted)) activeFilter = wanted;
+    if (wanted && presentTags().has(wanted)) activeFilter = wanted;
     renderFilterBar();
     renderList();
   });
