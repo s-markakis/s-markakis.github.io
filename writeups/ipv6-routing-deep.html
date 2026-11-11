@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>IPv6 in Depth: OSPFv3, /127 Links and BGP — S. Markakis</title>
+<meta name="description" content="Routing IPv6 for real: why OSPFv3 split addresses out of the router LSA, link-local next hops, /127 point-to-point links, address-family OSPFv3, and taking a provider-independent or delegated prefix into BGP — on RouterOS 7 and IOS.">
+<meta property="og:title" content="IPv6 in Depth: OSPFv3, /127 Links and BGP — S. Markakis">
+<meta property="og:description" content="Routing IPv6 for real: why OSPFv3 split addresses out of the router LSA, link-local next hops, /127 point-to-point links, address-family OSPFv3, and taking a provider-independent or delegated prefix into BGP — on RouterOS 7 and IOS.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/ipv6-routing-deep.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-routing-deep.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-routing-deep.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/ipv6-routing-deep.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/ipv6-routing-deep.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/ipv6-routing-deep-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/ipv6-routing-deep.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* ipv6 in depth (v6-) */
+  .v6-box{fill:var(--card);stroke:var(--mid);stroke-width:1.4;}
+  .v6-box.hi{stroke:var(--accent);stroke-width:1.8;}
+  .v6-box.def{stroke:var(--defender);}
+  .v6-h{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:13px;fill:var(--mid);text-anchor:middle;}
+  .v6-c{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  .v6-m{font-family:var(--font-mono),monospace;font-size:11px;fill:var(--mid);}
+  .v6-m.acc,.v6-c.acc,.v6-h.acc{fill:var(--accent);}
+  .v6-m.def,.v6-c.def,.v6-h.def{fill:var(--defender);}
+  .v6-ln{stroke:var(--body);stroke-width:1.4;fill:none;}
+  .v6-ln.acc{stroke:var(--accent);}
+  .v6-ln.def{stroke:var(--defender);}
+  .v6-ln.dash{stroke-dasharray:4 4;}
+  .v6-cell{fill:var(--bg);stroke:var(--rule);stroke-width:1;}
+  .v6-cell.acc{fill:none;stroke:var(--accent);stroke-width:1.6;}
+  .v6-ah{fill:var(--body);}.v6-ah.acc{fill:var(--accent);}.v6-ah.def{fill:var(--defender);}
+  @keyframes v6Flow{from{stroke-dashoffset:24;}to{stroke-dashoffset:0;}}
+  .v6-flow{stroke-dasharray:6 6;animation:v6Flow 1.2s linear infinite;}
+  @media (prefers-reduced-motion:reduce){.v6-flow{animation:none;}}
+  .chapter{margin-top:2.6rem;}
+  .chapter-num{font-family:var(--font-disp);font-weight:700;font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:.15rem;}
+  .chapter-title{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:.2rem;}
+  .chapter-desc{font-style:italic;color:var(--body);font-size:.9rem;margin-bottom:1rem;border-bottom:1px solid var(--rule);padding-bottom:.7rem;}
+  .ci-row{display:flex;align-items:baseline;gap:1rem;padding:.8rem .3rem;border-bottom:1px solid var(--rule);text-decoration:none;transition:background .12s,padding .15s;}
+  .ci-row:first-of-type{border-top:1px solid var(--rule);}
+  .ci-row:hover{background:var(--card);padding-left:.7rem;text-decoration:none;}
+  .ci-num{font-family:var(--font-disp);font-weight:800;font-size:.82rem;color:var(--accent);min-width:2.1ch;text-align:right;}
+  .ci-main{flex:1;min-width:0;}
+  .ci-title{display:block;font-family:var(--font-disp);font-weight:600;font-size:1.04rem;color:var(--head);line-height:1.25;}
+  .ci-desc{display:block;color:var(--body);font-size:.85rem;margin-top:.15rem;line-height:1.45;}
+  .ci-time{font-family:var(--font-disp);font-size:.72rem;letter-spacing:.05em;color:var(--body);white-space:nowrap;}
+  .ci-arrow{color:var(--rule);font-size:1rem;align-self:center;}
+  .ci-row:hover .ci-arrow{color:var(--accent);}
+  @media (max-width:560px){h1.post-title{font-size:2.3rem;}.ci-time{display:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "IPv6 in Depth: OSPFv3, /127 Links and BGP",
+  "description": "Routing IPv6 for real: why OSPFv3 split addresses out of the router LSA, link-local next hops, /127 point-to-point links, address-family OSPFv3, and taking a provider-independent or delegated prefix into BGP — on RouterOS 7 and IOS.",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/ipv6-routing-deep.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/ipv6-routing-deep.png",
+  "keywords": [
+    "ipv6"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#ipv6-routing-deep"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><strong style="color:var(--mid);">English</strong> &nbsp;·&nbsp; <a href="ipv6-routing-deep-el.html" style="font-weight:600;">Ελληνικά</a></p>
+  <p class="post-meta"><span class="series-chip">IPv6 in Depth</span> &nbsp;·&nbsp; Part 4 &middot; November 2026</p>
+  <h1 class="post-title">IPv6 in Depth<br><span style="font-size:1.5rem;color:var(--accent);">OSPFv3, /127 Links and BGP</span></h1>
+  <p class="post-subtitle">Routing v6 looks like routing v4 with longer numbers, right up until a router-ID won't come up, a prefix change triggers no SPF, or your BGP session goes Established and the ISP drops every prefix you send. This is the part that's actually different, configured on RouterOS 7 and IOS-XE side by side.</p>
+  <div class="tags">
+    <span class="tag">IPv6</span>
+    <span class="tag">OSPFv3</span>
+    <span class="tag">BGP</span>
+    <span class="tag">RFC 6164</span>
+    <span class="tag">Multihoming</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Cisco IOS</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Most of what you know about OSPF and BGP carries over. The differences cluster in three places. OSPFv3 separates topology from addressing. Point-to-point links get their own addressing rules. And IPv6 multihoming has an aggregation problem that IPv4 papered over with NAT. Each of them produces a classic &ldquo;it's configured, why isn't it working&rdquo; afternoon.</p>
+    <div class="prereqs-label">Before this</div>
+    <ul class="prereqs-list">
+      <li>OSPF and BGP in IPv4: <a href="cisco-routing-ospf.html">Routing &amp; OSPF</a>, BGP dual-ISP on <a href="cisco-bgp-dual-isp.html">IOS</a> and <a href="mikrotik-bgp-dual-isp.html">RouterOS</a></li>
+      <li>Part of <strong><a href="ipv6-index.html">IPv6 in Depth</a></strong> &mdash; previous: <a href="ipv6-firewall-rfc4890.html">The Firewall, Done Right</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">What OSPFv3 Actually Changed</h2>
+  <p class="section-thesis"><em>Same SPF, same areas, same adjacency states. The LSAs were rebuilt so that topology and prefixes travel separately.</em></p>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 270" role="img" aria-label="OSPFv2 carries topology and IPv4 prefixes together in the Router LSA. OSPFv3 splits them: the Router LSA carries topology only, the Link LSA carries the router's link-local address and the prefixes on one link with link-local flooding scope, and the Intra-Area-Prefix LSA carries the prefixes for the area">
+      <text class="v6-h" x="170" y="28">OSPFv2 (IPv4)</text>
+      <rect class="v6-box" x="50" y="44" width="240" height="80" rx="5"/>
+      <text class="v6-h" x="170" y="66">Router LSA (type 1)</text>
+      <text class="v6-c" x="170" y="88">links + neighbors (topology)</text>
+      <text class="v6-c acc" x="170" y="108">+ the IPv4 prefixes on each link</text>
+      <text class="v6-c" x="170" y="150" style="font-style:italic;">change a prefix &rarr; new Router LSA &rarr; full SPF</text>
+      <text class="v6-h" x="540" y="28">OSPFv3 (IPv6)</text>
+      <rect class="v6-box def" x="400" y="44" width="300" height="56" rx="5"/>
+      <text class="v6-h def" x="550" y="66">Router LSA (0x2001) &middot; Network LSA (0x2002)</text>
+      <text class="v6-c" x="550" y="86">topology only, no addresses at all</text>
+      <rect class="v6-box hi" x="400" y="112" width="140" height="70" rx="5"/>
+      <text class="v6-h acc" x="470" y="134">Link LSA (0x0008)</text>
+      <text class="v6-c" x="470" y="152">link-local next hop</text>
+      <text class="v6-c" x="470" y="168">+ prefixes, one link only</text>
+      <rect class="v6-box hi" x="560" y="112" width="140" height="70" rx="5"/>
+      <text class="v6-h acc" x="630" y="134">Intra-Area-Prefix</text>
+      <text class="v6-c" x="630" y="152">(0x2009)</text>
+      <text class="v6-c" x="630" y="168">prefixes for the area</text>
+      <text class="v6-c" x="550" y="212" style="font-style:italic;">change a prefix &rarr; only 0x2009 refloods &rarr; no full SPF</text>
+      <line class="v6-ln dash" x1="300" y1="44" x2="300" y2="240"/>
+      <text class="v6-c" x="380" y="250">Runs over IPv6 itself: protocol 89, sourced from link-local, to ff02::5 / ff02::6</text>
+    </svg>
+  </div>
+  <p>The practical consequences:</p>
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Adjacencies don't care about subnets.</strong> OSPFv3 runs per <em>link</em>, between link-local addresses. Two routers on the same segment become neighbors even if their global prefixes don't match. In v2 that mismatch would have stopped the adjacency, so the old &ldquo;check the subnet mask&rdquo; step catches nothing here.</li>
+    <li><strong>Router-ID is still a 32-bit number</strong>, and on IOS it's still taken from an IPv4 address by default. A v6-only router with no IPv4 address has no router-ID, and OSPFv3 won't start until you set one. Set it explicitly everywhere.</li>
+    <li><strong>Next hops are link-local.</strong> They come from the Link LSA. <code>show ipv6 route ospf</code> full of <code>FE80::</code> next hops is correct, and it's why renumbering a link's global prefix doesn't disturb forwarding.</li>
+    <li><strong>Authentication moved.</strong> OSPFv3 dropped v2's built-in auth in favour of IPsec (RFC 4552). An Authentication Trailer (RFC 7166) was added later. Mixed-vendor areas fail when one side uses IPsec and the other the trailer, so agree on the mechanism before blaming keys.</li>
+  </ul>
+
+  <div class="term-wrap"><span class="term-label">RouterOS 7 &mdash; OSPFv3 on a point-to-point uplink</span><pre class="term">/routing ospf instance add name=v3 version=3 router-id=10.255.0.1 \
+    redistribute=connected
+/routing ospf area add name=bb-v3 area-id=0.0.0.0 instance=v3
+/routing ospf interface-template add area=bb-v3 interfaces=ether2 type=ptp
+/routing ospf interface-template add area=bb-v3 interfaces=loopback passive
+<span class="cmt"># "loopback" = an empty bridge carrying the router's /128</span>
+/routing ospf neighbor print        <span class="cmt"># state=Full, address=fe80::...</span>
+/routing ospf lsa print where instance=v3</pre></div>
+  <div class="term-wrap"><span class="term-label">IOS-XE &mdash; OSPFv3 in address-family mode</span><pre class="term"><span class="pc">R2(config)#</span> <span class="out">router ospfv3 1</span>
+<span class="pc">R2(config-router)#</span> <span class="out">router-id 10.255.0.2</span>
+<span class="pc">R2(config-router)#</span> <span class="out">address-family ipv6 unicast</span>
+<span class="pc">R2(config-router-af)#</span> <span class="out">passive-interface Loopback0</span>
+<span class="pc">R2(config-router-af)#</span> <span class="out">exit-address-family</span>
+<span class="pc">R2(config)#</span> <span class="out">interface GigabitEthernet0/0/0</span>
+<span class="pc">R2(config-if)#</span> <span class="out">ospfv3 1 ipv6 area 0</span>
+<span class="pc">R2(config-if)#</span> <span class="out">ospfv3 network point-to-point</span>
+<span class="pc">R2#</span> <span class="out">show ospfv3 neighbor</span>
+<span class="pc">R2#</span> <span class="out">show ospfv3 database link</span>     <span class="cmt"># type 8: each neighbor's link-local + prefixes</span>
+<span class="pc">R2#</span> <span class="out">show ospfv3 database prefix</span>   <span class="cmt"># type 9: what the area routes to</span></pre></div>
+  <p>The same <code>router ospfv3</code> process can also carry IPv4 (<code>address-family ipv4 unicast</code>, RFC 5838). Each address family uses its own instance-ID range on the wire: 0&ndash;31 for IPv6 unicast, 64&ndash;95 for IPv4 unicast. Two routers with the same area and a mismatched instance ID won't form an adjacency, and nothing in the logs says why. Check the instance ID first when mixing AF-mode and legacy OSPFv3 configs.</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Point-to-Point Links: /127, Not /64</h2>
+  <p class="section-thesis"><em>&ldquo;Every subnet is a /64&rdquo; is right for LANs and wrong for router-to-router links. RFC 6164 explains why.</em></p>
+  <p>A /64 on a link with exactly two routers leaves 2<sup>64</sup> addresses that don't exist. When a packet arrives for one of them, the router runs neighbor resolution and holds an <em>incomplete</em> neighbor entry while it waits. Enough of those, from a misbehaving host or deliberate traffic, can fill the neighbor cache and crowd out real entries. On a LAN you limit that with cache caps. On a p2p link you remove it by using a prefix with no empty addresses:</p>
+  <div class="term-wrap"><span class="term-label">Address plan: reserve a /64 per link, configure the /127</span><pre class="term">reserved   2001:db8:acad:ff01::/64     <span class="cmt"># keeps the plan nibble-aligned and leaves room to change</span>
+configured 2001:db8:acad:ff01::a/127   <span class="cmt"># R1</span>
+           2001:db8:acad:ff01::b/127   <span class="cmt"># R2  (a and b differ only in the last bit)</span>
+
+<span class="cmt"># RouterOS 7</span>
+/ipv6 address add interface=ether2 address=2001:db8:acad:ff01::a/127 advertise=no
+<span class="cmt"># IOS-XE</span>
+<span class="pc">R2(config-if)#</span> <span class="out">ipv6 address 2001:db8:acad:ff01::b/127</span></pre></div>
+  <p>Note <code>advertise=no</code> on RouterOS: SLAAC needs a /64, so RAs on a /127 make no sense, and you don't want a router link announcing itself as a default gateway.</p>
+  <div class="callout defender">
+    <span class="callout-label">&#128161; Cap the Neighbor Cache on LANs Too</span>
+    <p>LANs have to stay /64, so the defence there is a ceiling. RouterOS: <code>/ipv6 settings set max-neighbor-entries=8192</code> (size it to the segment). IOS: <code>ipv6 nd cache interface-limit 2000</code> per interface. Pair it with the inbound default-deny from <a href="ipv6-firewall-rfc4890.html">Part 3</a>: unsolicited traffic from the internet to random addresses inside your /64s is dropped before the router ever starts neighbor resolution for it.</p>
+  </div>
+  <h3 class="sub">The other option: link-local only (RFC 7404)</h3>
+  <p>OSPFv3 and BGP can both run on links that have <em>no</em> global address at all, because the adjacency and the next hop are already link-local. You save address space and the links can't be targeted from outside. You pay in troubleshooting: you can't ping an interface from a remote network, and traceroute hops show whatever global address the router picks to source the ICMP error, usually a loopback. For a small network with a handful of links, /127 is easier to operate. Link-local only pays off in large fabrics.</p>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Static Routes Use Link-Local Too</h2>
+  <p class="section-thesis"><em>A link-local next hop is only meaningful together with its interface, so the interface is part of the route.</em></p>
+  <div class="term-wrap"><span class="term-label">Default route to the ISP via its link-local address</span><pre class="term"><span class="cmt"># RouterOS 7 &mdash; %interface scopes the link-local address</span>
+/ipv6 route add dst-address=::/0 gateway=fe80::1%pppoe-out1
+
+<span class="cmt"># IOS-XE &mdash; interface + link-local; a global next hop alone also works</span>
+<span class="pc">R1(config)#</span> <span class="out">ipv6 route ::/0 GigabitEthernet0/0/0 FE80::1</span></pre></div>
+  <p>Every interface has an <code>fe80::/64</code>, so <code>fe80::1</code> on its own is ambiguous. Without the interface the route either fails to install or resolves on the wrong link. The upside is that the route survives any renumbering of the global prefixes.</p>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Multihoming and BGP: the Aggregation Problem</h2>
+  <p class="section-thesis"><em>With IPv4 you NATed behind two ISPs and moved on. With IPv6 you have to decide where your addresses come from.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Approach</th><th>How it works</th><th>Catch</th></tr></thead>
+    <tbody>
+      <tr><td>PI /48 + BGP</td><td>Your own provider-independent /48 from the RIR (RIPE NCC here), announced to both ISPs</td><td>Needs an AS number, an RIR membership or sponsoring LIR, and ISPs that take BGP from you. The real answer, if you qualify.</td></tr>
+      <tr><td>Two PA prefixes on the LAN</td><td>Both ISPs delegate; the router advertises both in RAs; hosts get two addresses</td><td>The host picks the source address and the router picks the exit. Traffic sourced from ISP A's prefix and sent out via ISP B gets dropped by B's anti-spoofing filters. You need source-based routing on the router.</td></tr>
+      <tr><td>NPTv6 (RFC 6296)</td><td>Hosts use one internal prefix; the router does a stateless 1:1 prefix swap per exit</td><td>Experimental RFC, breaks protocols that carry addresses, and gives you no security. A workable compromise only when neither of the above fits.</td></tr>
+    </tbody>
+  </table>
+  <p>The size rule is the one to remember: the global table generally accepts nothing longer than a <strong>/48</strong> for IPv6. A /56 from your ISP isn't yours to announce elsewhere. A /48 PI is. Create a ROA for it before the first announcement, because upstreams that validate RPKI will drop an announcement with no matching ROA.</p>
+  <div class="term-wrap"><span class="term-label">IOS-XE &mdash; announce a PI /48, take only a default</span><pre class="term">ipv6 route 2001:db8:5000::/48 Null0           <span class="cmt">! anchor so the network statement matches</span>
+ipv6 prefix-list V6-OUT seq 5 permit 2001:db8:5000::/48
+ipv6 prefix-list V6-IN  seq 5 permit ::/0
+!
+router bgp 65010
+ bgp router-id 10.255.0.2
+ no bgp default ipv4-unicast
+ neighbor 2001:db8:b::1 remote-as 64501
+ address-family ipv6 unicast
+  network 2001:db8:5000::/48
+  neighbor 2001:db8:b::1 activate
+  neighbor 2001:db8:b::1 prefix-list V6-OUT out
+  neighbor 2001:db8:b::1 prefix-list V6-IN in
+ exit-address-family</pre></div>
+  <div class="term-wrap"><span class="term-label">RouterOS 7 &mdash; the same session</span><pre class="term">/ipv6 route add dst-address=2001:db8:5000::/48 blackhole
+/ipv6 firewall address-list add list=bgp-out address=2001:db8:5000::/48
+/routing filter rule add chain=isp-in rule="if (dst == ::/0) { accept } else { reject }"
+/routing bgp connection add name=isp-b as=65010 router-id=10.255.0.1 \
+    remote.address=2001:db8:b::1 remote.as=64501 local.role=ebgp \
+    address-families=ipv6 output.network=bgp-out input.filter=isp-in
+/routing bgp session print</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; IPv6 Routes Over an IPv4 Session</span>
+    <p>BGP can carry IPv6 prefixes over a session between IPv4 addresses (MP-BGP), and many people set it up that way to reuse an existing peering. The next hop then gets encoded as an IPv4-mapped address (<code>::ffff:192.0.2.1</code>), which isn't reachable in the v6 table. The session comes up and the prefixes arrive, but they're unusable or get filtered. Either peer over IPv6 addresses for the IPv6 family (cleanest) or set a v6 next hop with an outbound route-map. On IOS, also check <code>no bgp default ipv4-unicast</code> plus an explicit <code>activate</code> under each address family. Without them, IOS activates the neighbor for IPv4 by default, and the IPv6 family stays silent.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>OSPFv3 splits topology from prefixes.</strong> Router/Network LSAs carry no addresses. Link (type 8) and Intra-Area-Prefix (type 9) LSAs carry them, so prefix changes don't trigger a full SPF.</li>
+      <li><strong>Adjacencies form over link-local, per link.</strong> Subnet mismatches don't block them. Instance-ID mismatches do.</li>
+      <li><strong>Set the 32-bit router-ID explicitly.</strong> A v6-only router has no IPv4 address to borrow it from.</li>
+      <li><strong>/127 on router-to-router links</strong> (RFC 6164), carved from a reserved /64, with RAs off. Keep LANs at /64 and cap the neighbor cache.</li>
+      <li><strong>Link-local next hops need their interface</strong>: <code>fe80::1%pppoe-out1</code> or <code>Gi0/0/0 FE80::1</code>.</li>
+      <li><strong>IPv6 multihoming means PI /48 + BGP</strong>, or source-aware routing across two PA prefixes. A delegated /56 can't be announced to a second ISP. Publish a ROA before you announce.</li>
+      <li><strong>Peer v6 over v6.</strong> v6 NLRI over a v4 session gets an IPv4-mapped next hop.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Planning dual-ISP or a routed IPv6 core?</h3>
+    <p>I design and build IPv6 routing on MikroTik and Cisco: address plans that survive growth, OSPFv3 that interoperates across vendors, and BGP multihoming with the filters and RPKI to go with it.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

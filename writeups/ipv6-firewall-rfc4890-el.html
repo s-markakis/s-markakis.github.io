@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>IPv6 σε Βάθος: Το Firewall, Σωστά — S. Markakis</title>
+<meta name="description" content="Το RFC 4890 σε κανόνες: ποιους τύπους ICMPv6 πρέπει να δέχεται ο router, ποιους να κάνει forward, ποιους μπορεί να πετάξει — ως πλήρη stateful rulesets για RouterOS και IOS zone-based firewall, και πώς αποδεικνύεις ισοδυναμία v4/v6.">
+<meta property="og:title" content="IPv6 σε Βάθος: Το Firewall, Σωστά — S. Markakis">
+<meta property="og:description" content="Το RFC 4890 σε κανόνες: ποιους τύπους ICMPv6 πρέπει να δέχεται ο router, ποιους να κάνει forward, ποιους μπορεί να πετάξει — ως πλήρη stateful rulesets για RouterOS και IOS zone-based firewall, και πώς αποδεικνύεις ισοδυναμία v4/v6.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890-el.html">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-firewall-rfc4890.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-firewall-rfc4890.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* ipv6 in depth (v6-) */
+  .v6-box{fill:var(--card);stroke:var(--mid);stroke-width:1.4;}
+  .v6-box.hi{stroke:var(--accent);stroke-width:1.8;}
+  .v6-box.def{stroke:var(--defender);}
+  .v6-h{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:13px;fill:var(--mid);text-anchor:middle;}
+  .v6-c{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  .v6-m{font-family:var(--font-mono),monospace;font-size:11px;fill:var(--mid);}
+  .v6-m.acc,.v6-c.acc,.v6-h.acc{fill:var(--accent);}
+  .v6-m.def,.v6-c.def,.v6-h.def{fill:var(--defender);}
+  .v6-ln{stroke:var(--body);stroke-width:1.4;fill:none;}
+  .v6-ln.acc{stroke:var(--accent);}
+  .v6-ln.def{stroke:var(--defender);}
+  .v6-ln.dash{stroke-dasharray:4 4;}
+  .v6-cell{fill:var(--bg);stroke:var(--rule);stroke-width:1;}
+  .v6-cell.acc{fill:none;stroke:var(--accent);stroke-width:1.6;}
+  .v6-ah{fill:var(--body);}.v6-ah.acc{fill:var(--accent);}.v6-ah.def{fill:var(--defender);}
+  @keyframes v6Flow{from{stroke-dashoffset:24;}to{stroke-dashoffset:0;}}
+  .v6-flow{stroke-dasharray:6 6;animation:v6Flow 1.2s linear infinite;}
+  @media (prefers-reduced-motion:reduce){.v6-flow{animation:none;}}
+  .chapter{margin-top:2.6rem;}
+  .chapter-num{font-family:var(--font-disp);font-weight:700;font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:.15rem;}
+  .chapter-title{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:.2rem;}
+  .chapter-desc{font-style:italic;color:var(--body);font-size:.9rem;margin-bottom:1rem;border-bottom:1px solid var(--rule);padding-bottom:.7rem;}
+  .ci-row{display:flex;align-items:baseline;gap:1rem;padding:.8rem .3rem;border-bottom:1px solid var(--rule);text-decoration:none;transition:background .12s,padding .15s;}
+  .ci-row:first-of-type{border-top:1px solid var(--rule);}
+  .ci-row:hover{background:var(--card);padding-left:.7rem;text-decoration:none;}
+  .ci-num{font-family:var(--font-disp);font-weight:800;font-size:.82rem;color:var(--accent);min-width:2.1ch;text-align:right;}
+  .ci-main{flex:1;min-width:0;}
+  .ci-title{display:block;font-family:var(--font-disp);font-weight:600;font-size:1.04rem;color:var(--head);line-height:1.25;}
+  .ci-desc{display:block;color:var(--body);font-size:.85rem;margin-top:.15rem;line-height:1.45;}
+  .ci-time{font-family:var(--font-disp);font-size:.72rem;letter-spacing:.05em;color:var(--body);white-space:nowrap;}
+  .ci-arrow{color:var(--rule);font-size:1rem;align-self:center;}
+  .ci-row:hover .ci-arrow{color:var(--accent);}
+  @media (max-width:560px){h1.post-title{font-size:2.3rem;}.ci-time{display:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "IPv6 σε Βάθος: Το Firewall, Σωστά",
+  "description": "Το RFC 4890 σε κανόνες: ποιους τύπους ICMPv6 πρέπει να δέχεται ο router, ποιους να κάνει forward, ποιους μπορεί να πετάξει — ως πλήρη stateful rulesets για RouterOS και IOS zone-based firewall, και πώς αποδεικνύεις ισοδυναμία v4/v6.",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/ipv6-firewall-rfc4890.png",
+  "keywords": [
+    "ipv6"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#ipv6-firewall-rfc4890"
+  }
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="ipv6-firewall-rfc4890.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span class="series-chip">IPv6 σε Βάθος</span> &nbsp;·&nbsp; Μέρος 3 &middot; Νοέμβριος 2026</p>
+  <h1 class="post-title">IPv6 σε Βαθος<br><span style="font-size:1.5rem;color:var(--accent);">Το Firewall, Σωστα</span></h1>
+  <p class="post-subtitle">Το «επίτρεψε το ICMPv6» είναι σωστό αντανακλαστικό, αλλά σε λάθος επίπεδο λεπτομέρειας. Το RFC 4890 χωρίζει κάθε τύπο ICMPv6 σε πρέπει-να-περάσει, καλό-να-περάσει, μόνο-τοπικό και ασφαλές-να-πεταχτεί, και αντιμετωπίζει διαφορετικά την κίνηση <em>προς</em> τον router από την κίνηση <em>μέσα από</em> αυτόν. Εδώ γίνεται πλήρη rulesets που μπορείς να επικολλήσεις, μαζί με προστασία first-hop και έναν τρόπο να αποδείξεις ότι v4 και v6 εκθέτουν τα ίδια.</p>
+  <div class="tags">
+    <span class="tag">IPv6</span>
+    <span class="tag">Firewall</span>
+    <span class="tag">RFC 4890</span>
+    <span class="tag">ICMPv6</span>
+    <span class="tag">RA Guard</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Cisco IOS</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Ένα IPv6 edge firewall κάνει την ίδια δουλειά με ένα v4: επιτρέπει ό,τι ξεκίνησε το εσωτερικό, απορρίπτει ό,τι ξεκινά το εξωτερικό, προστατεύει τον ίδιο τον router. Δύο πράγματα αλλάζουν. Πρώτον, τίποτα δεν κρύβεται πίσω από NAT, οπότε <strong>το firewall είναι ο μόνος έλεγχος</strong> ανάμεσα στο internet και σε κάθε host. Δεύτερον, το πρωτόκολλο στηρίζεται στο ICMPv6 για πράγματα που το IPv4 έκανε αλλιώς: επίλυση διευθύνσεων, ανακάλυψη router και path MTU. Πέτα λάθος τύπο ICMPv6 και το v6 χαλάει. Επίτρεψε λάθος τύπο και ανοίγεις κάτι που δεν ήθελες.</p>
+    <p>Η θεραπεία και για τα δύο είναι το RFC 4890. Είναι σύντομο, συγκεκριμένο, και σχεδόν κανείς δεν το διαβάζει. Αυτό το post το μετατρέπει σε κανόνες.</p>
+    <div class="prereqs-label">Πριν απο αυτο</div>
+    <ul class="prereqs-list">
+      <li><a href="ipv6-ndp-slaac-el.html">Μέρος 1: NDP και SLAAC</a> και <a href="ipv6-prefix-delegation-el.html">Μέρος 2: Prefix Delegation</a></li>
+      <li>Οι βάσεις για v4: <a href="mikrotik-firewall.html">RouterOS firewall</a>, <a href="cisco-zbf.html">IOS zone-based firewall</a></li>
+      <li>Μέρος της σειράς <strong><a href="ipv6-index-el.html">IPv6 σε Βάθος</a></strong> &mdash; επόμενο: <a href="ipv6-routing-deep-el.html">OSPFv3, /127 Links και BGP</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Το RFC 4890 σε Πινακα</h2>
+  <p class="section-thesis"><em>Μετράνε δύο στήλες: κίνηση προς τον router (input) και κίνηση μέσα από αυτόν (forward). Δεν παίρνουν την ίδια απάντηση.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Τυπος ICMPv6</th><th>Μεσα απο τον router (forward)</th><th>Προς τον router (input)</th></tr></thead>
+    <tbody>
+      <tr><td>1 Dest. Unreachable</td><td><strong>Πρέπει να περνά</strong> (όλοι οι κωδικοί)</td><td>Πρέπει να γίνεται δεκτό</td></tr>
+      <tr><td>2 Packet Too Big</td><td><strong>Πρέπει να περνά</strong>, αλλιώς το PMTUD εξαφανίζει τα μεγάλα πακέτα</td><td>Πρέπει να γίνεται δεκτό</td></tr>
+      <tr><td>3 Time Exceeded</td><td>Ο κωδικός 0 πρέπει να περνά· ο 1 καλό είναι</td><td>Πρέπει να γίνεται δεκτό</td></tr>
+      <tr><td>4 Parameter Problem</td><td>Οι κωδικοί 1&ndash;2 πρέπει να περνούν· ο 0 καλό είναι</td><td>Πρέπει να γίνεται δεκτό</td></tr>
+      <tr><td>128/129 Echo</td><td>Στη λίστα «να μην πετιέται» (έλεγχοι συνδεσιμότητας, Teredo). Το inbound echo-request προς hosts μένει θέμα πολιτικής, οπότε βάλε όριο.</td><td>Δεκτό, με όριο ρυθμού</td></tr>
+      <tr><td>130&ndash;132, 143 MLD</td><td>Link-local, δεν προωθείται ποτέ</td><td>Πρέπει να γίνεται δεκτό (το multicast και το snooping εξαρτώνται από αυτό)</td></tr>
+      <tr><td>133&ndash;136 NDP</td><td>Link-local, δεν προωθείται ποτέ</td><td><strong>Πρέπει να γίνεται δεκτό</strong> (μόνο με hop limit 255)</td></tr>
+      <tr><td>137 Redirect</td><td>Δεν προωθείται ποτέ</td><td>Δεκτό, ή κλείσε τα redirects</td></tr>
+      <tr><td>138 Router Renumbering</td><td>Drop</td><td><strong>Drop</strong>: αλλάζει τη ρύθμιση των routers</td></tr>
+      <tr><td>139/140 Node Info, πειραματικά, μη ανατεθειμένα</td><td>Drop</td><td>Drop</td></tr>
+    </tbody>
+  </table>
+  <p>Δύο πρακτικές σημειώσεις. Σε stateful firewall, τα errors που ανήκουν σε ροή που παρακολουθείται (ένα Packet Too Big για το εξερχόμενο TCP session σου) χαρακτηρίζονται <code>related</code> και περνούν ούτως ή άλλως από τον κανόνα established/related. Τα ρητά accepts για τους τύπους 1&ndash;4 καλύπτουν όσα χάνει το conntrack: ασύμμετρα paths, μια ροή που έζησε περισσότερο από την εγγραφή της στο conntrack, ένα reboot. Και το «δεν προωθείται ποτέ» για το NDP το επιβάλλει το ίδιο το πρωτόκολλο (link-local εμβέλεια, hop limit 255), οπότε στο forward chain δεν χρειάζεσαι καθόλου κανόνες γι' αυτά.</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Το Πληρες Ruleset για RouterOS</h2>
+  <p class="section-thesis"><em>Ό,τι χρειάζεται ένα edge μικρής επιχείρησης, με τη σειρά που αξιολογείται. Τα interfaces ονομάζονται με λίστες, ώστε το renumbering να μην το σπάει.</em></p>
+  <div class="term-wrap"><span class="term-label">Interface lists και bogons</span><pre class="term">/interface list add name=WAN
+/interface list add name=LAN
+/interface list add name=MGMT
+/interface list member add list=WAN interface=pppoe-out1
+/interface list member add list=LAN interface=vlan10
+/interface list member add list=LAN interface=vlan40
+/interface list member add list=MGMT interface=vlan99
+
+/ipv6 firewall address-list
+add list=bad_ipv6 address=::/128 comment="unspecified"
+add list=bad_ipv6 address=::1/128 comment="loopback"
+add list=bad_ipv6 address=fec0::/10 comment="site-local, deprecated"
+add list=bad_ipv6 address=::ffff:0.0.0.0/96 comment="IPv4-mapped"
+add list=bad_ipv6 address=::/96 comment="IPv4-compatible, deprecated"
+add list=bad_ipv6 address=100::/64 comment="discard-only"
+add list=bad_ipv6 address=2001:db8::/32 comment="documentation"
+add list=bad_ipv6 address=2001:10::/28 comment="ORCHID"
+add list=bad_ipv6 address=3ffe::/16 comment="6bone"</pre></div>
+  <div class="term-wrap"><span class="term-label">INPUT &mdash; προστασια του ιδιου του router</span><pre class="term">/ipv6 firewall filter
+add chain=input action=accept connection-state=established,related,untracked
+add chain=input action=drop connection-state=invalid
+add chain=input action=drop protocol=icmpv6 icmp-options=138:0-255 \
+    comment="RFC 4890: router renumbering"
+add chain=input action=accept protocol=icmpv6 \
+    comment="NDP, MLD, errors, echo"
+add chain=input action=accept protocol=udp dst-port=546 src-address=fe80::/10 \
+    in-interface-list=WAN comment="DHCPv6-PD replies (Part 2)"
+add chain=input action=accept protocol=udp dst-port=53 in-interface-list=LAN \
+    comment="router as DNS resolver for the LAN, if you use it"
+add chain=input action=accept protocol=tcp dst-port=53 in-interface-list=LAN
+add chain=input action=accept in-interface-list=MGMT
+add chain=input action=drop log=yes log-prefix="v6-in-drop"</pre></div>
+  <div class="term-wrap"><span class="term-label">FORWARD &mdash; οτι διασχιζει τον router</span><pre class="term">add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+add chain=forward action=drop src-address-list=bad_ipv6
+add chain=forward action=drop dst-address-list=bad_ipv6
+add chain=forward action=drop in-interface-list=WAN src-address=fc00::/7 \
+    comment="ULA never arrives from the internet"
+<span class="cmt"># errors που πρέπει να περνούν κατά RFC 4890 (για ροές που έχασε το conntrack)</span>
+add chain=forward action=accept protocol=icmpv6 icmp-options=1:0-255
+add chain=forward action=accept protocol=icmpv6 icmp-options=2:0-255
+add chain=forward action=accept protocol=icmpv6 icmp-options=3:0-1
+add chain=forward action=accept protocol=icmpv6 icmp-options=4:0-2
+<span class="cmt"># echo: θέμα πολιτικής· βάλε όριο στο inbound ώστε να μη φορτώνει τους hosts</span>
+add chain=forward action=accept protocol=icmpv6 icmp-options=128:0 \
+    limit=10,20:packet
+<span class="cmt"># η πραγματική πολιτική</span>
+add chain=forward action=accept in-interface-list=LAN out-interface-list=WAN
+add chain=forward action=drop log=yes log-prefix="v6-fwd-drop" \
+    comment="default deny: inbound from WAN, and LAN-to-LAN unless allowed above"</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Παγιδα &mdash; Ισοδυναμια Σημαινει και LAN-προς-LAN</span>
+    <p>Τα περισσότερα v4 rulesets μπλοκάρουν την κίνηση μεταξύ VLAN (guest προς προσωπικό, IoT προς servers) στο forward chain. Στο v6 οι ίδιοι hosts έχουν πια δεύτερο σετ διευθύνσεων, και αν το v6 forward chain τελειώνει με «LAN προς οπουδήποτε: accept», η κατάτμησή σου υπάρχει μόνο στο IPv4. Το ruleset πιο πάνω επιτρέπει μόνο <code>LAN &rarr; WAN</code>. Πρόσθεσε ρητά accepts μεταξύ VLAN με ζεύγη <code>in-interface</code>/<code>out-interface</code>, τα ίδια που έχει το v4. Φίλτραρε με interface και όχι με διεύθυνση, γιατί οι διευθύνσεις είναι delegated και θα αλλάξουν (<a href="ipv6-prefix-delegation-el.html">Μέρος 2</a>).</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Η Εκδοχη για IOS &mdash; Zone-Based</h2>
+  <p class="section-thesis"><em>Το ZBF κάνει inspect σε v4 και v6 με την ίδια πολιτική. Οι παγίδες είναι το self zone και τα ACLs που βιδώνει ο κόσμος δίπλα του.</em></p>
+  <div class="term-wrap"><span class="term-label">IOS / IOS-XE &mdash; inspect απο μεσα προς τα εξω, απορριψη απο εξω προς τα μεσα</span><pre class="term">zone security INSIDE
+zone security OUTSIDE
+!
+class-map type inspect match-any C-OUTBOUND
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+!
+policy-map type inspect P-IN-TO-OUT
+ class type inspect C-OUTBOUND
+  inspect
+ class class-default
+  drop log
+!
+zone-pair security ZP-IN-OUT source INSIDE destination OUTSIDE
+ service-policy type inspect P-IN-TO-OUT
+!
+interface GigabitEthernet0/1
+ zone-member security INSIDE
+interface GigabitEthernet0/0
+ zone-member security OUTSIDE
+!
+<span class="cmt">! Χωρίς zone-pair OUTSIDE-&gt;INSIDE το inbound απορρίπτεται by default,
+! ενώ η επιστροφή για sessions με inspect (και τα ICMPv6 errors τους) περνά.</span>
+show policy-map type inspect zone-pair sessions</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Παγιδα &mdash; Το Self Zone Ειναι Ανοιχτο Μεχρι να το Κλεισεις, και Τοτε Κλεινει και για το NDP</span>
+    <p>Η κίνηση προς τον ίδιο τον router ανήκει στο ενσωματωμένο zone <code>self</code>. Χωρίς zone-pair που να αφορά το <code>self</code>, η κίνηση του router επιτρέπεται, οπότε DHCPv6-PD, NDP και SSH δουλεύουν όλα. Τη στιγμή που προσθέτεις zone-pair <code>OUTSIDE &rarr; self</code> για να προστατέψεις το management, ό,τι δεν περνά ρητά από αυτό πετιέται, μαζί και το ICMPv6 και το DHCPv6 από τον ISP. Γράψε αυτή την πολιτική με βάση τη στήλη input του RFC 4890 πιο πάνω (ICMPv6, συν UDP 547&rarr;546 από <code>fe80::/10</code>) πριν από οτιδήποτε άλλο. Όπως με κάθε αλλαγή ZBF, έλεγξε τα v6 sessions στη δική σου έκδοση με την εντολή <code>show</code> πιο πάνω. Μη θεωρείς ότι ένα τεστ σε v4 καλύπτει και το v6.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Προστασια First-Hop</h2>
+  <p class="section-thesis"><em>Το hop limit 255 εμποδίζει συσκευές εκτός link να μιλήσουν NDP. Δεν κάνει τίποτα για μια συσκευή συνδεδεμένη στο δικό σου switch.</em></p>
+  <p>Οποιοσδήποτε host σε ένα LAN segment μπορεί να στείλει Router Advertisements ή να απαντήσει σε DHCPv6. Συνήθως απλώς έχει λάθος ρύθμιση: ένα laptop με ενεργό Internet Sharing, ένα test VM σε bridge στο λάθος δίκτυο, ένας οικιακός router συνδεδεμένος ανάποδα. Οι hosts δέχονται το επιπλέον RA όπως είναι και αποκτούν δεύτερο default route. Το αποτέλεσμα πάει από «κάποιοι χρήστες δεν φτάνουν πουθενά» ως κίνηση που παίρνει σιωπηλά μια διαδρομή που δεν σχεδίασες. Η λύση ανήκει στο access switch, που ξέρει ποιες θύρες βλέπουν σε hosts:</p>
+  <div class="term-wrap"><span class="term-label">Catalyst IOS-XE &mdash; RA guard και DHCPv6 guard στις θυρες των hosts</span><pre class="term">ipv6 nd raguard policy HOST-PORTS
+ device-role host
+ipv6 dhcp guard policy DHCP-CLIENTS
+ device-role client
+!
+interface range GigabitEthernet1/0/1 - 46
+ ipv6 nd raguard attach-policy HOST-PORTS
+ ipv6 dhcp guard attach-policy DHCP-CLIENTS
+<span class="cmt">! Τα uplinks προς τον router μένουν χωρίς policy ή με device-role router.</span>
+show ipv6 nd raguard policy HOST-PORTS</pre></div>
+  <table class="cheat">
+    <thead><tr><th>Πλατφορμα</th><th>Τι εχεις</th><th>Τι κανεις</th></tr></thead>
+    <tbody>
+      <tr><td>Cisco Catalyst</td><td>RA guard, DHCPv6 guard, ND inspection, source guard</td><td>Τουλάχιστον RA + DHCPv6 guard σε κάθε θύρα host.</td></tr>
+      <tr><td>MikroTik RouterOS</td><td>Δεν έχει RA guard</td><td>Βάλε RA guard στο access switch αν το υποστηρίζει· client isolation στο Wi-Fi· ανίχνευσε rogue RAs (παρακάτω).</td></tr>
+      <tr><td>Wi-Fi APs</td><td>Client isolation</td><td>Το isolation σταματά τα frames από host σε host, μαζί και ένα rogue RA, στο ίδιο SSID.</td></tr>
+    </tbody>
+  </table>
+  <div class="term-wrap"><span class="term-label">Ανιχνευση παντου &mdash; ειδοποιηση οταν απαντα περισσοτερος απο ενας router</span><pre class="term"><span class="cmt"># τρέξ' το από host monitoring σε κάθε VLAN (cron, κάθε λίγα λεπτά)</span>
+rdisc6 -m eth0.10 | grep -c '^ from'     <span class="cmt"># -m: περίμενε όλους τους routers, όχι μόνο τον πρώτο</span>
+<span class="cmt"># περισσότεροι από όσους περιμένεις -&gt; ειδοποίηση με τη διεύθυνση "from" και τη MAC της</span></pre></div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Αποδειξε την Ισοδυναμια <span class="safe-badge">Το δικο σου δικτυο</span></h2>
+  <p class="section-thesis"><em>Ένα firewall που δεν έχεις δοκιμάσει από έξω είναι εικασία. Δοκίμασε και τις δύο οικογένειες από το ίδιο σημείο και σύγκρινέ τες.</em></p>
+  <p>Από ένα VPS που ελέγχεις, τρέξε το ίδιο scan στη διεύθυνση IPv4 και στη διεύθυνση IPv6 μερικών hosts που σου ανήκουν: το WAN του router, έναν server, έναν σταθμό εργασίας (με τη <em>σταθερή</em> διεύθυνσή του, όχι την temporary). Τα αποτελέσματα πρέπει να ταιριάζουν. Κάθε θύρα ανοιχτή στο v6 και φιλτραρισμένη στο v4 είναι κανόνας v6 που λείπει.</p>
+  <div class="term-wrap"><span class="term-label">Κανε scan τους δικους σου hosts και στις δυο οικογενειες, μετα συγκρινε</span><pre class="term">$ nmap -Pn -p- --open -oG v4.txt 198.51.100.20
+$ nmap -6 -Pn -p- --open -oG v6.txt 2001:db8:abcd:1220::20
+$ diff &lt;(grep -o '[0-9]*/open' v4.txt) &lt;(grep -o '[0-9]*/open' v6.txt)
+<span class="cmt"># κάθε γραμμή εδώ είναι ασυμφωνία πολιτικής v4/v6</span></pre></div>
+  <div class="term-wrap"><span class="term-label">Αποδειξε οτι δουλευει το PMTUD (το Packet Too Big περναει)</span><pre class="term">$ tracepath -6 www.example.com
+ 1?: [LOCALHOST]                        0.012ms pmtu 1500
+ 1:  2001:db8:abcd:1210::1              0.501ms
+ 2:  2001:db8:ffff:1::1                 6.884ms pmtu 1492    <span class="cmt"># το hop του PPPoE δηλώνει μικρότερο MTU</span>
+ ...
+     Resume: pmtu 1492 hops 9 back 9
+<span class="cmt"># Αν οι μεγάλες μεταφορές κολλάνε αλλά το tracepath δεν δείχνει ποτέ πτώση pmtu, κάτι
+# ανάμεσα σε σένα και στην άλλη άκρη τρώει τον τύπο 2. Στο δικό σου edge, έλεγξε τη σειρά των κανόνων.</span></pre></div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το RFC 4890 απαντά στο ερώτημα του ICMPv6 ανά τύπο και ανά κατεύθυνση.</strong> Τα errors 1&ndash;4 πρέπει να περνούν· NDP και MLD πρέπει να φτάνουν στον router· το router renumbering (138) όχι.</li>
+      <li><strong>Το established/related καλύπτει ήδη τα περισσότερα errors.</strong> Τα ρητά accepts ανά τύπο είναι για ροές που έχασε το conntrack.</li>
+      <li><strong>Γράφε την πολιτική v6 με interface lists, όχι με διευθύνσεις.</strong> Τα delegated prefixes αλλάζουν.</li>
+      <li><strong>Η ισοδυναμία περιλαμβάνει τους κανόνες μεταξύ VLAN.</strong> Αλλιώς η κατάτμηση υπάρχει μόνο στο v4.</li>
+      <li><strong>Οι πολιτικές self-zone του ZBF πρέπει να περνούν ICMPv6 και DHCPv6</strong>, αλλιώς χάνεις το NDP και το prefix σου τη στιγμή που προστατεύεις το management.</li>
+      <li><strong>Τα rogue RAs είναι θέμα του switch.</strong> RA guard και DHCPv6 guard όπου υπάρχουν, isolation στο Wi-Fi, και ανίχνευση παντού αλλού.</li>
+      <li><strong>Δοκίμασε από έξω και στις δύο οικογένειες και σύγκρινε.</strong> Έλεγξε το PMTUD με το tracepath.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Δεν εισαι σιγουρος οτι το v6 firewall ταιριαζει με το v4;</h3>
+    <p>Ελέγχω την πολιτική edge και first-hop σε δίκτυα MikroTik και Cisco, τη δοκιμάζω από έξω και στις δύο οικογένειες διευθύνσεων, και κλείνω τα κενά ώστε το dual-stack να μη σημαίνει διπλή έκθεση.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

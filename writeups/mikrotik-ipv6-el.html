@@ -163,16 +163,18 @@
     <ul class="prereqs-list">
       <li>Έναν ISP που κάνει delegate ένα prefix IPv6 (οι περισσότεροι ελληνικοί fibre/Starlink το κάνουν πλέον)</li>
       <li>Το μοντέλο <a href="mikrotik-firewall.html">firewall</a> του IPv4 — το IPv6 είναι ξεχωριστό ruleset που πρέπει να χτίσεις κι αυτό</li>
+      <li>Για περισσότερο βάθος: η σειρά <strong><a href="ipv6-index-el.html">IPv6 σε Βάθος</a></strong> (NDP/SLAAC, prefix delegation, firewall κατά RFC 4890, OSPFv3/BGP)</li>
     </ul>
   </div>
 
   <p class="section-num">01</p>
   <h2 class="section-title">Ενεργοποιησε το IPv6</h2>
-  <p class="section-thesis"><em>Το RouterOS 7 έρχεται με IPv6 αλλά το αφήνει απενεργοποιημένο. Ενεργοποίησέ το και το forwarding πριν δουλέψει οτιδήποτε άλλο.</em></p>
+  <p class="section-thesis"><em>Στο RouterOS 7 το IPv6 είναι ενσωματωμένο και ενεργό από default, μαζί με το forwarding. Στο RouterOS 6 ήταν ξεχωριστό πακέτο και συχνά απενεργοποιημένο. Σε κάθε περίπτωση, επιβεβαίωσέ το πριν χτίσεις πάνω του.</em></p>
   <div class="term-wrap">
     <span class="term-label">Terminal — ενεργοποιησε IPv6 και routing</span>
     <pre class="term"><span class="pc">&gt;</span> <span class="out">/ipv6 settings set disable-ipv6=no forward=yes</span>
-<span class="cmt"># Σε RouterOS 6 είναι πακέτο αντ' αυτού: /system package enable ipv6, reboot.</span>
+<span class="cmt"># Στο v7 τα defaults είναι ήδη disable-ipv6=no forward=yes· εδώ απλώς τα κλειδώνεις.
+# Σε RouterOS 6 είναι πακέτο αντ' αυτού: /system package enable ipv6, reboot.</span>
 <span class="pc">&gt;</span> <span class="out">/ipv6 settings print</span></pre>
   </div>
 
@@ -183,9 +185,16 @@
     <span class="term-label">Terminal — ζητησε ενα prefix στο WAN, αποθηκευσε το σε pool</span>
     <pre class="term"><span class="pc">&gt;</span> <span class="out">/ipv6 dhcp-client add interface=ether1 request=prefix \
     pool-name=isp-pd pool-prefix-length=64 add-default-route=yes</span>
+<span class="cmt"># WAN με PPPoE (συνηθισμένο σε VDSL/FTTH στην Ελλάδα); Ο client μπαίνει στο pppoe-out1, όχι στο ether1.
+# Το pool-prefix-length είναι το μέγεθος κάθε κομματιού που ΔΙΝΕΙ η pool (64 = ένα
+# subnet για SLAAC), όχι το μέγεθος του delegation που λαμβάνεις.</span>
 <span class="pc">&gt;</span> <span class="out">/ipv6 dhcp-client print</span>
 <span class="out">   status: bound   prefix: 2a02:...:1200::/56</span>   <span class="cmt"># το delegated block</span>
 <span class="cmt"># Ένα /56 σου δίνει 256 /64s — ένα ανά VLAN, με περιθώριο.</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Απο Που Ερχεται το Default Route</span>
+    <p>Με <code>forward=yes</code>, το RouterOS αγνοεί τα Router Advertisements σε όλα τα interfaces από default (<code>accept-router-advertisements=yes-if-forwarding-disabled</code>). Το DHCPv6 δεν μεταφέρει routes, οπότε στους περισσότερους ISP το IPv6 default route υπάρχει μόνο χάρη στο <code>add-default-route=yes</code> του client. Αν το <code>/ipv6 route print</code> δείχνει το prefix bound αλλά κανένα <code>::/0</code>, αυτός είναι ο λόγος. Μην το λύσεις με global <code>accept-router-advertisements=yes</code>: έτσι εμπιστεύεσαι και RAs από το LAN, και οποιαδήποτε rogue συσκευή μπορεί να βάλει route στον ίδιο τον router.</p>
   </div>
 
   <p class="section-num">03</p>
@@ -212,26 +221,34 @@
 <span class="pc">&gt;</span> <span class="out">/ipv6 firewall filter</span>
 <span class="out">add chain=forward connection-state=established,related action=accept
 add chain=forward connection-state=invalid action=drop
-add chain=forward connection-state=new in-interface=ether1 action=drop \
+add chain=forward connection-state=new in-interface-list=WAN action=drop \
     comment="no unsolicited inbound from WAN"</span>
 
 <span class="cmt"># INPUT: προστάτεψε τον router. ΚΡΙΣΙΜΑ επίτρεψε ICMPv6 ΠΡΙΝ το drop —
 # το NDP, το PMTUD και το address config βασίζονται πάνω του· μπλόκαρέ το και το IPv6 καταρρέει.</span>
 <span class="out">add chain=input connection-state=established,related action=accept
 add chain=input protocol=icmpv6 action=accept comment="ICMPv6 is mandatory"
+add chain=input protocol=udp dst-port=546 src-address=fe80::/10 action=accept \
+    comment="DHCPv6-PD replies from the ISP"
 add chain=input src-address-list=MGMT action=accept
-add chain=input action=drop</span></pre>
+add chain=input action=drop</span>
+<span class="cmt"># Το WAN είναι interface list (ether1, ή pppoe-out1 αν κάνεις PPPoE):
+# /interface list add name=WAN ; /interface list member add list=WAN interface=ether1</span></pre>
   </div>
   <div class="callout gotcha">
     <span class="callout-label">⚠ Παγιδα — Το Μπλοκαρισμα ICMPv6 Χαλαει τα Παντα</span>
     <p>Η μυϊκή μνήμη του IPv4 λέει "κάνε drop το ICMP, είναι απλά ping". Στο IPv6, το ICMPv6 μεταφέρει το <strong>Neighbour Discovery</strong> (την αντικατάσταση του ARP), τα <strong>Router Advertisements</strong>, και το <strong>Path MTU Discovery</strong>. Μπλόκαρέ το ολόκληρο και οι hosts δεν μπορούν να κάνουν resolve γείτονες, δεν μπορούν να κάνουν autoconfigure, και μεγάλα πακέτα εξαφανίζονται σιωπηλά — μια εκνευριστική αποτυχία "μισό internet φορτώνει". Πάντα <code>accept protocol=icmpv6</code> πάνω από τον κανόνα drop σου. Αυτό είναι το νούμερο-ένα λάθος firewall IPv6, σε κάθε πλατφόρμα.</p>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Το Input Drop που Τρωει το Prefix σου</span>
+    <p>Ο DHCPv6 client στέλνει το Solicit στο multicast group <code>ff02::1:2</code>, και ο ISP απαντά με unicast από τη link-local διεύθυνσή του. Το connection tracking δεν μπορεί να ταιριάξει unicast απάντηση με multicast αίτημα, οπότε η απάντηση δεν είναι <code>established</code>. Χωρίς τον κανόνα για UDP 546, το <code>chain=input action=drop</code> την πετάει. Το prefix δεν κάνει ποτέ bind, ή κάνει bind μία φορά και αποτυγχάνει στο renewal μέρες αργότερα. Το default config του RouterOS έχει τον ίδιο κανόνα ακριβώς γι' αυτό.</p>
   </div>
 
   <div class="takeaways">
     <p class="takeaways-title">Βασικα Συμπερασματα</p>
     <ol>
       <li><strong>Το IPv6 δεν έχει NAT by default</strong> — κάθε host είναι globally routable, οπότε το τυχαίο firewall του IPv4 έχει φύγει. "Ενεργοποιημένο αλλά χωρίς firewall" είναι η επικίνδυνη κατάσταση.</li>
-      <li><strong>Ενεργοποίησε IPv6 και forwarding ρητά</strong> — το RouterOS το φέρνει απενεργοποιημένο.</li>
+      <li><strong>Έλεγξε ότι IPv6 και forwarding είναι ενεργά.</strong> Το v7 τα ενεργοποιεί από default· το v6 χρειάζεται το πακέτο.</li>
       <li><strong>Παίρνεις ένα prefix, όχι μια διεύθυνση.</strong> Ζήτησε DHCPv6-PD, αποθήκευσέ το σε pool, και κόψε /64s ανά δίκτυο — ένα /56 σου δίνει 256.</li>
       <li><strong>Το SLAAC μέσω Router Advertisements</strong> κάνει auto-address τους hosts· διαφήμισε DNS μέσω RA αν θες και config resolver.</li>
       <li><strong>Χτίσε το firewall IPv6 — είναι υποχρεωτικό, όχι προαιρετικό.</strong> Κάνε drop το ανεπιθύμητο inbound· αλλιώς το internet μπορεί να φτάσει κάθε host.</li>

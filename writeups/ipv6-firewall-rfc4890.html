@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>IPv6 in Depth: The Firewall, Done Right — S. Markakis</title>
+<meta name="description" content="RFC 4890 turned into rules: which ICMPv6 types the router must accept, which it must forward, which it can drop — as complete stateful rulesets for RouterOS and IOS zone-based firewall, plus how to prove v4/v6 parity.">
+<meta property="og:title" content="IPv6 in Depth: The Firewall, Done Right — S. Markakis">
+<meta property="og:description" content="RFC 4890 turned into rules: which ICMPv6 types the router must accept, which it must forward, which it can drop — as complete stateful rulesets for RouterOS and IOS zone-based firewall, plus how to prove v4/v6 parity.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-firewall-rfc4890.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-firewall-rfc4890.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* ipv6 in depth (v6-) */
+  .v6-box{fill:var(--card);stroke:var(--mid);stroke-width:1.4;}
+  .v6-box.hi{stroke:var(--accent);stroke-width:1.8;}
+  .v6-box.def{stroke:var(--defender);}
+  .v6-h{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:13px;fill:var(--mid);text-anchor:middle;}
+  .v6-c{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  .v6-m{font-family:var(--font-mono),monospace;font-size:11px;fill:var(--mid);}
+  .v6-m.acc,.v6-c.acc,.v6-h.acc{fill:var(--accent);}
+  .v6-m.def,.v6-c.def,.v6-h.def{fill:var(--defender);}
+  .v6-ln{stroke:var(--body);stroke-width:1.4;fill:none;}
+  .v6-ln.acc{stroke:var(--accent);}
+  .v6-ln.def{stroke:var(--defender);}
+  .v6-ln.dash{stroke-dasharray:4 4;}
+  .v6-cell{fill:var(--bg);stroke:var(--rule);stroke-width:1;}
+  .v6-cell.acc{fill:none;stroke:var(--accent);stroke-width:1.6;}
+  .v6-ah{fill:var(--body);}.v6-ah.acc{fill:var(--accent);}.v6-ah.def{fill:var(--defender);}
+  @keyframes v6Flow{from{stroke-dashoffset:24;}to{stroke-dashoffset:0;}}
+  .v6-flow{stroke-dasharray:6 6;animation:v6Flow 1.2s linear infinite;}
+  @media (prefers-reduced-motion:reduce){.v6-flow{animation:none;}}
+  .chapter{margin-top:2.6rem;}
+  .chapter-num{font-family:var(--font-disp);font-weight:700;font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:.15rem;}
+  .chapter-title{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:.2rem;}
+  .chapter-desc{font-style:italic;color:var(--body);font-size:.9rem;margin-bottom:1rem;border-bottom:1px solid var(--rule);padding-bottom:.7rem;}
+  .ci-row{display:flex;align-items:baseline;gap:1rem;padding:.8rem .3rem;border-bottom:1px solid var(--rule);text-decoration:none;transition:background .12s,padding .15s;}
+  .ci-row:first-of-type{border-top:1px solid var(--rule);}
+  .ci-row:hover{background:var(--card);padding-left:.7rem;text-decoration:none;}
+  .ci-num{font-family:var(--font-disp);font-weight:800;font-size:.82rem;color:var(--accent);min-width:2.1ch;text-align:right;}
+  .ci-main{flex:1;min-width:0;}
+  .ci-title{display:block;font-family:var(--font-disp);font-weight:600;font-size:1.04rem;color:var(--head);line-height:1.25;}
+  .ci-desc{display:block;color:var(--body);font-size:.85rem;margin-top:.15rem;line-height:1.45;}
+  .ci-time{font-family:var(--font-disp);font-size:.72rem;letter-spacing:.05em;color:var(--body);white-space:nowrap;}
+  .ci-arrow{color:var(--rule);font-size:1rem;align-self:center;}
+  .ci-row:hover .ci-arrow{color:var(--accent);}
+  @media (max-width:560px){h1.post-title{font-size:2.3rem;}.ci-time{display:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "IPv6 in Depth: The Firewall, Done Right",
+  "description": "RFC 4890 turned into rules: which ICMPv6 types the router must accept, which it must forward, which it can drop — as complete stateful rulesets for RouterOS and IOS zone-based firewall, plus how to prove v4/v6 parity.",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/ipv6-firewall-rfc4890.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/ipv6-firewall-rfc4890.png",
+  "keywords": [
+    "ipv6"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#ipv6-firewall-rfc4890"
+  },
+  "timeRequired": "PT10M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><strong style="color:var(--mid);">English</strong> &nbsp;·&nbsp; <a href="ipv6-firewall-rfc4890-el.html" style="font-weight:600;">Ελληνικά</a></p>
+  <p class="post-meta"><span class="series-chip">IPv6 in Depth</span> &nbsp;·&nbsp; Part 3 &middot; November 2026</p>
+  <h1 class="post-title">IPv6 in Depth<br><span style="font-size:1.5rem;color:var(--accent);">The Firewall, Done Right</span></h1>
+  <p class="post-subtitle">&ldquo;Allow ICMPv6&rdquo; is the right reflex and the wrong level of detail. RFC 4890 sorts every ICMPv6 type into must-pass, should-pass, local-only and safe-to-drop, and it treats traffic <em>to</em> the router differently from traffic <em>through</em> it. Here it is as complete rulesets you can paste, plus first-hop protection and a way to prove v4 and v6 expose the same thing.</p>
+  <div class="tags">
+    <span class="tag">IPv6</span>
+    <span class="tag">Firewall</span>
+    <span class="tag">RFC 4890</span>
+    <span class="tag">ICMPv6</span>
+    <span class="tag">RA Guard</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Cisco IOS</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>An IPv6 edge firewall does the same job as a v4 one: allow what the inside started, deny what the outside starts, protect the router itself. Two things change. First, nothing is hidden behind NAT, so <strong>the firewall is the only control</strong> between the internet and every host. Second, the protocol depends on ICMPv6 for things IPv4 did in other ways: address resolution, router discovery, and path MTU. Drop the wrong ICMPv6 type and v6 breaks. Allow the wrong one and you open something you didn't mean to.</p>
+    <p>The cure for both is RFC 4890. It is short, specific, and almost nobody reads it. This post turns it into rules.</p>
+    <div class="prereqs-label">Before this</div>
+    <ul class="prereqs-list">
+      <li><a href="ipv6-ndp-slaac.html">Part 1: NDP and SLAAC</a> and <a href="ipv6-prefix-delegation.html">Part 2: Prefix Delegation</a></li>
+      <li>The v4 baselines: <a href="mikrotik-firewall.html">RouterOS firewall</a>, <a href="cisco-zbf.html">IOS zone-based firewall</a></li>
+      <li>Part of <strong><a href="ipv6-index.html">IPv6 in Depth</a></strong> &mdash; next: <a href="ipv6-routing-deep.html">OSPFv3, /127 Links and BGP</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">RFC 4890 as a Table</h2>
+  <p class="section-thesis"><em>Two columns matter: traffic to the router (input) and traffic through it (forward). They don't get the same answer.</em></p>
+  <table class="cheat">
+    <thead><tr><th>ICMPv6 type</th><th>Through the router (forward)</th><th>To the router (input)</th></tr></thead>
+    <tbody>
+      <tr><td>1 Dest. Unreachable</td><td><strong>Must pass</strong> (all codes)</td><td>Must accept</td></tr>
+      <tr><td>2 Packet Too Big</td><td><strong>Must pass</strong>, or PMTUD black-holes large packets</td><td>Must accept</td></tr>
+      <tr><td>3 Time Exceeded</td><td>Code 0 must pass; code 1 should</td><td>Must accept</td></tr>
+      <tr><td>4 Parameter Problem</td><td>Codes 1&ndash;2 must pass; code 0 should</td><td>Must accept</td></tr>
+      <tr><td>128/129 Echo</td><td>Listed as must-not-drop (connectivity checks, Teredo). Inbound echo-request to hosts stays a policy choice, so rate-limit it.</td><td>Accept, rate-limited</td></tr>
+      <tr><td>130&ndash;132, 143 MLD</td><td>Link-local, never forwarded</td><td>Must accept (multicast and snooping depend on it)</td></tr>
+      <tr><td>133&ndash;136 NDP</td><td>Link-local, never forwarded</td><td><strong>Must accept</strong> (hop limit 255 only)</td></tr>
+      <tr><td>137 Redirect</td><td>Never forwarded</td><td>Accept, or turn redirects off</td></tr>
+      <tr><td>138 Router Renumbering</td><td>Drop</td><td><strong>Drop</strong>: it reconfigures routers</td></tr>
+      <tr><td>139/140 Node Info, experimental, unassigned</td><td>Drop</td><td>Drop</td></tr>
+    </tbody>
+  </table>
+  <p>Two practical notes. On a stateful firewall, errors that belong to a tracked flow (a Packet Too Big for your outbound TCP session) are classified as <code>related</code> and pass through the established/related rule anyway. The explicit accepts for types 1&ndash;4 cover the cases conntrack misses: asymmetric paths, a flow that outlived its conntrack entry, a reboot. And &ldquo;never forwarded&rdquo; for NDP is enforced by the protocol itself (link-local scope, hop limit 255), so in the forward chain you don't need rules for them at all.</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">The Complete RouterOS Ruleset</h2>
+  <p class="section-thesis"><em>Everything an SMB edge needs, in the order it's evaluated. Interfaces named by list, so renumbering can't break it.</em></p>
+  <div class="term-wrap"><span class="term-label">Interface lists and bogons</span><pre class="term">/interface list add name=WAN
+/interface list add name=LAN
+/interface list add name=MGMT
+/interface list member add list=WAN interface=pppoe-out1
+/interface list member add list=LAN interface=vlan10
+/interface list member add list=LAN interface=vlan40
+/interface list member add list=MGMT interface=vlan99
+
+/ipv6 firewall address-list
+add list=bad_ipv6 address=::/128 comment="unspecified"
+add list=bad_ipv6 address=::1/128 comment="loopback"
+add list=bad_ipv6 address=fec0::/10 comment="site-local, deprecated"
+add list=bad_ipv6 address=::ffff:0.0.0.0/96 comment="IPv4-mapped"
+add list=bad_ipv6 address=::/96 comment="IPv4-compatible, deprecated"
+add list=bad_ipv6 address=100::/64 comment="discard-only"
+add list=bad_ipv6 address=2001:db8::/32 comment="documentation"
+add list=bad_ipv6 address=2001:10::/28 comment="ORCHID"
+add list=bad_ipv6 address=3ffe::/16 comment="6bone"</pre></div>
+  <div class="term-wrap"><span class="term-label">INPUT &mdash; protecting the router itself</span><pre class="term">/ipv6 firewall filter
+add chain=input action=accept connection-state=established,related,untracked
+add chain=input action=drop connection-state=invalid
+add chain=input action=drop protocol=icmpv6 icmp-options=138:0-255 \
+    comment="RFC 4890: router renumbering"
+add chain=input action=accept protocol=icmpv6 \
+    comment="NDP, MLD, errors, echo"
+add chain=input action=accept protocol=udp dst-port=546 src-address=fe80::/10 \
+    in-interface-list=WAN comment="DHCPv6-PD replies (Part 2)"
+add chain=input action=accept protocol=udp dst-port=53 in-interface-list=LAN \
+    comment="router as DNS resolver for the LAN, if you use it"
+add chain=input action=accept protocol=tcp dst-port=53 in-interface-list=LAN
+add chain=input action=accept in-interface-list=MGMT
+add chain=input action=drop log=yes log-prefix="v6-in-drop"</pre></div>
+  <div class="term-wrap"><span class="term-label">FORWARD &mdash; everything crossing the router</span><pre class="term">add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
+add chain=forward action=drop src-address-list=bad_ipv6
+add chain=forward action=drop dst-address-list=bad_ipv6
+add chain=forward action=drop in-interface-list=WAN src-address=fc00::/7 \
+    comment="ULA never arrives from the internet"
+<span class="cmt"># RFC 4890 must-pass errors (covers flows conntrack lost)</span>
+add chain=forward action=accept protocol=icmpv6 icmp-options=1:0-255
+add chain=forward action=accept protocol=icmpv6 icmp-options=2:0-255
+add chain=forward action=accept protocol=icmpv6 icmp-options=3:0-1
+add chain=forward action=accept protocol=icmpv6 icmp-options=4:0-2
+<span class="cmt"># echo: policy choice; rate-limit inbound so it can't be used to load hosts</span>
+add chain=forward action=accept protocol=icmpv6 icmp-options=128:0 \
+    limit=10,20:packet
+<span class="cmt"># the actual policy</span>
+add chain=forward action=accept in-interface-list=LAN out-interface-list=WAN
+add chain=forward action=drop log=yes log-prefix="v6-fwd-drop" \
+    comment="default deny: inbound from WAN, and LAN-to-LAN unless allowed above"</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; Parity Means LAN-to-LAN Too</span>
+    <p>Most v4 rulesets block inter-VLAN traffic (guest to staff, IoT to servers) in the forward chain. On v6 the same hosts now have a second set of addresses, and if the v6 forward chain ends with &ldquo;LAN to anywhere: accept&rdquo;, your segmentation exists only on IPv4. The ruleset above allows only <code>LAN &rarr; WAN</code>. Add explicit inter-VLAN accepts with <code>in-interface</code>/<code>out-interface</code> pairs, the same ones v4 has. Filter by interface rather than by address, because the addresses are delegated and will change (<a href="ipv6-prefix-delegation.html">Part 2</a>).</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">The IOS Version &mdash; Zone-Based</h2>
+  <p class="section-thesis"><em>ZBF inspects v4 and v6 with the same policy. The traps are the self zone and the ACLs people bolt on beside it.</em></p>
+  <div class="term-wrap"><span class="term-label">IOS / IOS-XE &mdash; inside-to-outside inspected, outside-to-inside denied</span><pre class="term">zone security INSIDE
+zone security OUTSIDE
+!
+class-map type inspect match-any C-OUTBOUND
+ match protocol tcp
+ match protocol udp
+ match protocol icmp
+!
+policy-map type inspect P-IN-TO-OUT
+ class type inspect C-OUTBOUND
+  inspect
+ class class-default
+  drop log
+!
+zone-pair security ZP-IN-OUT source INSIDE destination OUTSIDE
+ service-policy type inspect P-IN-TO-OUT
+!
+interface GigabitEthernet0/1
+ zone-member security INSIDE
+interface GigabitEthernet0/0
+ zone-member security OUTSIDE
+!
+<span class="cmt">! No OUTSIDE-&gt;INSIDE zone-pair = inbound is denied by default,
+! while return traffic for inspected sessions (and their ICMPv6 errors) is allowed.</span>
+show policy-map type inspect zone-pair sessions</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; The Self Zone Is Open Until You Close It, Then It's Closed to NDP Too</span>
+    <p>Traffic to the router itself belongs to the built-in <code>self</code> zone. With no zone-pair that involves <code>self</code>, the router's own traffic is allowed, so DHCPv6-PD, NDP and SSH all work. The moment you add an <code>OUTSIDE &rarr; self</code> zone-pair to protect management, everything that pair doesn't explicitly pass is dropped, including ICMPv6 and DHCPv6 from the ISP. Write that policy with the RFC 4890 input column above (ICMPv6, plus UDP 547&rarr;546 from <code>fe80::/10</code>) before anything else. As with any ZBF change, check v6 sessions on your release with the <code>show</code> command above. Don't assume a v4 test covers v6.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">First-Hop Protection</h2>
+  <p class="section-thesis"><em>Hop limit 255 keeps off-link devices from speaking NDP. It does nothing about a device plugged into your own switch.</em></p>
+  <p>Any host on a LAN segment can send Router Advertisements or answer DHCPv6. Usually that host is just misconfigured: a laptop with Internet Sharing on, a test VM bridged to the wrong network, a consumer router plugged in backwards. Hosts take the extra RA at face value and gain a second default route. The result runs from &ldquo;some users can't reach anything&rdquo; to traffic quietly taking a path you didn't design. The fix belongs on the access switch, which knows which ports face hosts:</p>
+  <div class="term-wrap"><span class="term-label">Catalyst IOS-XE &mdash; RA guard and DHCPv6 guard on host ports</span><pre class="term">ipv6 nd raguard policy HOST-PORTS
+ device-role host
+ipv6 dhcp guard policy DHCP-CLIENTS
+ device-role client
+!
+interface range GigabitEthernet1/0/1 - 46
+ ipv6 nd raguard attach-policy HOST-PORTS
+ ipv6 dhcp guard attach-policy DHCP-CLIENTS
+<span class="cmt">! Uplinks to the router keep the default (no policy) or device-role router.</span>
+show ipv6 nd raguard policy HOST-PORTS</pre></div>
+  <table class="cheat">
+    <thead><tr><th>Platform</th><th>What you have</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td>Cisco Catalyst</td><td>RA guard, DHCPv6 guard, ND inspection, source guard</td><td>RA + DHCPv6 guard on every host port at minimum.</td></tr>
+      <tr><td>MikroTik RouterOS</td><td>No RA guard feature</td><td>Put RA guard on the access switch if it supports it; use client isolation on Wi-Fi; detect rogue RAs (below).</td></tr>
+      <tr><td>Wi-Fi APs</td><td>Client isolation</td><td>Isolation stops host-to-host frames, including a rogue RA, on the same SSID.</td></tr>
+    </tbody>
+  </table>
+  <div class="term-wrap"><span class="term-label">Detection anywhere &mdash; alert when more than one router answers</span><pre class="term"><span class="cmt"># run from a monitoring host on each VLAN (cron, every few minutes)</span>
+rdisc6 -m eth0.10 | grep -c '^ from'     <span class="cmt"># -m: wait for every router, not just the first</span>
+<span class="cmt"># more than the routers you expect -&gt; alert with the "from" address and its MAC</span></pre></div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Prove Parity <span class="safe-badge">Your own network</span></h2>
+  <p class="section-thesis"><em>A firewall you haven't tested from the outside is a guess. Test both families from the same vantage point and diff them.</em></p>
+  <p>From a VPS you control, run the same scan against the IPv4 address and the IPv6 address of a few hosts you own: the router's WAN, a server, a workstation (use its <em>stable</em> address, not a temporary one). The results should match. Any port open on v6 and filtered on v4 is a missing v6 rule.</p>
+  <div class="term-wrap"><span class="term-label">Scan your own hosts in both families, then compare</span><pre class="term">$ nmap -Pn -p- --open -oG v4.txt 198.51.100.20
+$ nmap -6 -Pn -p- --open -oG v6.txt 2001:db8:abcd:1220::20
+$ diff &lt;(grep -o '[0-9]*/open' v4.txt) &lt;(grep -o '[0-9]*/open' v6.txt)
+<span class="cmt"># any line here is a v4/v6 policy mismatch</span></pre></div>
+  <div class="term-wrap"><span class="term-label">Prove PMTUD works (Packet Too Big gets through)</span><pre class="term">$ tracepath -6 www.example.com
+ 1?: [LOCALHOST]                        0.012ms pmtu 1500
+ 1:  2001:db8:abcd:1210::1              0.501ms
+ 2:  2001:db8:ffff:1::1                 6.884ms pmtu 1492    <span class="cmt"># PPPoE hop reports a lower MTU</span>
+ ...
+     Resume: pmtu 1492 hops 9 back 9
+<span class="cmt"># If large transfers stall but tracepath never reports a pmtu drop, something
+# between you and the far end is eating type 2. On your own edge, check rule order.</span></pre></div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>RFC 4890 answers the ICMPv6 question per type and per direction.</strong> Errors 1&ndash;4 must pass; NDP and MLD must reach the router; router renumbering (138) must not.</li>
+      <li><strong>Established/related already covers most errors.</strong> The explicit type accepts are for flows conntrack lost.</li>
+      <li><strong>Write v6 policy by interface list, not address.</strong> Delegated prefixes change.</li>
+      <li><strong>Parity includes inter-VLAN rules.</strong> Otherwise segmentation only exists on v4.</li>
+      <li><strong>ZBF self-zone policies must pass ICMPv6 and DHCPv6</strong>, or you lose NDP and your prefix the moment you protect management.</li>
+      <li><strong>Rogue RAs are a switch problem.</strong> Use RA guard and DHCPv6 guard where available, isolation on Wi-Fi, and detection everywhere else.</li>
+      <li><strong>Test from the outside in both families and diff.</strong> Check PMTUD with tracepath.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Not sure your v6 firewall matches your v4 one?</h3>
+    <p>I audit edge and first-hop policy on MikroTik and Cisco networks, test it from the outside in both address families, and close the gaps so dual-stack doesn't mean twice the exposure.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

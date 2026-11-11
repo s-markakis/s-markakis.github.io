@@ -132,7 +132,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#mikrotik-ipv6"
   },
-  "timeRequired": "PT5M"
+  "timeRequired": "PT6M"
 }
 </script>
 </head>
@@ -161,16 +161,18 @@
     <ul class="prereqs-list">
       <li>An ISP that delegates an IPv6 prefix (most Greek fibre/Starlink now do)</li>
       <li>The IPv4 <a href="mikrotik-firewall.html">firewall</a> model — the IPv6 one is a separate ruleset you must build too</li>
+      <li>Going deeper: the <strong><a href="ipv6-index.html">IPv6 in Depth</a></strong> series (NDP/SLAAC, prefix delegation, RFC 4890 firewall, OSPFv3/BGP)</li>
     </ul>
   </div>
 
   <p class="section-num">01</p>
   <h2 class="section-title">Turn IPv6 On</h2>
-  <p class="section-thesis"><em>RouterOS 7 ships IPv6 but leaves it disabled. Enable it and forwarding before anything else works.</em></p>
+  <p class="section-thesis"><em>RouterOS 7 has IPv6 built in and on by default, with forwarding enabled. RouterOS 6 shipped it as a separate package that was often disabled. Either way, confirm it before you build on it.</em></p>
   <div class="term-wrap">
     <span class="term-label">Terminal — enable IPv6 and routing</span>
     <pre class="term"><span class="pc">&gt;</span> <span class="out">/ipv6 settings set disable-ipv6=no forward=yes</span>
-<span class="cmt"># On RouterOS 6 it's a package instead: /system package enable ipv6, reboot.</span>
+<span class="cmt"># v7 defaults are already disable-ipv6=no forward=yes; this just pins them.
+# On RouterOS 6 it's a package instead: /system package enable ipv6, reboot.</span>
 <span class="pc">&gt;</span> <span class="out">/ipv6 settings print</span></pre>
   </div>
 
@@ -181,9 +183,16 @@
     <span class="term-label">Terminal — request a prefix on the WAN, store it in a pool</span>
     <pre class="term"><span class="pc">&gt;</span> <span class="out">/ipv6 dhcp-client add interface=ether1 request=prefix \
     pool-name=isp-pd pool-prefix-length=64 add-default-route=yes</span>
+<span class="cmt"># PPPoE WAN (common on Greek VDSL/FTTH)? The client goes on pppoe-out1, not ether1.
+# pool-prefix-length is the size of each chunk handed OUT of the pool (64 = one
+# SLAAC-able subnet), not the size of the delegation you receive.</span>
 <span class="pc">&gt;</span> <span class="out">/ipv6 dhcp-client print</span>
 <span class="out">   status: bound   prefix: 2a02:...:1200::/56</span>   <span class="cmt"># the delegated block</span>
 <span class="cmt"># A /56 gives you 256 /64s — one per VLAN, with room to spare.</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Where the Default Route Comes From</span>
+    <p>With <code>forward=yes</code>, RouterOS ignores Router Advertisements on every interface by default (<code>accept-router-advertisements=yes-if-forwarding-disabled</code>). DHCPv6 itself carries no routes, so on most ISPs your IPv6 default route exists only because of <code>add-default-route=yes</code> on the client. If <code>/ipv6 route print</code> shows the prefix bound but no <code>::/0</code>, that's why. Don't fix it with a global <code>accept-router-advertisements=yes</code>: that also trusts RAs arriving on your LAN, which hands any rogue device a route on the router itself.</p>
   </div>
 
   <p class="section-num">03</p>
@@ -210,26 +219,34 @@
 <span class="pc">&gt;</span> <span class="out">/ipv6 firewall filter</span>
 <span class="out">add chain=forward connection-state=established,related action=accept
 add chain=forward connection-state=invalid action=drop
-add chain=forward connection-state=new in-interface=ether1 action=drop \
+add chain=forward connection-state=new in-interface-list=WAN action=drop \
     comment="no unsolicited inbound from WAN"</span>
 
 <span class="cmt"># INPUT: protect the router. CRUCIALLY allow ICMPv6 BEFORE the drop —
 # NDP, PMTUD and address config ride on it; block it and IPv6 falls apart.</span>
 <span class="out">add chain=input connection-state=established,related action=accept
 add chain=input protocol=icmpv6 action=accept comment="ICMPv6 is mandatory"
+add chain=input protocol=udp dst-port=546 src-address=fe80::/10 action=accept \
+    comment="DHCPv6-PD replies from the ISP"
 add chain=input src-address-list=MGMT action=accept
-add chain=input action=drop</span></pre>
+add chain=input action=drop</span>
+<span class="cmt"># WAN is an interface list (ether1, or pppoe-out1 if you dial PPPoE):
+# /interface list add name=WAN ; /interface list member add list=WAN interface=ether1</span></pre>
   </div>
   <div class="callout gotcha">
     <span class="callout-label">⚠ Gotcha — Blocking ICMPv6 Breaks Everything</span>
     <p>IPv4 muscle memory says "drop ICMP, it's just ping." In IPv6, ICMPv6 carries <strong>Neighbour Discovery</strong> (the ARP replacement), <strong>Router Advertisements</strong>, and <strong>Path MTU Discovery</strong>. Block it wholesale and hosts can't resolve neighbours, can't autoconfigure, and large packets silently vanish — a maddening "half the internet loads" failure. Always <code>accept protocol=icmpv6</code> above your drop rule. This is the number-one IPv6 firewall mistake, on every platform.</p>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — The Input Drop That Eats Your Prefix</span>
+    <p>The DHCPv6 client sends its Solicit to the multicast group <code>ff02::1:2</code>, and the ISP answers by unicast from its link-local address. Connection tracking can't pair a unicast reply with a multicast request, so the reply isn't <code>established</code>. Without the UDP 546 rule, <code>chain=input action=drop</code> eats it. The prefix never binds, or binds once and then fails at renewal days later. RouterOS's own default config has the same rule for exactly this reason.</p>
   </div>
 
   <div class="takeaways">
     <p class="takeaways-title">Takeaways</p>
     <ol>
       <li><strong>IPv6 has no NAT by default</strong> — every host is globally routable, so the incidental IPv4 firewall is gone. "Enabled but unfirewalled" is the dangerous state.</li>
-      <li><strong>Enable IPv6 and forwarding explicitly</strong> — RouterOS ships it off.</li>
+      <li><strong>Check that IPv6 and forwarding are on.</strong> v7 enables both by default; v6 needs the package.</li>
       <li><strong>You get a prefix, not an address.</strong> Request DHCPv6-PD, store it in a pool, and carve /64s per network — a /56 gives you 256.</li>
       <li><strong>SLAAC via Router Advertisements</strong> auto-addresses hosts; advertise DNS through RA if you want resolver config too.</li>
       <li><strong>Build the IPv6 firewall — it's mandatory, not optional.</strong> Drop unsolicited inbound; the internet can reach every host otherwise.</li>

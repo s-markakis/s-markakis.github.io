@@ -127,7 +127,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#surgery-ipv4-to-dualstack"
   },
-  "timeRequired": "PT5M"
+  "timeRequired": "PT6M"
 }
 </script>
 </head>
@@ -155,6 +155,7 @@
     <ul class="prereqs-list">
       <li><strong><a href="surgery-index.html">Surgery on a Running Network</a></strong> &mdash; changing live networks without downtime</li>
       <li>Reads alongside <a href="mikrotik-ipv6.html">IPv6 on RouterOS</a>, <a href="cisco-ipv6.html">IPv6 on IOS</a>, <a href="mikrotik-firewall.html">the firewall</a></li>
+      <li>Going deeper: the <strong><a href="ipv6-index.html">IPv6 in Depth</a></strong> series (NDP/SLAAC, prefix delegation, RFC 4890 firewall, OSPFv3/BGP)</li>
     </ul>
   </div>
 
@@ -188,30 +189,44 @@
   <table class="cheat">
     <thead><tr><th>Step</th><th>Do</th><th>Rollback</th></tr></thead>
     <tbody>
-      <tr><td>1 · Get the prefix</td><td>Request a prefix via DHCPv6-PD on the WAN. Do not advertise anything to clients yet.</td><td>Release the PD.</td></tr>
-      <tr><td>2 · Build the v6 firewall</td><td>Write the <code>/ipv6 firewall</code> ruleset to mirror v4: default-deny inbound, allow established/related, permit only what v4 permits. <em>Before</em> any RA.</td><td>&mdash; (nothing reachable yet).</td></tr>
-      <tr><td>3 · Pilot one VLAN</td><td>Enable SLAAC/DHCPv6 and router advertisements on one low-risk VLAN. Clients gain a v6 address.</td><td>Disable RA on that VLAN &mdash; clients drop v6.</td></tr>
+      <tr><td>1 · Build the v6 firewall</td><td>Write the <code>/ipv6 firewall</code> ruleset to mirror v4: default-deny inbound, allow established/related, permit only what v4 permits, plus the DHCPv6-PD reply rule step 2 needs. <em>Before</em> any prefix exists.</td><td>&mdash; (nothing reachable yet).</td></tr>
+      <tr><td>2 · Get the prefix</td><td>Request a prefix via DHCPv6-PD on the WAN. Do not advertise anything to clients yet. Shorten the advertised prefix lifetimes now.</td><td>Remove the DHCPv6 client.</td></tr>
+      <tr><td>3 · Pilot one VLAN</td><td>Add a <code>from-pool</code> /64 with RA on one low-risk VLAN. Clients gain a v6 address.</td><td>Advertise a router lifetime of zero, then remove the address. Just stopping RAs leaves clients holding the prefix until its valid lifetime ends.</td></tr>
       <tr><td>4 · Verify parity</td><td>From outside, confirm v6 reachability matches v4 exactly (nothing extra open). From inside, confirm v6 connectivity works.</td><td>&mdash;</td></tr>
-      <tr><td>5 · Roll out + RA guard</td><td>Repeat per VLAN; enable RA guard on access ports so only the router advertises.</td><td>Per-VLAN disable RA.</td></tr>
+      <tr><td>5 · Roll out + RA guard</td><td>Repeat per VLAN; block router advertisements from access ports so only the router advertises.</td><td>Same as step 3, per VLAN.</td></tr>
     </tbody>
   </table>
-  <div class="term-wrap"><span class="term-label">Step 2 &mdash; the v6 firewall FIRST (RouterOS)</span><pre class="term"><span class="cmt"># default-deny inbound on v6, mirroring the v4 input/forward policy</span>
+  <div class="term-wrap"><span class="term-label">Steps 1&ndash;3 &mdash; firewall first, then prefix, then one VLAN (RouterOS)</span><pre class="term"><span class="cmt"># STEP 1: default-deny inbound on v6, mirroring the v4 input/forward policy</span>
 /ipv6 firewall filter
 add chain=input action=accept connection-state=established,related,untracked
 <span class="cmt"># ICMPv6 is load-bearing &mdash; do NOT drop it (ND, PMTUD, SLAAC)</span>
 add chain=input action=accept protocol=icmpv6
+<span class="cmt"># the PD reply is unicast to a multicast Solicit, so conntrack can't call it
+# established; without this the drop below eats it and the prefix never binds</span>
+add chain=input action=accept protocol=udp dst-port=546 src-address=fe80::/10
 add chain=input action=accept in-interface-list=MGMT
 add chain=input action=drop
 add chain=forward action=accept connection-state=established,related,untracked
+add chain=forward action=drop connection-state=invalid
 add chain=forward action=accept in-interface-list=LAN out-interface-list=WAN
 add chain=forward action=drop     <span class="cmt"># no inbound from the internet, same as v4</span>
-<span class="cmt"># ONLY NOW enable addressing (step 3):</span>
+
+<span class="cmt"># STEP 2: the prefix. pool-prefix-length is the size handed OUT per VLAN:
+# 64, because SLAAC only works on a /64. Short lifetimes make rollback fast.</span>
 /ipv6 dhcp-client add interface=ether1-wan request=prefix pool-name=v6pd \
-    pool-prefix-length=56</pre></div>
+    pool-prefix-length=64 add-default-route=yes
+/ipv6 nd prefix default set preferred-lifetime=1h valid-lifetime=2h
+
+<span class="cmt"># STEP 3: one pilot VLAN gets a /64 and starts sending RAs</span>
+/ipv6 address add interface=vlan40-pilot from-pool=v6pd address=::1 advertise=yes</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; rollback is not instant unless you planned it</span>
+    <p>RouterOS advertises prefixes with a 30-day valid lifetime by default, and hosts honour it. If the pilot goes wrong and you just remove the address, clients keep the stale prefix and keep trying v6 until it ages out. Shorten the lifetimes <em>before</em> the pilot. Restore them once the rollout is stable. To withdraw in a hurry, advertise a router lifetime of zero on that VLAN's ND entry (<code>ra-lifetime</code>). Hosts drop the router as a v6 default gateway straight away and fall back to v4.</p>
+  </div>
 
   <div class="callout gotcha">
     <span class="callout-label">&#9888; Gotcha &mdash; do not drop ICMPv6, and do not reach for NAT</span>
-    <p>Two reflexes to resist. First, ICMPv6 is not optional like ICMP felt in v4 &mdash; Neighbor Discovery, PMTUD and address configuration all ride it, so a blanket drop breaks v6 entirely (and gives you a <a href="broken-mtu-blackhole.html">black hole</a>). Permit it. Second, the instinct to &ldquo;NAT v6 like v4 for safety&rdquo; (NPTv6/NAT66) throws away the end-to-end addressing that is the whole point; the correct protection is the <em>firewall</em>, default-deny inbound, not NAT. Build the filter, keep the global addresses.</p>
+    <p>Two reflexes to resist. First, ICMPv6 is not optional like ICMP felt in v4 &mdash; Neighbor Discovery, PMTUD and address configuration all ride it, so a blanket drop breaks v6 entirely (and gives you a <a href="broken-mtu-blackhole.html">black hole</a>). Permit it. Second, the instinct to &ldquo;NAT v6 like v4 for safety&rdquo; (stateful NAT66/masquerade) throws away the end-to-end addressing that is the whole point. NPTv6 is no shortcut either: it is a stateless 1:1 prefix swap meant for multihoming, and it blocks nothing; the correct protection is the <em>firewall</em>, default-deny inbound, not NAT. Build the filter, keep the global addresses.</p>
   </div>
 
   <p class="section-num">03</p>
@@ -222,7 +237,8 @@ add chain=forward action=drop     <span class="cmt"># no inbound from the intern
       <tr><td>The v6 firewall exists and is default-deny</td><td>Clients auto-enable v6 the instant an RA appears &mdash; the filter must predate it.</td></tr>
       <tr><td>ICMPv6 permitted</td><td>v6 does not work at all without it.</td></tr>
       <tr><td>External scan v4 vs v6 after each VLAN</td><td>Prove v6 exposes exactly what v4 does &mdash; nothing extra.</td></tr>
-      <tr><td>RA guard on access ports</td><td>Stop a rogue device advertising itself as the v6 router.</td></tr>
+      <tr><td>RA guard on access ports</td><td>Stop a rogue device advertising itself as the v6 router. Cisco has <code>ipv6 nd raguard</code>. RouterOS has no RA guard, so enforce it on a managed access switch that does, use client isolation on Wi-Fi, and watch for a second router answering <code>rdisc6</code>.</td></tr>
+      <tr><td>Short prefix lifetimes during the pilot</td><td>A rollback ages out in hours, not the 30-day default.</td></tr>
     </tbody>
   </table>
 
@@ -233,7 +249,7 @@ add chain=forward action=drop     <span class="cmt"># no inbound from the intern
       <li><strong>The v6 ruleset is separate from v4</strong> and must be built <em>before</em> you advertise a prefix, or the LAN is wide open on v6.</li>
       <li><strong>Mirror every v4 rule in v6</strong>, default-deny inbound &mdash; parity is the goal.</li>
       <li><strong>Never drop ICMPv6</strong> &mdash; Neighbor Discovery and PMTUD depend on it.</li>
-      <li><strong>Roll out per VLAN with RA guard</strong>, and scan v4-vs-v6 after each to prove nothing extra is exposed.</li>
+      <li><strong>Roll out per VLAN with RA guard and short lifetimes</strong>, and scan v4-vs-v6 after each to prove nothing extra is exposed.</li>
     </ol>
   </div>
 

@@ -66,7 +66,7 @@ function formatDate(d) {
 // is treated as a Topic and shown alphabetically under that group.
 const TAG_GROUPS = [
   { key: 'platform', tags: ['cisco', 'mikrotik'] },
-  { key: 'series',   tags: ['build', 'surgery', 'broken-by-design', 'htb', 'labs'] },
+  { key: 'series',   tags: ['build', 'surgery', 'broken-by-design', 'ipv6', 'htb', 'labs'] },
 ];
 
 function presentTags() {

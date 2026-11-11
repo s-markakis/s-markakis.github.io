@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>IPv6 σε Βάθος: Prefix Delegation και Renumbering — S. Markakis</title>
+<meta name="description" content="Το DHCPv6-PD από το Solicit ως το Rebind, γιατί τα firewalls τρώνε την απάντηση, σχέδια subnetting που αντέχουν /56 ή /60, και τι παθαίνει κάθε host στο LAN όταν ο ISP σου δώσει αύριο άλλο prefix.">
+<meta property="og:title" content="IPv6 σε Βάθος: Prefix Delegation και Renumbering — S. Markakis">
+<meta property="og:description" content="Το DHCPv6-PD από το Solicit ως το Rebind, γιατί τα firewalls τρώνε την απάντηση, σχέδια subnetting που αντέχουν /56 ή /60, και τι παθαίνει κάθε host στο LAN όταν ο ISP σου δώσει αύριο άλλο prefix.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/ipv6-prefix-delegation-el.html">
+<meta property="og:locale" content="el_GR">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-prefix-delegation.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-prefix-delegation.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/ipv6-prefix-delegation-el.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/ipv6-prefix-delegation.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/ipv6-prefix-delegation-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/ipv6-prefix-delegation.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* ipv6 in depth (v6-) */
+  .v6-box{fill:var(--card);stroke:var(--mid);stroke-width:1.4;}
+  .v6-box.hi{stroke:var(--accent);stroke-width:1.8;}
+  .v6-box.def{stroke:var(--defender);}
+  .v6-h{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:13px;fill:var(--mid);text-anchor:middle;}
+  .v6-c{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  .v6-m{font-family:var(--font-mono),monospace;font-size:11px;fill:var(--mid);}
+  .v6-m.acc,.v6-c.acc,.v6-h.acc{fill:var(--accent);}
+  .v6-m.def,.v6-c.def,.v6-h.def{fill:var(--defender);}
+  .v6-ln{stroke:var(--body);stroke-width:1.4;fill:none;}
+  .v6-ln.acc{stroke:var(--accent);}
+  .v6-ln.def{stroke:var(--defender);}
+  .v6-ln.dash{stroke-dasharray:4 4;}
+  .v6-cell{fill:var(--bg);stroke:var(--rule);stroke-width:1;}
+  .v6-cell.acc{fill:none;stroke:var(--accent);stroke-width:1.6;}
+  .v6-ah{fill:var(--body);}.v6-ah.acc{fill:var(--accent);}.v6-ah.def{fill:var(--defender);}
+  @keyframes v6Flow{from{stroke-dashoffset:24;}to{stroke-dashoffset:0;}}
+  .v6-flow{stroke-dasharray:6 6;animation:v6Flow 1.2s linear infinite;}
+  @media (prefers-reduced-motion:reduce){.v6-flow{animation:none;}}
+  .chapter{margin-top:2.6rem;}
+  .chapter-num{font-family:var(--font-disp);font-weight:700;font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:.15rem;}
+  .chapter-title{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:.2rem;}
+  .chapter-desc{font-style:italic;color:var(--body);font-size:.9rem;margin-bottom:1rem;border-bottom:1px solid var(--rule);padding-bottom:.7rem;}
+  .ci-row{display:flex;align-items:baseline;gap:1rem;padding:.8rem .3rem;border-bottom:1px solid var(--rule);text-decoration:none;transition:background .12s,padding .15s;}
+  .ci-row:first-of-type{border-top:1px solid var(--rule);}
+  .ci-row:hover{background:var(--card);padding-left:.7rem;text-decoration:none;}
+  .ci-num{font-family:var(--font-disp);font-weight:800;font-size:.82rem;color:var(--accent);min-width:2.1ch;text-align:right;}
+  .ci-main{flex:1;min-width:0;}
+  .ci-title{display:block;font-family:var(--font-disp);font-weight:600;font-size:1.04rem;color:var(--head);line-height:1.25;}
+  .ci-desc{display:block;color:var(--body);font-size:.85rem;margin-top:.15rem;line-height:1.45;}
+  .ci-time{font-family:var(--font-disp);font-size:.72rem;letter-spacing:.05em;color:var(--body);white-space:nowrap;}
+  .ci-arrow{color:var(--rule);font-size:1rem;align-self:center;}
+  .ci-row:hover .ci-arrow{color:var(--accent);}
+  @media (max-width:560px){h1.post-title{font-size:2.3rem;}.ci-time{display:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "IPv6 σε Βάθος: Prefix Delegation και Renumbering",
+  "description": "Το DHCPv6-PD από το Solicit ως το Rebind, γιατί τα firewalls τρώνε την απάντηση, σχέδια subnetting που αντέχουν /56 ή /60, και τι παθαίνει κάθε host στο LAN όταν ο ISP σου δώσει αύριο άλλο prefix.",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "inLanguage": "el",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/ipv6-prefix-delegation-el.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/ipv6-prefix-delegation.png",
+  "keywords": [
+    "ipv6"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#ipv6-prefix-delegation"
+  }
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Πίσω στο blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><a href="ipv6-prefix-delegation.html" style="font-weight:600;">English</a> &nbsp;·&nbsp; <strong style="color:var(--mid);">Ελληνικά</strong></p>
+  <p class="post-meta"><span class="series-chip">IPv6 σε Βάθος</span> &nbsp;·&nbsp; Μέρος 2 &middot; Νοέμβριος 2026</p>
+  <h1 class="post-title">IPv6 σε Βαθος<br><span style="font-size:1.5rem;color:var(--accent);">Prefix Delegation και Renumbering</span></h1>
+  <p class="post-subtitle">Στο IPv4 ο ISP σου έδινε μία διεύθυνση και το NAT έκρυβε τα υπόλοιπα. Στο IPv6 ο ISP σου δίνει ένα ολόκληρο block, και κάθε subnet που χτίζεις εξαρτάται από αυτό. Μάθε την ανταλλαγή τεσσάρων μηνυμάτων που το παραδίδει, τα σχέδια subnetting που αντέχουν διαφορετικό μέγεθος block, και τι παθαίνει πραγματικά κάθε host όταν το block αλλάξει μέσα στη νύχτα.</p>
+  <div class="tags">
+    <span class="tag">IPv6</span>
+    <span class="tag">DHCPv6-PD</span>
+    <span class="tag">Renumbering</span>
+    <span class="tag">Subnetting</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Cisco IOS</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Το DHCPv6 Prefix Delegation (RFC 8415) είναι ο τρόπος που ένας οικιακός ή επαγγελματικός ISP δίνει στον router το block του: συνήθως ένα <strong>/56</strong>, μερικές φορές /60 ή /48. Ο router το κόβει σε /64, ένα ανά VLAN, και διαφημίζει το καθένα με RAs. Όλη η εσωτερική σου διευθυνσιοδότηση εξαρτάται πλέον από ένα lease στον server κάποιου άλλου.</p>
+    <p>Αυτός ο σχεδιασμός είναι μια χαρά όσο το lease είναι σταθερό. Χαλάει με τρεις προβλέψιμους τρόπους: η απάντηση δεν φτάνει ποτέ στον client, το σχέδιο δεν χωράει στο μέγεθος που σου έδωσαν, και το prefix αλλάζει κάτω από hosts που κρατάνε lifetimes μιας εβδομάδας. Αυτό το post τα αντιμετωπίζει και τα τρία.</p>
+    <div class="prereqs-label">Πριν απο αυτο</div>
+    <ul class="prereqs-list">
+      <li><a href="ipv6-ndp-slaac-el.html">Μέρος 1: NDP και SLAAC από Μέσα</a> (lifetimes και ο κανόνας των δύο ωρών)</li>
+      <li>Μέρος της σειράς <strong><a href="ipv6-index-el.html">IPv6 σε Βάθος</a></strong> &mdash; επόμενο: <a href="ipv6-firewall-rfc4890-el.html">Το Firewall, Σωστά</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Η Ανταλλαγη, Πακετο προς Πακετο</h2>
+  <p class="section-thesis"><em>Τέσσερα μηνύματα για να πάρεις το prefix, δύο χρονόμετρα για να το κρατήσεις. Όλα τρέχουν σε UDP μεταξύ link-local διευθύνσεων.</em></p>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 330" role="img" aria-label="DHCPv6 prefix delegation: ο client στέλνει Solicit στο multicast group όλων των DHCP servers, ο server απαντά με Advertise, ο client στέλνει Request, ο server απαντά με Reply που περιέχει το delegated prefix, τα lifetimes του και τα T1 και T2· αργότερα ο client κάνει renew στο T1 και rebind στο T2">
+      <defs><marker id="v6a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="v6-ah" d="M0,0L10,5L0,10z"/></marker>
+      <marker id="v6a2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="v6-ah acc" d="M0,0L10,5L0,10z"/></marker></defs>
+      <rect class="v6-box def" x="20" y="16" width="220" height="40" rx="5"/><text class="v6-h def" x="130" y="34">Ο ROUTER ΣΟΥ (client)</text><text class="v6-c" x="130" y="49">fe80::4e5e:cff:fe11:2233 · udp/546</text>
+      <rect class="v6-box" x="530" y="16" width="200" height="40" rx="5"/><text class="v6-h" x="630" y="34">ISP (server / relay)</text><text class="v6-c" x="630" y="49">fe80::1 · udp/547</text>
+      <line class="v6-ln dash" x1="130" y1="56" x2="130" y2="318"/><line class="v6-ln dash" x1="630" y1="56" x2="630" y2="318"/>
+      <text class="v6-m" x="160" y="84">SOLICIT → ff02::1:2   IA_PD (IAID 1, hint ::/56)</text>
+      <line class="v6-ln" x1="130" y1="92" x2="630" y2="92" marker-end="url(#v6a2)"/>
+      <text class="v6-m" x="300" y="118">ADVERTISE ← unicast στο fe80::4e5e:…</text>
+      <line class="v6-ln" x1="630" y1="126" x2="130" y2="126" marker-end="url(#v6a2)"/>
+      <text class="v6-m" x="160" y="152">REQUEST → ff02::1:2   (επιλογή server-id)</text>
+      <line class="v6-ln" x1="130" y1="160" x2="630" y2="160" marker-end="url(#v6a2)"/>
+      <text class="v6-m acc" x="230" y="186">REPLY ← IA_PD T1=7200 T2=11520</text>
+      <text class="v6-m acc" x="230" y="200">IAPREFIX 2001:db8:abcd:1200::/56  pref 14400  valid 86400</text>
+      <line class="v6-ln acc v6-flow" x1="630" y1="208" x2="130" y2="208" marker-end="url(#v6a2r)"/>
+      <text class="v6-c" x="380" y="238" style="font-style:italic;">T1 (50% του preferred): RENEW στον ίδιο server &middot; T2 (80%): REBIND σε οποιονδήποτε</text>
+      <text class="v6-c" x="380" y="256" style="font-style:italic;">λήγει το valid lifetime χωρίς Reply &rarr; το prefix αποσύρεται, πεθαίνει κάθε /64 από κάτω</text>
+      <text class="v6-c acc" x="380" y="290" style="font-weight:700;">Το Reply είναι unicast. Το Solicit ήταν multicast. Το firewall δεν μπορεί να τα ταιριάξει.</text>
+    </svg>
+  </div>
+  <p>Η λεπτομέρεια που μετράει για την επόμενη ενότητα: ο client μιλάει στο multicast group <code>ff02::1:2</code> (All_DHCP_Relay_Agents_and_Servers), και οι απαντήσεις γυρίζουν <em>unicast</em> από μια link-local διεύθυνση με την οποία ο client δεν έχει μιλήσει ποτέ. Το Renew και το Rebind δουλεύουν με τον ίδιο τρόπο. Με Rapid Commit οι δύο πλευρές παραλείπουν το Advertise/Request, και βλέπεις μόνο Solicit και Reply. Η ασυμμετρία μένει.</p>
+  <p>Δύο αναγνωριστικά αποφασίζουν ποιο prefix θα πάρεις: το <strong>DUID</strong> του client και το <strong>IAID</strong> του IA_PD. Πολλοί ISP δένουν το delegation πάνω τους. Άλλαξε router, κάνε factory reset, ή μετάφερε τον client σε άλλο interface, και αλλάζει το DUID ή το IAID. Περίμενε διαφορετικό prefix, ακόμα κι από ISP που «δεν το αλλάζει ποτέ».</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Γιατι το Firewall Τρωει την Απαντηση</h2>
+  <p class="section-thesis"><em>Το conntrack αναγνωρίζει ροές από διευθύνσεις και θύρες. Μια απάντηση σε multicast αίτημα δεν ταιριάζει με τίποτα που έχει δει.</em></p>
+  <p>Ένα stateful firewall δέχεται «επιστρεφόμενη κίνηση» επειδή κατέγραψε το 5-tuple του εξερχόμενου πακέτου. Το Solicit πήγε στο <code>ff02::1:2</code>, οπότε το καταγεγραμμένο tuple έχει multicast προορισμό. Το Reply έρχεται από το <code>fe80::1</code>, και καμία καταγεγραμμένη ροή δεν έχει αυτή τη διεύθυνση ως προορισμό. Είναι <code>new</code>, και ένα input policy «established/related, ICMPv6, management, drop» το πετάει.</p>
+  <p>Η αποτυχία είναι ύπουλη γιατί έρχεται με καθυστέρηση. Συχνά το πρώτο lease δουλεύει: το firewall χτίστηκε αφού έκανε bind ο client, ή ένα reboot έτυχε να βάλει τα πράγματα σε βολική σειρά. Μετά το Renew αποτυγχάνει στο T1 και το Rebind στο T2. Όταν λήξει το valid lifetime το prefix αποσύρεται, φεύγει μαζί του κάθε /64 του LAN, και το IPv6 πεθαίνει στις 3 το πρωί μιας τυχαίας Τρίτης. Κανείς δεν το συνδέει με την αλλαγή στο firewall της προηγούμενης εβδομάδας.</p>
+  <div class="term-wrap"><span class="term-label">Ο ενας κανονας, σε τρεις πλατφορμες</span><pre class="term"><span class="cmt"># RouterOS (ίδιος με τον κανόνα στο default config του RouterOS)</span>
+/ipv6 firewall filter add chain=input protocol=udp dst-port=546 \
+    src-address=fe80::/10 action=accept comment="DHCPv6-PD replies"
+<span class="cmt"># μετά μετακίνησέ τον πάνω από τον κανόνα drop του input (η σειρά είναι το παν)</span>
+
+<span class="cmt"># Cisco IOS edge ACL (inbound στο WAN)</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit udp any eq 547 any eq 546</span>
+
+<span class="cmt"># Linux nftables (ένα Linux μηχάνημα ως CE router)</span>
+nft add rule inet filter input ip6 saddr fe80::/10 udp dport 546 accept</pre></div>
+  <p>Ο περιορισμός του source στο <code>fe80::/10</code> δεν είναι διακοσμητικός. Οι νόμιμες απαντήσεις DHCPv6 στο WAN link έρχονται από τη link-local διεύθυνση του ISP, οπότε τίποτα από το internet δεν φτάνει στη θύρα 546 μέσα από αυτόν τον κανόνα.</p>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Ενα Σχεδιο Subnetting που Αντεχει το Prefix</h2>
+  <p class="section-thesis"><em>Δεν ελέγχεις ούτε το prefix ούτε το μέγεθός του. Ελέγχεις το subnet ID, οπότε φτιάξε το σχέδιο μόνο από αυτά τα bits.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Delegation</th><th>Bits για subnet ID</th><th>/64s</th><th>Τι χωραει</th></tr></thead>
+    <tbody>
+      <tr><td>/48</td><td>16</td><td>65.536</td><td>Επιχείρηση με πολλά sites· /56 ανά site από ένα block</td></tr>
+      <tr><td>/56</td><td>8</td><td>256</td><td>Το συνηθισμένο μέγεθος για επιχειρήσεις και σπίτια. Υπεραρκετό για μια μικρή επιχείρηση.</td></tr>
+      <tr><td>/60</td><td>4</td><td>16</td><td>Κάποιοι οικιακοί ISP. Στενό μόλις χωρίσεις IoT, guest και κάμερες.</td></tr>
+      <tr><td>/64</td><td>0</td><td>1</td><td>Καθόλου delegation: ένα μόνο LAN. Πίεσε τον ISP, ή σχεδίασε για bridging.</td></tr>
+    </tbody>
+  </table>
+  <p>Δούλευε σε <strong>nibbles</strong> (hex ψηφία των 4 bits), ώστε κάθε όριο subnet να πέφτει σε hex ψηφίο που διαβάζεται. Με /56 έχεις δύο nibbles. Ένα σχέδιο που αντέχει:</p>
+  <div class="term-wrap"><span class="term-label">Subnet ID = nibble ζωνης + nibble δεικτη (παραδειγμα με /56)</span><pre class="term">delegated        2001:db8:abcd:12<strong>00</strong>::/56      <span class="cmt"># το "00" το αναθέτεις εσύ</span>
+  :1200::/64     0 · 0   υποδομή / router-to-router
+  :1210::/64     1 · 0   προσωπικό VLAN 10
+  :1211::/64     1 · 1   προσωπικό VLAN 11
+  :1220::/64     2 · 0   servers
+  :1230::/64     3 · 0   IoT / κάμερες
+  :1240::/64     4 · 0   guest Wi-Fi
+<span class="cmt"># Το prefix γίνεται 2001:db8:abcd:7700::/56 -&gt; κάθε subnet κρατά τα δύο τελευταία ψηφία του.
+# Σου έδωσαν /60; Μένει μόνο το nibble ζώνης: ένα /64 ανά ζώνη, έως 16.</span></pre></div>
+
+  <h3 class="sub">Κλειδωμα του subnet ID σε καθε πλατφορμα</h3>
+  <p>Εδώ οι πλατφόρμες διαφέρουν. Το IOS σε αφήνει να γράψεις το subnet ID. Το RouterOS το διαλέγει για σένα.</p>
+  <div class="term-wrap"><span class="term-label">Cisco IOS &mdash; general prefix, ρητο subnet ID</span><pre class="term"><span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 dhcp client pd ISP-PD rapid-commit</span>
+<span class="pc">R1(config-if)#</span> <span class="out">interface Vlan10</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 address ISP-PD ::10:0:0:0:1/64</span>
+<span class="cmt"># 2001:db8:abcd:1200::/56 + ::10:0:0:0:1 -&gt; 2001:db8:abcd:1210::1/64,
+# ξαναϋπολογίζεται αυτόματα όταν αλλάξει το delegated prefix</span>
+<span class="pc">R1#</span> <span class="out">show ipv6 general-prefix</span>
+<span class="pc">R1#</span> <span class="out">show ipv6 dhcp interface GigabitEthernet0/0</span>   <span class="cmt"># prefix, lifetimes, T1/T2</span></pre></div>
+  <div class="term-wrap"><span class="term-label">RouterOS 7 &mdash; το from-pool παιρνει το επομενο ελευθερο /64</span><pre class="term">/ipv6 dhcp-client add interface=pppoe-out1 request=prefix pool-name=isp-pd \
+    pool-prefix-length=64 add-default-route=yes
+/ipv6 address add interface=vlan10 from-pool=isp-pd address=::1
+/ipv6 address add interface=vlan40 from-pool=isp-pd address=::1
+/ipv6 pool used print          <span class="cmt"># ποιο /64 πήγε σε ποιο interface</span>
+/ipv6 dhcp-client print detail  <span class="cmt"># status, prefix, expires-after</span></pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Παγιδα &mdash; Ποτε Μη Γραφεις Delegated Διευθυνσεις σε Κανονες Firewall</span>
+    <p>Το RouterOS αναθέτει τα <code>from-pool</code> subnets από την pool. Δεν υπάρχει πεδίο που να κλειδώνει το VLAN 10 στο subnet <code>10</code>. Ακόμα και το general prefix του IOS, που κρατάει τα subnet IDs σου, δεν μπορεί να εμποδίσει τον ISP να αλλάξει το prefix μπροστά τους. Κάθε κανόνας firewall, address-list, εγγραφή DNS ή έλεγχος monitoring με γραμμένο το <code>2001:db8:abcd:1210::/64</code> είναι λοιπόν ωρολογιακή βόμβα. Γράφε την πολιτική πάνω σε <strong>interfaces και interface lists</strong> (<code>in-interface-list=STAFF</code>), που αντέχουν κάθε renumbering. Όταν ένας κανόνας χρειάζεται πραγματικά διεύθυνση, δώσε στις εσωτερικές υπηρεσίες μια <strong>ULA</strong> (<code>fd</code> + 40 τυχαία bits) δίπλα στη GUA, και δείξε εκεί το εσωτερικό DNS και τα ACLs. Μια επιφύλαξη: στον default πίνακα πολιτικής του RFC 6724, το IPv4 προηγείται της ULA. Άρα οι dual-stack clients θα διαλέξουν ακόμα v4 για ένα όνομα που έχει και εγγραφή A και ULA AAAA. Η ULA σου δίνει σταθερά εσωτερικά ονόματα. Δεν σπρώχνει την κίνηση στο v6.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Οταν το Prefix Αλλαζει μεσα στη Νυχτα</h2>
+  <p class="section-thesis"><em>Ο router μαθαίνει το νέο prefix σε ένα δευτερόλεπτο. Κάθε host συνεχίζει να χρησιμοποιεί το παλιό μέχρι να λήξει το lifetime του.</em></p>
+  <p>Οι συνηθισμένες αιτίες: το ONT ή το modem κάνει reboot, το PPPoE session ξανασυνδέεται, ο ISP αναδιανέμει τις pools του, ή ο router παίρνει νέο DUID. Αυτή είναι η ακολουθία σε router με default lifetimes:</p>
+  <table class="cheat">
+    <thead><tr><th>Χρονος</th><th>Router</th><th>Hosts</th></tr></thead>
+    <tbody>
+      <tr><td>t = 0</td><td>Το PPPoE ξανασυνδέεται, το DHCPv6-PD κάνει bind το <code>:7700::/56</code>, τα /64 του LAN ξαναχτίζονται, τα RAs έχουν πλέον μόνο το νέο prefix</td><td>Φτιάχνουν νέες διευθύνσεις από το <code>:7710::/64</code>. <strong>Κρατάνε ακόμα το <code>:1210::</code> ως preferred</strong>, με έως μία εβδομάδα να απομένει.</td></tr>
+      <tr><td>t + δευτερόλεπτα</td><td>Δρομολογεί και προωθεί μόνο το νέο prefix· ο ISP πετάει ό,τι έχει source το παλιό</td><td>Η επιλογή source διεύθυνσης έχει δύο preferred διευθύνσεις. Πολλές συνδέσεις βγαίνουν από τη νεκρή και κάνουν timeout. Το happy-eyeballs κρύβει ένα μέρος πίσω από το v4.</td></tr>
+      <tr><td>t + 1 εβδομάδα</td><td>&mdash;</td><td>Η παλιά διεύθυνση γίνεται επιτέλους deprecated, και το v6 «φτιάχνεται μόνο του». Με τα defaults του RouterOS, το valid lifetime μένει άλλες τρεις εβδομάδες.</td></tr>
+    </tbody>
+  </table>
+  <p>Το RFC 9096 λέει ότι ένας CE router που χάνει ένα prefix πρέπει να συνεχίσει να το διαφημίζει για λίγο με preferred lifetime 0, ώστε οι hosts να το κάνουν αμέσως deprecated. Το ίδιο RFC ζητά από τον router να θυμάται το prefix και μετά από reboot, ώστε να μπορεί ακόμα να το κάνει deprecated. Πολλές υλοποιήσεις CE δεν κάνουν αξιόπιστα κανένα από τα δύο. Οπότε μη βασίζεσαι στον router. Βασίσου στα lifetimes:</p>
+  <div class="term-wrap"><span class="term-label">RouterOS &mdash; lifetimes κατα RFC 9096 για καθε delegated prefix</span><pre class="term">/ipv6 nd prefix default set preferred-lifetime=45m valid-lifetime=90m
+<span class="cmt"># 2700 s / 5400 s. RAs κάθε λίγα λεπτά κρατάνε φρέσκο ένα ζωντανό prefix·
+# ένα νεκρό γίνεται deprecated σε 45 λεπτά και εξαφανίζεται σε 90.</span></pre></div>
+  <div class="term-wrap"><span class="term-label">Cisco IOS &mdash; μικρα lifetimes για ολα τα prefixes του interface</span><pre class="term"><span class="pc">R1(config-if)#</span> <span class="out">ipv6 nd prefix default 5400 2700</span>
+<span class="cmt"># valid / preferred σε δευτερόλεπτα, για κάθε prefix που διαφημίζεται σε αυτό το interface</span></pre></div>
+  <div class="callout defender">
+    <span class="callout-label">&#128161; Ζητα Στατικο, Σχεδιαζε για Δυναμικο</span>
+    <p>Αν ο ISP προσφέρει στατικό delegation σε επαγγελματική γραμμή, πάρ' το: κάνει πολύ απλούστερα το v6 firewall, τις inbound υπηρεσίες και το logging. Χτίσε όμως σαν να πρόκειται να αλλάξει. Αυτό σημαίνει πολιτική πάνω σε interfaces, ULA για τα εσωτερικά ονόματα, μικρά RA lifetimes, και έναν έλεγχο monitoring που ειδοποιεί όταν το delegated prefix διαφέρει από το χθεσινό. Στο RouterOS, το <code>script</code> του DHCPv6 client μπορεί να καταγράψει την αλλαγή. Στο IOS, ένα EEM applet που ελέγχει το <code>show ipv6 general-prefix</code> σε χρονόμετρο κάνει το ίδιο. Έτσι το renumbering εμφανίζεται ως γραμμή στα logs αντί για παράπονο χρήστη.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Βασικα Συμπερασματα</p>
+    <ol>
+      <li><strong>Το PD είναι Solicit/Advertise/Request/Reply</strong> προς το <code>ff02::1:2</code>, μετά Renew στο T1 και Rebind στο T2. Το prefix πεθαίνει όταν λήξει το valid lifetime χωρίς Reply.</li>
+      <li><strong>Δέξου UDP 546 από <code>fe80::/10</code> στο input.</strong> Χωρίς αυτό, το conntrack δεν μπορεί να ταιριάξει το unicast Reply με το multicast αίτημα, και το PD αποτυγχάνει, συχνά μόνο στο πρώτο renewal.</li>
+      <li><strong>Το DUID και το IAID αποφασίζουν ποιο prefix παίρνεις.</strong> Αλλαγή ή reset του router συνήθως σημαίνει νέο prefix.</li>
+      <li><strong>Σχεδίαζε μόνο σε nibbles του subnet ID</strong>, ζώνη + δείκτης. Ένα /56 δίνει δύο nibbles, ένα /60 μόνο ένα.</li>
+      <li><strong>Ποτέ μη γράφεις delegated διευθύνσεις</strong> σε κανόνες firewall ή στο DNS. Χρησιμοποίησε interface lists, και ULA όπου χρειάζεσαι σταθερή εσωτερική διεύθυνση.</li>
+      <li><strong>Τα μικρά RA lifetimes κάνουν το renumbering υποφερτό</strong> (2700/5400 s). Τα default lifetimes σημαίνουν μια εβδομάδα μισοχαλασμένο v6 μετά από κάθε αλλαγή prefix.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>IPv6 που πεθαινει καθε λιγες μερες χωρις φανερο λογο;</h3>
+    <p>Τα renewals που μπλοκάρει το firewall και το σιωπηλό renumbering είναι οι δύο συνηθισμένες αιτίες. Ελέγχω το PD, το firewall και τα RA σε MikroTik και Cisco edges, και κάνω τη διευθυνσιοδότηση να αντέχει ό,τι κι αν κάνει ο ISP.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Κλεισε μια Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← Όλα τα writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

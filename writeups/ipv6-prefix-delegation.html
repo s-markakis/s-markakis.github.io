@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>IPv6 in Depth: Prefix Delegation and Renumbering — S. Markakis</title>
+<meta name="description" content="DHCPv6-PD from Solicit to Rebind, why firewalls eat the reply, subnet plans that survive a /56 or a /60, and what happens to every host on the LAN when the ISP hands you a different prefix tomorrow.">
+<meta property="og:title" content="IPv6 in Depth: Prefix Delegation and Renumbering — S. Markakis">
+<meta property="og:description" content="DHCPv6-PD from Solicit to Rebind, why firewalls eat the reply, subnet plans that survive a /56 or a /60, and what happens to every host on the LAN when the ISP hands you a different prefix tomorrow.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/ipv6-prefix-delegation.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-prefix-delegation.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/ipv6-prefix-delegation.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/ipv6-prefix-delegation.html">
+<link rel="alternate" hreflang="en" href="https://s-markakis.github.io/writeups/ipv6-prefix-delegation.html">
+<link rel="alternate" hreflang="el" href="https://s-markakis.github.io/writeups/ipv6-prefix-delegation-el.html">
+<link rel="alternate" hreflang="x-default" href="https://s-markakis.github.io/writeups/ipv6-prefix-delegation.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.cmt{color:var(--body);font-style:italic;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  /* ipv6 in depth (v6-) */
+  .v6-box{fill:var(--card);stroke:var(--mid);stroke-width:1.4;}
+  .v6-box.hi{stroke:var(--accent);stroke-width:1.8;}
+  .v6-box.def{stroke:var(--defender);}
+  .v6-h{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:13px;fill:var(--mid);text-anchor:middle;}
+  .v6-c{font-family:var(--font-body),sans-serif;font-size:11px;fill:var(--body);text-anchor:middle;}
+  .v6-m{font-family:var(--font-mono),monospace;font-size:11px;fill:var(--mid);}
+  .v6-m.acc,.v6-c.acc,.v6-h.acc{fill:var(--accent);}
+  .v6-m.def,.v6-c.def,.v6-h.def{fill:var(--defender);}
+  .v6-ln{stroke:var(--body);stroke-width:1.4;fill:none;}
+  .v6-ln.acc{stroke:var(--accent);}
+  .v6-ln.def{stroke:var(--defender);}
+  .v6-ln.dash{stroke-dasharray:4 4;}
+  .v6-cell{fill:var(--bg);stroke:var(--rule);stroke-width:1;}
+  .v6-cell.acc{fill:none;stroke:var(--accent);stroke-width:1.6;}
+  .v6-ah{fill:var(--body);}.v6-ah.acc{fill:var(--accent);}.v6-ah.def{fill:var(--defender);}
+  @keyframes v6Flow{from{stroke-dashoffset:24;}to{stroke-dashoffset:0;}}
+  .v6-flow{stroke-dasharray:6 6;animation:v6Flow 1.2s linear infinite;}
+  @media (prefers-reduced-motion:reduce){.v6-flow{animation:none;}}
+  .chapter{margin-top:2.6rem;}
+  .chapter-num{font-family:var(--font-disp);font-weight:700;font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:.15rem;}
+  .chapter-title{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:.2rem;}
+  .chapter-desc{font-style:italic;color:var(--body);font-size:.9rem;margin-bottom:1rem;border-bottom:1px solid var(--rule);padding-bottom:.7rem;}
+  .ci-row{display:flex;align-items:baseline;gap:1rem;padding:.8rem .3rem;border-bottom:1px solid var(--rule);text-decoration:none;transition:background .12s,padding .15s;}
+  .ci-row:first-of-type{border-top:1px solid var(--rule);}
+  .ci-row:hover{background:var(--card);padding-left:.7rem;text-decoration:none;}
+  .ci-num{font-family:var(--font-disp);font-weight:800;font-size:.82rem;color:var(--accent);min-width:2.1ch;text-align:right;}
+  .ci-main{flex:1;min-width:0;}
+  .ci-title{display:block;font-family:var(--font-disp);font-weight:600;font-size:1.04rem;color:var(--head);line-height:1.25;}
+  .ci-desc{display:block;color:var(--body);font-size:.85rem;margin-top:.15rem;line-height:1.45;}
+  .ci-time{font-family:var(--font-disp);font-size:.72rem;letter-spacing:.05em;color:var(--body);white-space:nowrap;}
+  .ci-arrow{color:var(--rule);font-size:1rem;align-self:center;}
+  .ci-row:hover .ci-arrow{color:var(--accent);}
+  @media (max-width:560px){h1.post-title{font-size:2.3rem;}.ci-time{display:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "IPv6 in Depth: Prefix Delegation and Renumbering",
+  "description": "DHCPv6-PD from Solicit to Rebind, why firewalls eat the reply, subnet plans that survive a /56 or a /60, and what happens to every host on the LAN when the ISP hands you a different prefix tomorrow.",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/ipv6-prefix-delegation.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/ipv6-prefix-delegation.png",
+  "keywords": [
+    "ipv6"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#ipv6-prefix-delegation"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p style="font-size:.8rem;letter-spacing:.04em;color:var(--body);margin-bottom:1.4rem;"><strong style="color:var(--mid);">English</strong> &nbsp;·&nbsp; <a href="ipv6-prefix-delegation-el.html" style="font-weight:600;">Ελληνικά</a></p>
+  <p class="post-meta"><span class="series-chip">IPv6 in Depth</span> &nbsp;·&nbsp; Part 2 &middot; November 2026</p>
+  <h1 class="post-title">IPv6 in Depth<br><span style="font-size:1.5rem;color:var(--accent);">Prefix Delegation and Renumbering</span></h1>
+  <p class="post-subtitle">With IPv4 the ISP gave you one address and NAT hid the rest. With IPv6 the ISP gives you a whole block, and every subnet you build depends on it. Learn the four-message exchange that hands it over, the subnet plans that survive a different block size, and what really happens to every host when the block changes overnight.</p>
+  <div class="tags">
+    <span class="tag">IPv6</span>
+    <span class="tag">DHCPv6-PD</span>
+    <span class="tag">Renumbering</span>
+    <span class="tag">Subnetting</span>
+    <span class="tag">RouterOS</span>
+    <span class="tag">Cisco IOS</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>DHCPv6 Prefix Delegation (RFC 8415) is how a residential or business ISP hands a router its block: usually a <strong>/56</strong>, sometimes a /60 or a /48. The router splits it into /64s, one per VLAN, and advertises each with RAs. Your entire internal addressing now depends on a lease from someone else's server.</p>
+    <p>That design is fine as long as the lease is stable. It goes wrong in three predictable ways: the reply never reaches the client, the plan doesn't fit the size you were given, and the prefix changes under hosts that hold week-long lifetimes. This post handles all three.</p>
+    <div class="prereqs-label">Before this</div>
+    <ul class="prereqs-list">
+      <li><a href="ipv6-ndp-slaac.html">Part 1: NDP and SLAAC Under the Hood</a> (lifetimes and the two-hour rule)</li>
+      <li>Part of <strong><a href="ipv6-index.html">IPv6 in Depth</a></strong> &mdash; next: <a href="ipv6-firewall-rfc4890.html">The Firewall, Done Right</a></li>
+    </ul>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">The Exchange, Packet by Packet</h2>
+  <p class="section-thesis"><em>Four messages to get the prefix, two timers to keep it. Everything runs over UDP between link-local addresses.</em></p>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 330" role="img" aria-label="DHCPv6 prefix delegation: client sends Solicit to the all-DHCP-servers multicast group, server replies with Advertise, client sends Request, server replies with Reply containing the delegated prefix and its lifetimes plus T1 and T2; later the client renews at T1 and rebinds at T2">
+      <defs><marker id="v6a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="v6-ah" d="M0,0L10,5L0,10z"/></marker>
+      <marker id="v6a2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="v6-ah acc" d="M0,0L10,5L0,10z"/></marker></defs>
+      <rect class="v6-box def" x="20" y="16" width="220" height="40" rx="5"/><text class="v6-h def" x="130" y="34">YOUR ROUTER (client)</text><text class="v6-c" x="130" y="49">fe80::4e5e:cff:fe11:2233 · udp/546</text>
+      <rect class="v6-box" x="530" y="16" width="200" height="40" rx="5"/><text class="v6-h" x="630" y="34">ISP (server / relay)</text><text class="v6-c" x="630" y="49">fe80::1 · udp/547</text>
+      <line class="v6-ln dash" x1="130" y1="56" x2="130" y2="318"/><line class="v6-ln dash" x1="630" y1="56" x2="630" y2="318"/>
+      <text class="v6-m" x="160" y="84">SOLICIT → ff02::1:2   IA_PD (IAID 1, hint ::/56)</text>
+      <line class="v6-ln" x1="130" y1="92" x2="630" y2="92" marker-end="url(#v6a2)"/>
+      <text class="v6-m" x="300" y="118">ADVERTISE ← unicast to fe80::4e5e:…</text>
+      <line class="v6-ln" x1="630" y1="126" x2="130" y2="126" marker-end="url(#v6a2)"/>
+      <text class="v6-m" x="160" y="152">REQUEST → ff02::1:2   (server-id chosen)</text>
+      <line class="v6-ln" x1="130" y1="160" x2="630" y2="160" marker-end="url(#v6a2)"/>
+      <text class="v6-m acc" x="230" y="186">REPLY ← IA_PD T1=7200 T2=11520</text>
+      <text class="v6-m acc" x="230" y="200">IAPREFIX 2001:db8:abcd:1200::/56  pref 14400  valid 86400</text>
+      <line class="v6-ln acc v6-flow" x1="630" y1="208" x2="130" y2="208" marker-end="url(#v6a2r)"/>
+      <text class="v6-c" x="380" y="238" style="font-style:italic;">T1 (50% of preferred): RENEW to the same server &middot; T2 (80%): REBIND to any server</text>
+      <text class="v6-c" x="380" y="256" style="font-style:italic;">valid lifetime runs out with no Reply &rarr; prefix withdrawn, every /64 under it dies</text>
+      <text class="v6-c acc" x="380" y="290" style="font-weight:700;">The Reply is unicast. The Solicit was multicast. Your firewall can't pair them.</text>
+    </svg>
+  </div>
+  <p>The detail that matters for the next section: the client talks to the multicast group <code>ff02::1:2</code> (All_DHCP_Relay_Agents_and_Servers), and the answers come back <em>unicast</em> from a link-local address the client has never contacted. Renew and Rebind work the same way. With Rapid Commit both sides can skip Advertise/Request, and you see only Solicit and Reply. The asymmetry stays.</p>
+  <p>Two identifiers decide which prefix you get: the client's <strong>DUID</strong> and the <strong>IAID</strong> of the IA_PD. Many ISPs bind the delegation to them. Replace the router, factory-reset it, or move the client to a different interface, and the DUID or IAID changes. Expect a different prefix, even from an ISP that &ldquo;never changes it&rdquo;.</p>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Why the Firewall Eats the Reply</h2>
+  <p class="section-thesis"><em>Conntrack keys flows on addresses and ports. A reply to a multicast request matches nothing it has seen.</em></p>
+  <p>A stateful firewall accepts &ldquo;return traffic&rdquo; because it recorded the outgoing packet's 5-tuple. The Solicit went to <code>ff02::1:2</code>, so the recorded tuple has a multicast destination. The Reply arrives from <code>fe80::1</code>, and no recorded flow has that address as its destination. It's <code>new</code>, and an input policy of &ldquo;established/related, ICMPv6, management, drop&rdquo; drops it.</p>
+  <p>The failure mode is nasty because it is time-delayed. Often the first lease works: the firewall was built after the client bound, or a reboot happened to order things favourably. Then Renew fails at T1 and Rebind fails at T2. When the valid lifetime runs out the prefix is withdrawn, every LAN /64 goes with it, and IPv6 dies at 3 a.m. on a random Tuesday. Nobody connects it to the firewall change from last week.</p>
+  <div class="term-wrap"><span class="term-label">The one rule, on three platforms</span><pre class="term"><span class="cmt"># RouterOS (identical to the rule in RouterOS's own default config)</span>
+/ipv6 firewall filter add chain=input protocol=udp dst-port=546 \
+    src-address=fe80::/10 action=accept comment="DHCPv6-PD replies"
+<span class="cmt"># then move it above your input drop rule (rule order is everything)</span>
+
+<span class="cmt"># Cisco IOS edge ACL (inbound on the WAN)</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit udp any eq 547 any eq 546</span>
+
+<span class="cmt"># Linux nftables (a Linux box as the CE router)</span>
+nft add rule inet filter input ip6 saddr fe80::/10 udp dport 546 accept</pre></div>
+  <p>Scoping the source to <code>fe80::/10</code> isn't decoration. Legitimate DHCPv6 replies on the WAN link come from the ISP's link-local address, so nothing on the internet can reach port 546 through this rule.</p>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">A Subnet Plan That Survives the Prefix</h2>
+  <p class="section-thesis"><em>You don't control the prefix or its size. You do control the subnet ID, so make the plan out of those bits only.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Delegation</th><th>Subnet-ID bits</th><th>/64s</th><th>What it fits</th></tr></thead>
+    <tbody>
+      <tr><td>/48</td><td>16</td><td>65,536</td><td>Multi-site enterprise; per-site /56s from one block</td></tr>
+      <tr><td>/56</td><td>8</td><td>256</td><td>The common business/residential size. Plenty for an SMB.</td></tr>
+      <tr><td>/60</td><td>4</td><td>16</td><td>Some residential ISPs. Tight once you segment IoT, guest and cameras.</td></tr>
+      <tr><td>/64</td><td>0</td><td>1</td><td>No delegation at all: one LAN only. Push the ISP, or plan to bridge.</td></tr>
+    </tbody>
+  </table>
+  <p>Work in <strong>nibbles</strong> (4-bit hex digits) so every subnet boundary lands on a hex digit you can read. With a /56 you get two nibbles. A plan that holds up:</p>
+  <div class="term-wrap"><span class="term-label">Subnet ID = zone nibble + index nibble (a /56 example)</span><pre class="term">delegated        2001:db8:abcd:12<strong>00</strong>::/56      <span class="cmt"># "00" is yours to assign</span>
+  :1200::/64     0 · 0   infrastructure / router-to-router
+  :1210::/64     1 · 0   staff VLAN 10
+  :1211::/64     1 · 1   staff VLAN 11
+  :1220::/64     2 · 0   servers
+  :1230::/64     3 · 0   IoT / cameras
+  :1240::/64     4 · 0   guest Wi-Fi
+<span class="cmt"># Prefix changes to 2001:db8:abcd:7700::/56 -&gt; every subnet keeps its last two digits.
+# Given a /60 instead? Only the zone nibble is left: one /64 per zone, 16 max.</span></pre></div>
+
+  <h3 class="sub">Pinning the subnet ID on each platform</h3>
+  <p>This is where the platforms differ. IOS lets you write the subnet ID down. RouterOS picks it for you.</p>
+  <div class="term-wrap"><span class="term-label">Cisco IOS &mdash; general prefix, subnet ID stated explicitly</span><pre class="term"><span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 dhcp client pd ISP-PD rapid-commit</span>
+<span class="pc">R1(config-if)#</span> <span class="out">interface Vlan10</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 address ISP-PD ::10:0:0:0:1/64</span>
+<span class="cmt"># 2001:db8:abcd:1200::/56 + ::10:0:0:0:1 -&gt; 2001:db8:abcd:1210::1/64,
+# recomputed automatically when the delegated prefix changes</span>
+<span class="pc">R1#</span> <span class="out">show ipv6 general-prefix</span>
+<span class="pc">R1#</span> <span class="out">show ipv6 dhcp interface GigabitEthernet0/0</span>   <span class="cmt"># prefix, lifetimes, T1/T2</span></pre></div>
+  <div class="term-wrap"><span class="term-label">RouterOS 7 &mdash; from-pool takes the next free /64</span><pre class="term">/ipv6 dhcp-client add interface=pppoe-out1 request=prefix pool-name=isp-pd \
+    pool-prefix-length=64 add-default-route=yes
+/ipv6 address add interface=vlan10 from-pool=isp-pd address=::1
+/ipv6 address add interface=vlan40 from-pool=isp-pd address=::1
+/ipv6 pool used print          <span class="cmt"># which /64 went to which interface</span>
+/ipv6 dhcp-client print detail  <span class="cmt"># status, prefix, expires-after</span></pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; Never Write Delegated Addresses Into Firewall Rules</span>
+    <p>RouterOS assigns <code>from-pool</code> subnets from the pool. There is no field that pins VLAN 10 to subnet <code>10</code>. Even the IOS general prefix, which does keep your subnet IDs, can't stop the ISP from changing the prefix in front of them. Any firewall rule, address-list, DNS record or monitoring check that hard-codes <code>2001:db8:abcd:1210::/64</code> is therefore a time bomb. Write policy against <strong>interfaces and interface lists</strong> (<code>in-interface-list=STAFF</code>), which survive any renumbering. When a rule genuinely needs an address, give internal services a <strong>ULA</strong> (<code>fd</code> + 40 random bits) alongside the GUA, and point internal DNS and ACLs at that. One caveat: in the RFC 6724 default policy table, IPv4 outranks ULA. So dual-stack clients will still pick v4 for a name that has both an A record and a ULA AAAA. ULA gives you stable internal names. It doesn't push traffic onto v6.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">When the Prefix Changes Overnight</h2>
+  <p class="section-thesis"><em>The router learns about the new prefix in a second. Every host keeps using the old one until its lifetime runs out.</em></p>
+  <p>The usual triggers: the ONT or modem reboots, the PPPoE session redials, the ISP rebalances its pools, or the router gets a new DUID. Here is the sequence on a router running default lifetimes:</p>
+  <table class="cheat">
+    <thead><tr><th>Time</th><th>Router</th><th>Hosts</th></tr></thead>
+    <tbody>
+      <tr><td>t = 0</td><td>PPPoE redials, DHCPv6-PD binds <code>:7700::/56</code>, LAN /64s rebuilt, RAs now carry the new prefix only</td><td>Form new addresses from <code>:7710::/64</code>. <strong>Still hold <code>:1210::</code> as preferred</strong>, with up to a week left.</td></tr>
+      <tr><td>t + seconds</td><td>Routes and forwards only the new prefix; the ISP drops anything sourced from the old one</td><td>Source-address selection has two preferred addresses. Many connections go out from the dead one and time out. Happy-eyeballs hides part of it behind v4.</td></tr>
+      <tr><td>t + 1 week</td><td>&mdash;</td><td>Old address finally deprecated, and v6 &ldquo;fixes itself&rdquo;. Valid lifetime lingers another three weeks on RouterOS defaults.</td></tr>
+    </tbody>
+  </table>
+  <p>RFC 9096 says a CE router that loses a prefix should keep advertising it for a while with preferred lifetime 0, so hosts deprecate it immediately. The same RFC asks the router to remember the prefix across a reboot so it can still deprecate it. Plenty of CE implementations do neither reliably. So don't count on the router. Count on the lifetimes:</p>
+  <div class="term-wrap"><span class="term-label">RouterOS &mdash; RFC 9096 lifetimes for every delegated prefix</span><pre class="term">/ipv6 nd prefix default set preferred-lifetime=45m valid-lifetime=90m
+<span class="cmt"># 2700 s / 5400 s. RAs every few minutes keep a live prefix refreshed;
+# a dead one is deprecated within 45 min and gone within 90.</span></pre></div>
+  <div class="term-wrap"><span class="term-label">Cisco IOS &mdash; inherit from the delegation, capped short</span><pre class="term"><span class="pc">R1(config-if)#</span> <span class="out">ipv6 nd prefix default 5400 2700</span>
+<span class="cmt"># valid / preferred in seconds, for every prefix advertised on this interface</span></pre></div>
+  <div class="callout defender">
+    <span class="callout-label">&#128161; Ask for Static, Design for Dynamic</span>
+    <p>If the ISP offers a static delegation on a business line, take it: it makes v6 firewalling, inbound services and logging far simpler. Build as if it will change anyway. That means interface-based policy, ULA for internal names, short RA lifetimes, and a monitoring check that alerts when the delegated prefix differs from yesterday's. On RouterOS, the DHCPv6 client's <code>script</code> can log the change. On IOS, an EEM applet that checks <code>show ipv6 general-prefix</code> on a timer can do the same. That way the renumbering shows up in a log line instead of a user complaint.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>PD is Solicit/Advertise/Request/Reply</strong> to <code>ff02::1:2</code>, then Renew at T1 and Rebind at T2. The prefix dies when the valid lifetime runs out with no Reply.</li>
+      <li><strong>Accept UDP 546 from <code>fe80::/10</code> on input.</strong> Without it, conntrack can't pair the unicast Reply with the multicast request, and PD fails, often only at the first renewal.</li>
+      <li><strong>DUID and IAID decide which prefix you get.</strong> Replacing or resetting the router usually means a new prefix.</li>
+      <li><strong>Plan in subnet-ID nibbles only</strong>, zone + index. A /56 gives two nibbles, a /60 only one.</li>
+      <li><strong>Never hard-code delegated addresses</strong> into firewall rules or DNS. Use interface lists, plus ULA where you need a stable internal address.</li>
+      <li><strong>Short RA lifetimes are what make renumbering survivable</strong> (2700/5400 s). Default lifetimes mean a week of half-broken v6 after every prefix change.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>IPv6 that dies every few days for no clear reason?</h3>
+    <p>Lease renewals blocked by the firewall and silent renumbering are the two usual causes. I audit the PD, firewall and RA setup on MikroTik and Cisco edges and make the addressing survive whatever the ISP does.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

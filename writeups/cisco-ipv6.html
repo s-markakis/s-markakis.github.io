@@ -132,7 +132,7 @@
     "@type": "WebPage",
     "@id": "https://s-markakis.github.io/blog.html#cisco-ipv6"
   },
-  "timeRequired": "PT10M"
+  "timeRequired": "PT11M"
 }
 </script>
 </head>
@@ -175,13 +175,14 @@
 
   <!-- Thesis -->
   <div class="thesis-card">
-    <p>IPv6 looks intimidating — 128 bits, hex, colons — but it removes more complexity than it adds. There's no subnet-mask arithmetic (every LAN is a <strong>/64</strong>, full stop), no address scarcity, no broadcast storms (broadcast is gone, replaced by targeted multicast), and — the big one — <strong>no NAT</strong>. Every device can have a globally routable address, which means end-to-end connectivity is back and the network is simpler, but the security model shifts: NAT was never a firewall, and in IPv6 you can't pretend it was.</p>
+    <p>IPv6 looks intimidating — 128 bits, hex, colons — but it removes more complexity than it adds. There's no subnet-mask arithmetic (every LAN is a <strong>/64</strong>; only point-to-point links go narrower, to /127 per RFC 6164), no address scarcity, no broadcast storms (broadcast is gone, replaced by targeted multicast), and — the big one — <strong>no NAT</strong>. Every device can have a globally routable address, which means end-to-end connectivity is back and the network is simpler, but the security model shifts: NAT was never a firewall, and in IPv6 you can't pretend it was.</p>
     <p>This post is the "get comfortable" tour for someone fluent in IPv4 Cisco. We'll decode the address types (global, link-local, ULA), give an interface addresses, let hosts self-configure with SLAAC or take a DHCPv6 assignment, turn on routing, and stand up OSPFv3 — every piece mapped to the IPv4 command you already know. And we'll be honest about where IPv6 actually matters for an SMB versus where dual-stack is the pragmatic answer. Notice the addressing here uses <code>2001:db8::/32</code> — the documentation range, like <code>192.0.2.0/24</code> for v4.</p>
     <div class="prereqs-label">Prerequisites</div>
     <ul class="prereqs-list">
       <li>Solid IPv4 on Cisco — interfaces, static routes, OSPF (see <a href="cisco-routing-ospf.html">Routing &amp; OSPF</a>)</li>
       <li>Willingness to read hex and abbreviate zeros (<code>::</code> collapses consecutive zero groups)</li>
       <li>An IPv6 prefix from your ISP, or the documentation range for a lab</li>
+      <li>Going deeper: the <strong><a href="ipv6-index.html">IPv6 in Depth</a></strong> series (NDP/SLAAC, prefix delegation, RFC 4890 firewall, OSPFv3/BGP)</li>
     </ul>
   </div>
 
@@ -195,7 +196,7 @@
     <tbody>
       <tr><td>Global Unicast (GUA)</td><td>2000::/3</td><td>Internet-routable — the public IP. Like a v4 public address, but every device gets one.</td></tr>
       <tr><td>Link-Local</td><td>fe80::/10</td><td>Auto-created on every v6 interface, valid on that link only. Routing protocols and NDP live here.</td></tr>
-      <tr><td>Unique Local (ULA)</td><td>fd00::/8</td><td>Private, not internet-routed — the v6 equivalent of RFC1918 (10.x/192.168.x).</td></tr>
+      <tr><td>Unique Local (ULA)</td><td>fc00::/7</td><td>Private, not internet-routed — the v6 equivalent of RFC1918 (10.x/192.168.x). In practice always <code>fd00::/8</code>: <code>fd</code> + 40 random bits; the <code>fc</code> half is undefined.</td></tr>
       <tr><td>Multicast</td><td>ff00::/8</td><td>Replaces broadcast. e.g. ff02::1 = all nodes, ff02::2 = all routers on the link.</td></tr>
     </tbody>
   </table>
@@ -280,8 +281,8 @@
 FE80::212:7FFF:FE3A:1B2C   3    0012.7f3a.1b2c   STALE  Gi0/1</span>
 
 <span class="cmt"># Ping the "all-nodes" multicast to discover who's on the link:</span>
-<span class="pc">R1#</span> <span class="out">ping ff02::1</span>            <span class="cmt"># every IPv6 node answers</span>
-<span class="pc">R1#</span> <span class="out">ping ff02::2</span>            <span class="cmt"># every router answers</span>
+<span class="pc">R1#</span> <span class="out">ping ff02::1</span>            <span class="cmt"># IOS asks for the output interface; most hosts answer (Windows often won't)</span>
+<span class="pc">R1#</span> <span class="out">ping ff02::2</span>            <span class="cmt"># every router on the link answers</span>
 
 <span class="pc">R1#</span> <span class="out">show ipv6 interface GigabitEthernet0/1 | include joined|link-local</span>
 <span class="cmt"># Shows the multicast groups the interface joined — NDP in action.</span></pre>
@@ -307,12 +308,12 @@ FE80::212:7FFF:FE3A:1B2C   3    0012.7f3a.1b2c   STALE  Gi0/1</span>
 <span class="pc">R1(config-if)#</span> <span class="out">end</span>
 
 <span class="pc">R1#</span> <span class="out">show ipv6 route ospf</span>
-<span class="pc">R1#</span> <span class="out">show ipv6 ospf neighbor</span>   <span class="cmt"># neighbors identified by their link-local</span></pre>
+<span class="pc">R1#</span> <span class="out">show ipv6 ospf neighbor</span>   <span class="cmt"># listed by router-ID; the adjacency runs over link-local</span></pre>
   </div>
 
   <div class="callout defender">
     <span class="callout-label">💡 OSPFv3 Feels Familiar Because It Is</span>
-    <p>OSPFv3 keeps the OSPF you learned in the <a href="cisco-routing-ospf.html">routing post</a> — areas, router-ids (still written as 32-bit dotted quads, oddly), DR/BDR, the same troubleshooting checklist — but enables per-interface with <code>ipv6 ospf 1 area 0</code> instead of <code>network</code> statements, and neighbors are identified by <strong>link-local</strong> address. That per-interface model is actually cleaner: you enable OSPF exactly where you want it, no wildcard-mask matching to get wrong. Most of your IPv4 routing instincts transfer directly.</p>
+    <p>OSPFv3 keeps the OSPF you learned in the <a href="cisco-routing-ospf.html">routing post</a> — areas, router-ids (still written as 32-bit dotted quads, oddly), DR/BDR, the same troubleshooting checklist — but enables per-interface with <code>ipv6 ospf 1 area 0</code> instead of <code>network</code> statements, and adjacencies form between <strong>link-local</strong> addresses (neighbors are still listed by router-ID, and OSPF next hops are link-local). That per-interface model is actually cleaner: you enable OSPF exactly where you want it, no wildcard-mask matching to get wrong. Most of your IPv4 routing instincts transfer directly.</p>
   </div>
 
   <!-- 06 -->
@@ -326,21 +327,39 @@ FE80::212:7FFF:FE3A:1B2C   3    0012.7f3a.1b2c   STALE  Gi0/1</span>
   </div>
 
   <div class="term-wrap">
-    <span class="term-label">IOS — a minimal stateful-ish v6 edge ACL</span>
-    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">ipv6 access-list WAN-IN</span>
-<span class="cmt"># Permit NDP (v6 breaks entirely without ICMPv6 — do NOT block it all)</span>
+    <span class="term-label">IOS — a stateful v6 edge with reflexive ACLs</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">ipv6 access-list LAN-OUT</span>
+<span class="cmt"># Outbound on the WAN: remember every session the LAN opens</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit ipv6 any any reflect V6-STATE timeout 300</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">ipv6 access-list WAN-IN</span>
+<span class="cmt"># NDP with the ISP. Explicit, because our own final deny cancels IOS's implicit NDP permits</span>
 <span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any nd-na</span>
 <span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any nd-ns</span>
-<span class="cmt"># Permit replies to sessions we started</span>
-<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit tcp any any established</span>
-<span class="cmt"># Deny the rest inbound</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any router-advertisement</span>
+<span class="cmt"># The ICMPv6 errors that PMTUD and traceroute depend on (RFC 4890)</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any packet-too-big</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any time-exceeded</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any unreachable</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any parameter-problem</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any echo-reply</span>
+<span class="cmt"># DHCPv6-PD replies from the ISP's link-local server</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit udp any eq 547 any eq 546</span>
+<span class="cmt"># Return traffic (TCP, UDP and ICMP) for sessions the LAN started</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">evaluate V6-STATE</span>
+<span class="cmt"># Everything else inbound</span>
 <span class="pc">R1(config-ipv6-acl)#</span> <span class="out">deny ipv6 any any log</span>
 <span class="pc">R1(config-ipv6-acl)#</span> <span class="out">exit</span>
 <span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 traffic-filter LAN-OUT out</span>
 <span class="pc">R1(config-if)#</span> <span class="out">ipv6 traffic-filter WAN-IN in</span>
 <span class="pc">R1(config-if)#</span> <span class="out">end</span></pre>
   </div>
 
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Why Not Just <code>permit tcp any any established</code></span>
+    <p>The <code>established</code> keyword only checks the TCP ACK/RST bits, so it does nothing for UDP. An edge ACL built on it silently drops every DNS answer, every QUIC (HTTP/3) packet and every NTP reply, and IPv6 looks "half broken" even though the ACL is doing exactly what it says. Reflexive entries (<code>reflect</code> out, <code>evaluate</code> in) track TCP, UDP and ICMP sessions per flow. The other trap is the explicit final <code>deny</code>. IOS appends implicit permits for neighbor solicit and advertise <em>before</em> its implicit deny, but your own <code>deny ipv6 any any</code> lands first, so NDP to the ISP dies unless you permit it yourself. Two limits remain: reflexive ACLs don't track traffic the router originates, and they don't inspect applications. For a real edge use the <a href="cisco-zbf.html">Zone-Based Firewall</a>.</p>
+  </div>
   <div class="callout gotcha">
     <span class="callout-label">⚠ Gotcha — Never Block ICMPv6 Wholesale</span>
     <p>In IPv4 many admins reflexively drop ICMP at the edge. Do that to <strong>ICMPv6 and IPv6 stops working</strong> — NDP (neighbor discovery), RA (address config), and Path MTU Discovery all ride ICMPv6. A blanket <code>deny icmp</code> breaks address resolution and connectivity in ways that look like a routing bug. Permit the essential ICMPv6 types (neighbor solicit/advertise, router advert, packet-too-big) and filter selectively. This single reflex causes more "IPv6 is flaky" tickets than anything else.</p>
@@ -361,11 +380,11 @@ FE80::212:7FFF:FE3A:1B2C   3    0012.7f3a.1b2c   STALE  Gi0/1</span>
     <p class="takeaways-title">Takeaways</p>
     <ol>
       <li><strong>IPv6 removes complexity more than it adds.</strong> Every LAN is a /64 (no mask math), no broadcast, no address scarcity — and no NAT. The hex is just notation.</li>
-      <li><strong>Learn the four address types.</strong> Global (2000::/3, internet), link-local (fe80::/10, on-link only, always present), ULA (fd00::/8, private), multicast (ff00::/8, replaces broadcast).</li>
+      <li><strong>Learn the four address types.</strong> Global (2000::/3, internet), link-local (fe80::/10, on-link only, always present), ULA (fc00::/7, in practice fd00::/8, private), multicast (ff00::/8, replaces broadcast).</li>
       <li><strong>Turn on <code>ipv6 unicast-routing</code> first.</strong> Everything can look configured and still not route without it — the v6 twin of <code>ip routing</code>.</li>
       <li><strong>Hosts can self-address with SLAAC</strong> from the router's RA; layer DHCPv6 on for DNS (stateless) or full assignment (stateful). Most networks mix.</li>
       <li><strong>NDP replaces ARP</strong> and runs over ICMPv6/multicast — which is why blocking ICMPv6 wholesale breaks IPv6. Permit the essential types.</li>
-      <li><strong>Your IPv4 routing transfers.</strong> Static routes and OSPFv3 are the same concepts with <code>ipv6</code> prefixes; OSPFv3 enables per-interface and neighbors by link-local.</li>
+      <li><strong>Your IPv4 routing transfers.</strong> Static routes and OSPFv3 are the same concepts with <code>ipv6</code> prefixes; OSPFv3 enables per-interface and forms adjacencies over link-local.</li>
       <li><strong>No NAT means the firewall does the hiding — build it.</strong> Every host is globally reachable; a stateful v6 firewall is mandatory, not optional. The real-world SMB risk is IPv6 silently on and unfiltered.</li>
     </ol>
   </div>

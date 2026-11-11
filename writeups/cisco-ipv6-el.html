@@ -177,13 +177,14 @@
 
   <!-- Thesis -->
   <div class="thesis-card">
-    <p>Το IPv6 φαίνεται εκφοβιστικό — 128 bits, hex, δίποντα — αλλά αφαιρεί περισσότερη πολυπλοκότητα απ' όση προσθέτει. Δεν υπάρχει αριθμητική subnet-mask (κάθε LAN είναι <strong>/64</strong>, τελεία), καμία σπανιότητα διευθύνσεων, κανένα broadcast storm (το broadcast έφυγε, αντικαταστάθηκε από στοχευμένο multicast), και — το μεγάλο — <strong>κανένα NAT</strong>. Κάθε συσκευή μπορεί να έχει μια globally routable διεύθυνση, που σημαίνει ότι η end-to-end συνδεσιμότητα επέστρεψε και το δίκτυο είναι απλούστερο, αλλά το μοντέλο ασφάλειας αλλάζει: το NAT δεν ήταν ποτέ firewall, και στο IPv6 δεν μπορείς να προσποιείσαι ότι ήταν.</p>
+    <p>Το IPv6 φαίνεται εκφοβιστικό — 128 bits, hex, δίποντα — αλλά αφαιρεί περισσότερη πολυπλοκότητα απ' όση προσθέτει. Δεν υπάρχει αριθμητική subnet-mask (κάθε LAN είναι <strong>/64</strong>· μόνο τα point-to-point links πάνε στενότερα, σε /127 κατά το RFC 6164), καμία σπανιότητα διευθύνσεων, κανένα broadcast storm (το broadcast έφυγε, αντικαταστάθηκε από στοχευμένο multicast), και — το μεγάλο — <strong>κανένα NAT</strong>. Κάθε συσκευή μπορεί να έχει μια globally routable διεύθυνση, που σημαίνει ότι η end-to-end συνδεσιμότητα επέστρεψε και το δίκτυο είναι απλούστερο, αλλά το μοντέλο ασφάλειας αλλάζει: το NAT δεν ήταν ποτέ firewall, και στο IPv6 δεν μπορείς να προσποιείσαι ότι ήταν.</p>
     <p>Αυτό το post είναι η ξενάγηση «νιώσε άνετα» για κάποιον που ξέρει καλά IPv4 σε Cisco. Θα αποκωδικοποιήσουμε τους τύπους διευθύνσεων (global, link-local, ULA), θα δώσουμε σε ένα interface διευθύνσεις, θα αφήσουμε τους hosts να αυτο-ρυθμιστούν με SLAAC ή να πάρουν ανάθεση DHCPv6, θα ανάψουμε το routing, και θα στήσουμε OSPFv3 — κάθε κομμάτι αντιστοιχισμένο στην εντολή IPv4 που ήδη ξέρεις. Και θα είμαστε ειλικρινείς για το πού πραγματικά έχει σημασία το IPv6 για ένα SMB έναντι του πού το dual-stack είναι η ρεαλιστική απάντηση. Πρόσεξε ότι η διευθυνσιοδότηση εδώ χρησιμοποιεί το <code>2001:db8::/32</code> — το εύρος τεκμηρίωσης, όπως το <code>192.0.2.0/24</code> για v4.</p>
     <div class="prereqs-label">Προαπαιτουμενα</div>
     <ul class="prereqs-list">
       <li>Σταθερό IPv4 σε Cisco — interfaces, static routes, OSPF (δες <a href="cisco-routing-ospf.html">Routing &amp; OSPF</a>)</li>
       <li>Προθυμία να διαβάζεις hex και να συντομεύεις μηδενικά (το <code>::</code> συμπτύσσει διαδοχικές ομάδες μηδενικών)</li>
       <li>Ένα prefix IPv6 από τον ISP σου, ή το εύρος τεκμηρίωσης για ένα lab</li>
+      <li>Για περισσότερο βάθος: η σειρά <strong><a href="ipv6-index-el.html">IPv6 σε Βάθος</a></strong> (NDP/SLAAC, prefix delegation, firewall κατά RFC 4890, OSPFv3/BGP)</li>
     </ul>
   </div>
 
@@ -197,7 +198,7 @@
     <tbody>
       <tr><td>Global Unicast (GUA)</td><td>2000::/3</td><td>Routable στο internet — το δημόσιο IP. Σαν μια δημόσια διεύθυνση v4, αλλά κάθε συσκευή παίρνει μία.</td></tr>
       <tr><td>Link-Local</td><td>fe80::/10</td><td>Δημιουργείται αυτόματα σε κάθε interface v6, έγκυρη μόνο σε αυτό το link. Εδώ ζουν τα πρωτόκολλα δρομολόγησης και το NDP.</td></tr>
-      <tr><td>Unique Local (ULA)</td><td>fd00::/8</td><td>Ιδιωτική, όχι routable στο internet — το ισοδύναμο v6 του RFC1918 (10.x/192.168.x).</td></tr>
+      <tr><td>Unique Local (ULA)</td><td>fc00::/7</td><td>Ιδιωτική, όχι routable στο internet — το ισοδύναμο v6 του RFC1918 (10.x/192.168.x). Στην πράξη πάντα <code>fd00::/8</code>: <code>fd</code> + 40 τυχαία bits· το μισό <code>fc</code> δεν έχει οριστεί.</td></tr>
       <tr><td>Multicast</td><td>ff00::/8</td><td>Αντικαθιστά το broadcast. π.χ. ff02::1 = όλοι οι κόμβοι, ff02::2 = όλοι οι router στο link.</td></tr>
     </tbody>
   </table>
@@ -282,8 +283,8 @@
 FE80::212:7FFF:FE3A:1B2C   3    0012.7f3a.1b2c   STALE  Gi0/1</span>
 
 <span class="cmt"># Κάνε ping στο multicast "all-nodes" για να ανακαλύψεις ποιος είναι στο link:</span>
-<span class="pc">R1#</span> <span class="out">ping ff02::1</span>            <span class="cmt"># απαντάει κάθε κόμβος IPv6</span>
-<span class="pc">R1#</span> <span class="out">ping ff02::2</span>            <span class="cmt"># απαντάει κάθε router</span>
+<span class="pc">R1#</span> <span class="out">ping ff02::1</span>            <span class="cmt"># το IOS ζητάει output interface· οι περισσότεροι hosts απαντούν (τα Windows συχνά όχι)</span>
+<span class="pc">R1#</span> <span class="out">ping ff02::2</span>            <span class="cmt"># απαντάει κάθε router στο link</span>
 
 <span class="pc">R1#</span> <span class="out">show ipv6 interface GigabitEthernet0/1 | include joined|link-local</span>
 <span class="cmt"># Δείχνει τις ομάδες multicast που έχει μπει το interface — NDP σε δράση.</span></pre>
@@ -309,12 +310,12 @@ FE80::212:7FFF:FE3A:1B2C   3    0012.7f3a.1b2c   STALE  Gi0/1</span>
 <span class="pc">R1(config-if)#</span> <span class="out">end</span>
 
 <span class="pc">R1#</span> <span class="out">show ipv6 route ospf</span>
-<span class="pc">R1#</span> <span class="out">show ipv6 ospf neighbor</span>   <span class="cmt"># γείτονες αναγνωρίζονται από το link-local τους</span></pre>
+<span class="pc">R1#</span> <span class="out">show ipv6 ospf neighbor</span>   <span class="cmt"># εμφανίζονται με router-ID· το adjacency τρέχει πάνω από link-local</span></pre>
   </div>
 
   <div class="callout defender">
     <span class="callout-label">💡 Το OSPFv3 Μοιαζει Οικειο Επειδη Ειναι</span>
-    <p>Το OSPFv3 κρατάει το OSPF που έμαθες στο <a href="cisco-routing-ospf.html">post δρομολόγησης</a> — areas, router-ids (γραμμένα ακόμα ως 32-bit dotted quads, παράξενα), DR/BDR, την ίδια λίστα troubleshooting — αλλά ενεργοποιείται ανά interface με <code>ipv6 ospf 1 area 0</code> αντί για δηλώσεις <code>network</code>, και οι γείτονες αναγνωρίζονται με διεύθυνση <strong>link-local</strong>. Αυτό το μοντέλο ανά-interface είναι στην πραγματικότητα πιο καθαρό: ενεργοποιείς το OSPF ακριβώς εκεί που θέλεις, χωρίς ταίριασμα wildcard-mask να κάνεις λάθος. Τα περισσότερα ένστικτα δρομολόγησης IPv4 σου μεταφέρονται κατευθείαν.</p>
+    <p>Το OSPFv3 κρατάει το OSPF που έμαθες στο <a href="cisco-routing-ospf.html">post δρομολόγησης</a> — areas, router-ids (γραμμένα ακόμα ως 32-bit dotted quads, παράξενα), DR/BDR, την ίδια λίστα troubleshooting — αλλά ενεργοποιείται ανά interface με <code>ipv6 ospf 1 area 0</code> αντί για δηλώσεις <code>network</code>, και τα adjacencies σχηματίζονται μεταξύ διευθύνσεων <strong>link-local</strong> (οι γείτονες εμφανίζονται ακόμα με router-ID, και τα next hops του OSPF είναι link-local). Αυτό το μοντέλο ανά-interface είναι στην πραγματικότητα πιο καθαρό: ενεργοποιείς το OSPF ακριβώς εκεί που θέλεις, χωρίς ταίριασμα wildcard-mask να κάνεις λάθος. Τα περισσότερα ένστικτα δρομολόγησης IPv4 σου μεταφέρονται κατευθείαν.</p>
   </div>
 
   <!-- 06 -->
@@ -328,21 +329,39 @@ FE80::212:7FFF:FE3A:1B2C   3    0012.7f3a.1b2c   STALE  Gi0/1</span>
   </div>
 
   <div class="term-wrap">
-    <span class="term-label">IOS — ενα ελαχιστο σχεδον-stateful ACL edge v6</span>
-    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">ipv6 access-list WAN-IN</span>
-<span class="cmt"># Επίτρεψε NDP (το v6 σπάει εντελώς χωρίς ICMPv6 — ΜΗΝ το μπλοκάρεις όλο)</span>
+    <span class="term-label">IOS — stateful edge v6 με reflexive ACLs</span>
+    <pre class="term"><span class="pc">R1(config)#</span> <span class="out">ipv6 access-list LAN-OUT</span>
+<span class="cmt"># Outbound στο WAN: θυμήσου κάθε session που ανοίγει το LAN</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit ipv6 any any reflect V6-STATE timeout 300</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">exit</span>
+<span class="pc">R1(config)#</span> <span class="out">ipv6 access-list WAN-IN</span>
+<span class="cmt"># NDP με τον ISP. Ρητά, γιατί το δικό μας τελικό deny ακυρώνει τα implicit NDP permits του IOS</span>
 <span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any nd-na</span>
 <span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any nd-ns</span>
-<span class="cmt"># Επίτρεψε απαντήσεις σε sessions που ξεκινήσαμε</span>
-<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit tcp any any established</span>
-<span class="cmt"># Απόρριψε τα υπόλοιπα inbound</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any router-advertisement</span>
+<span class="cmt"># Τα ICMPv6 errors που χρειάζονται το PMTUD και το traceroute (RFC 4890)</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any packet-too-big</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any time-exceeded</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any unreachable</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any parameter-problem</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit icmp any any echo-reply</span>
+<span class="cmt"># Απαντήσεις DHCPv6-PD από τον link-local server του ISP</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">permit udp any eq 547 any eq 546</span>
+<span class="cmt"># Επιστρεφόμενη κίνηση (TCP, UDP και ICMP) για sessions που ξεκίνησε το LAN</span>
+<span class="pc">R1(config-ipv6-acl)#</span> <span class="out">evaluate V6-STATE</span>
+<span class="cmt"># Όλα τα υπόλοιπα inbound</span>
 <span class="pc">R1(config-ipv6-acl)#</span> <span class="out">deny ipv6 any any log</span>
 <span class="pc">R1(config-ipv6-acl)#</span> <span class="out">exit</span>
 <span class="pc">R1(config)#</span> <span class="out">interface GigabitEthernet0/0</span>
+<span class="pc">R1(config-if)#</span> <span class="out">ipv6 traffic-filter LAN-OUT out</span>
 <span class="pc">R1(config-if)#</span> <span class="out">ipv6 traffic-filter WAN-IN in</span>
 <span class="pc">R1(config-if)#</span> <span class="out">end</span></pre>
   </div>
 
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Παγιδα — Γιατι Οχι Απλως <code>permit tcp any any established</code></span>
+    <p>Το keyword <code>established</code> ελέγχει μόνο τα TCP bits ACK/RST, άρα δεν κάνει τίποτα για UDP. Ένα edge ACL χτισμένο πάνω του πετάει σιωπηλά κάθε απάντηση DNS, κάθε πακέτο QUIC (HTTP/3) και κάθε απάντηση NTP. Το IPv6 φαίνεται «μισοχαλασμένο», ενώ το ACL κάνει ακριβώς αυτό που γράφει. Τα reflexive entries (<code>reflect</code> προς τα έξω, <code>evaluate</code> προς τα μέσα) παρακολουθούν sessions TCP, UDP και ICMP ανά ροή. Η άλλη παγίδα είναι το ρητό τελικό <code>deny</code>. Το IOS προσθέτει implicit permits για neighbor solicit και advertise <em>πριν</em> το implicit deny του, αλλά το δικό σου <code>deny ipv6 any any</code> έρχεται πρώτο, οπότε το NDP προς τον ISP πεθαίνει αν δεν το επιτρέψεις μόνος σου. Μένουν δύο όρια: τα reflexive ACLs δεν παρακολουθούν κίνηση που ξεκινά ο ίδιος ο router, και δεν κάνουν inspect εφαρμογών. Για πραγματικό edge, χρησιμοποίησε το <a href="cisco-zbf.html">Zone-Based Firewall</a>.</p>
+  </div>
   <div class="callout gotcha">
     <span class="callout-label">⚠ Παγιδα — Ποτε Μην Μπλοκαρεις το ICMPv6 Ολικα</span>
     <p>Στο IPv4 πολλοί admin ρίχνουν αντανακλαστικά το ICMP στην άκρη. Κάν' το στο <strong>ICMPv6 και το IPv6 σταματάει να δουλεύει</strong> — το NDP (neighbor discovery), το RA (config διεύθυνσης), και το Path MTU Discovery όλα ταξιδεύουν πάνω σε ICMPv6. Ένα γενικό <code>deny icmp</code> σπάει την επίλυση διευθύνσεων και τη συνδεσιμότητα με τρόπους που μοιάζουν με bug δρομολόγησης. Επίτρεψε τους απαραίτητους τύπους ICMPv6 (neighbor solicit/advertise, router advert, packet-too-big) και φιλτράρισε επιλεκτικά. Αυτό το ένα αντανακλαστικό προκαλεί περισσότερα tickets «το IPv6 είναι ασταθές» από οτιδήποτε άλλο.</p>
@@ -363,11 +382,11 @@ FE80::212:7FFF:FE3A:1B2C   3    0012.7f3a.1b2c   STALE  Gi0/1</span>
     <p class="takeaways-title">Συμπερασματα</p>
     <ol>
       <li><strong>Το IPv6 αφαιρεί περισσότερη πολυπλοκότητα απ' όση προσθέτει.</strong> Κάθε LAN είναι /64 (καμία αριθμητική mask), καθόλου broadcast, καμία σπανιότητα διευθύνσεων — και κανένα NAT. Το hex είναι απλώς σημειογραφία.</li>
-      <li><strong>Μάθε τους τέσσερις τύπους διευθύνσεων.</strong> Global (2000::/3, internet), link-local (fe80::/10, μόνο στο link, πάντα παρόν), ULA (fd00::/8, ιδιωτικό), multicast (ff00::/8, αντικαθιστά το broadcast).</li>
+      <li><strong>Μάθε τους τέσσερις τύπους διευθύνσεων.</strong> Global (2000::/3, internet), link-local (fe80::/10, μόνο στο link, πάντα παρόν), ULA (fc00::/7, στην πράξη fd00::/8, ιδιωτικό), multicast (ff00::/8, αντικαθιστά το broadcast).</li>
       <li><strong>Άναψε πρώτα το <code>ipv6 unicast-routing</code>.</strong> Όλα μπορούν να φαίνονται ρυθμισμένα και ακόμα να μη δρομολογούν χωρίς αυτό — το δίδυμο v6 του <code>ip routing</code>.</li>
       <li><strong>Οι hosts μπορούν να αυτο-διευθυνσιοδοτηθούν με SLAAC</strong> από το RA του router· πρόσθεσε DHCPv6 για DNS (stateless) ή πλήρη ανάθεση (stateful). Τα περισσότερα δίκτυα συνδυάζουν.</li>
       <li><strong>Το NDP αντικαθιστά το ARP</strong> και τρέχει πάνω από ICMPv6/multicast — γι' αυτό το μπλοκάρισμα ολικά του ICMPv6 σπάει το IPv6. Επίτρεψε τους απαραίτητους τύπους.</li>
-      <li><strong>Η δρομολόγηση IPv4 σου μεταφέρεται.</strong> Τα static routes και το OSPFv3 είναι οι ίδιες έννοιες με πρόθεμα <code>ipv6</code>· το OSPFv3 ενεργοποιείται ανά interface και οι γείτονες με link-local.</li>
+      <li><strong>Η δρομολόγηση IPv4 σου μεταφέρεται.</strong> Τα static routes και το OSPFv3 είναι οι ίδιες έννοιες με πρόθεμα <code>ipv6</code>· το OSPFv3 ενεργοποιείται ανά interface και σχηματίζει adjacencies πάνω από link-local.</li>
       <li><strong>Χωρίς NAT σημαίνει ότι το firewall κάνει την απόκρυψη — χτίσ' το.</strong> Κάθε host είναι globally προσβάσιμος· ένα stateful firewall v6 είναι υποχρεωτικό, όχι προαιρετικό. Ο πραγματικός κίνδυνος για SMB είναι το IPv6 σιωπηλά ανοιχτό και αφίλτραρο.</li>
     </ol>
   </div>
