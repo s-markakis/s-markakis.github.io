@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Resort Hotel Network — S. Markakis</title>
+<meta name="description" content="A large resort hotel in Crete built bottom-up in 12 tested steps from a real Packet Tracer file: 44 APs behind a WLC, guests isolated from the PMS and the till, dual-WAN failover, CME phones. Cisco, with the .pkt attached.">
+<meta property="og:title" content="Build: The Resort Hotel Network — S. Markakis">
+<meta property="og:description" content="A large resort hotel in Crete built bottom-up in 12 tested steps from a real Packet Tracer file: 44 APs behind a WLC, guests isolated from the PMS and the till, dual-WAN failover, CME phones. Cisco, with the .pkt attached.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-resort-hotel.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-resort-hotel.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-resort-hotel.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-resort-hotel.html">
+
+
+
+
+
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#b0453a;--v20:#3a7ca5;--v30:#4f8f4c;--v40:#8a5bb5;--v45:#2f8f8f;--v50:#d9822b;--v60:#c08020;--v99:#6f7f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<style>:root{--v70:#7d6b3c;--v80:#2f6f9f;--v90:#3f8f6f;--v100:#c0502b;}body.dark{--v70:#b59b5c;--v80:#5f9fcf;--v90:#6fbf9f;--v100:#e07a55;}</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Resort Hotel Network",
+  "description": "A large resort hotel in Crete built bottom-up in 12 tested steps from a real Packet Tracer file: 44 APs behind a WLC, guests isolated from the PMS and the till, dual-WAN failover, CME phones. Cisco, with the .pkt attached.",
+  "datePublished": "2026-11-11",
+  "dateModified": "2026-11-11",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-resort-hotel.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-resort-hotel.png",
+  "keywords": [
+    "cisco",
+    "build",
+    "labs",
+    "wireless"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-resort-hotel"
+  },
+  "timeRequired": "PT41M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+</defs></svg>
+  <p class="post-meta"><span class="series-chip">Build</span> &nbsp;·&nbsp; Cisco &middot; Packet Tracer &middot; November 2026</p>
+  <h1 class="post-title">Build: The Resort<br>Hotel Network</h1>
+  <p class="post-subtitle">A large resort hotel in Crete: reception, accounts, a mini market, three pools, a spa, a lobby, parking and a floor of guest rooms, with 44 access points between them. It starts from a real Packet Tracer file that had the cabling right and nothing else. This is how it becomes a network, bottom-up in twelve tested steps.</p>
+  <div class="tags">
+    <span class="tag">Cisco</span>
+    <span class="tag">Hospitality</span>
+    <span class="tag">WLC</span>
+    <span class="tag">Guest Wi-Fi</span>
+    <span class="tag">Dual WAN</span>
+    <span class="tag">CME</span>
+    <span class="tag">Packet Tracer</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>Hotels are a strange mix. Most of the traffic is guests you know nothing about, on Wi-Fi you're judged on. Next to that sit a property-management system (PMS) holding every booking, a till that takes cards, and an accounts office that pays the suppliers. All of it hangs off the same core. The design job is to make the guest side fast and disposable, and the rest of it out of reach.</p>
+    <p>This build is different from the others in the series: it starts from someone else's drawing. The Packet Tracer file had a sensible physical layout and every device at factory defaults. So before any config, there's a review: what the file got right, what would have stopped it working, and what was added. The finished <a href="assets/build-hotel/hotel-network.pkt" download>Packet Tracer file is attached</a>, configured.</p>
+    <div class="prereqs-label">Series</div>
+    <ul class="prereqs-list">
+      <li>Part of <strong><a href="build-index.html">Build</a></strong> &mdash; sits next to <a href="build-coffee-shop.html">the coffee shop</a> and <a href="build-villa.html">the villa</a> under Hospitality</li>
+      <li>Background: <a href="cisco-zbf.html">zone-based firewall</a>, <a href="cisco-bgp-dual-isp.html">dual-ISP on IOS</a></li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-1">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>What the hotel actually asked for, before anyone drew a VLAN.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Requirement</th><th>What it means for the network</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Guest Wi-Fi everywhere</td><td>Rooms, lobby, spa, three pools, parking. Guests reach the internet and nothing else, and don't see each other.</td></tr>
+      <tr><td>R2 The PMS never goes down</td><td>Front desk, accounts and the mini market reach the PMS; guests and Wi-Fi devices never do.</td></tr>
+      <tr><td>R3 Card payments stay contained</td><td>The mini market till is its own segment (PCI scope): internet out, PMS for room charges, nothing else.</td></tr>
+      <tr><td>R4 The internet can't go down in August</td><td>Two WANs, automatic failover, no one has to touch anything.</td></tr>
+      <tr><td>R5 Desk phones</td><td>Five IP phones (reception, accounts, mini market) on the hotel's own call control.</td></tr>
+      <tr><td>R6 One team manages it</td><td>Named admin accounts, SSH only, a management VLAN, consistent names on every box.</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-2">02</p>
+  <h2 class="section-title">What the File Had, and What It Was Missing</h2>
+  <p class="section-thesis"><em>The layout was right. Every device was at factory defaults, and three things would have stopped it working at all.</em></p>
+  <p>The original file has a 2911 edge router behind a second 2911 standing in for the ISP, a 3560-24PS core, eight 2960-24TT access switches (one per area), 44 lightweight access points, five 7960 phones, four printers, five PCs and two servers. The physical design is sound: a star from one core, one switch per zone, the APs grouped by where they hang. That part stays.</p>
+  <table class="cheat">
+    <thead><tr><th>Found in the file</th><th>Impact</th><th>Fix (step)</th></tr></thead>
+    <tbody>
+      <tr><td>44 LAP-PT access points, no wireless controller</td><td>Lightweight APs only work when they join a controller. No SSIDs at all.</td><td>Add WLC-01 on the core (7)</td></tr>
+      <tr><td>2960-24TT access switches have no PoE</td><td>APs and phones have no power.</td><td>PoE+ switches in the real build; power adapters in PT (4, 21)</td></tr>
+      <tr><td>Five IP phones, no call control</td><td>Phones never register.</td><td>CME on the edge router (11)</td></tr>
+      <tr><td>Every device at defaults, all in VLAN 1</td><td>Guests on the same segment as the PMS.</td><td>11 VLANs and a policy matrix (1&ndash;8)</td></tr>
+      <tr><td>Core uplinks on FastEthernet</td><td>100 Mb/s for 20 rooms' worth of APs.</td><td>Gigabit/fibre uplinks in the real build (22)</td></tr>
+      <tr><td>One WAN</td><td>An ISP outage closes the hotel's internet.</td><td>ISP-B and tracked failover (10)</td></tr>
+      <tr><td>PMS server on the reception switch</td><td>Every PMS session crosses an access uplink.</td><td>Moved to the core (6)</td></tr>
+      <tr><td>Switch-to-switch links on straight-through cables</td><td>Packet Tracer marks them down.</td><td>Crossover cables</td></tr>
+      <tr><td>Names: <em>Switch</em>, <em>Router</em>, <em>IP Phone 2</em> and <em>IP Phone2</em></td><td>Nobody can tell from a log line which box it was.</td><td>One naming scheme everywhere</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-3">03</p>
+  <h2 class="section-title">Five Design Decisions</h2>
+  <p class="section-thesis"><em>Each one closes a requirement. Everything else in the post is detail.</em></p>
+  <ol style="padding-left:1.4rem;margin-bottom:1.2rem;">
+    <li style="margin-bottom:.6rem;"><strong>Guest traffic never touches an access switch VLAN.</strong> The APs run in local mode and tunnel every client frame to the WLC over CAPWAP. Guest and staff Wi-Fi VLANs (100, 90) exist only on the core and the WLC trunk. The AP switches carry two VLANs: management and the AP VLAN. A guest can't be bridged onto anything in a pool closet.</li>
+    <li style="margin-bottom:.6rem;"><strong>The core routes and enforces; the edge only translates.</strong> All inter-VLAN routing and every ACL live on CORE-SW. The edge router does NAT, the WANs and voice. One place to read the policy.</li>
+    <li style="margin-bottom:.6rem;"><strong>Policy by source VLAN.</strong> Untrusted segments (guest, staff Wi-Fi, POS) get an inbound ACL that denies all private space after a short list of exceptions. Accounts is protected in the other direction. No ACL refers to a single PC.</li>
+    <li style="margin-bottom:.6rem;"><strong>Failover decided by reachability, not link state.</strong> A fibre ONT that stays up while the ISP is down is the common case. IP SLA probes a target beyond ISP-A and moves the default route when it stops answering.</li>
+    <li style="margin-bottom:.6rem;"><strong>Everything that could be a template is a template.</strong> Eight access switches share one config shape: same management, same unused-port handling, same uplink. Only the port map differs.</li>
+  </ol>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-4">04</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>10.10.<em>VLAN</em>.0/24 everywhere, so the third octet tells you the segment. The gateway is always .1 on the core; .1&ndash;.20 never come from DHCP.</em></p>
+  <table class="cheat">
+    <thead><tr><th>VLAN</th><th>Subnet</th><th>Who</th><th>Addressing</th></tr></thead>
+    <tbody>
+      <tr><td><span style="color:var(--v99)">10 MGMT</span></td><td>10.10.10.0/24</td><td>Switch management SVIs (.11&ndash;.18)</td><td>Static</td></tr>
+      <tr><td><span style="color:var(--v20)">20 STAFF</span></td><td>10.10.20.0/24</td><td>Front-desk PCs</td><td>DHCP on core</td></tr>
+      <tr><td><span style="color:var(--v30)">30 ACCOUNTING</span></td><td>10.10.30.0/24</td><td>Accounts PCs</td><td>DHCP on core</td></tr>
+      <tr><td><span style="color:var(--v40)">40 VOICE</span></td><td>10.10.40.0/24</td><td>IP phones (voice VLAN via CDP)</td><td>DHCP + option 150</td></tr>
+      <tr><td><span style="color:var(--v50)">50 POS</span></td><td>10.10.50.0/24</td><td>Mini market till, receipt printer</td><td>DHCP / static .20</td></tr>
+      <tr><td><span style="color:var(--v60)">60 PRINTERS</span></td><td>10.10.60.0/24</td><td>Office printers</td><td>Static .11&ndash;.13</td></tr>
+      <tr><td><span style="color:var(--v70)">70 SERVERS</span></td><td>10.10.70.0/24</td><td>PMS-SRV .10</td><td>Static</td></tr>
+      <tr><td><span style="color:var(--v80)">80 AP-MGMT</span></td><td>10.10.80.0/24</td><td>44 APs, WLC management .2</td><td>DHCP on core</td></tr>
+      <tr><td><span style="color:var(--v90)">90 STAFF-WIFI</span></td><td>10.10.90.0/24</td><td>Staff phones and tablets</td><td>DHCP on core</td></tr>
+      <tr><td><span style="color:var(--v100)">100 GUEST-WIFI</span></td><td>10.10.100.0/22</td><td>Guests: up to ~1,000 devices</td><td>DHCP on core</td></tr>
+      <tr><td>999 UNUSED-NATIVE</td><td>&mdash;</td><td>Trunk native VLAN, every unused port</td><td>None</td></tr>
+    </tbody>
+  </table>
+  <p>Transit and outside: core&harr;edge 10.255.0.0/30, WAN1 203.0.113.0/30 (ISP-A), WAN2 198.51.100.0/30 (ISP-B). The guest scope is a /22 because a full hotel runs three or four devices per room, plus the pools in July.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="sec-5">05</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start the conversation, columns receive it. Anything not marked is denied.</em></p>
+  <table class="cheat">
+    <thead><tr><th>From &darr; / To &rarr;</th><th>PMS (70)</th><th>Printers (60)</th><th>Accounts (30)</th><th>Other internal</th><th>Internet</th></tr></thead>
+    <tbody>
+      <tr><td>Staff (20)</td><td>&#10003;</td><td>&#10003;</td><td>&#10007;</td><td>&#10003;</td><td>&#10003;</td></tr>
+      <tr><td>Accounts (30)</td><td>&#10003;</td><td>&#10003;</td><td>&mdash;</td><td>&#10003;</td><td>&#10003;</td></tr>
+      <tr><td>POS (50)</td><td>HTTPS only</td><td>&#10007;</td><td>&#10007;</td><td>&#10007;</td><td>&#10003;</td></tr>
+      <tr><td>Staff Wi-Fi (90)</td><td>&#10003;</td><td>&#10003;</td><td>&#10007;</td><td>&#10007;</td><td>&#10003;</td></tr>
+      <tr><td>Guests (100)</td><td>&#10007;</td><td>&#10007;</td><td>&#10007;</td><td>&#10007;</td><td>&#10003;</td></tr>
+    </tbody>
+  </table>
+  <p>Accounts can open connections anywhere internal, but nothing internal can open one to accounts. Replies are fine; new sessions aren't. That's the <code>TO-ACCOUNTING</code> ACL in step 8.</p>
+
+  <!-- 06 -->
+  <p class="section-num" id="sec-6">06</p>
+  <h2 class="section-title">Bottom to Top, One Layer at a Time</h2>
+  <p class="section-thesis"><em>Access first, then the core that ties it together, then wireless and policy, then the way out. Each step ends with a checkpoint you can run.</em></p>
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 660" role="img" aria-label="Interactive topology of the hotel network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="9">
+<line class="bx-line" pathLength="100" x1="95" y1="62" x2="250" y2="62" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="122.9" cy="62.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="222.1" cy="62.0" r="2.4"/>
+</g>
+<g class="bx-el" data-step="10">
+<line class="bx-line" pathLength="100" x1="250" y1="62" x2="510" y2="62" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="296.8" cy="62.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="463.2" cy="62.0" r="2.4"/>
+<text class="lft-port" x="360" y="56">peering</text>
+</g>
+<g class="bx-el" data-step="9">
+<line class="bx-line" pathLength="100" x1="250" y1="62" x2="380" y2="160" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="273.4" cy="79.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="356.6" cy="142.4" r="2.4"/>
+<text class="lft-port" x="318" y="118">Gi0/0 · WAN1</text>
+</g>
+<g class="bx-el" data-step="10">
+<line class="bx-line" pathLength="100" x1="510" y1="62" x2="380" y2="160" style="stroke:var(--accent);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="486.6" cy="79.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="403.4" cy="142.4" r="2.4"/>
+<text class="lft-port" x="458" y="142">Gi0/2 · WAN2</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="380" y1="160" x2="380" y2="262" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="380.0" cy="178.4" r="2.4"/>
+<circle class="lft-led bx-led" cx="380.0" cy="243.6" r="2.4"/>
+<text class="lft-port" x="392" y="232">Gi0/1 routed /30</text>
+</g>
+<g class="bx-el" data-step="6">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="215" y2="262" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="350.3" cy="262.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="244.7" cy="262.0" r="2.4"/>
+<text class="lft-port" x="305.5" y="258.0">Fa0/20</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="560" y2="262" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="412.4" cy="262.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="527.6" cy="262.0" r="2.4"/>
+<text class="lft-port" x="478.0" y="258.0">Fa0/21 trunk</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="55" y2="382" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="321.5" cy="283.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="113.5" cy="360.4" r="2.4"/>
+<text class="lft-port lft-c" x="55.0" y="356.0">Gi0/2</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="147" y2="382" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="338.1" cy="283.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="188.9" cy="360.4" r="2.4"/>
+<text class="lft-port lft-c" x="147.0" y="356.0">Fa0/1</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="239" y2="382" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="354.6" cy="283.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="264.4" cy="360.4" r="2.4"/>
+<text class="lft-port lft-c" x="239.0" y="356.0">Fa0/7</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="331" y2="382" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="371.2" cy="283.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="339.8" cy="360.4" r="2.4"/>
+<text class="lft-port lft-c" x="331.0" y="356.0">Fa0/2</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="423" y2="382" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="387.7" cy="283.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="415.3" cy="360.4" r="2.4"/>
+<text class="lft-port lft-c" x="423.0" y="356.0">Fa0/3</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="515" y2="382" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="404.3" cy="283.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="490.7" cy="360.4" r="2.4"/>
+<text class="lft-port lft-c" x="515.0" y="356.0">Fa0/4</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="607" y2="382" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="420.9" cy="283.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="566.1" cy="360.4" r="2.4"/>
+<text class="lft-port lft-c" x="607.0" y="356.0">Fa0/5</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="380" y1="262" x2="699" y2="382" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="437.4" cy="283.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="641.6" cy="360.4" r="2.4"/>
+<text class="lft-port lft-c" x="699.0" y="356.0">Fa0/6</text>
+</g>
+<g class="bx-el bx-dev" data-step="9">
+<use href="#lfi-server" x="84" y="46" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="95" y="90">INTERNET-SRV</text>
+<text class="lft-chip lft-c" x="95" y="100" style="fill:var(--body);">8.8.8.8</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="9" data-dev="ispa" tabindex="0" role="button" aria-label="Show the configuration of ISP-A">
+<use href="#lfi-router" x="227" y="46" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="250" y="90">ISP-A</text>
+<text class="lft-chip lft-c" x="250" y="100" style="fill:var(--body);">fibre · 2911</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="10" data-dev="ispb" tabindex="0" role="button" aria-label="Show the configuration of ISP-B">
+<use href="#lfi-router" x="487" y="46" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="510" y="90">ISP-B</text>
+<text class="lft-chip lft-c" x="510" y="100" style="fill:var(--body);">backup · 2911</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="9" data-dev="edge" tabindex="0" role="button" aria-label="Show the configuration of EDGE-RTR">
+<use href="#lfi-router" x="357" y="144" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="380" y="188">EDGE-RTR</text>
+<text class="lft-chip lft-c" x="380" y="198" style="fill:var(--body);">2911 · NAT · CME</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="5" data-dev="core" tabindex="0" role="button" aria-label="Show the configuration of CORE-SW">
+<use href="#lfi-l3" x="361" y="243" width="38" height="38" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="380" y="293">CORE-SW</text>
+<text class="lft-chip lft-c" x="380" y="303" style="fill:var(--body);">3560-24PS · L3</text>
+</g>
+<g class="bx-el bx-dev" data-step="6">
+<use href="#lfi-server" x="204" y="246" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="215" y="290">PMS-SRV</text>
+<text class="lft-chip lft-c" x="215" y="300" style="fill:var(--v70);">V70</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<use href="#lfi-modem" x="543" y="253" width="34" height="18" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="560" y="283">WLC-01</text>
+<text class="lft-chip lft-c" x="560" y="293" style="fill:var(--v80);">WLC 3504 · V80</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="swrec" tabindex="0" role="button" aria-label="Show the configuration of SW-RECEPTION">
+<use href="#lfi-l2" x="30" y="371" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="55" y="405">SW-RECEPTION</text>
+<text class="lft-chip lft-c" x="55" y="415" style="fill:var(--body);">Gi0/1</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="swacct" tabindex="0" role="button" aria-label="Show the configuration of SW-ACCOUNT">
+<use href="#lfi-l2" x="122" y="371" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="147" y="405">SW-ACCOUNT</text>
+<text class="lft-chip lft-c" x="147" y="415" style="fill:var(--body);">Gi0/1</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="3" data-dev="swmm" tabindex="0" role="button" aria-label="Show the configuration of SW-MINIMKT">
+<use href="#lfi-l2" x="214" y="371" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="239" y="405">SW-MINIMKT</text>
+<text class="lft-chip lft-c" x="239" y="415" style="fill:var(--body);">Gi0/1</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="4" data-dev="swpm" tabindex="0" role="button" aria-label="Show the configuration of SW-POOL-MAIN">
+<use href="#lfi-l2" x="306" y="371" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="331" y="405">SW-POOL-MAIN</text>
+<text class="lft-chip lft-c" x="331" y="415" style="fill:var(--body);">Gi0/1</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="4" data-dev="swp2" tabindex="0" role="button" aria-label="Show the configuration of SW-POOL-2">
+<use href="#lfi-l2" x="398" y="371" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="423" y="405">SW-POOL-2</text>
+<text class="lft-chip lft-c" x="423" y="415" style="fill:var(--body);">Gi0/1</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="4" data-dev="swp3" tabindex="0" role="button" aria-label="Show the configuration of SW-POOL-3">
+<use href="#lfi-l2" x="490" y="371" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="515" y="405">SW-POOL-3</text>
+<text class="lft-chip lft-c" x="515" y="415" style="fill:var(--body);">Gi0/1</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="4" data-dev="swf1" tabindex="0" role="button" aria-label="Show the configuration of SW-FLOOR-1">
+<use href="#lfi-l2" x="582" y="371" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="607" y="405">SW-FLOOR-1</text>
+<text class="lft-chip lft-c" x="607" y="415" style="fill:var(--body);">Gi0/1</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="4" data-dev="swf2" tabindex="0" role="button" aria-label="Show the configuration of SW-FLOOR-2">
+<use href="#lfi-l2" x="674" y="371" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="699" y="405">SW-FLOOR-2</text>
+<text class="lft-chip lft-c" x="699" y="415" style="fill:var(--body);">Gi0/1</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="55" y1="393" x2="55" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="55.0" y1="435" x2="55.0" y2="495" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="38.0" y1="435" x2="72.0" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="38.0" y1="465" x2="72.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="38.0" y1="495" x2="72.0" y2="495" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="38.0" y1="435" x2="38.0" y2="439.0" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="72.0" y1="435" x2="72.0" y2="439.0" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="38.0" y1="465" x2="38.0" y2="469.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="72.0" y1="465" x2="72.0" y2="469.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="38.0" y1="495" x2="38.0" y2="501.0" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="72.0" y1="495" x2="72.0" y2="501.0" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<use href="#lfi-pc" x="27.0" y="439.0" width="22" height="22" style="color:var(--v20);"/>
+<use href="#lfi-pc" x="61.0" y="439.0" width="22" height="22" style="color:var(--v20);"/>
+<use href="#lfi-printer" x="26.0" y="469.5" width="24" height="21" style="color:var(--v60);"/>
+<use href="#lfi-printer" x="60.0" y="469.5" width="24" height="21" style="color:var(--v60);"/>
+<use href="#lfi-phone" x="29.0" y="501.0" width="18" height="18" style="color:var(--v40);"/>
+<use href="#lfi-phone" x="63.0" y="501.0" width="18" height="18" style="color:var(--v40);"/>
+<text class="lft-name lft-c" x="55" y="542">Front desk</text>
+<text class="lft-chip lft-c" x="55" y="552" style="fill:var(--v20);">V20·V60·V40</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="147" y1="393" x2="147" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="147.0" y1="435" x2="147.0" y2="495" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="130.0" y1="435" x2="164.0" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="130.0" y1="465" x2="164.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="130.0" y1="495" x2="147.0" y2="495" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="130.0" y1="435" x2="130.0" y2="439.0" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="164.0" y1="435" x2="164.0" y2="439.0" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="130.0" y1="465" x2="130.0" y2="471.0" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="164.0" y1="465" x2="164.0" y2="471.0" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="130.0" y1="495" x2="130.0" y2="499.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<use href="#lfi-pc" x="119.0" y="439.0" width="22" height="22" style="color:var(--v30);"/>
+<use href="#lfi-pc" x="153.0" y="439.0" width="22" height="22" style="color:var(--v30);"/>
+<use href="#lfi-phone" x="121.0" y="471.0" width="18" height="18" style="color:var(--v40);"/>
+<use href="#lfi-phone" x="155.0" y="471.0" width="18" height="18" style="color:var(--v40);"/>
+<use href="#lfi-printer" x="118.0" y="499.5" width="24" height="21" style="color:var(--v60);"/>
+<text class="lft-name lft-c" x="147" y="542">Accounts</text>
+<text class="lft-chip lft-c" x="147" y="552" style="fill:var(--v30);">V30·V60·V40</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="239" y1="393" x2="239" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="239.0" y1="435" x2="239.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="222.0" y1="435" x2="256.0" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="222.0" y1="465" x2="239.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="222.0" y1="435" x2="222.0" y2="438.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="256.0" y1="435" x2="256.0" y2="439.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="222.0" y1="465" x2="222.0" y2="471.0" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<use href="#lfi-pos" x="209.5" y="438.5" width="25" height="23" style="color:var(--v50);"/>
+<use href="#lfi-printer" x="244.0" y="439.5" width="24" height="21" style="color:var(--v50);"/>
+<use href="#lfi-phone" x="213.0" y="471.0" width="18" height="18" style="color:var(--v40);"/>
+<text class="lft-name lft-c" x="239" y="512">Mini market</text>
+<text class="lft-chip lft-c" x="239" y="522" style="fill:var(--v50);">V50 · V40</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="331" y1="393" x2="331" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="331.0" y1="435" x2="331.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="314.0" y1="435" x2="348.0" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="314.0" y1="465" x2="348.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="314.0" y1="435" x2="314.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="348.0" y1="435" x2="348.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="314.0" y1="465" x2="314.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="348.0" y1="465" x2="348.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<use href="#lfi-ap" x="303.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="337.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="303.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="337.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<text class="lft-name lft-c" x="331" y="512">Main pool</text>
+<text class="lft-chip lft-c" x="331" y="522" style="fill:var(--v80);">4 APs · outdoor</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="423" y1="393" x2="423" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="423.0" y1="435" x2="423.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="406.0" y1="435" x2="440.0" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="406.0" y1="465" x2="440.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="406.0" y1="435" x2="406.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="440.0" y1="435" x2="440.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="406.0" y1="465" x2="406.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="440.0" y1="465" x2="440.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<use href="#lfi-ap" x="395.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="429.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="395.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="429.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<text class="lft-name lft-c" x="423" y="512">Pool 2</text>
+<text class="lft-chip lft-c" x="423" y="522" style="fill:var(--v80);">4 APs · outdoor</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="515" y1="393" x2="515" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="515.0" y1="435" x2="515.0" y2="525" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="498.0" y1="435" x2="532.0" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="498.0" y1="465" x2="532.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="498.0" y1="495" x2="532.0" y2="495" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="498.0" y1="525" x2="515.0" y2="525" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="498.0" y1="435" x2="498.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="532.0" y1="435" x2="532.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="498.0" y1="465" x2="498.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="532.0" y1="465" x2="532.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="498.0" y1="495" x2="498.0" y2="501.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="532.0" y1="495" x2="532.0" y2="501.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="498.0" y1="525" x2="498.0" y2="531.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<use href="#lfi-ap" x="487.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="521.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="487.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="521.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="487.0" y="501.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="521.0" y="501.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="487.0" y="531.5" width="22" height="17" style="color:var(--v80);"/>
+<text class="lft-name lft-c" x="515" y="572">Pool 3</text>
+<text class="lft-chip lft-c" x="515" y="582" style="fill:var(--v80);">7 APs · outdoor</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="607" y1="393" x2="607" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="621.0" y1="435" x2="621.0" y2="495" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="579.0" y1="435" x2="635.0" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="579.0" y1="465" x2="635.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="579.0" y1="495" x2="635.0" y2="495" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="579.0" y1="435" x2="579.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="607.0" y1="435" x2="607.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="635.0" y1="435" x2="635.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="579.0" y1="465" x2="579.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="607.0" y1="465" x2="607.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="635.0" y1="465" x2="635.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="579.0" y1="495" x2="579.0" y2="501.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="607.0" y1="495" x2="607.0" y2="501.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="635.0" y1="495" x2="635.0" y2="501.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<use href="#lfi-ap" x="568.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="596.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="624.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="568.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="596.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="624.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="568.0" y="501.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="596.0" y="501.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="624.0" y="501.5" width="22" height="17" style="color:var(--v80);"/>
+<text class="lft-name lft-c" x="607" y="542">Lobby · spa · park</text>
+<text class="lft-chip lft-c" x="607" y="552" style="fill:var(--v80);">9 APs</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="699" y1="393" x2="699" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="699.0" y1="435" x2="699.0" y2="555" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="435" x2="732.0" y2="435" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="465" x2="732.0" y2="465" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="495" x2="732.0" y2="495" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="525" x2="732.0" y2="525" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="555" x2="732.0" y2="555" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="435" x2="666.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="688.0" y1="435" x2="688.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="710.0" y1="435" x2="710.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="732.0" y1="435" x2="732.0" y2="441.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="465" x2="666.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="688.0" y1="465" x2="688.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="710.0" y1="465" x2="710.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="732.0" y1="465" x2="732.0" y2="471.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="495" x2="666.0" y2="501.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="688.0" y1="495" x2="688.0" y2="501.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="710.0" y1="495" x2="710.0" y2="501.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="732.0" y1="495" x2="732.0" y2="501.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="525" x2="666.0" y2="531.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="688.0" y1="525" x2="688.0" y2="531.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="710.0" y1="525" x2="710.0" y2="531.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="732.0" y1="525" x2="732.0" y2="531.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="666.0" y1="555" x2="666.0" y2="561.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="688.0" y1="555" x2="688.0" y2="561.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="710.0" y1="555" x2="710.0" y2="561.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<line x1="732.0" y1="555" x2="732.0" y2="561.5" style="stroke:var(--body);stroke-width:.9;opacity:.6;"/>
+<use href="#lfi-ap" x="655.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="677.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="699.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="721.0" y="441.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="655.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="677.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="699.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="721.0" y="471.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="655.0" y="501.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="677.0" y="501.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="699.0" y="501.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="721.0" y="501.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="655.0" y="531.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="677.0" y="531.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="699.0" y="531.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="721.0" y="531.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="655.0" y="561.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="677.0" y="561.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="699.0" y="561.5" width="22" height="17" style="color:var(--v80);"/>
+<use href="#lfi-ap" x="721.0" y="561.5" width="22" height="17" style="color:var(--v80);"/>
+<text class="lft-name lft-c" x="699" y="602">Guest rooms</text>
+<text class="lft-chip lft-c" x="699" y="612" style="fill:var(--v80);">20 APs · 1 per room</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="577" y1="262" x2="673.0" y2="232" style="stroke:var(--v100);stroke-width:1.2;stroke-dasharray:3 3;"/>
+<use href="#lfi-laptop" x="677.0" y="222.0" width="26" height="20" style="color:var(--v100);"/>
+<text class="lft-name lft-c" x="690" y="253.0">Guests</text>
+<text class="lft-chip lft-c" x="690" y="263.0" style="fill:var(--v100);">SSID Hotel-Guest · V100</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="577" y1="262" x2="678.0" y2="300" style="stroke:var(--v90);stroke-width:1.2;stroke-dasharray:3 3;"/>
+<use href="#lfi-tablet" x="682.0" y="290.0" width="16" height="20" style="color:var(--v90);"/>
+<text class="lft-name lft-c" x="690" y="321.0">Staff Wi-Fi</text>
+<text class="lft-chip lft-c" x="690" y="331.0" style="fill:var(--v90);">SSID Hotel-Staff · V90</text>
+</g>
+<text class="lft-port" x="606" y="252">CAPWAP</text>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 12 steps built</text>
+<text class="lft-chip" x="20" y="650">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="12" value="12" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "Front Desk: The Reception Switch", "adds": "SW-RECEPTION, front desk"}, {"n": 2, "title": "Accounts: Same Template, Different VLAN", "adds": "SW-ACCOUNTING, accounts"}, {"n": 3, "title": "The Mini Market: A Till in Its Own Box", "adds": "SW-MINIMARKET, POS"}, {"n": 4, "title": "Five AP Closets: Pools, Lobby, Rooms", "adds": "SW-POOL-MAIN, SW-POOL-2, SW-POOL-3, SW-FLOOR-1, SW-FLOOR-2, 44 APs"}, {"n": 5, "title": "The Core: Trunks, Gateways, DHCP", "adds": "CORE-SW"}, {"n": 6, "title": "The PMS Moves to the Core", "adds": "PMS-SRV"}, {"n": 7, "title": "The Controller and Two SSIDs", "adds": "WLC-01"}, {"n": 8, "title": "The Policy Matrix as ACLs", "adds": "policy on CORE-SW"}, {"n": 9, "title": "The Edge: WAN1 and NAT", "adds": "EDGE-RTR, ISP-A, INTERNET-SRV"}, {"n": 10, "title": "The Backup WAN and Tracked Failover", "adds": "ISP-B"}, {"n": 11, "title": "Phones: CME on the Edge Router", "adds": "voice"}, {"n": 12, "title": "Management: Names, Accounts, SSH", "adds": "every IOS device"}], "devices": {"ispa": "ISP-A", "ispb": "ISP-B", "edge": "EDGE-RTR", "core": "CORE-SW", "swrec": "SW-RECEPTION", "swacct": "SW-ACCOUNTING", "swmm": "SW-MINIMARKET", "swpm": "SW-POOL-MAIN", "swp2": "SW-POOL-2", "swp3": "SW-POOL-3", "swf1": "SW-FLOOR-1", "swf2": "SW-FLOOR-2"}, "configs": {"core": [{"step": 5, "title": "The Core: Trunks, Gateways, DHCP", "label": "CORE-SW", "text": "! role + location in every name, so a log line says which box\nhostname CORE-SW\n! the 3560 routes between the VLANs (SVIs below)\nip routing\n! VTP cannot add or delete VLANs behind your back\nvtp mode transparent\n! the VLAN database: only the VLANs this device carries\nvlan 10\n name MGMT\nvlan 20\n name STAFF\nvlan 30\n name ACCOUNTING\nvlan 40\n name VOICE\nvlan 50\n name POS\nvlan 60\n name PRINTERS\nvlan 70\n name SERVERS\nvlan 80\n name AP-MGMT\nvlan 90\n name STAFF-WIFI\nvlan 100\n name GUEST-WIFI\nvlan 999\n name UNUSED-NATIVE\n! .1-.20 in every scope stay free for static addresses\nip dhcp excluded-address 10.10.20.1 10.10.20.20\nip dhcp excluded-address 10.10.30.1 10.10.30.20\nip dhcp excluded-address 10.10.40.1 10.10.40.20\nip dhcp excluded-address 10.10.50.1 10.10.50.20\nip dhcp excluded-address 10.10.80.1 10.10.80.20\nip dhcp excluded-address 10.10.90.1 10.10.90.20\nip dhcp excluded-address 10.10.100.1 10.10.100.20\n! one pool per dynamic VLAN; the gateway is the core SVI\nip dhcp pool STAFF\n network 10.10.20.0 255.255.255.0\n default-router 10.10.20.1\n dns-server 8.8.8.8\nip dhcp pool ACCOUNTING\n network 10.10.30.0 255.255.255.0\n default-router 10.10.30.1\n dns-server 8.8.8.8\nip dhcp pool POS\n network 10.10.50.0 255.255.255.0\n default-router 10.10.50.1\n dns-server 8.8.8.8\nip dhcp pool AP-MGMT\n network 10.10.80.0 255.255.255.0\n default-router 10.10.80.1\n dns-server 8.8.8.8\nip dhcp pool STAFF-WIFI\n network 10.10.90.0 255.255.255.0\n default-router 10.10.90.1\n dns-server 8.8.8.8\nip dhcp pool GUEST-WIFI\n network 10.10.100.0 255.255.252.0\n default-router 10.10.100.1\n dns-server 8.8.8.8\n! rapid STP: reconverges in about a second, not 30-50\nspanning-tree mode rapid-pvst\n! the core is the STP root on every VLAN, on purpose\nspanning-tree vlan 1-1005 priority 4096\ninterface FastEthernet0/1\n description SW-ACCOUNTING\n ! the 3560 also speaks ISL: say dot1q explicitly\n switchport trunk encapsulation dot1q\n ! native VLAN 999: untagged frames land in a VLAN nothing uses\n switchport trunk native vlan 999\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 10,30,40,60\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate\ninterface FastEthernet0/2\n description SW-POOL-MAIN\n switchport trunk encapsulation dot1q\n switchport trunk native vlan 999\n switchport trunk allowed vlan 10,80\n switchport mode trunk\n switchport nonegotiate\ninterface FastEthernet0/3\n description SW-POOL-2\n switchport trunk encapsulation dot1q\n switchport trunk native vlan 999\n switchport trunk allowed vlan 10,80\n switchport mode trunk\n switchport nonegotiate\ninterface FastEthernet0/4\n description SW-POOL-3\n switchport trunk encapsulation dot1q\n switchport trunk native vlan 999\n switchport trunk allowed vlan 10,80\n switchport mode trunk\n switchport nonegotiate\ninterface FastEthernet0/5\n description SW-FLOOR-1\n switchport trunk encapsulation dot1q\n switchport trunk native vlan 999\n switchport trunk allowed vlan 10,80\n switchport mode trunk\n switchport nonegotiate\ninterface FastEthernet0/6\n description SW-FLOOR-2\n switchport trunk encapsulation dot1q\n switchport trunk native vlan 999\n switchport trunk allowed vlan 10,80\n switchport mode trunk\n switchport nonegotiate\ninterface FastEthernet0/7\n description SW-MINIMARKET\n switchport trunk encapsulation dot1q\n switchport trunk native vlan 999\n switchport trunk allowed vlan 10,40,50\n switchport mode trunk\n switchport nonegotiate\ninterface FastEthernet0/8\n description UNUSED\n ! unused: parked in VLAN 999 and shut down\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/9\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/10\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/11\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/12\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/13\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/14\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/15\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/16\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/17\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/18\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/19\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/22\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/23\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/24\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface GigabitEthernet0/1\n description EDGE-RTR\n ! routed port: the core-edge link is a /30, not a trunk\n no switchport\n ip address 10.255.0.2 255.255.255.252\ninterface GigabitEthernet0/2\n description SW-RECEPTION\n switchport trunk encapsulation dot1q\n switchport trunk native vlan 999\n switchport trunk allowed vlan 10,20,40,60\n switchport mode trunk\n switchport nonegotiate\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan1\n no ip address\n shutdown\ninterface Vlan10\n description MGMT\n ip address 10.10.10.1 255.255.255.0\ninterface Vlan20\n description STAFF\n ip address 10.10.20.1 255.255.255.0\ninterface Vlan30\n description ACCOUNTING\n ip address 10.10.30.1 255.255.255.0\ninterface Vlan40\n description VOICE\n ip address 10.10.40.1 255.255.255.0\ninterface Vlan50\n description POS\n ip address 10.10.50.1 255.255.255.0\ninterface Vlan60\n description PRINTERS\n ip address 10.10.60.1 255.255.255.0\ninterface Vlan70\n description SERVERS\n ip address 10.10.70.1 255.255.255.0\ninterface Vlan80\n description AP-MGMT\n ip address 10.10.80.1 255.255.255.0\ninterface Vlan90\n description STAFF-WIFI\n ip address 10.10.90.1 255.255.255.0\ninterface Vlan100\n description GUEST-WIFI\n ip address 10.10.100.1 255.255.252.0\n! anything not local goes to the edge router\nip route 0.0.0.0 0.0.0.0 10.255.0.1"}, {"step": 6, "title": "The PMS Moves to the Core", "label": "CORE-SW", "text": "interface FastEthernet0/20\n description PMS-SRV\n ! an edge port in exactly one data VLAN\n switchport access vlan 70\n switchport mode access\n ! edge port: forwards immediately instead of waiting 30 s\n spanning-tree portfast\n ! a BPDU here means someone plugged in a switch: err-disable the port\n spanning-tree bpduguard enable"}, {"step": 7, "title": "The Controller and Two SSIDs", "label": "CORE-SW", "text": "interface FastEthernet0/21\n description WLC-01\n ! the 3560 also speaks ISL: say dot1q explicitly\n switchport trunk encapsulation dot1q\n ! WLC management is untagged, so this trunk's native VLAN is 80\n switchport trunk native vlan 80\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 80,90,100\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate"}, {"step": 8, "title": "The Policy Matrix as ACLs", "label": "CORE-SW", "text": "interface Vlan30\n ! outbound on accounts: replies get in, nothing internal starts a session\n ip access-group TO-ACCOUNTING out\ninterface Vlan50\n ! policy applied inbound, at the untrusted VLAN's gateway\n ip access-group POS-IN in\ninterface Vlan90\n ip access-group STAFFWIFI-IN in\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan100\n ip access-group GUEST-IN in\n! guests: DHCP, then no private space at all, then the internet\nip access-list extended GUEST-IN\n ! keep DHCP renewals working (they are unicast to the gateway)\n permit udp any any eq bootps\n ! then deny every private range\n deny ip any 10.0.0.0 0.255.255.255\n deny ip any 172.16.0.0 0.15.255.255\n deny ip any 192.168.0.0 0.0.255.255\n ! everything else is the internet\n permit ip any any\n! staff Wi-Fi: printers and the PMS, nothing else internal\nip access-list extended STAFFWIFI-IN\n permit udp any any eq bootps\n permit ip 10.10.90.0 0.0.0.255 10.10.60.0 0.0.0.255\n permit ip 10.10.90.0 0.0.0.255 10.10.70.0 0.0.0.255\n deny ip any 10.0.0.0 0.255.255.255\n permit ip any any\n! the till: HTTPS to the PMS, and the internet\nip access-list extended POS-IN\n permit udp any any eq bootps\n permit tcp 10.10.50.0 0.0.0.255 host 10.10.70.10 eq 443\n deny ip any 10.0.0.0 0.255.255.255\n permit ip any any\n! accounts: replies only from inside; the internet as normal\nip access-list extended TO-ACCOUNTING\n ! TCP replies to sessions accounts opened\n permit tcp any any established\n permit icmp any any echo-reply\n ! anything internal starting a session to accounts\n deny ip 10.0.0.0 0.255.255.255 any\n permit ip any any"}, {"step": 11, "title": "Phones: CME on the Edge Router", "label": "CORE-SW", "text": "! phones: DHCP plus the TFTP server they boot from\nip dhcp pool VOICE\n network 10.10.40.0 255.255.255.0\n default-router 10.10.40.1\n ! TFTP server for the phones = CME on the edge router\n option 150 ip 10.255.0.1"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "CORE-SW", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}], "edge": [{"step": 9, "title": "The Edge: WAN1 and NAT", "label": "EDGE-RTR", "text": "! role + location in every name, so a log line says which box\nhostname EDGE-RTR\ninterface GigabitEthernet0/0\n description WAN1 to ISP-A (fibre)\n ip address 203.0.113.2 255.255.255.252\n ! NAT outside = a WAN\n ip nat outside\n no shutdown\ninterface GigabitEthernet0/1\n description LAN to CORE-SW\n ip address 10.255.0.1 255.255.255.252\n ! NAT inside = the hotel side\n ip nat inside\n no shutdown\n! what gets translated: the whole hotel range\nip access-list standard NAT-INSIDE\n permit 10.10.0.0 0.0.255.255\n! NAT by exit interface, so each WAN translates its own traffic\nroute-map NAT-ISPA permit 10\n match ip address NAT-INSIDE\n match interface GigabitEthernet0/0\n! PAT to WAN1's address\nip nat inside source route-map NAT-ISPA interface GigabitEthernet0/0 overload\n! the whole inside, summarised, via the core\nip route 10.10.0.0 255.255.0.0 10.255.0.2\n! default to ISP-A (made tracked in step 10)\nip route 0.0.0.0 0.0.0.0 203.0.113.1"}, {"step": 10, "title": "The Backup WAN and Tracked Failover", "label": "EDGE-RTR", "text": "! swap step 9's plain default for the tracked one\nno ip route 0.0.0.0 0.0.0.0 203.0.113.1\ninterface GigabitEthernet0/2\n description WAN2 to ISP-B (backup)\n ip address 198.51.100.2 255.255.255.252\n ! NAT outside = a WAN\n ip nat outside\n no shutdown\n! the same for WAN2\nroute-map NAT-ISPB permit 10\n match ip address NAT-INSIDE\n match interface GigabitEthernet0/2\n! PAT to WAN2's address\nip nat inside source route-map NAT-ISPB interface GigabitEthernet0/2 overload\n! probe a host beyond ISP-A every 5 seconds\nip sla 1\n icmp-echo 4.2.2.2 source-interface GigabitEthernet0/0\n frequency 5\n! start the probe now and run it forever\nip sla schedule 1 life forever start-time now\n! up while the probe gets replies\ntrack 1 ip sla 1 reachability\n! primary default: exists only while track 1 is up\nip route 0.0.0.0 0.0.0.0 203.0.113.1 track 1\n! floating backup default (AD 10): used only when the primary is gone\nip route 0.0.0.0 0.0.0.0 198.51.100.1 10\n! pin the probe to ISP-A, or it succeeds via ISP-B and the WANs flap\nip route 4.2.2.2 255.255.255.255 203.0.113.1"}, {"step": 11, "title": "Phones: CME on the Edge Router", "label": "EDGE-RTR", "text": "! CME: this router is the call-control server\ntelephony-service\n ! room for 10 phones and 10 numbers\n max-ephones 10\n max-dn 10\n ! phones register to this address (SCCP, port 2000)\n ip source-address 10.255.0.1 port 2000\n ! hand numbers out to phones as they register\n auto assign 1 to 10\n! extensions 101-105\nephone-dn 1\n number 101\nephone-dn 2\n number 102\nephone-dn 3\n number 103\nephone-dn 4\n number 104\nephone-dn 5\n number 105"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "EDGE-RTR", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}], "ispa": [{"step": 9, "title": "The Edge: WAN1 and NAT", "label": "ISP-A", "text": "! role + location in every name, so a log line says which box\nhostname ISP-A\n! the probe target: stands in for \"the internet behind ISP-A\"\ninterface Loopback0\n description upstream probe target\n ip address 4.2.2.2 255.255.255.255\ninterface GigabitEthernet0/0\n description to hotel EDGE-RTR\n ip address 203.0.113.1 255.255.255.252\n no shutdown\ninterface GigabitEthernet0/1\n description INTERNET-SRV segment\n ip address 8.8.8.1 255.255.255.0\n no shutdown\ninterface GigabitEthernet0/2\n description peering to ISP-B\n ip address 192.0.2.1 255.255.255.252\n no shutdown\n! return path for traffic NATed to the hotel's WAN2\nip route 198.51.100.0 255.255.255.252 192.0.2.2"}], "ispb": [{"step": 10, "title": "The Backup WAN and Tracked Failover", "label": "ISP-B", "text": "! role + location in every name, so a log line says which box\nhostname ISP-B\ninterface GigabitEthernet0/0\n description to hotel EDGE-RTR\n ip address 198.51.100.1 255.255.255.252\n no shutdown\ninterface GigabitEthernet0/1\n shutdown\ninterface GigabitEthernet0/2\n description peering to ISP-A\n ip address 192.0.2.2 255.255.255.252\n no shutdown\n! reach INTERNET-SRV over the peering link\nip route 8.8.8.0 255.255.255.0 192.0.2.1"}], "swrec": [{"step": 1, "title": "Front Desk: The Reception Switch", "label": "SW-RECEPTION", "text": "! role + location in every name, so a log line says which box\nhostname SW-RECEPTION\n! VTP cannot add or delete VLANs behind your back\nvtp mode transparent\n! the VLAN database: only the VLANs this device carries\nvlan 10\n name MGMT\nvlan 20\n name STAFF\nvlan 40\n name VOICE\nvlan 60\n name PRINTERS\nvlan 999\n name UNUSED-NATIVE\n! DHCP snooping: rogue DHCP servers on access ports are ignored\nip dhcp snooping\n! snoop the client VLANs\nip dhcp snooping vlan 20,40,60\n! no option 82: the core DHCP server would drop the requests\nno ip dhcp snooping information option\n! rapid STP: reconverges in about a second, not 30-50\nspanning-tree mode rapid-pvst\ninterface FastEthernet0/1\n description UNUSED\n ! unused: parked in VLAN 999 and shut down\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/2\n description RECEPTION-PC1\n ! an edge port in exactly one data VLAN\n switchport access vlan 20\n switchport mode access\n ! edge port: forwards immediately instead of waiting 30 s\n spanning-tree portfast\n ! a BPDU here means someone plugged in a switch: err-disable the port\n spanning-tree bpduguard enable\ninterface FastEthernet0/3\n description RECEPTION-PC2\n switchport access vlan 20\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/4\n description PRN-RECEPTION-1\n switchport access vlan 60\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/5\n description PRN-RECEPTION-2\n switchport access vlan 60\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/6\n description PHONE-RECEPTION-1\n switchport access vlan 20\n ! phones tag voice into VLAN 40 (learned via CDP); a PC behind the phone stays in the data VLAN\n switchport voice vlan 40\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/7\n description PHONE-RECEPTION-2\n switchport access vlan 20\n switchport voice vlan 40\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/8\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/9\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/10\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/11\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/12\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/13\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/14\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/15\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/16\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/17\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/18\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/19\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/20\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/21\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/22\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/23\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/24\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface GigabitEthernet0/1\n description UPLINK to CORE-SW\n ! native VLAN 999: untagged frames land in a VLAN nothing uses\n switchport trunk native vlan 999\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 10,20,40,60\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate\n ! the only port allowed to send DHCP offers\n ip dhcp snooping trust\ninterface GigabitEthernet0/2\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan1\n no ip address\n shutdown\ninterface Vlan10\n description MGMT\n ip address 10.10.10.11 255.255.255.0\n! a layer-2 switch needs this to be managed from another subnet\nip default-gateway 10.10.10.1"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "SW-RECEPTION", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}], "swacct": [{"step": 2, "title": "Accounts: Same Template, Different VLAN", "label": "SW-ACCOUNTING", "text": "! role + location in every name, so a log line says which box\nhostname SW-ACCOUNTING\n! VTP cannot add or delete VLANs behind your back\nvtp mode transparent\n! the VLAN database: only the VLANs this device carries\nvlan 10\n name MGMT\nvlan 30\n name ACCOUNTING\nvlan 40\n name VOICE\nvlan 60\n name PRINTERS\nvlan 999\n name UNUSED-NATIVE\n! DHCP snooping: rogue DHCP servers on access ports are ignored\nip dhcp snooping\n! snoop the client VLANs\nip dhcp snooping vlan 30,40,60\n! no option 82: the core DHCP server would drop the requests\nno ip dhcp snooping information option\n! rapid STP: reconverges in about a second, not 30-50\nspanning-tree mode rapid-pvst\ninterface FastEthernet0/1\n description UNUSED\n ! unused: parked in VLAN 999 and shut down\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/2\n description ACCT-PC1\n ! an edge port in exactly one data VLAN\n switchport access vlan 30\n switchport mode access\n ! edge port: forwards immediately instead of waiting 30 s\n spanning-tree portfast\n ! a BPDU here means someone plugged in a switch: err-disable the port\n spanning-tree bpduguard enable\ninterface FastEthernet0/3\n description ACCT-PC2\n switchport access vlan 30\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/4\n description PHONE-ACCT-1\n switchport access vlan 30\n ! phones tag voice into VLAN 40 (learned via CDP); a PC behind the phone stays in the data VLAN\n switchport voice vlan 40\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/5\n description PHONE-ACCT-2\n switchport access vlan 30\n switchport voice vlan 40\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/6\n description PRN-ACCOUNTING\n switchport access vlan 60\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/7\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/8\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/9\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/10\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/11\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/12\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/13\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/14\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/15\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/16\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/17\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/18\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/19\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/20\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/21\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/22\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/23\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/24\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface GigabitEthernet0/1\n description UPLINK to CORE-SW\n ! native VLAN 999: untagged frames land in a VLAN nothing uses\n switchport trunk native vlan 999\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 10,30,40,60\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate\n ! the only port allowed to send DHCP offers\n ip dhcp snooping trust\ninterface GigabitEthernet0/2\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan1\n no ip address\n shutdown\ninterface Vlan10\n description MGMT\n ip address 10.10.10.12 255.255.255.0\n! a layer-2 switch needs this to be managed from another subnet\nip default-gateway 10.10.10.1"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "SW-ACCOUNTING", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}], "swmm": [{"step": 3, "title": "The Mini Market: A Till in Its Own Box", "label": "SW-MINIMARKET", "text": "! role + location in every name, so a log line says which box\nhostname SW-MINIMARKET\n! VTP cannot add or delete VLANs behind your back\nvtp mode transparent\n! the VLAN database: only the VLANs this device carries\nvlan 10\n name MGMT\nvlan 40\n name VOICE\nvlan 50\n name POS\nvlan 999\n name UNUSED-NATIVE\n! DHCP snooping: rogue DHCP servers on access ports are ignored\nip dhcp snooping\n! snoop the client VLANs\nip dhcp snooping vlan 40,50\n! no option 82: the core DHCP server would drop the requests\nno ip dhcp snooping information option\n! rapid STP: reconverges in about a second, not 30-50\nspanning-tree mode rapid-pvst\ninterface FastEthernet0/1\n description POS-PC1\n ! an edge port in exactly one data VLAN\n switchport access vlan 50\n switchport mode access\n ! edge port: forwards immediately instead of waiting 30 s\n spanning-tree portfast\n ! a BPDU here means someone plugged in a switch: err-disable the port\n spanning-tree bpduguard enable\ninterface FastEthernet0/2\n description PRN-MINIMARKET\n switchport access vlan 50\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/3\n description PHONE-MINIMARKET\n switchport access vlan 50\n ! phones tag voice into VLAN 40 (learned via CDP); a PC behind the phone stays in the data VLAN\n switchport voice vlan 40\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/4\n description UNUSED\n ! unused: parked in VLAN 999 and shut down\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/5\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/6\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/7\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/8\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/9\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/10\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/11\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/12\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/13\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/14\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/15\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/16\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/17\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/18\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/19\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/20\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/21\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/22\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/23\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/24\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface GigabitEthernet0/1\n description UPLINK to CORE-SW\n ! native VLAN 999: untagged frames land in a VLAN nothing uses\n switchport trunk native vlan 999\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 10,40,50\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate\n ! the only port allowed to send DHCP offers\n ip dhcp snooping trust\ninterface GigabitEthernet0/2\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan1\n no ip address\n shutdown\ninterface Vlan10\n description MGMT\n ip address 10.10.10.13 255.255.255.0\n! a layer-2 switch needs this to be managed from another subnet\nip default-gateway 10.10.10.1"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "SW-MINIMARKET", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}], "swpm": [{"step": 4, "title": "Five AP Closets: Pools, Lobby, Rooms", "label": "SW-POOL-MAIN", "text": "! role + location in every name, so a log line says which box\nhostname SW-POOL-MAIN\n! VTP cannot add or delete VLANs behind your back\nvtp mode transparent\n! the VLAN database: only the VLANs this device carries\nvlan 10\n name MGMT\nvlan 80\n name AP-MGMT\nvlan 999\n name UNUSED-NATIVE\n! DHCP snooping: rogue DHCP servers on access ports are ignored\nip dhcp snooping\n! snoop the client VLANs\nip dhcp snooping vlan 80\n! no option 82: the core DHCP server would drop the requests\nno ip dhcp snooping information option\n! rapid STP: reconverges in about a second, not 30-50\nspanning-tree mode rapid-pvst\ninterface FastEthernet0/1\n description AP-POOLMAIN-1\n ! AP ports sit in the AP VLAN; client traffic is tunnelled to the WLC\n switchport access vlan 80\n switchport mode access\n ! edge port: forwards immediately instead of waiting 30 s\n spanning-tree portfast\n ! a BPDU here means someone plugged in a switch: err-disable the port\n spanning-tree bpduguard enable\ninterface FastEthernet0/2\n description AP-POOLMAIN-2\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/3\n description AP-POOLMAIN-3\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/4\n description AP-POOLMAIN-4\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/5\n description UNUSED\n ! unused: parked in VLAN 999 and shut down\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/6\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/7\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/8\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/9\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/10\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/11\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/12\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/13\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/14\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/15\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/16\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/17\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/18\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/19\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/20\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/21\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/22\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/23\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/24\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface GigabitEthernet0/1\n description UPLINK to CORE-SW\n ! native VLAN 999: untagged frames land in a VLAN nothing uses\n switchport trunk native vlan 999\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 10,80\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate\n ! the only port allowed to send DHCP offers\n ip dhcp snooping trust\ninterface GigabitEthernet0/2\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan1\n no ip address\n shutdown\ninterface Vlan10\n description MGMT\n ip address 10.10.10.14 255.255.255.0\n! a layer-2 switch needs this to be managed from another subnet\nip default-gateway 10.10.10.1"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "SW-POOL-MAIN", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}], "swp2": [{"step": 4, "title": "Five AP Closets: Pools, Lobby, Rooms", "label": "SW-POOL-2", "text": "! role + location in every name, so a log line says which box\nhostname SW-POOL-2\n! VTP cannot add or delete VLANs behind your back\nvtp mode transparent\n! the VLAN database: only the VLANs this device carries\nvlan 10\n name MGMT\nvlan 80\n name AP-MGMT\nvlan 999\n name UNUSED-NATIVE\n! DHCP snooping: rogue DHCP servers on access ports are ignored\nip dhcp snooping\n! snoop the client VLANs\nip dhcp snooping vlan 80\n! no option 82: the core DHCP server would drop the requests\nno ip dhcp snooping information option\n! rapid STP: reconverges in about a second, not 30-50\nspanning-tree mode rapid-pvst\ninterface FastEthernet0/1\n description AP-POOL2-1\n ! AP ports sit in the AP VLAN; client traffic is tunnelled to the WLC\n switchport access vlan 80\n switchport mode access\n ! edge port: forwards immediately instead of waiting 30 s\n spanning-tree portfast\n ! a BPDU here means someone plugged in a switch: err-disable the port\n spanning-tree bpduguard enable\ninterface FastEthernet0/2\n description AP-POOL2-2\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/3\n description AP-POOL2-3\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/4\n description AP-POOL2-4\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/5\n description UNUSED\n ! unused: parked in VLAN 999 and shut down\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/6\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/7\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/8\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/9\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/10\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/11\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/12\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/13\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/14\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/15\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/16\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/17\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/18\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/19\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/20\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/21\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/22\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/23\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/24\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface GigabitEthernet0/1\n description UPLINK to CORE-SW\n ! native VLAN 999: untagged frames land in a VLAN nothing uses\n switchport trunk native vlan 999\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 10,80\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate\n ! the only port allowed to send DHCP offers\n ip dhcp snooping trust\ninterface GigabitEthernet0/2\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan1\n no ip address\n shutdown\ninterface Vlan10\n description MGMT\n ip address 10.10.10.15 255.255.255.0\n! a layer-2 switch needs this to be managed from another subnet\nip default-gateway 10.10.10.1"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "SW-POOL-2", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}], "swp3": [{"step": 4, "title": "Five AP Closets: Pools, Lobby, Rooms", "label": "SW-POOL-3", "text": "! role + location in every name, so a log line says which box\nhostname SW-POOL-3\n! VTP cannot add or delete VLANs behind your back\nvtp mode transparent\n! the VLAN database: only the VLANs this device carries\nvlan 10\n name MGMT\nvlan 80\n name AP-MGMT\nvlan 999\n name UNUSED-NATIVE\n! DHCP snooping: rogue DHCP servers on access ports are ignored\nip dhcp snooping\n! snoop the client VLANs\nip dhcp snooping vlan 80\n! no option 82: the core DHCP server would drop the requests\nno ip dhcp snooping information option\n! rapid STP: reconverges in about a second, not 30-50\nspanning-tree mode rapid-pvst\ninterface FastEthernet0/1\n description AP-POOL3-1\n ! AP ports sit in the AP VLAN; client traffic is tunnelled to the WLC\n switchport access vlan 80\n switchport mode access\n ! edge port: forwards immediately instead of waiting 30 s\n spanning-tree portfast\n ! a BPDU here means someone plugged in a switch: err-disable the port\n spanning-tree bpduguard enable\ninterface FastEthernet0/2\n description AP-POOL3-2\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/3\n description AP-POOL3-3\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/4\n description AP-POOL3-4\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/5\n description AP-POOL3-5\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/6\n description AP-POOL3-6\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/7\n description AP-POOL3-7\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/8\n description UNUSED\n ! unused: parked in VLAN 999 and shut down\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/9\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/10\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/11\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/12\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/13\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/14\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/15\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/16\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/17\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/18\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/19\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/20\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/21\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/22\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/23\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/24\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface GigabitEthernet0/1\n description UPLINK to CORE-SW\n ! native VLAN 999: untagged frames land in a VLAN nothing uses\n switchport trunk native vlan 999\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 10,80\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate\n ! the only port allowed to send DHCP offers\n ip dhcp snooping trust\ninterface GigabitEthernet0/2\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan1\n no ip address\n shutdown\ninterface Vlan10\n description MGMT\n ip address 10.10.10.16 255.255.255.0\n! a layer-2 switch needs this to be managed from another subnet\nip default-gateway 10.10.10.1"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "SW-POOL-3", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}], "swf1": [{"step": 4, "title": "Five AP Closets: Pools, Lobby, Rooms", "label": "SW-FLOOR-1", "text": "! role + location in every name, so a log line says which box\nhostname SW-FLOOR-1\n! VTP cannot add or delete VLANs behind your back\nvtp mode transparent\n! the VLAN database: only the VLANs this device carries\nvlan 10\n name MGMT\nvlan 80\n name AP-MGMT\nvlan 999\n name UNUSED-NATIVE\n! DHCP snooping: rogue DHCP servers on access ports are ignored\nip dhcp snooping\n! snoop the client VLANs\nip dhcp snooping vlan 80\n! no option 82: the core DHCP server would drop the requests\nno ip dhcp snooping information option\n! rapid STP: reconverges in about a second, not 30-50\nspanning-tree mode rapid-pvst\ninterface FastEthernet0/1\n description AP-LOBBY-1\n ! AP ports sit in the AP VLAN; client traffic is tunnelled to the WLC\n switchport access vlan 80\n switchport mode access\n ! edge port: forwards immediately instead of waiting 30 s\n spanning-tree portfast\n ! a BPDU here means someone plugged in a switch: err-disable the port\n spanning-tree bpduguard enable\ninterface FastEthernet0/2\n description AP-LOBBY-2\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/3\n description AP-LOBBY-3\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/4\n description AP-RECEPTION-1\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/5\n description AP-RECEPTION-2\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/6\n description AP-PARKING-1\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/7\n description AP-PARKING-2\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/8\n description AP-SPA-1\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/9\n description AP-SPA-2\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/10\n description UNUSED\n ! unused: parked in VLAN 999 and shut down\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/11\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/12\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/13\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/14\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/15\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/16\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/17\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/18\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/19\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/20\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/21\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/22\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/23\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/24\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface GigabitEthernet0/1\n description UPLINK to CORE-SW\n ! native VLAN 999: untagged frames land in a VLAN nothing uses\n switchport trunk native vlan 999\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 10,80\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate\n ! the only port allowed to send DHCP offers\n ip dhcp snooping trust\ninterface GigabitEthernet0/2\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan1\n no ip address\n shutdown\ninterface Vlan10\n description MGMT\n ip address 10.10.10.17 255.255.255.0\n! a layer-2 switch needs this to be managed from another subnet\nip default-gateway 10.10.10.1"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "SW-FLOOR-1", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}], "swf2": [{"step": 4, "title": "Five AP Closets: Pools, Lobby, Rooms", "label": "SW-FLOOR-2", "text": "! role + location in every name, so a log line says which box\nhostname SW-FLOOR-2\n! VTP cannot add or delete VLANs behind your back\nvtp mode transparent\n! the VLAN database: only the VLANs this device carries\nvlan 10\n name MGMT\nvlan 80\n name AP-MGMT\nvlan 999\n name UNUSED-NATIVE\n! DHCP snooping: rogue DHCP servers on access ports are ignored\nip dhcp snooping\n! snoop the client VLANs\nip dhcp snooping vlan 80\n! no option 82: the core DHCP server would drop the requests\nno ip dhcp snooping information option\n! rapid STP: reconverges in about a second, not 30-50\nspanning-tree mode rapid-pvst\ninterface FastEthernet0/1\n description AP-ROOM-01\n ! AP ports sit in the AP VLAN; client traffic is tunnelled to the WLC\n switchport access vlan 80\n switchport mode access\n ! edge port: forwards immediately instead of waiting 30 s\n spanning-tree portfast\n ! a BPDU here means someone plugged in a switch: err-disable the port\n spanning-tree bpduguard enable\ninterface FastEthernet0/2\n description AP-ROOM-02\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/3\n description AP-ROOM-03\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/4\n description AP-ROOM-04\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/5\n description AP-ROOM-05\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/6\n description AP-ROOM-06\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/7\n description AP-ROOM-07\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/8\n description AP-ROOM-08\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/9\n description AP-ROOM-09\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/10\n description AP-ROOM-10\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/11\n description AP-ROOM-11\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/12\n description AP-ROOM-12\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/13\n description AP-ROOM-13\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/14\n description AP-ROOM-14\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/15\n description AP-ROOM-15\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/16\n description AP-ROOM-16\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/17\n description AP-ROOM-17\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/18\n description AP-ROOM-18\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/19\n description AP-ROOM-19\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/20\n description AP-ROOM-20\n switchport access vlan 80\n switchport mode access\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface FastEthernet0/21\n description UNUSED\n ! unused: parked in VLAN 999 and shut down\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/22\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/23\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface FastEthernet0/24\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\ninterface GigabitEthernet0/1\n description UPLINK to CORE-SW\n ! native VLAN 999: untagged frames land in a VLAN nothing uses\n switchport trunk native vlan 999\n ! prune: only the VLANs this link actually carries\n switchport trunk allowed vlan 10,80\n ! a trunk carries several VLANs, tagged\n switchport mode trunk\n ! no DTP: nothing can talk this port into a different mode\n switchport nonegotiate\n ! the only port allowed to send DHCP offers\n ip dhcp snooping trust\ninterface GigabitEthernet0/2\n description UNUSED\n switchport access vlan 999\n switchport mode access\n shutdown\n! nobody uses VLAN 1: its SVI stays shut\ninterface Vlan1\n no ip address\n shutdown\ninterface Vlan10\n description MGMT\n ip address 10.10.10.18 255.255.255.0\n! a layer-2 switch needs this to be managed from another subnet\nip default-gateway 10.10.10.1"}, {"step": 12, "title": "Management: Names, Accounts, SSH", "label": "SW-FLOOR-2", "text": "! hide plain passwords in the config (obfuscation, not real security)\nservice password-encryption\n! a typo at the CLI is not treated as a hostname to resolve\nno ip domain-lookup\n! needed before the RSA key for SSH can be generated\nip domain-name hotel.lab\n! hashed privileged-mode password (lab value: change it)\nenable secret Lab-ChangeMe-1\n! a named admin account, so every login is attributable\nusername netadmin privilege 15 secret Lab-ChangeMe-1\n! console and SSH both log in with the named account\nline con 0\n logging synchronous\n login local\nline vty 0 4\n login local\n ! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)\n transport input ssh"}]}}</script>
+</div>
+  </div>
+  <!-- step 1 -->
+  <p class="section-num" id="step-1">07 · Step 1 of 12</p>
+  <h2 class="section-title">Front Desk: The Reception Switch</h2>
+  <p class="section-thesis"><em>The template every access switch follows: VLANs, one trunk up, edge ports locked down, everything unused switched off and parked.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>Reception has two PCs, two printers and two phones. The phones get <code>switchport voice vlan 40</code> on a port whose access VLAN is staff (20): the phone learns VLAN 40 over CDP and tags its own traffic, and a PC plugged into the phone's back port lands in VLAN 20. Every unused port goes to VLAN 999 and shuts down. The trunk's native VLAN is 999 too, so an untagged frame on the uplink lands nowhere.</p>
+  <div class="term-wrap"><span class="term-label">SW-RECEPTION — 2960-24TT (ranges collapsed for reading; the explorer shows every port)</span><pre class="term"><span class="cmt">! role + location in every name, so a log line says which box</span>
+hostname SW-RECEPTION
+<span class="cmt">! VTP cannot add or delete VLANs behind your back</span>
+vtp mode transparent
+<span class="cmt">! the VLAN database: only the VLANs this device carries</span>
+vlan 10
+ name MGMT
+vlan 20
+ name STAFF
+vlan 40
+ name VOICE
+vlan 60
+ name PRINTERS
+vlan 999
+ name UNUSED-NATIVE
+<span class="cmt">! DHCP snooping: rogue DHCP servers on access ports are ignored</span>
+ip dhcp snooping
+<span class="cmt">! snoop the client VLANs</span>
+ip dhcp snooping vlan 20,40,60
+<span class="cmt">! no option 82: the core DHCP server would drop the requests</span>
+no ip dhcp snooping information option
+<span class="cmt">! rapid STP: reconverges in about a second, not 30-50</span>
+spanning-tree mode rapid-pvst
+interface FastEthernet0/1
+ description UNUSED
+ <span class="cmt">! unused: parked in VLAN 999 and shut down</span>
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+interface range FastEthernet0/2 - 3
+ <span class="cmt">! an edge port in exactly one data VLAN</span>
+ switchport access vlan 20
+ switchport mode access
+ <span class="cmt">! edge port: forwards immediately instead of waiting 30 s</span>
+ spanning-tree portfast
+ <span class="cmt">! a BPDU here means someone plugged in a switch: err-disable the port</span>
+ spanning-tree bpduguard enable
+interface range FastEthernet0/4 - 5
+ switchport access vlan 60
+ switchport mode access
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range FastEthernet0/6 - 7
+ switchport access vlan 20
+ <span class="cmt">! phones tag voice into VLAN 40 (learned via CDP); a PC behind the phone stays in the data VLAN</span>
+ switchport voice vlan 40
+ switchport mode access
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range FastEthernet0/8 - 24
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+interface GigabitEthernet0/1
+ description UPLINK to CORE-SW
+ <span class="cmt">! native VLAN 999: untagged frames land in a VLAN nothing uses</span>
+ switchport trunk native vlan 999
+ <span class="cmt">! prune: only the VLANs this link actually carries</span>
+ switchport trunk allowed vlan 10,20,40,60
+ <span class="cmt">! a trunk carries several VLANs, tagged</span>
+ switchport mode trunk
+ <span class="cmt">! no DTP: nothing can talk this port into a different mode</span>
+ switchport nonegotiate
+ <span class="cmt">! the only port allowed to send DHCP offers</span>
+ ip dhcp snooping trust
+interface GigabitEthernet0/2
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+<span class="cmt">! nobody uses VLAN 1: its SVI stays shut</span>
+interface Vlan1
+ no ip address
+ shutdown
+interface Vlan10
+ description MGMT
+ ip address 10.10.10.11 255.255.255.0
+<span class="cmt">! a layer-2 switch needs this to be managed from another subnet</span>
+ip default-gateway 10.10.10.1</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; DHCP Snooping Breaks the Core's DHCP Server</span>
+    <p>With snooping on, a 2960 inserts option 82 into every client DHCP request but leaves <code>giaddr</code> empty, because it isn't a relay. An IOS DHCP server on the core sees option 82 with a zero giaddr and drops the request as malformed. Clients get nothing, and nothing logs it on the access switch. <code>no ip dhcp snooping information option</code> stops the insertion. The other fix is <code>ip dhcp relay information trust-all</code> on the core, which trusts more than you need.</p>
+  </div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p><code>show vlan brief</code> lists 10, 20, 40, 60, 999 with the right ports. <code>show interfaces status</code> shows Fa0/1 and Fa0/8&ndash;24 <em>disabled</em>. <code>show ip dhcp snooping</code> lists Gi0/1 as trusted.</p></div>
+
+  <!-- step 2 -->
+  <p class="section-num" id="step-2">08 · Step 2 of 12</p>
+  <h2 class="section-title">Accounts: Same Template, Different VLAN</h2>
+  <p class="section-thesis"><em>Accounts gets its own VLAN so the core can protect it; the switch config is otherwise identical to reception.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>In the original file this switch was the one uplinked from a FastEthernet port. It now uses Gi0/1 like every other access switch, so the uplink is the same on all eight and the template doesn't need an exception.</p>
+  <div class="term-wrap"><span class="term-label">SW-ACCOUNTING — the parts that differ from step 1</span><pre class="term"><span class="cmt">! role + location in every name, so a log line says which box</span>
+hostname SW-ACCOUNTING
+<span class="cmt">! VTP cannot add or delete VLANs behind your back</span>
+vtp mode transparent
+<span class="cmt">! the VLAN database: only the VLANs this device carries</span>
+vlan 10
+ name MGMT
+vlan 30
+ name ACCOUNTING
+vlan 40
+ name VOICE
+vlan 60
+ name PRINTERS
+vlan 999
+ name UNUSED-NATIVE
+<span class="cmt">! DHCP snooping: rogue DHCP servers on access ports are ignored</span>
+ip dhcp snooping
+<span class="cmt">! snoop the client VLANs</span>
+ip dhcp snooping vlan 30,40,60
+<span class="cmt">! no option 82: the core DHCP server would drop the requests</span>
+no ip dhcp snooping information option
+<span class="cmt">! rapid STP: reconverges in about a second, not 30-50</span>
+spanning-tree mode rapid-pvst
+interface FastEthernet0/1
+ description UNUSED
+ <span class="cmt">! unused: parked in VLAN 999 and shut down</span>
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+interface range FastEthernet0/2 - 3
+ <span class="cmt">! an edge port in exactly one data VLAN</span>
+ switchport access vlan 30
+ switchport mode access
+ <span class="cmt">! edge port: forwards immediately instead of waiting 30 s</span>
+ spanning-tree portfast
+ <span class="cmt">! a BPDU here means someone plugged in a switch: err-disable the port</span>
+ spanning-tree bpduguard enable
+interface range FastEthernet0/4 - 5
+ switchport access vlan 30
+ <span class="cmt">! phones tag voice into VLAN 40 (learned via CDP); a PC behind the phone stays in the data VLAN</span>
+ switchport voice vlan 40
+ switchport mode access
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface FastEthernet0/6
+ description PRN-ACCOUNTING
+ switchport access vlan 60
+ switchport mode access
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range FastEthernet0/7 - 24
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+interface GigabitEthernet0/1
+ description UPLINK to CORE-SW
+ <span class="cmt">! native VLAN 999: untagged frames land in a VLAN nothing uses</span>
+ switchport trunk native vlan 999
+ <span class="cmt">! prune: only the VLANs this link actually carries</span>
+ switchport trunk allowed vlan 10,30,40,60
+ <span class="cmt">! a trunk carries several VLANs, tagged</span>
+ switchport mode trunk
+ <span class="cmt">! no DTP: nothing can talk this port into a different mode</span>
+ switchport nonegotiate
+ <span class="cmt">! the only port allowed to send DHCP offers</span>
+ ip dhcp snooping trust
+interface GigabitEthernet0/2
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+<span class="cmt">! nobody uses VLAN 1: its SVI stays shut</span>
+interface Vlan1
+ no ip address
+ shutdown
+interface Vlan10
+ description MGMT
+ ip address 10.10.10.12 255.255.255.0
+<span class="cmt">! a layer-2 switch needs this to be managed from another subnet</span>
+ip default-gateway 10.10.10.1</pre></div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p><code>show interfaces trunk</code>: Gi0/1 trunking, native 999, allowed 10,30,40,60. Nothing else is allowed onto this trunk, so a guest VLAN can't reach accounts by being mis-tagged.</p></div>
+
+  <!-- step 3 -->
+  <p class="section-num" id="step-3">09 · Step 3 of 12</p>
+  <h2 class="section-title">The Mini Market: A Till in Its Own Box</h2>
+  <p class="section-thesis"><em>The card terminal's whole world is one VLAN, one printer and one way out. That's what keeps PCI scope small.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>The till, its receipt printer and the shop phone's data port are all in VLAN 50. The phone's voice still goes to VLAN 40. If an auditor asks what can reach the card system, the answer is this switch, and step 8's <code>POS-IN</code> ACL shows the only way anything leaves.</p>
+  <div class="term-wrap"><span class="term-label">SW-MINIMARKET — edge ports</span><pre class="term"><span class="cmt">! role + location in every name, so a log line says which box</span>
+hostname SW-MINIMARKET
+<span class="cmt">! VTP cannot add or delete VLANs behind your back</span>
+vtp mode transparent
+<span class="cmt">! the VLAN database: only the VLANs this device carries</span>
+vlan 10
+ name MGMT
+vlan 40
+ name VOICE
+vlan 50
+ name POS
+vlan 999
+ name UNUSED-NATIVE
+<span class="cmt">! DHCP snooping: rogue DHCP servers on access ports are ignored</span>
+ip dhcp snooping
+<span class="cmt">! snoop the client VLANs</span>
+ip dhcp snooping vlan 40,50
+<span class="cmt">! no option 82: the core DHCP server would drop the requests</span>
+no ip dhcp snooping information option
+<span class="cmt">! rapid STP: reconverges in about a second, not 30-50</span>
+spanning-tree mode rapid-pvst
+interface range FastEthernet0/1 - 2
+ <span class="cmt">! an edge port in exactly one data VLAN</span>
+ switchport access vlan 50
+ switchport mode access
+ <span class="cmt">! edge port: forwards immediately instead of waiting 30 s</span>
+ spanning-tree portfast
+ <span class="cmt">! a BPDU here means someone plugged in a switch: err-disable the port</span>
+ spanning-tree bpduguard enable
+interface FastEthernet0/3
+ description PHONE-MINIMARKET
+ switchport access vlan 50
+ <span class="cmt">! phones tag voice into VLAN 40 (learned via CDP); a PC behind the phone stays in the data VLAN</span>
+ switchport voice vlan 40
+ switchport mode access
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface range FastEthernet0/4 - 24
+ description UNUSED
+ <span class="cmt">! unused: parked in VLAN 999 and shut down</span>
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+interface GigabitEthernet0/1
+ description UPLINK to CORE-SW
+ <span class="cmt">! native VLAN 999: untagged frames land in a VLAN nothing uses</span>
+ switchport trunk native vlan 999
+ <span class="cmt">! prune: only the VLANs this link actually carries</span>
+ switchport trunk allowed vlan 10,40,50
+ <span class="cmt">! a trunk carries several VLANs, tagged</span>
+ switchport mode trunk
+ <span class="cmt">! no DTP: nothing can talk this port into a different mode</span>
+ switchport nonegotiate
+ <span class="cmt">! the only port allowed to send DHCP offers</span>
+ ip dhcp snooping trust
+interface GigabitEthernet0/2
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+<span class="cmt">! nobody uses VLAN 1: its SVI stays shut</span>
+interface Vlan1
+ no ip address
+ shutdown
+interface Vlan10
+ description MGMT
+ ip address 10.10.10.13 255.255.255.0
+<span class="cmt">! a layer-2 switch needs this to be managed from another subnet</span>
+ip default-gateway 10.10.10.1</pre></div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p><code>show mac address-table interface Fa0/1</code>: one MAC, in VLAN 50. The printer at 10.10.50.20 is static and sits inside the excluded range, so DHCP never hands its address out.</p></div>
+
+  <!-- step 4 -->
+  <p class="section-num" id="step-4">10 · Step 4 of 12</p>
+  <h2 class="section-title">Five AP Closets: Pools, Lobby, Rooms</h2>
+  <p class="section-thesis"><em>Forty-four APs, and the switches under them carry exactly two VLANs. That's the payoff of tunnelling client traffic to the controller.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>SW-POOL-MAIN, SW-POOL-2, SW-POOL-3, SW-FLOOR-1 and SW-FLOOR-2 are the same config with a different number of AP ports. Each AP port is an access port in VLAN 80, the AP management VLAN. The APs get an address there from the core, find the controller (step 7), and from then on every guest's traffic rides inside the AP's CAPWAP tunnel. The guest VLAN never appears on these switches.</p>
+  <div class="term-wrap"><span class="term-label">SW-FLOOR-2 — 20 rooms, one AP each</span><pre class="term"><span class="cmt">! role + location in every name, so a log line says which box</span>
+hostname SW-FLOOR-2
+<span class="cmt">! VTP cannot add or delete VLANs behind your back</span>
+vtp mode transparent
+<span class="cmt">! the VLAN database: only the VLANs this device carries</span>
+vlan 10
+ name MGMT
+vlan 80
+ name AP-MGMT
+vlan 999
+ name UNUSED-NATIVE
+<span class="cmt">! DHCP snooping: rogue DHCP servers on access ports are ignored</span>
+ip dhcp snooping
+<span class="cmt">! snoop the client VLANs</span>
+ip dhcp snooping vlan 80
+<span class="cmt">! no option 82: the core DHCP server would drop the requests</span>
+no ip dhcp snooping information option
+<span class="cmt">! rapid STP: reconverges in about a second, not 30-50</span>
+spanning-tree mode rapid-pvst
+interface range FastEthernet0/1 - 20
+ <span class="cmt">! AP ports sit in the AP VLAN; client traffic is tunnelled to the WLC</span>
+ switchport access vlan 80
+ switchport mode access
+ <span class="cmt">! edge port: forwards immediately instead of waiting 30 s</span>
+ spanning-tree portfast
+ <span class="cmt">! a BPDU here means someone plugged in a switch: err-disable the port</span>
+ spanning-tree bpduguard enable
+interface range FastEthernet0/21 - 24
+ description UNUSED
+ <span class="cmt">! unused: parked in VLAN 999 and shut down</span>
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+interface GigabitEthernet0/1
+ description UPLINK to CORE-SW
+ <span class="cmt">! native VLAN 999: untagged frames land in a VLAN nothing uses</span>
+ switchport trunk native vlan 999
+ <span class="cmt">! prune: only the VLANs this link actually carries</span>
+ switchport trunk allowed vlan 10,80
+ <span class="cmt">! a trunk carries several VLANs, tagged</span>
+ switchport mode trunk
+ <span class="cmt">! no DTP: nothing can talk this port into a different mode</span>
+ switchport nonegotiate
+ <span class="cmt">! the only port allowed to send DHCP offers</span>
+ ip dhcp snooping trust
+interface GigabitEthernet0/2
+ description UNUSED
+ switchport access vlan 999
+ switchport mode access
+ shutdown
+<span class="cmt">! nobody uses VLAN 1: its SVI stays shut</span>
+interface Vlan1
+ no ip address
+ shutdown
+interface Vlan10
+ description MGMT
+ ip address 10.10.10.18 255.255.255.0
+<span class="cmt">! a layer-2 switch needs this to be managed from another subnet</span>
+ip default-gateway 10.10.10.1</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; The 2960-24TT Has No PoE</span>
+    <p>The file's access switches can't power anything. In Packet Tracer each LAP and phone gets its power adapter module (already fitted in the attached file). In the real building, these closets need PoE+ switches, and the budget matters. Twenty Wi-Fi 6 APs at 15&ndash;25 W each is more than some 24-port PoE switches can deliver. Check the switch's total PoE budget against the AP datasheet's worst-case draw, not its typical draw.</p>
+  </div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p><code>show interfaces trunk</code> on each closet switch: allowed VLANs 10,80 and nothing else. Until step 5 brings up the core, the APs sit without an address. That's expected.</p></div>
+
+  <!-- step 5 -->
+  <p class="section-num" id="step-5">11 · Step 5 of 12</p>
+  <h2 class="section-title">The Core: Trunks, Gateways, DHCP</h2>
+  <p class="section-thesis"><em>One switch now routes eleven VLANs, hands out every address, and becomes the spanning-tree root on purpose.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>CORE-SW gets the full VLAN database, a trunk to each closet pruned to what that closet carries, an SVI per VLAN, and DHCP pools for every dynamic segment. <code>spanning-tree vlan 1-1005 priority 4096</code> makes it the root, so a switch someone brings from home can't take over the topology. The uplink to the edge router is a routed port (<code>no switchport</code>) with a /30, and a default route points at the edge.</p>
+  <div class="term-wrap"><span class="term-label">CORE-SW — the parts that matter (trunk and unused-port blocks repeat the access pattern)</span><pre class="term"><span class="cmt">! role + location in every name, so a log line says which box</span>
+hostname CORE-SW
+<span class="cmt">! the 3560 routes between the VLANs (SVIs below)</span>
+ip routing
+<span class="cmt">! VTP cannot add or delete VLANs behind your back</span>
+vtp mode transparent
+<span class="cmt">! the VLAN database: only the VLANs this device carries</span>
+vlan 10
+ name MGMT
+<span class="cmt">! ... vlans 20-90 likewise</span>
+vlan 100
+ name GUEST-WIFI
+<span class="cmt">! .1-.20 in every scope stay free for static addresses</span>
+ip dhcp excluded-address 10.10.20.1 10.10.20.20
+ip dhcp excluded-address 10.10.30.1 10.10.30.20
+ip dhcp excluded-address 10.10.40.1 10.10.40.20
+ip dhcp excluded-address 10.10.50.1 10.10.50.20
+ip dhcp excluded-address 10.10.80.1 10.10.80.20
+ip dhcp excluded-address 10.10.90.1 10.10.90.20
+ip dhcp excluded-address 10.10.100.1 10.10.100.20
+<span class="cmt">! one pool per dynamic VLAN; the gateway is the core SVI</span>
+ip dhcp pool STAFF
+ network 10.10.20.0 255.255.255.0
+ default-router 10.10.20.1
+ dns-server 8.8.8.8
+ip dhcp pool ACCOUNTING
+ network 10.10.30.0 255.255.255.0
+ default-router 10.10.30.1
+ dns-server 8.8.8.8
+ip dhcp pool POS
+ network 10.10.50.0 255.255.255.0
+ default-router 10.10.50.1
+ dns-server 8.8.8.8
+ip dhcp pool AP-MGMT
+ network 10.10.80.0 255.255.255.0
+ default-router 10.10.80.1
+ dns-server 8.8.8.8
+ip dhcp pool STAFF-WIFI
+ network 10.10.90.0 255.255.255.0
+ default-router 10.10.90.1
+ dns-server 8.8.8.8
+ip dhcp pool GUEST-WIFI
+ network 10.10.100.0 255.255.252.0
+ default-router 10.10.100.1
+ dns-server 8.8.8.8
+<span class="cmt">! rapid STP: reconverges in about a second, not 30-50</span>
+spanning-tree mode rapid-pvst
+<span class="cmt">! the core is the STP root on every VLAN, on purpose</span>
+spanning-tree vlan 1-1005 priority 4096
+interface FastEthernet0/1
+ description SW-ACCOUNTING
+ <span class="cmt">! the 3560 also speaks ISL: say dot1q explicitly</span>
+ switchport trunk encapsulation dot1q
+ <span class="cmt">! native VLAN 999: untagged frames land in a VLAN nothing uses</span>
+ switchport trunk native vlan 999
+ <span class="cmt">! prune: only the VLANs this link actually carries</span>
+ switchport trunk allowed vlan 10,30,40,60
+ <span class="cmt">! a trunk carries several VLANs, tagged</span>
+ switchport mode trunk
+ <span class="cmt">! no DTP: nothing can talk this port into a different mode</span>
+ switchport nonegotiate
+<span class="cmt">! Fa0/2-7 and Gi0/2: same shape, allowed list per closet</span>
+<span class="cmt">! unused ports: description UNUSED, access vlan 999, shutdown</span>
+interface GigabitEthernet0/1
+ description EDGE-RTR
+ <span class="cmt">! routed port: the core-edge link is a /30, not a trunk</span>
+ no switchport
+ ip address 10.255.0.2 255.255.255.252
+<span class="cmt">! interface Vlan20-90: same shape, 10.10.&lt;vlan&gt;.1/24</span>
+<span class="cmt">! nobody uses VLAN 1: its SVI stays shut</span>
+interface Vlan10
+ description MGMT
+ ip address 10.10.10.1 255.255.255.0
+interface Vlan100
+ description GUEST-WIFI
+ ip address 10.10.100.1 255.255.252.0
+<span class="cmt">! anything not local goes to the edge router</span>
+ip route 0.0.0.0 0.0.0.0 10.255.0.1</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; Prune Both Ends, and Agree on the Native VLAN</span>
+    <p>A trunk with allowed VLANs pruned on only one side still passes STP for the rest and wastes nothing visible, until a VLAN you thought was gone shows up in a closet. A native-VLAN mismatch is worse: CDP logs it, but untagged traffic quietly crosses between VLAN 999 on one side and whatever the other side uses. Every trunk here has the same allowed list and native 999 on both ends. The one exception is the WLC port in step 7, on purpose.</p>
+  </div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p><code>show ip interface brief | include Vlan</code>: every SVI up/up once its VLAN has a live port. The front-desk PC gets 10.10.20.21 from <code>show ip dhcp binding</code>, and the APs start showing up in the AP-MGMT pool. <code>show spanning-tree root</code>: this switch, every VLAN.</p></div>
+
+  <!-- step 6 -->
+  <p class="section-num" id="step-6">12 · Step 6 of 12</p>
+  <h2 class="section-title">The PMS Moves to the Core</h2>
+  <p class="section-thesis"><em>The one server everyone uses shouldn't sit behind one department's access switch.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="6">▲ Show step 6 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>In the original layout the PMS hung off the reception switch. Every booking lookup from accounts or the mini market crossed reception's uplink, and a reboot of that switch took the PMS down for the whole hotel. It now has its own port on the core in VLAN 70.</p>
+  <div class="term-wrap"><span class="term-label">CORE-SW — server port</span><pre class="term">interface FastEthernet0/20
+ description PMS-SRV
+ <span class="cmt">! an edge port in exactly one data VLAN</span>
+ switchport access vlan 70
+ switchport mode access
+ <span class="cmt">! edge port: forwards immediately instead of waiting 30 s</span>
+ spanning-tree portfast
+ <span class="cmt">! a BPDU here means someone plugged in a switch: err-disable the port</span>
+ spanning-tree bpduguard enable</pre></div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p>From a front-desk PC, <code>ping 10.10.70.10</code> works through the core. <code>show mac address-table interface Fa0/20</code> shows one MAC in VLAN 70.</p></div>
+
+  <!-- step 7 -->
+  <p class="section-num" id="step-7">13 · Step 7 of 12</p>
+  <h2 class="section-title">The Controller and Two SSIDs</h2>
+  <p class="section-thesis"><em>The device the original file was missing. Without it, 44 access points are 44 expensive paperweights.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>WLC-01 sits on the core with one trunk. Its management interface is untagged, which is why that trunk's native VLAN is 80 and not 999. The APs in VLAN 80 find it by broadcast discovery on the same subnet. In the real build, with APs in more than one subnet, DHCP option 43 or a DNS entry for <code>CISCO-CAPWAP-CONTROLLER</code> does the job. Two dynamic interfaces map the SSIDs onto VLANs 90 and 100.</p>
+  <div class="term-wrap"><span class="term-label">CORE-SW — the WLC trunk</span><pre class="term">interface FastEthernet0/21
+ description WLC-01
+ <span class="cmt">! the 3560 also speaks ISL: say dot1q explicitly</span>
+ switchport trunk encapsulation dot1q
+ <span class="cmt">! WLC management is untagged, so this trunk's native VLAN is 80</span>
+ switchport trunk native vlan 80
+ <span class="cmt">! prune: only the VLANs this link actually carries</span>
+ switchport trunk allowed vlan 80,90,100
+ <span class="cmt">! a trunk carries several VLANs, tagged</span>
+ switchport mode trunk
+ <span class="cmt">! no DTP: nothing can talk this port into a different mode</span>
+ switchport nonegotiate</pre></div>
+  <table class="cheat">
+    <thead><tr><th>WLC-01 setting</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>management</td><td>10.10.80.2/24, gateway 10.10.80.1, untagged on port 1</td></tr>
+      <tr><td>vlan90 / vlan100</td><td>10.10.90.2/24 and 10.10.100.2/22, tagged</td></tr>
+      <tr><td>WLAN STAFF</td><td>SSID <code>Hotel-Staff</code>, WPA2-PSK (AES) &rarr; vlan90</td></tr>
+      <tr><td>WLAN GUEST</td><td>SSID <code>Hotel-Guest</code>, WPA2-PSK &rarr; vlan100</td></tr>
+      <tr><td>Internal DHCP</td><td>Off; the core serves every scope</td></tr>
+    </tbody>
+  </table>
+  <p>Two things a production controller adds that Packet Tracer doesn't model: <strong>peer-to-peer blocking</strong> on the guest WLAN (guests can't reach each other even inside VLAN 100), and a <strong>web portal</strong> in place of a shared guest key, so access ties to a room and a stay. On a real Catalyst 9800 both are WLAN settings.</p>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p>WLC GUI &rarr; Monitor &rarr; Access Points: all 44 joined. A laptop on <code>Hotel-Guest</code> gets an address in 10.10.100.0/22 and its gateway is the core's .1.</p></div>
+
+  <!-- step 8 -->
+  <p class="section-num" id="step-8">14 · Step 8 of 12</p>
+  <h2 class="section-title">The Policy Matrix as ACLs</h2>
+  <p class="section-thesis"><em>Four ACLs on the core implement the whole matrix from section 05.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="8">▲ Show step 8 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>Untrusted segments get an inbound ACL on their SVI: first the exceptions, then deny all private space, then permit the rest (the internet). Accounts is the reverse case: an <em>outbound</em> ACL on its SVI lets replies in and blocks anything internal starting a session.</p>
+  <div class="term-wrap"><span class="term-label">CORE-SW — ACLs and where they're applied</span><pre class="term">interface Vlan30
+ <span class="cmt">! outbound on accounts: replies get in, nothing internal starts a session</span>
+ ip access-group TO-ACCOUNTING out
+interface Vlan50
+ <span class="cmt">! policy applied inbound, at the untrusted VLAN's gateway</span>
+ ip access-group POS-IN in
+interface Vlan90
+ ip access-group STAFFWIFI-IN in
+<span class="cmt">! nobody uses VLAN 1: its SVI stays shut</span>
+interface Vlan100
+ ip access-group GUEST-IN in
+<span class="cmt">! guests: DHCP, then no private space at all, then the internet</span>
+ip access-list extended GUEST-IN
+ <span class="cmt">! keep DHCP renewals working (they are unicast to the gateway)</span>
+ permit udp any any eq bootps
+ <span class="cmt">! then deny every private range</span>
+ deny ip any 10.0.0.0 0.255.255.255
+ deny ip any 172.16.0.0 0.15.255.255
+ deny ip any 192.168.0.0 0.0.255.255
+ <span class="cmt">! everything else is the internet</span>
+ permit ip any any
+<span class="cmt">! staff Wi-Fi: printers and the PMS, nothing else internal</span>
+ip access-list extended STAFFWIFI-IN
+ permit udp any any eq bootps
+ permit ip 10.10.90.0 0.0.0.255 10.10.60.0 0.0.0.255
+ permit ip 10.10.90.0 0.0.0.255 10.10.70.0 0.0.0.255
+ deny ip any 10.0.0.0 0.255.255.255
+ permit ip any any
+<span class="cmt">! the till: HTTPS to the PMS, and the internet</span>
+ip access-list extended POS-IN
+ permit udp any any eq bootps
+ permit tcp 10.10.50.0 0.0.0.255 host 10.10.70.10 eq 443
+ deny ip any 10.0.0.0 0.255.255.255
+ permit ip any any
+<span class="cmt">! accounts: replies only from inside; the internet as normal</span>
+ip access-list extended TO-ACCOUNTING
+ <span class="cmt">! TCP replies to sessions accounts opened</span>
+ permit tcp any any established
+ permit icmp any any echo-reply
+ <span class="cmt">! anything internal starting a session to accounts</span>
+ deny ip 10.0.0.0 0.255.255.255 any
+ permit ip any any</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; The First Line Keeps DHCP Alive</span>
+    <p><code>permit udp any any eq bootps</code> sits above the deny for a reason. The first DHCP Discover is a broadcast and would pass anyway, but the renewal halfway through the lease is <em>unicast</em> to 10.10.100.1, which is private space. Without that line, guests get an address, and a few hours later every device in the hotel drops off Wi-Fi when its renewal fails. That ticket is impossible to reproduce on the day.</p>
+  </div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p>From a guest laptop: <code>ping 10.10.70.10</code> fails, <code>ping 8.8.8.8</code> works (after step 9). From the till: HTTPS to the PMS works, ping to it doesn't. From a front-desk PC: <code>ping 10.10.30.21</code> fails, while accounts can ping the front desk. <code>show access-lists</code> shows matches on every deny you just tested.</p></div>
+
+  <!-- step 9 -->
+  <p class="section-num" id="step-9">15 · Step 9 of 12</p>
+  <h2 class="section-title">The Edge: WAN1 and NAT</h2>
+  <p class="section-thesis"><em>One router, three interfaces, and NAT written for two WANs from the start, even while only one exists.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="9">▲ Show step 9 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>The edge knows the inside as one summary (<code>10.10.0.0/16</code> via the core) and translates it to the WAN address. The NAT statement uses a route-map that matches the <em>exit interface</em> instead of a bare ACL. With one WAN that changes nothing. With two, it's the only way the same inside hosts get translated to whichever WAN they actually leave through.</p>
+  <div class="term-wrap"><span class="term-label">EDGE-RTR — WAN1, inside, NAT</span><pre class="term"><span class="cmt">! role + location in every name, so a log line says which box</span>
+hostname EDGE-RTR
+interface GigabitEthernet0/0
+ description WAN1 to ISP-A (fibre)
+ ip address 203.0.113.2 255.255.255.252
+ <span class="cmt">! NAT outside = a WAN</span>
+ ip nat outside
+ no shutdown
+interface GigabitEthernet0/1
+ description LAN to CORE-SW
+ ip address 10.255.0.1 255.255.255.252
+ <span class="cmt">! NAT inside = the hotel side</span>
+ ip nat inside
+ no shutdown
+<span class="cmt">! what gets translated: the whole hotel range</span>
+ip access-list standard NAT-INSIDE
+ permit 10.10.0.0 0.0.255.255
+<span class="cmt">! NAT by exit interface, so each WAN translates its own traffic</span>
+route-map NAT-ISPA permit 10
+ match ip address NAT-INSIDE
+ match interface GigabitEthernet0/0
+<span class="cmt">! PAT to WAN1's address</span>
+ip nat inside source route-map NAT-ISPA interface GigabitEthernet0/0 overload
+<span class="cmt">! the whole inside, summarised, via the core</span>
+ip route 10.10.0.0 255.255.0.0 10.255.0.2
+<span class="cmt">! default to ISP-A (made tracked in step 10)</span>
+ip route 0.0.0.0 0.0.0.0 203.0.113.1</pre></div>
+  <div class="term-wrap"><span class="term-label">ISP-A — the lab's stand-in for the fibre provider</span><pre class="term"><span class="cmt">! role + location in every name, so a log line says which box</span>
+hostname ISP-A
+<span class="cmt">! the probe target: stands in for "the internet behind ISP-A"</span>
+interface Loopback0
+ description upstream probe target
+ ip address 4.2.2.2 255.255.255.255
+interface GigabitEthernet0/0
+ description to hotel EDGE-RTR
+ ip address 203.0.113.1 255.255.255.252
+ no shutdown
+interface GigabitEthernet0/1
+ description INTERNET-SRV segment
+ ip address 8.8.8.1 255.255.255.0
+ no shutdown
+interface GigabitEthernet0/2
+ description peering to ISP-B
+ ip address 192.0.2.1 255.255.255.252
+ no shutdown
+<span class="cmt">! return path for traffic NATed to the hotel's WAN2</span>
+ip route 198.51.100.0 255.255.255.252 192.0.2.2</pre></div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p>From any inside PC, <code>ping 8.8.8.8</code> (INTERNET-SRV) works. On the edge, <code>show ip nat translations</code> shows inside 10.10.x.x mapped to 203.0.113.2.</p></div>
+
+  <!-- step 10 -->
+  <p class="section-num" id="step-10">16 · Step 10 of 12</p>
+  <h2 class="section-title">The Backup WAN and Tracked Failover</h2>
+  <p class="section-thesis"><em>Probe something beyond the ISP, pin the probe to the primary, and let a floating route do the rest.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="10">▲ Show step 10 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>IP SLA pings 4.2.2.2 out of Gi0/0 every 5 seconds. The primary default route only exists while the track is up. When it goes down, the floating route (administrative distance 10) takes over, and the second NAT route-map translates to 198.51.100.2.</p>
+  <div class="term-wrap"><span class="term-label">EDGE-RTR — WAN2, IP SLA, tracked default</span><pre class="term"><span class="cmt">! swap step 9's plain default for the tracked one</span>
+no ip route 0.0.0.0 0.0.0.0 203.0.113.1
+interface GigabitEthernet0/2
+ description WAN2 to ISP-B (backup)
+ ip address 198.51.100.2 255.255.255.252
+ <span class="cmt">! NAT outside = a WAN</span>
+ ip nat outside
+ no shutdown
+<span class="cmt">! the same for WAN2</span>
+route-map NAT-ISPB permit 10
+ match ip address NAT-INSIDE
+ match interface GigabitEthernet0/2
+<span class="cmt">! PAT to WAN2's address</span>
+ip nat inside source route-map NAT-ISPB interface GigabitEthernet0/2 overload
+<span class="cmt">! probe a host beyond ISP-A every 5 seconds</span>
+ip sla 1
+ icmp-echo 4.2.2.2 source-interface GigabitEthernet0/0
+ frequency 5
+<span class="cmt">! start the probe now and run it forever</span>
+ip sla schedule 1 life forever start-time now
+<span class="cmt">! up while the probe gets replies</span>
+track 1 ip sla 1 reachability
+<span class="cmt">! primary default: exists only while track 1 is up</span>
+ip route 0.0.0.0 0.0.0.0 203.0.113.1 track 1
+<span class="cmt">! floating backup default (AD 10): used only when the primary is gone</span>
+ip route 0.0.0.0 0.0.0.0 198.51.100.1 10
+<span class="cmt">! pin the probe to ISP-A, or it succeeds via ISP-B and the WANs flap</span>
+ip route 4.2.2.2 255.255.255.255 203.0.113.1</pre></div>
+  <div class="term-wrap"><span class="term-label">ISP-B</span><pre class="term"><span class="cmt">! role + location in every name, so a log line says which box</span>
+hostname ISP-B
+interface GigabitEthernet0/0
+ description to hotel EDGE-RTR
+ ip address 198.51.100.1 255.255.255.252
+ no shutdown
+interface GigabitEthernet0/1
+ shutdown
+interface GigabitEthernet0/2
+ description peering to ISP-A
+ ip address 192.0.2.2 255.255.255.252
+ no shutdown
+<span class="cmt">! reach INTERNET-SRV over the peering link</span>
+ip route 8.8.8.0 255.255.255.0 192.0.2.1</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; Pin the Probe, and Don't Probe What Users Need</span>
+    <p>Without <code>ip route 4.2.2.2 255.255.255.255 203.0.113.1</code>, the probe follows the default route. Once failover happens, that default goes out ISP-B, the probe succeeds through the backup, the track comes back up, and the router flaps between WANs every few seconds. The host route keeps the probe on ISP-A whatever the default does. The flip side: that /32 forces all traffic to 4.2.2.2 through ISP-A. So the probe target must be something users don't depend on, which is why it isn't INTERNET-SRV.</p>
+  </div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint &mdash; the failover drill</span>
+    <p>On ISP-A: <code>interface Loopback0</code>, <code>shutdown</code>. That's ISP-A's upstream failing while the fibre link stays up. Within ~15 s, <code>show track 1</code> goes Down and <code>show ip route static</code> shows the default via 198.51.100.1. A PC pinging 8.8.8.8 loses a few packets and recovers through ISP-B. Existing NAT entries still point at the old WAN until they time out. <code>clear ip nat translation *</code> speeds that up during the drill. Bring Loopback0 back and traffic returns to ISP-A.</p></div>
+
+  <!-- step 11 -->
+  <p class="section-num" id="step-11">17 · Step 11 of 12</p>
+  <h2 class="section-title">Phones: CME on the Edge Router</h2>
+  <p class="section-thesis"><em>Five phones don't justify a call-control server. The 2911 already in the rack can do it.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="11">▲ Show step 11 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <p>The phones get an address in VLAN 40 from the core, and with it option 150, the TFTP server (the edge router). They download their config from it and register with CME on 10.255.0.1. <code>auto assign</code> hands extensions 101&ndash;105 out in the order phones register.</p>
+  <div class="term-wrap"><span class="term-label">CORE-SW — voice pool</span><pre class="term"><span class="cmt">! phones: DHCP plus the TFTP server they boot from</span>
+ip dhcp pool VOICE
+ network 10.10.40.0 255.255.255.0
+ default-router 10.10.40.1
+ <span class="cmt">! TFTP server for the phones = CME on the edge router</span>
+ option 150 ip 10.255.0.1</pre></div>
+  <div class="term-wrap"><span class="term-label">EDGE-RTR — call control</span><pre class="term"><span class="cmt">! CME: this router is the call-control server</span>
+telephony-service
+ <span class="cmt">! room for 10 phones and 10 numbers</span>
+ max-ephones 10
+ max-dn 10
+ <span class="cmt">! phones register to this address (SCCP, port 2000)</span>
+ ip source-address 10.255.0.1 port 2000
+ <span class="cmt">! hand numbers out to phones as they register</span>
+ auto assign 1 to 10
+<span class="cmt">! extensions 101-105</span>
+ephone-dn 1
+ number 101
+ephone-dn 2
+ number 102
+ephone-dn 3
+ number 103
+ephone-dn 4
+ number 104
+ephone-dn 5
+ number 105</pre></div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p><code>show ephone registered</code>: five phones. Call 101 from 105. In production, pin each extension to a phone's MAC (<code>ephone 1</code> / <code>mac-address</code> / <code>button 1:1</code>) instead of auto-assign, so a reboot can't swap reception's number with the mini market's.</p></div>
+
+  <!-- step 12 -->
+  <p class="section-num" id="step-12">18 · Step 12 of 12</p>
+  <h2 class="section-title">Management: Names, Accounts, SSH</h2>
+  <p class="section-thesis"><em>The same block on every device, which is the point.</em></p>
+  <p class="bx-jump"><a href="#bx" data-bx-step="12">▲ Show step 12 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+  <div class="term-wrap"><span class="term-label">Every IOS device</span><pre class="term"><span class="cmt">! hide plain passwords in the config (obfuscation, not real security)</span>
+service password-encryption
+<span class="cmt">! a typo at the CLI is not treated as a hostname to resolve</span>
+no ip domain-lookup
+<span class="cmt">! needed before the RSA key for SSH can be generated</span>
+ip domain-name hotel.lab
+<span class="cmt">! hashed privileged-mode password (lab value: change it)</span>
+enable secret Lab-ChangeMe-1
+<span class="cmt">! a named admin account, so every login is attributable</span>
+username netadmin privilege 15 secret Lab-ChangeMe-1
+<span class="cmt">! console and SSH both log in with the named account</span>
+line con 0
+ logging synchronous
+ login local
+line vty 0 4
+ login local
+ <span class="cmt">! SSH only, no Telnet (first: crypto key generate rsa modulus 2048)</span>
+ transport input ssh</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; SSH Needs Keys the Config Doesn't Carry</span>
+    <p><code>transport input ssh</code> only works once the device has an RSA key, and keys aren't part of the running-config. Run <code>crypto key generate rsa modulus 2048</code> once on each device, then <code>ip ssh version 2</code>. Until then, SSH is refused and Telnet is already off, so the console is the only way in. That's safe, but surprising if you didn't expect it. The lab password in this post and in the file is <code>Lab-ChangeMe-1</code>. Change it before the file goes anywhere near real hardware.</p>
+  </div>
+  <div class="callout defender"><span class="callout-label">&#10003; Checkpoint</span>
+    <p>From a host in VLAN 10, <code>ssh -l netadmin 10.10.10.14</code> reaches SW-POOL-MAIN. <code>show users</code> on the device shows the session under the named account.</p></div>
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Verify, Then Break It Before the Season Opens</h2>
+  <p class="section-thesis"><em>Every requirement from the brief gets a test someone can run in five minutes, and a deliberate failure to prove the design handles it.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Drill</th><th>How</th><th>Pass</th></tr></thead>
+    <tbody>
+      <tr><td>R1 Guest isolation</td><td>Guest laptop: ping PMS, a printer, a switch SVI</td><td>All fail; internet works</td></tr>
+      <tr><td>R2 PMS reachability</td><td>Front desk, accounts, till: open the PMS</td><td>Works from all three; the till over HTTPS only</td></tr>
+      <tr><td>R3 POS containment</td><td>Till: ping accounts, a front-desk PC</td><td>Both fail; <code>show access-lists POS-IN</code> counts the denies</td></tr>
+      <tr><td>R4 "ISP-A upstream down"</td><td>Shut ISP-A Loopback0 (step 10)</td><td>Default moves to ISP-B in seconds; returns when restored</td></tr>
+      <tr><td>R4 "fibre cut"</td><td>Shut EDGE-RTR Gi0/0</td><td>Same result, faster: the tracked route drops with the link</td></tr>
+      <tr><td>R5 Phones</td><td><code>show ephone registered</code>; call between extensions</td><td>Five registered; calls connect</td></tr>
+      <tr><td>Rogue DHCP</td><td>Plug a PC running a DHCP server into a reception port</td><td>Its offers are dropped at the access port (snooping, untrusted)</td></tr>
+      <tr><td>Closet switch reboot</td><td>Reload SW-POOL-3</td><td>Only pool 3 Wi-Fi blinks; nothing else notices</td></tr>
+    </tbody>
+  </table>
+
+  <!-- 20 -->
+  <p class="section-num" id="sec-20">20</p>
+  <h2 class="section-title">The Attacker's View</h2>
+  <p class="section-thesis"><em>What someone sitting on the guest Wi-Fi, or plugged into a wall port, can and can't do. Read it as a list of controls, and a list of what's still open.</em></p>
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Guest Wi-Fi.</strong> Routed straight to the internet. Every private range is denied at the core, and with peer-to-peer blocking on the WLAN, guests don't even see each other. The weak point is the shared PSK printed at reception. A portal with per-stay credentials is the real fix (step 7).</li>
+    <li><strong>A free wall port.</strong> Shut down and in VLAN 999. An enabled one only offers its access VLAN, because trunks are hard-coded with <code>nonegotiate</code> and a native VLAN nothing uses, so double-tagging lands nowhere.</li>
+    <li><strong>A rogue DHCP server or a switch from home.</strong> Snooping drops the offers. BPDU guard err-disables the port the moment the switch sends a BPDU. The core is root on every VLAN, so even an unguarded port couldn't take over.</li>
+    <li><strong>The till.</strong> One way in (HTTPS to the PMS) and one way out (the internet). That's why the PCI scope is one switch and one VLAN, not the whole hotel.</li>
+    <li><strong>Still open, and worth closing next.</strong> Staff VLAN 20 can reach switch management SVIs. Add an <code>access-class</code> on the VTY lines that allows only an admin subnet. Accounts reaching the internet without filtering is the usual phishing path. DNS filtering at the edge would help. And the PMS has no backup in this design.</li>
+  </ul>
+
+  <!-- 21 -->
+  <p class="section-num" id="sec-21">21</p>
+  <h2 class="section-title">Building It in Packet Tracer</h2>
+  <p class="section-thesis"><em>The attached file is the original layout with every step applied. Here's what Packet Tracer models faithfully, and where it needs help.</em></p>
+  <p><a class="cta-btn" href="assets/build-hotel/hotel-network.pkt" download style="font-size:.8rem;">Download hotel-network.pkt</a> &nbsp; Packet Tracer 9.0. Devices are renamed, configs are in each device's startup and running config, and the WLC's WLANs are set.</p>
+  <table class="cheat">
+    <thead><tr><th>In this post</th><th>In Packet Tracer</th></tr></thead>
+    <tbody>
+      <tr><td>PoE+ access switches</td><td>2960-24TT kept from the original file. Each LAP and IP phone has its power adapter module fitted instead.</td></tr>
+      <tr><td>Gigabit / fibre uplinks</td><td>The 3560-24PS has two Gigabit ports, so most closets stay on FastEthernet. It works; just don't read anything into throughput. The 3650 has the ports but boots without a power supply in PT, so it was left out.</td></tr>
+      <tr><td>WLC-01</td><td>WLC-3504. Interfaces and WLANs are set in its GUI (Config tab), not CLI. Joining takes a minute or two of simulated time.</td></tr>
+      <tr><td>Peer-to-peer blocking, guest portal</td><td>Not modelled. The guest ACL is what PT can show.</td></tr>
+      <tr><td>IP SLA, tracked routes, route-map NAT, CME</td><td>Supported on the 2911. If a command is rejected on your PT build, the step's config is still correct IOS. Check it on CML or EVE-NG.</td></tr>
+      <tr><td>SSH</td><td>Run <code>crypto key generate rsa</code> on each device first (step 12).</td></tr>
+    </tbody>
+  </table>
+  <div class="callout gotcha">
+    <span class="callout-label">&#9888; Gotcha &mdash; Straight-Through Between Switches</span>
+    <p>Packet Tracer enforces cable types. The original file used straight-through between the core and the closets, which PT shows as a red link. Switch-to-switch and router-to-router links need crossover, and the attached file has them. Real hardware with auto-MDIX doesn't care, which is why this one catches people.</p>
+  </div>
+
+  <!-- 22 -->
+  <p class="section-num" id="sec-22">22</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT. Outdoor Wi-Fi is where the money goes.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody>
+      <tr><td>EDGE-RTR · C8200L-1N-4T (CME licence extra)</td><td>1,500 – 2,200</td></tr>
+      <tr><td>CORE-SW · 2× C9200-24T-4G stacked (one switch is a single point of failure for a hotel)</td><td>3,600 – 5,000 incl. DNA</td></tr>
+      <tr><td>5× AP closets · C9200L-48P-4G (PoE+, room to grow, SFP uplinks)</td><td>13,000 – 17,000 incl. DNA</td></tr>
+      <tr><td>3× office closets · C9200L-24P-4G</td><td>4,800 – 6,600 incl. DNA</td></tr>
+      <tr><td>Controller · C9800-L-C (or EWC on a 9100-series AP for a smaller site)</td><td>5,000 – 7,000</td></tr>
+      <tr><td>20× room APs · C9105AXW wall-plate</td><td>6,000 – 9,000</td></tr>
+      <tr><td>7× indoor APs (lobby, reception, spa) · C9115AXI</td><td>4,200 – 5,600</td></tr>
+      <tr><td>17× outdoor APs (pools, parking) · C9124AXI</td><td>27,000 – 37,000</td></tr>
+      <tr><td>5× IP phones · CP-8811</td><td>1,250 – 1,750</td></tr>
+      <tr><td>Single-mode fibre + SFPs to the pool closets</td><td>1,000 – 2,000</td></tr>
+      <tr><td>UPS for the comms room and closets</td><td>1,500 – 3,000</td></tr>
+    </tbody>
+  </table>
+  <p>The second WAN is a monthly cost, not hardware. In Crete that's usually Starlink or 5G next to the fibre. Either works here: it's just ISP-B.</p>
+
+  <!-- 23 -->
+  <p class="section-num" id="sec-23">23</p>
+  <h2 class="section-title">The Same Design on MikroTik</h2>
+  <p class="section-thesis"><em>Same VLANs, same matrix. Three pieces change shape.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Piece</th><th>Cisco (this post)</th><th>MikroTik</th></tr></thead>
+    <tbody>
+      <tr><td>Wireless</td><td>WLC + lightweight APs, CAPWAP tunnels</td><td>CAPsMAN with cAP ax/wAP ax. With the RouterOS 7 wifi package, client traffic is bridged at the AP, so guest VLAN 100 <em>does</em> reach the AP closets: trunk it there and keep it off every other port.</td></tr>
+      <tr><td>Policy</td><td>ACLs on core SVIs</td><td>Stateful <code>/ip firewall filter</code> forward chain on a CCR, with interface lists per VLAN. Easier to express "replies only" than with <code>established</code>.</td></tr>
+      <tr><td>Dual WAN</td><td>IP SLA + track + route-map NAT</td><td>Recursive routes with <code>check-gateway=ping</code> through a scoped host route, plus masquerade per <code>out-interface</code>.</td></tr>
+      <tr><td>Voice</td><td>CME on the router</td><td>No equivalent. A hosted PBX or FreePBX on the server VLAN.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Review the drawing before configuring it.</strong> This file had a correct layout and three missing pieces (controller, PoE, call control), each of which would have stopped it working.</li>
+      <li><strong>Tunnel guest Wi-Fi to the controller</strong> and the AP closets carry two VLANs. The guest VLAN never reaches an access switch.</li>
+      <li><strong>One template for every access switch</strong>: unused ports off and in VLAN 999, native 999, pruned trunks, BPDU guard, DHCP snooping without option 82.</li>
+      <li><strong>Policy by source VLAN on the core</strong>: exceptions, deny private space, permit internet. And remember the DHCP renewal line.</li>
+      <li><strong>Fail over on reachability</strong>, with the probe pinned to the primary and aimed at something users don't need. Write NAT for two WANs from day one.</li>
+      <li><strong>Drill every requirement</strong>, including the outages, before the season starts.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Running a hotel network in Crete?</h3>
+    <p>I design and build hotel networks end to end: Wi-Fi that covers the pools, guests kept away from the PMS and the tills, and a second WAN that takes over on its own. On Cisco or MikroTik, tested before the season opens.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>
