@@ -64,10 +64,18 @@
       // a bilingual page (e.g. geo-detected Greek on starlink.html) falls
       // back to the client-side toggle — the counterpart would be the same
       // language the visitor is leaving.
-      const counterpart = document.body.dataset.langTarget;
+      let counterpart = document.body.dataset.langTarget;
+      let pageLang = document.body.dataset.lang || 'en';
+      if (!counterpart && location.pathname.includes('/writeups/')) {
+        // Writeups carry no data-lang-target; their twin is declared in the
+        // hreflang alternates, and the -el suffix says which one this is.
+        pageLang = /-el\.html$/.test(location.pathname) ? 'el' : 'en';
+        const alt = document.querySelector('link[rel="alternate"][hreflang="' + (pageLang === 'el' ? 'en' : 'el') + '"]');
+        // Alternates are absolute production URLs; keep the current origin.
+        if (alt) counterpart = new URL(alt.getAttribute('href'), location.href).pathname;
+      }
       const i18n = window.Sp1r4I18n;
       if (counterpart) {
-        const pageLang = document.body.dataset.lang || 'en';
         const counterpartLang = pageLang === 'el' ? 'en' : 'el';
         const want = (i18n && i18n.getLang() === 'el') ? 'en' : 'el';
         if (!i18n || want === counterpartLang) {

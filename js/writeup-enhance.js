@@ -1,5 +1,6 @@
 // Writeup enhancements: reading progress bar, floating TOC,
-// copy-to-clipboard buttons, series banner, related-posts strip.
+// copy/wrap buttons on code blocks, series navigation, author card,
+// share row, related-posts strip. Greek twins get Greek labels and links.
 // Standalone (no deps); loaded by every writeup HTML after writeup-sidebar.js.
 (function () {
   if (window.__sp1r4WriteupEnhanced) return;
@@ -10,6 +11,47 @@
   function currentSlug() {
     const file = (location.pathname.split('/').pop() || '').replace(/\.html$/i, '');
     return file;
+  }
+
+  // Greek twins are separate static files named <slug>-el.html. Keyed on the
+  // filename: <html lang> is not reliable here until i18n.js has run.
+  const IS_EL = /-el$/.test((location.pathname.split('/').pop() || '').replace(/\.html$/i, ''));
+  const STR = IS_EL ? {
+    toc: 'Σε αυτή τη σελίδα', share: 'Κοινοποίηση', related: 'Σχετικά writeups',
+    part: (i, n) => 'Μέρος ' + i + ' από ' + n, start: 'Αρχή', end: 'Τέλος',
+    prev: 'Προηγούμενο', next: 'Επόμενο', allParts: 'Όλη η σειρά →', minRead: ' λεπτά ανάγνωση',
+    copy: 'COPY', copied: 'COPIED', wrap: 'WRAP',
+    copyAria: 'Αντιγραφή κώδικα', wrapAria: 'Αναδίπλωση μεγάλων γραμμών',
+    writtenBy: 'Γράφτηκε από',
+    authorBio: 'Penetration tester και μηχανικός δικτύων με βάση την Κρήτη. Αν θέλεις έλεγχο αυτού του είδους στο δικό σου περιβάλλον, με υπογεγραμμένο scope, επικοινώνησε.',
+    authorPentest: 'Penetration testing →', authorMore: 'Περισσότερα writeups →',
+    locale: 'el-GR',
+  } : {
+    toc: 'On this page', share: 'Share', related: 'Related writeups',
+    part: (i, n) => 'Part ' + i + ' of ' + n, start: 'Start', end: 'End',
+    prev: 'Previous', next: 'Next', allParts: 'Full series →', minRead: ' min read',
+    copy: 'COPY', copied: 'COPIED', wrap: 'WRAP',
+    copyAria: 'Copy code to clipboard', wrapAria: 'Wrap long lines',
+    writtenBy: 'Written by',
+    authorBio: 'Penetration tester and network engineer based in Crete. If you want this kind of testing run against your own environment, under a signed scope, get in touch.',
+    authorPentest: 'Penetration testing →', authorMore: 'More writeups →',
+    locale: 'en-US',
+  };
+
+  const baseName = (path) => (path || '').split('/').pop();
+  // Link to the Greek twin when reading in Greek and one exists.
+  const hrefOf = (p) => baseName((IS_EL && p.html_el) || p.html) || '#';
+  const titleOf = (p) => (IS_EL && p.title_el) || p.title || p.slug;
+
+  // End-of-article blocks go inside the article column so they share its
+  // width; falls back to "before the footer" on an unknown template.
+  function appendEnd(el) {
+    const h1 = document.querySelector('h1');
+    const root = h1 && h1.closest('.wrap, .wrapper, main, article');
+    if (root) { root.appendChild(el); return; }
+    const footer = document.querySelector('footer');
+    if (footer && footer.parentNode) footer.parentNode.insertBefore(el, footer);
+    else document.body.appendChild(el);
   }
 
   function slugify(s) {
@@ -25,6 +67,20 @@
   function injectStyles() {
     if (document.getElementById('sp1r4-enhance-style')) return;
     const css = `
+      /* Theme tokens. Two writeup templates exist (--head/--body/--rule and
+         --text-dark/--text/--border); declared on body, not :root, so the
+         body.dark overrides of the underlying variables are picked up. */
+      body {
+        --sx-head: var(--head, var(--text-dark, #1a1a18));
+        --sx-body: var(--body, var(--text, #6b675f));
+        --sx-rule: var(--rule, var(--border, #e0deda));
+        --sx-card: var(--card, var(--bg-code, #fff));
+        --sx-term: var(--term-bg, var(--bg-term, #e8e6e0));
+        --sx-accent: #c63d1f;
+      }
+      /* #c63d1f on #0f0f0f is 3.7:1; small accent text needs the lighter tone. */
+      body.dark { --sx-accent: #e5674a; }
+
       /* Reading progress bar */
       .sp1r4-progress {
         position: fixed; top: 0; left: 0; height: 2px; width: 0;
@@ -78,20 +134,60 @@
 
       /* Copy button on code/terminal blocks */
       .sp1r4-copyable { position: relative; }
-      .sp1r4-copy-btn {
+      /* The <pre> scrolls, not the wrapper, so the tools stay pinned while
+         a long config line is scrolled sideways. */
+      .term-wrap.sp1r4-copyable { overflow: hidden; }
+      .term-wrap.sp1r4-copyable > pre { overflow-x: auto; }
+      .sp1r4-code-tools {
         position: absolute; top: 8px; right: 8px; z-index: 5;
+        display: flex; gap: 4px;
+        opacity: 0.5; transition: opacity 0.15s;
+      }
+      .sp1r4-code-tools.in-bar { top: 2px; right: 4px; }
+      .sp1r4-code-tools.in-flow { position: static; margin-left: 10px; flex: none; }
+      .sp1r4-code-tools.in-flow .sp1r4-copy-btn { padding: 2px 8px; }
+      .sp1r4-copyable:hover .sp1r4-code-tools,
+      .sp1r4-code-tools:focus-within { opacity: 1; }
+      @media (hover: none) { .sp1r4-code-tools { opacity: 0.85; } }
+      .sp1r4-copy-btn {
         font-family: 'JetBrains Mono','Inter',monospace;
         font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
         padding: 5px 9px; border-radius: 3px;
-        background: rgba(26,26,24,0.78); color: #eae8e3;
+        background: rgba(26,26,24,0.86); color: #eae8e3;
         border: 1px solid rgba(234,232,227,0.18);
-        cursor: pointer; opacity: 0;
-        transition: opacity 0.15s, background 0.15s;
+        cursor: pointer;
+        transition: background 0.15s;
       }
-      .sp1r4-copyable:hover .sp1r4-copy-btn,
-      .sp1r4-copy-btn:focus-visible { opacity: 1; }
       .sp1r4-copy-btn:hover { background: rgba(26,26,24,1); }
       .sp1r4-copy-btn.copied { background: #3a6a48; border-color: #3a6a48; color: #fff; }
+      .sp1r4-wrap-btn { display: none; }
+      .sp1r4-ovf .sp1r4-wrap-btn, .sp1r4-wrapped .sp1r4-wrap-btn { display: block; }
+      .sp1r4-wrapped .sp1r4-wrap-btn { background: #c63d1f; border-color: #c63d1f; color: #fff; }
+      .sp1r4-wrapped pre, .sp1r4-wrapped .term-body {
+        white-space: pre-wrap !important; overflow-wrap: anywhere;
+      }
+      /* Right-edge fade: the only cue that a line continues when the OS
+         hides scrollbars. Removed once scrolled to the end. */
+      .sp1r4-ovf:not(.sp1r4-ovf-end)::after {
+        content: ''; position: absolute; right: 0; bottom: 0;
+        top: var(--sx-fade-top, 0px); width: 40px; pointer-events: none;
+        background: linear-gradient(90deg, transparent, var(--sx-term));
+      }
+      .sp1r4-scroller:focus-visible { outline: 2px solid var(--sx-accent); outline-offset: -2px; }
+
+      /* Current-section pill, left of the TOC toggle (only when it fits
+         beside the article column; sized in JS). */
+      .sp1r4-now {
+        position: fixed; top: 66px; right: 64px; z-index: 51;
+        height: 38px; padding: 0 12px; max-width: 240px;
+        display: none; align-items: center;
+        background: rgba(26,26,24,0.92); color: rgba(234,232,227,0.85);
+        border: 1px solid rgba(234,232,227,0.15); border-radius: 4px;
+        font-family: 'Inter',system-ui,sans-serif; font-size: 11px; font-weight: 500;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        cursor: pointer;
+      }
+      .sp1r4-now.show { display: block; line-height: 36px; }
 
       /* Series banner */
       .sp1r4-series {
@@ -102,23 +198,73 @@
         border-left: 3px solid #c63d1f;
         border-radius: 5px;
         font-family: 'Barlow','Inter',system-ui,sans-serif;
-        font-size: 0.85rem; color: #555550;
+        font-size: 0.85rem; color: var(--sx-body);
         display: flex; flex-wrap: wrap; gap: 6px 14px;
         align-items: center; justify-content: space-between;
       }
       .sp1r4-series-label {
         font-family: 'Barlow Condensed','Barlow',sans-serif;
         font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em;
-        text-transform: uppercase; color: #c63d1f;
+        text-transform: uppercase; color: var(--sx-accent);
       }
-      .sp1r4-series-title { color: #1a1a18; font-weight: 600; }
+      .sp1r4-series-label a { color: inherit; text-decoration: none; }
+      .sp1r4-series-label a:hover { text-decoration: underline; }
+      .sp1r4-series-title { color: var(--sx-head); font-weight: 600; }
       .sp1r4-series-nav { display: flex; gap: 12px; flex-wrap: wrap; }
       .sp1r4-series-nav a {
-        color: #c63d1f; text-decoration: none;
+        color: var(--sx-accent); text-decoration: none;
         font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em;
       }
       .sp1r4-series-nav a:hover { text-decoration: underline; }
-      .sp1r4-series-nav a[aria-disabled="true"] { color: #aaa89f; pointer-events: none; }
+      .sp1r4-series-nav a[aria-disabled="true"] { color: var(--sx-body); opacity: 0.6; pointer-events: none; }
+
+      /* End-of-article series navigation */
+      .sp1r4-series-end {
+        margin: 3rem 0 0; padding-top: 2rem;
+        border-top: 1px solid var(--sx-rule);
+        font-family: 'Inter',system-ui,sans-serif;
+      }
+      .sp1r4-series-end-head {
+        display: flex; justify-content: space-between; align-items: baseline;
+        gap: 12px; flex-wrap: wrap; margin-bottom: 0.9rem;
+        font-family: 'Barlow Condensed','Barlow',sans-serif;
+        font-weight: 700; font-size: 0.78rem; letter-spacing: 0.14em;
+        text-transform: uppercase; color: var(--sx-body);
+      }
+      .sp1r4-series-end-head a { color: var(--sx-accent); text-decoration: none; }
+      .sp1r4-series-end-head a:hover { text-decoration: underline; }
+      .sp1r4-series-end-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 560px) { .sp1r4-series-end-grid { grid-template-columns: 1fr; } }
+      .sp1r4-series-end-card {
+        display: block; padding: 14px 16px; text-decoration: none;
+        background: var(--sx-card); border: 1px solid var(--sx-rule); border-radius: 5px;
+        transition: border-color 0.15s, transform 0.15s;
+      }
+      .sp1r4-series-end-card:hover { border-color: var(--sx-accent); transform: translateY(-2px); text-decoration: none; }
+      .sp1r4-series-end-card.next { text-align: right; grid-column: 2; }
+      @media (max-width: 560px) { .sp1r4-series-end-card.next { grid-column: 1; } }
+      .sp1r4-series-end-dir {
+        font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em;
+        text-transform: uppercase; color: var(--sx-accent);
+      }
+      .sp1r4-series-end-title { font-size: 0.98rem; font-weight: 600; color: var(--sx-head); margin-top: 4px; line-height: 1.3; }
+
+      /* Author card — only on posts whose template has no .cta-card */
+      .sp1r4-author {
+        margin: 2.8rem 0 0; padding: 1.4rem 1.6rem;
+        background: var(--sx-card); border: 1px solid var(--sx-rule);
+        border-top: 3px solid #c63d1f; border-radius: 6px;
+        font-family: 'Inter',system-ui,sans-serif;
+      }
+      .sp1r4-author-label {
+        font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em;
+        text-transform: uppercase; color: var(--sx-accent);
+      }
+      .sp1r4-author-name { font-size: 1.05rem; font-weight: 700; color: var(--sx-head); margin: 2px 0 6px; }
+      .sp1r4-author p { font-size: 0.9rem; line-height: 1.6; color: var(--sx-body); margin: 0 0 0.9rem; }
+      .sp1r4-author-links { display: flex; gap: 14px; flex-wrap: wrap; }
+      .sp1r4-author-links a { color: var(--sx-accent); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+      .sp1r4-author-links a:hover { text-decoration: underline; }
 
       /* Share row */
       .sp1r4-share {
@@ -130,15 +276,15 @@
       .sp1r4-share-label {
         font-family: 'Barlow Condensed','Barlow',sans-serif;
         font-weight: 700; font-size: 0.72rem; letter-spacing: 0.14em;
-        text-transform: uppercase; color: #888880;
+        text-transform: uppercase; color: var(--sx-body);
         margin-right: 6px;
       }
       .sp1r4-share-btn {
         display: inline-flex; align-items: center; gap: 6px;
         padding: 6px 12px; border-radius: 4px;
-        background: rgba(26,26,24,0.04);
-        border: 1px solid rgba(26,26,24,0.12);
-        color: #1a1a18; text-decoration: none; cursor: pointer;
+        background: var(--sx-card);
+        border: 1px solid var(--sx-rule);
+        color: var(--sx-head); text-decoration: none; cursor: pointer;
         font-size: 0.78rem; font-weight: 500; letter-spacing: 0.02em;
         transition: background 0.15s, border-color 0.15s, transform 0.15s;
       }
@@ -161,41 +307,40 @@
       .sp1r4-related {
         margin: 3rem 0 1.5rem;
         padding-top: 2rem;
-        border-top: 1px solid rgba(26,26,24,0.12);
+        border-top: 1px solid var(--sx-rule);
         font-family: 'Barlow','Inter',system-ui,sans-serif;
       }
       .sp1r4-related h3 {
         font-family: 'Barlow Condensed','Barlow',sans-serif;
         font-weight: 800; font-size: 1.4rem; letter-spacing: 0.04em;
-        text-transform: uppercase; color: #1a1a18; margin-bottom: 1rem;
+        text-transform: uppercase; color: var(--sx-head); margin-bottom: 1rem;
       }
       .sp1r4-related-grid {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
         gap: 12px;
       }
       .sp1r4-related-card {
         display: block; padding: 14px 16px;
-        background: rgba(26,26,24,0.04);
-        border: 1px solid rgba(26,26,24,0.10);
+        background: var(--sx-card);
+        border: 1px solid var(--sx-rule);
         border-radius: 5px; text-decoration: none;
         transition: background 0.15s, border-color 0.15s, transform 0.15s;
       }
       .sp1r4-related-card:hover {
-        background: rgba(26,26,24,0.08);
-        border-color: rgba(198,61,31,0.4);
+        border-color: var(--sx-accent);
         transform: translateY(-2px);
         text-decoration: none;
       }
       .sp1r4-related-tag {
         font-size: 0.65rem; font-weight: 700; letter-spacing: 0.14em;
-        text-transform: uppercase; color: #c63d1f;
+        text-transform: uppercase; color: var(--sx-accent);
       }
       .sp1r4-related-title {
-        font-size: 0.95rem; font-weight: 600; color: #1a1a18;
+        font-size: 0.95rem; font-weight: 600; color: var(--sx-head);
         margin: 4px 0 4px; line-height: 1.3;
       }
       .sp1r4-related-meta {
-        font-size: 0.72rem; color: #888880; letter-spacing: 0.04em;
+        font-size: 0.72rem; color: var(--sx-body); letter-spacing: 0.04em;
       }
 
       /* Hide TOC button when sidebar is open on narrow screens (would overlap close target) */
@@ -244,16 +389,19 @@
       [data-lightboxable] { cursor: zoom-in; }
 
       @media (prefers-reduced-motion: reduce) {
-        .sp1r4-progress, .sp1r4-toc-panel, .sp1r4-copy-btn,
-        .sp1r4-related-card, .sp1r4-share-btn { transition: none !important; }
-        .sp1r4-related-card:hover, .sp1r4-share-btn:hover { transform: none !important; }
+        .sp1r4-progress, .sp1r4-toc-panel, .sp1r4-copy-btn, .sp1r4-code-tools,
+        .sp1r4-related-card, .sp1r4-share-btn, .sp1r4-series-end-card { transition: none !important; }
+        .sp1r4-related-card:hover, .sp1r4-share-btn:hover,
+        .sp1r4-series-end-card:hover { transform: none !important; }
       }
 
       /* Print: strip nav/chrome so saved PDFs look clean. */
       @media print {
         .sp1r4-progress, .sp1r4-toc-toggle, .sp1r4-toc-panel,
-        .sp1r4-copy-btn, .sp1r4-share, .sp1r4-related,
-        .sp1r4-series-nav { display: none !important; }
+        .sp1r4-code-tools, .sp1r4-share, .sp1r4-related, .sp1r4-now,
+        .sp1r4-series-nav, .sp1r4-series-end, .sp1r4-author { display: none !important; }
+        .sp1r4-ovf::after { display: none !important; }
+        pre, .term-body { white-space: pre-wrap !important; overflow: visible !important; }
         body { padding-left: 0 !important; padding-top: 0 !important; background: #fff !important; }
         h1, h2, h3, h4 { page-break-after: avoid; }
         .term-wrap, .terminal, pre, figure, img {
@@ -295,7 +443,7 @@
   function setupTOC() {
     const headings = Array.from(document.querySelectorAll('h2, h3'))
       .filter(h => {
-        if (h.closest('nav, footer, .sp1r4-related, .sp1r4-series, .sp1r4-toc-panel')) return false;
+        if (h.closest('nav, footer, .sp1r4-related, .sp1r4-series, .sp1r4-toc-panel, .cta-card, .sp1r4-author')) return false;
         const txt = (h.textContent || '').trim();
         if (!txt) return false;
         return true;
@@ -324,7 +472,7 @@
     panel.className = 'sp1r4-toc-panel';
     panel.setAttribute('aria-label', 'Table of contents');
     const heading = document.createElement('h3');
-    heading.textContent = 'On this page';
+    heading.textContent = STR.toc;
     panel.appendChild(heading);
     const ul = document.createElement('ul');
     ul.className = 'sp1r4-toc-list';
@@ -354,24 +502,48 @@
     document.body.appendChild(toggle);
     document.body.appendChild(panel);
 
-    // Active section tracking
+    // Active section = the last heading scrolled past the nav. (An
+    // IntersectionObserver band loses the highlight between headings on
+    // long sections; position lookup doesn't.)
     const links = panel.querySelectorAll('a');
-    if ('IntersectionObserver' in window) {
-      const byId = new Map();
-      links.forEach(a => byId.set(a.dataset.targetId, a));
-      const visible = new Set();
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach(en => {
-          if (en.isIntersecting) visible.add(en.target.id);
-          else visible.delete(en.target.id);
-        });
-        const orderedIds = headings.map(h => h.id);
-        const firstVisible = orderedIds.find(id => visible.has(id));
-        links.forEach(a => a.classList.remove('active'));
-        if (firstVisible && byId.has(firstVisible)) byId.get(firstVisible).classList.add('active');
-      }, { rootMargin: '-72px 0px -65% 0px', threshold: 0 });
-      headings.forEach(h => io.observe(h));
+    const byId = new Map();
+    links.forEach(a => byId.set(a.dataset.targetId, a));
+
+    const now = document.createElement('button');
+    now.type = 'button';
+    now.className = 'sp1r4-now';
+    now.setAttribute('aria-hidden', 'true');
+    now.tabIndex = -1;
+    now.addEventListener('click', (e) => { e.stopPropagation(); open(); });
+    document.body.appendChild(now);
+    const column = headings[0].closest('.wrap, .wrapper, main, article');
+
+    let ticking = false;
+    function track() {
+      ticking = false;
+      let current = null, currentH2 = null;
+      for (const h of headings) {
+        if (h.getBoundingClientRect().top > 130) break;
+        current = h;
+        if (h.tagName === 'H2') currentH2 = h;
+      }
+      links.forEach(a => a.classList.remove('active'));
+      if (current && byId.has(current.id)) byId.get(current.id).classList.add('active');
+
+      // Pill only where there is free margin right of the article column.
+      const free = column ? window.innerWidth - 64 - column.getBoundingClientRect().right - 12 : 0;
+      if (currentH2 && free >= 150) {
+        now.textContent = (currentH2.textContent || '').trim();
+        now.style.maxWidth = Math.min(free, 260) + 'px';
+        now.classList.add('show');
+      } else {
+        now.classList.remove('show');
+      }
     }
+    function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(track); } }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    track();
   }
 
   // 2.5. Image lightbox — click any content image for fullscreen view.
@@ -438,31 +610,94 @@
     requestAnimationFrame(() => overlay.classList.add('open'));
   }
 
-  // 3. Copy-to-clipboard on code/terminal blocks
+  // 3. Code/terminal blocks: copy, wrap toggle, horizontal-overflow cue
   function setupCopyButtons() {
-    const candidates = [];
-    document.querySelectorAll('.term-wrap, .terminal').forEach(el => candidates.push(el));
+    const hosts = [];
+    document.querySelectorAll('.term-wrap, .terminal').forEach(el => hosts.push(el));
     document.querySelectorAll('pre').forEach(pre => {
       if (pre.closest('.term-wrap, .terminal, .sp1r4-copyable')) return;
-      candidates.push(pre);
+      // A bare <pre> is its own scroller: wrap it so the tools neither
+      // scroll away with the text nor end up inside the copied text.
+      const box = document.createElement('div');
+      pre.parentNode.insertBefore(box, pre);
+      box.appendChild(pre);
+      hosts.push(box);
     });
 
-    candidates.forEach(target => {
-      if (target.dataset.copyAttached === '1') return;
-      target.dataset.copyAttached = '1';
-      target.classList.add('sp1r4-copyable');
+    const ro = ('ResizeObserver' in window) ? new ResizeObserver(entries => {
+      entries.forEach(en => en.target.__sxCheck && en.target.__sxCheck());
+    }) : null;
+
+    hosts.forEach(host => {
+      if (host.dataset.copyAttached === '1') return;
+      host.dataset.copyAttached = '1';
+      host.classList.add('sp1r4-copyable');
+
+      const scrollers = () => Array.from(host.querySelectorAll('pre, .term-body'));
+      // Vendor-tabbed blocks hold two <pre>; act on the one being shown.
+      const active = () => scrollers().find(e => !e.hidden && e.offsetParent !== null) || scrollers()[0] || host;
+
+      const tools = document.createElement('div');
+      tools.className = 'sp1r4-code-tools';
+      const bar = host.querySelector(':scope > .term-bar');
+      const label = host.querySelector(':scope > .term-label');
+      if (bar) {
+        // Flex bar with the label pushed right: sit after it, in flow.
+        tools.classList.add('in-flow');
+        if (!bar.querySelector('.term-label')) tools.style.marginLeft = 'auto';
+      } else if (label) {
+        tools.classList.add('in-bar');
+        label.style.paddingRight = '112px';
+      }
+
+      const wrapBtn = document.createElement('button');
+      wrapBtn.type = 'button';
+      wrapBtn.className = 'sp1r4-copy-btn sp1r4-wrap-btn';
+      wrapBtn.textContent = STR.wrap;
+      wrapBtn.setAttribute('aria-label', STR.wrapAria);
+      wrapBtn.setAttribute('aria-pressed', 'false');
 
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'sp1r4-copy-btn';
-      btn.textContent = 'COPY';
-      btn.setAttribute('aria-label', 'Copy code to clipboard');
+      btn.textContent = STR.copy;
+      btn.setAttribute('aria-label', STR.copyAria);
+
+      function check() {
+        const sc = active();
+        const ovf = sc.scrollWidth - sc.clientWidth > 4;
+        host.classList.toggle('sp1r4-ovf', ovf);
+        host.classList.toggle('sp1r4-ovf-end', ovf && sc.scrollLeft + sc.clientWidth >= sc.scrollWidth - 4);
+        host.style.setProperty('--sx-fade-top', (sc === host ? 0 : sc.offsetTop) + 'px');
+        if (ovf && sc.tabIndex !== 0) {
+          // Keyboard users need focus to scroll an overflowing region.
+          sc.tabIndex = 0;
+          sc.classList.add('sp1r4-scroller');
+        }
+      }
+      host.__sxCheck = check;
+      scrollers().forEach(sc => sc.addEventListener('scroll', check, { passive: true }));
+      // Vendor tabs / the build explorer swap content on click.
+      host.addEventListener('click', () => setTimeout(check, 0));
+      if (ro) ro.observe(host);
+      const live = host.querySelector('.bx-cfg');
+      if (live && 'MutationObserver' in window) {
+        new MutationObserver(check).observe(live, { childList: true, characterData: true, subtree: true });
+      }
+
+      wrapBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const on = host.classList.toggle('sp1r4-wrapped');
+        wrapBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        check();
+      });
 
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const src = target.querySelector('pre, .term-body, code') || target;
-        const text = (src.innerText || src.textContent || '').replace(/ /g, ' ').trimEnd();
+        const src = active();
+        const text = (src.innerText || src.textContent || '').replace(/\u00a0/g, ' ').trimEnd();
         try {
           if (navigator.clipboard && window.isSecureContext) {
             await navigator.clipboard.writeText(text);
@@ -472,16 +707,19 @@
             document.body.appendChild(ta); ta.select();
             document.execCommand('copy'); document.body.removeChild(ta);
           }
-          btn.textContent = 'COPIED';
+          btn.textContent = STR.copied;
           btn.classList.add('copied');
-          setTimeout(() => { btn.textContent = 'COPY'; btn.classList.remove('copied'); }, 1600);
+          setTimeout(() => { btn.textContent = STR.copy; btn.classList.remove('copied'); }, 1600);
         } catch {
           btn.textContent = 'ERR';
-          setTimeout(() => { btn.textContent = 'COPY'; }, 1600);
+          setTimeout(() => { btn.textContent = STR.copy; }, 1600);
         }
       });
 
-      target.appendChild(btn);
+      tools.appendChild(wrapBtn);
+      tools.appendChild(btn);
+      (bar || host).appendChild(tools);
+      check();
     });
   }
 
@@ -538,14 +776,15 @@
 
     const label = document.createElement('span');
     label.className = 'sp1r4-share-label';
-    label.textContent = 'Share';
+    label.textContent = STR.share;
     sec.appendChild(label);
 
-    function mkLink(href, name, iconSvg, opts) {
+    function mkLink(href, name, iconSvg) {
       const a = document.createElement('a');
       a.className = 'sp1r4-share-btn';
       a.href = href;
-      if (opts && opts.newTab !== false) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
       a.innerHTML = iconSvg + '<span>' + name + '</span>';
       return a;
     }
@@ -561,129 +800,187 @@
       'https://www.linkedin.com/sharing/share-offsite/?url=' + enc(url),
       'LinkedIn', liIcon
     ));
-    // Insert before related-posts section if present, otherwise before footer
-    const related = document.querySelector('.sp1r4-related');
-    if (related && related.parentNode) {
-      related.parentNode.insertBefore(sec, related);
-    } else {
-      const footer = document.querySelector('footer');
-      if (footer && footer.parentNode) footer.parentNode.insertBefore(sec, footer);
-      else document.body.appendChild(sec);
-    }
+    appendEnd(sec);
   }
 
-  // 5. Series banner + 6. Related posts (depend on posts.json)
-  function setupPostsAware(posts) {
-    const slug = currentSlug();
-    const here = posts.find(p => p.slug === slug);
-    if (!here) return;
+  // 5. Series: banner under the title + prev/next cards at the end.
+  // Returns the slugs it already links, so "related" doesn't repeat them.
+  function setupSeries(posts, here) {
+    const shown = [];
+    if (!here.series) return shown;
+    const inSeries = posts
+      .filter(p => p.series === here.series)
+      .sort((a, b) => (a.series_order || 0) - (b.series_order || 0));
+    const idx = inSeries.findIndex(p => p.slug === here.slug);
+    if (idx < 0 || inSeries.length < 2) return shown;
 
-    if (here.series) {
-      const inSeries = posts
-        .filter(p => p.series === here.series)
-        .sort((a, b) => (a.series_order || 0) - (b.series_order || 0));
-      const idx = inSeries.findIndex(p => p.slug === slug);
-      if (idx >= 0 && inSeries.length > 1) {
-        const prev = inSeries[idx - 1];
-        const next = inSeries[idx + 1];
-        const banner = document.createElement('div');
-        banner.className = 'sp1r4-series';
-        const left = document.createElement('div');
-        const label = document.createElement('span');
-        label.className = 'sp1r4-series-label';
-        const seriesName = (here.series_name) || here.series;
-        label.textContent = 'Part ' + (idx + 1) + ' of ' + inSeries.length + ' · ' + seriesName;
-        left.appendChild(label);
-        const nav = document.createElement('div');
-        nav.className = 'sp1r4-series-nav';
-        const prevA = document.createElement('a');
-        prevA.textContent = '← ' + (prev ? prev.title : 'Start');
-        if (prev) {
-          prevA.href = (prev.html || '').split('/').pop() || '#';
-        } else {
-          prevA.setAttribute('aria-disabled', 'true');
-          prevA.href = '#';
-        }
-        const nextA = document.createElement('a');
-        nextA.textContent = (next ? next.title : 'End') + ' →';
-        if (next) {
-          nextA.href = (next.html || '').split('/').pop() || '#';
-        } else {
-          nextA.setAttribute('aria-disabled', 'true');
-          nextA.href = '#';
-        }
-        nav.appendChild(prevA);
-        nav.appendChild(nextA);
-        banner.appendChild(left);
-        banner.appendChild(nav);
-
-        const anchor = document.querySelector('.thesis-card, .post-header, h1.post-title, h1');
-        if (anchor && anchor.parentNode) {
-          if (anchor.classList.contains('thesis-card') || anchor.classList.contains('post-header')) {
-            anchor.parentNode.insertBefore(banner, anchor);
-          } else {
-            anchor.parentNode.insertBefore(banner, anchor.nextSibling);
-          }
-        } else {
-          document.body.insertBefore(banner, document.body.firstChild);
-        }
-      }
+    const prev = inSeries[idx - 1];
+    const next = inSeries[idx + 1];
+    if (prev) shown.push(prev.slug);
+    if (next) shown.push(next.slug);
+    const partText = STR.part(idx + 1, inSeries.length) + ' · ' + (here.series_name || here.series);
+    // The series index is itself a post; resolve through it to get its Greek twin.
+    let indexHref = null;
+    if (here.series_index) {
+      const indexPost = posts.find(p => p.html === here.series_index);
+      indexHref = indexPost ? hrefOf(indexPost) : baseName(here.series_index);
     }
 
-    // Related: same-tag, exclude current, exclude same-series duplicates of immediate prev/next
+    const banner = document.createElement('div');
+    banner.className = 'sp1r4-series';
+    const label = document.createElement('span');
+    label.className = 'sp1r4-series-label';
+    if (indexHref) {
+      const a = document.createElement('a');
+      a.href = indexHref;
+      a.textContent = partText;
+      label.appendChild(a);
+    } else {
+      label.textContent = partText;
+    }
+    const nav = document.createElement('div');
+    nav.className = 'sp1r4-series-nav';
+    function navLink(p, text) {
+      const a = document.createElement('a');
+      a.textContent = text;
+      if (p) a.href = hrefOf(p);
+      else a.setAttribute('aria-disabled', 'true');
+      return a;
+    }
+    nav.appendChild(navLink(prev, '← ' + (prev ? titleOf(prev) : STR.start)));
+    nav.appendChild(navLink(next, (next ? titleOf(next) : STR.end) + ' →'));
+    banner.appendChild(label);
+    banner.appendChild(nav);
+
+    const anchor = document.querySelector('.thesis-card, .post-header, h1.post-title, h1');
+    if (anchor && anchor.parentNode) {
+      if (anchor.classList.contains('thesis-card') || anchor.classList.contains('post-header')) {
+        anchor.parentNode.insertBefore(banner, anchor);
+      } else {
+        anchor.parentNode.insertBefore(banner, anchor.nextSibling);
+      }
+    } else {
+      document.body.insertBefore(banner, document.body.firstChild);
+    }
+
+    // End of article: where the reader actually decides what to open next.
+    const end = document.createElement('nav');
+    end.className = 'sp1r4-series-end';
+    end.setAttribute('aria-label', here.series_name || here.series);
+    const head = document.createElement('div');
+    head.className = 'sp1r4-series-end-head';
+    const headText = document.createElement('span');
+    headText.textContent = partText;
+    head.appendChild(headText);
+    if (indexHref) {
+      const all = document.createElement('a');
+      all.href = indexHref;
+      all.textContent = STR.allParts;
+      head.appendChild(all);
+    }
+    end.appendChild(head);
+    const grid = document.createElement('div');
+    grid.className = 'sp1r4-series-end-grid';
+    function card(p, dir, cls) {
+      const a = document.createElement('a');
+      a.className = 'sp1r4-series-end-card ' + cls;
+      a.href = hrefOf(p);
+      const d = document.createElement('div');
+      d.className = 'sp1r4-series-end-dir';
+      d.textContent = dir;
+      const t = document.createElement('div');
+      t.className = 'sp1r4-series-end-title';
+      t.textContent = titleOf(p);
+      a.appendChild(d);
+      a.appendChild(t);
+      return a;
+    }
+    if (prev) grid.appendChild(card(prev, '← ' + STR.prev, 'prev'));
+    if (next) grid.appendChild(card(next, STR.next + ' →', 'next'));
+    end.appendChild(grid);
+    appendEnd(end);
+    return shown;
+  }
+
+  // 6. Author card — the writeups built from the newer template end in a
+  // hand-written .cta-card; the HTB template has nothing, so the reader
+  // finishes the post with no idea who wrote it or how to reach them.
+  function setupAuthor() {
+    if (document.querySelector('.cta-card, .sp1r4-author')) return;
+    const box = document.createElement('aside');
+    box.className = 'sp1r4-author';
+    const label = document.createElement('div');
+    label.className = 'sp1r4-author-label';
+    label.textContent = STR.writtenBy;
+    const name = document.createElement('div');
+    name.className = 'sp1r4-author-name';
+    name.textContent = 'S. Markakis';
+    const bio = document.createElement('p');
+    bio.textContent = STR.authorBio;
+    const links = document.createElement('div');
+    links.className = 'sp1r4-author-links';
+    const a1 = document.createElement('a');
+    a1.href = IS_EL ? '/pentest-el.html' : '/pentest.html';
+    a1.textContent = STR.authorPentest;
+    const a2 = document.createElement('a');
+    a2.href = '/blog.html';
+    a2.textContent = STR.authorMore;
+    links.appendChild(a1);
+    links.appendChild(a2);
+    box.appendChild(label);
+    box.appendChild(name);
+    box.appendChild(bio);
+    box.appendChild(links);
+    appendEnd(box);
+  }
+
+  // 7. Related posts by tag overlap
+  function setupRelated(posts, here, exclude) {
+    const skip = new Set(exclude || []);
+    skip.add(here.slug);
     const tags = new Set(here.tags || []);
     const candidates = posts
-      .filter(p => p.slug !== slug)
-      .map(p => {
-        const overlap = (p.tags || []).filter(t => tags.has(t)).length;
-        return { p, overlap };
-      })
+      .filter(p => !skip.has(p.slug))
+      .map(p => ({ p, overlap: (p.tags || []).filter(t => tags.has(t)).length }))
       .filter(x => x.overlap > 0)
       .sort((a, b) => b.overlap - a.overlap || (b.p.date || '').localeCompare(a.p.date || ''))
       .slice(0, 3)
       .map(x => x.p);
+    if (!candidates.length) return;
 
-    if (candidates.length) {
-      const sec = document.createElement('section');
-      sec.className = 'sp1r4-related';
-      const h = document.createElement('h3');
-      h.textContent = 'Related writeups';
-      sec.appendChild(h);
-      const grid = document.createElement('div');
-      grid.className = 'sp1r4-related-grid';
-      candidates.forEach(p => {
-        const card = document.createElement('a');
-        card.className = 'sp1r4-related-card';
-        card.href = (p.html || '').split('/').pop() || '#';
-        const tag = document.createElement('div');
-        tag.className = 'sp1r4-related-tag';
-        tag.textContent = (p.tags && p.tags[0]) || '';
-        const t = document.createElement('div');
-        t.className = 'sp1r4-related-title';
-        t.textContent = p.title || p.slug;
-        const meta = document.createElement('div');
-        meta.className = 'sp1r4-related-meta';
-        const parts = [];
-        if (p.date) {
-          try { parts.push(new Date(p.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })); }
-          catch { parts.push(p.date); }
-        }
-        if (p.reading_time) parts.push(p.reading_time + ' min read');
-        meta.textContent = parts.join(' · ');
-        card.appendChild(tag);
-        card.appendChild(t);
-        card.appendChild(meta);
-        grid.appendChild(card);
-      });
-      sec.appendChild(grid);
-
-      const footer = document.querySelector('footer');
-      if (footer && footer.parentNode) {
-        footer.parentNode.insertBefore(sec, footer);
-      } else {
-        document.body.appendChild(sec);
+    const sec = document.createElement('section');
+    sec.className = 'sp1r4-related';
+    const h = document.createElement('h3');
+    h.textContent = STR.related;
+    sec.appendChild(h);
+    const grid = document.createElement('div');
+    grid.className = 'sp1r4-related-grid';
+    candidates.forEach(p => {
+      const card = document.createElement('a');
+      card.className = 'sp1r4-related-card';
+      card.href = hrefOf(p);
+      const tag = document.createElement('div');
+      tag.className = 'sp1r4-related-tag';
+      tag.textContent = (p.tags && p.tags[0]) || '';
+      const t = document.createElement('div');
+      t.className = 'sp1r4-related-title';
+      t.textContent = titleOf(p);
+      const meta = document.createElement('div');
+      meta.className = 'sp1r4-related-meta';
+      const parts = [];
+      if (p.date) {
+        try { parts.push(new Date(p.date + 'T00:00:00').toLocaleDateString(STR.locale, { month: 'short', day: 'numeric', year: 'numeric' })); }
+        catch { parts.push(p.date); }
       }
-    }
+      if (p.reading_time) parts.push(p.reading_time + STR.minRead);
+      meta.textContent = parts.join(' · ');
+      card.appendChild(tag);
+      card.appendChild(t);
+      card.appendChild(meta);
+      grid.appendChild(card);
+    });
+    sec.appendChild(grid);
+    appendEnd(sec);
   }
 
   function init() {
@@ -694,18 +991,20 @@
     setupCopyButtons();
     setupReadingResume();
     loadGlobalSearch();
+    // End-of-article order: series nav, author card, share, related.
     fetch(POSTS_URL, { cache: 'no-cache' })
       .then(r => r.ok ? r.json() : [])
+      .catch(() => [])
       .then(posts => {
-        let title = null;
-        if (Array.isArray(posts) && posts.length) {
-          const here = posts.find(p => p.slug === currentSlug());
-          if (here) title = here.title;
-          setupPostsAware(posts);
-        }
-        setupShare(title);
-      })
-      .catch(() => { setupShare(null); });
+        const file = currentSlug() + '.html';
+        const here = Array.isArray(posts)
+          ? posts.find(p => baseName(p.html) === file || baseName(p.html_el) === file)
+          : null;
+        const linked = here ? setupSeries(posts, here) : [];
+        setupAuthor();
+        setupShare(here ? titleOf(here) : null);
+        if (here) setupRelated(posts, here, linked);
+      });
   }
 
   if (document.readyState === 'loading') {

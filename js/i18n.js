@@ -764,7 +764,11 @@
       if (!a.dataset.hrefEn) a.dataset.hrefEn = a.getAttribute('href');
       a.setAttribute('href', currentLang === 'el' ? a.dataset.hrefEl : a.dataset.hrefEn);
     });
-    document.documentElement.setAttribute('lang', currentLang);
+    // Writeups are single-language documents (EN file / -el.html twin); the UI
+    // language must not relabel Greek prose as English or vice versa.
+    if (!location.pathname.includes('/writeups/')) {
+      document.documentElement.setAttribute('lang', currentLang);
+    }
   }
 
   function setLang(lang) {
