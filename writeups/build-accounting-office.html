@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Accounting Office Network — S. Markakis</title>
+<meta name="description" content="An accounting office on Cisco, built bottom-up in 11 tested steps around 802.1X: machine certificates from an auto-enrolling CA, NPS as RADIUS, IBNS 2.0 from monitor mode to closed mode, VLANs that follow the identity, MAB for phones and printers, critical auth so tax season survives a RADIUS outage, and seasonal staff who work only through a terminal server and expire on their own.">
+<meta property="og:title" content="Build: The Accounting Office Network — S. Markakis">
+<meta property="og:description" content="An accounting office on Cisco, built bottom-up in 11 tested steps around 802.1X: machine certificates from an auto-enrolling CA, NPS as RADIUS, IBNS 2.0 from monitor mode to closed mode, VLANs that follow the identity, MAB for phones and printers, critical auth so tax season survives a RADIUS outage, and seasonal staff who work only through a terminal server and expire on their own.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-accounting-office.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-accounting-office.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-accounting-office.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-accounting-office.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#b0453a;--v20:#3a7ca5;--v30:#4f8f4c;--v40:#8a5bb5;--v45:#2f8f8f;--v50:#d9822b;--v60:#c08020;--v99:#6f7f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Accounting Office Network",
+  "description": "An accounting office on Cisco, built bottom-up in 11 tested steps around 802.1X: machine certificates from an auto-enrolling CA, NPS as RADIUS, IBNS 2.0 from monitor mode to closed mode, VLANs that follow the identity, MAB for phones and printers, critical auth so tax season survives a RADIUS outage, and seasonal staff who work only through a terminal server and expire on their own.",
+  "datePublished": "2026-11-18",
+  "dateModified": "2026-11-18",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-accounting-office.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-accounting-office.png",
+  "keywords": [
+    "cisco",
+    "build",
+    "security",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-accounting-office"
+  },
+  "timeRequired": "PT47M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+<symbol id="lfi-dish" viewBox="-14 -14 28 28"><ellipse cx="-1" cy="-3" rx="10" ry="6" transform="rotate(-25)" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><ellipse cx="-1" cy="-3" rx="10" ry="6" transform="rotate(-25)" style="fill:currentColor;fill-opacity:.2;"/><path d="M0 2 V12 M-5 12 H5" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol><symbol id="lfi-radar" viewBox="-14 -14 28 28"><path d="M-11 -6 H11 L9 -2 H-9 Z" style="fill:currentColor;fill-opacity:.3;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M0 -2 V8 M-6 12 L0 8 L6 12" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol><symbol id="lfi-ship" viewBox="-18 -12 36 24"><path d="M-16 2 H16 L11 9 H-11 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-8" y="-6" width="14" height="8" style="fill:currentColor;fill-opacity:.25;stroke:currentColor;stroke-width:1.3;"/><path d="M-2 -6 V-10" style="stroke:currentColor;stroke-width:1.5;"/></symbol><symbol id="lfi-fuel" viewBox="-12 -14 24 28"><rect x="-8" y="-11" width="12" height="22" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-8" width="6" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M4 -6 H8 V6 Q8 9 5 9" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol></defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; Cisco IOS-XE &nbsp;·&nbsp; Real-World Network &nbsp;·&nbsp; November 2026</p>
+  <h1 class="post-title">Build: The<br>Accounting Office Network</h1>
+  <p class="post-subtitle">A 24-person accounting firm in Heraklion that holds the tax files, payroll and bank details of a few hundred businesses, and doubles its pace every spring. Six seasonal staff arrive in March; a client sits in the meeting room every hour. We build it on Cisco in 11 tested steps around one idea: the network decides what a device may reach from who the device is, proven by a certificate, and keeps working when the server that checks it doesn't.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">Cisco IOS-XE</span>
+    <span class="tag">802.1X</span>
+    <span class="tag">EAP-TLS</span>
+    <span class="tag">IBNS 2.0</span>
+    <span class="tag">NPS</span>
+    <span class="tag">ZBF</span>
+    <span class="tag">GDPR</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 560" role="img" aria-label="Interactive topology of the accounting office network: use the step slider to build it up, select a device to see its configuration">
+<rect x="30" y="225" width="330" height="275" rx="10" style="fill:none;stroke:var(--rule);stroke-width:1.4;"/>
+<text class="lft-name" x="40" y="242" style="fill:var(--body);">GROUND FLOOR · partners · comms room</text>
+<rect x="390" y="225" width="350" height="275" rx="10" style="fill:none;stroke:var(--rule);stroke-width:1.4;"/>
+<text class="lft-name" x="400" y="242" style="fill:var(--body);">FIRST FLOOR · staff · meeting room</text>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="230" y1="285" x2="540" y2="285" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="267.2" cy="285.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="502.8" cy="285.0" r="2.4"/>
+<text class="lft-port lft-c" x="385.0" y="279.0">Gi1/1/2 ⇄ Gi1/1/1 · trunk</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="380" y1="140" x2="230" y2="285" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="362.0" cy="157.4" r="2.4"/>
+<circle class="lft-led bx-led" cx="248.0" cy="267.6" r="2.4"/>
+<text class="lft-port lft-e" x="312.5" y="205.2">Gi0/0/1 ⇄ Gi1/1/1 · trunk</text>
+</g>
+<g class="bx-el" data-step="2">
+<line class="bx-line" pathLength="100" x1="380" y1="42" x2="380" y2="140" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="386.0" cy="53.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="386.0" cy="128.2" r="2.4"/>
+<text class="lft-port"  x="386.0" y="91.0">fibre /30</text>
+</g>
+<g class="bx-el" data-step="3">
+<line class="bx-line" pathLength="100" x1="230" y1="285" x2="75" y2="285" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="211.4" cy="285.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="93.6" cy="285.0" r="2.4"/>
+<text class="lft-port lft-c" x="152.5" y="279.0">Gi1/0/21-23 · V12</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="230" y1="285" x2="95" y2="440" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="213.8" cy="303.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="111.2" cy="421.4" r="2.4"/>
+<text class="lft-port lft-e" x="162.5" y="362.5">V10 by NPS</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="540" y1="285" x2="445" y2="440" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="528.6" cy="303.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="456.4" cy="421.4" r="2.4"/>
+<text class="lft-port lft-e" x="492.5" y="362.5">V20 by NPS</text>
+</g>
+<g class="bx-el" data-step="6">
+<line class="bx-blink" x1="540" y1="285" x2="640" y2="455" style="stroke:var(--accent);stroke-width:1.6;stroke-dasharray:4,4;"/>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="230" y1="285" x2="190" y2="450" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="225.2" cy="304.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="194.8" cy="430.2" r="2.4"/>
+<text class="lft-port"  x="206.0" y="384.0">MAB · V40</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="230" y1="285" x2="285" y2="450" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="236.6" cy="304.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="278.4" cy="430.2" r="2.4"/>
+<text class="lft-port"  x="263.0" y="384.0">MAB · voice</text>
+</g>
+<g class="bx-el" data-step="9">
+<line class="bx-line" pathLength="100" x1="540" y1="285" x2="680" y2="285" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="556.8" cy="285.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="663.2" cy="285.0" r="2.4"/>
+<text class="lft-port lft-c" x="610.0" y="279.0">Gi1/0/24 · trunk</text>
+</g>
+<g class="bx-el" data-step="9">
+<line class="bx-blink" x1="680" y1="285" x2="700" y2="395" style="stroke:var(--defender);stroke-width:2;stroke-dasharray:2,4;"/>
+</g>
+<g class="bx-el" data-step="11">
+<line class="bx-line" pathLength="100" x1="540" y1="285" x2="545" y2="440" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="540.6" cy="303.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="544.4" cy="421.4" r="2.4"/>
+<text class="lft-port"  x="543.0" y="378.0">V25 by NPS</text>
+</g>
+<g class="bx-el bx-dev" data-step="2"><circle class="bx-ring lft-ring" cx="380" cy="42" r="56"/><use href="#lfi-cloud" x="328" y="18" width="104" height="48" style="color:var(--defender);"/><text class="lft-name lft-c" x="380" y="47" style="fill:var(--defender);">Internet</text></g>
+<g class="bx-el bx-dev bx-cfg" data-step="2" data-dev="r1" tabindex="0" role="button" aria-label="Show the configuration of R1">
+<circle class="bx-ring lft-ring" cx="380" cy="140" r="32"/>
+<circle class="bx-sel" cx="380" cy="140" r="28"/>
+<use href="#lfi-router" x="357" y="124" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="411" y="139">R1</text>
+<text class="lft-chip" x="411" y="149" style="fill:var(--body);">C8200 · ZBF · NAT</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="sw1" tabindex="0" role="button" aria-label="Show the configuration of SW1">
+<circle class="bx-ring lft-ring" cx="230" cy="285" r="32"/>
+<circle class="bx-sel" cx="230" cy="285" r="28"/>
+<use href="#lfi-l2" x="205" y="274" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="230" y="310">SW1</text>
+<text class="lft-chip lft-c" x="230" y="320" style="fill:var(--body);">C9200L-24P-4G</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="sw2" tabindex="0" role="button" aria-label="Show the configuration of SW2">
+<circle class="bx-ring lft-ring" cx="540" cy="285" r="32"/>
+<circle class="bx-sel" cx="540" cy="285" r="28"/>
+<use href="#lfi-l2" x="515" y="274" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="540" y="310">SW2</text>
+<text class="lft-chip lft-c" x="540" y="320" style="fill:var(--body);">C9200L-24P-4G</text>
+</g>
+<g class="bx-el bx-dev" data-step="3">
+<circle class="bx-ring lft-ring" cx="75" cy="285" r="26"/>
+<use href="#lfi-server" x="64" y="269" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="75" y="315">DC · NPS · CA</text>
+<text class="lft-chip lft-c" x="75" y="325" style="fill:var(--body);">Files · RDS · V12</text>
+</g>
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="95" cy="440" r="24"/>
+<use href="#lfi-pc" x="81" y="426" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="95" y="468">Partners</text>
+<text class="lft-chip lft-c" x="95" y="478" style="fill:var(--v10);">EAP-TLS · V10</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="190" cy="450" r="22"/>
+<use href="#lfi-printer" x="175" y="437" width="30" height="26" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="190" y="477">MFPs</text>
+<text class="lft-chip lft-c" x="190" y="487" style="fill:var(--v40);">V40</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="285" cy="450" r="20"/>
+<use href="#lfi-phone" x="274" y="439" width="22" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="285" y="475">Phones</text>
+<text class="lft-chip lft-c" x="285" y="485" style="fill:var(--v30);">V30</text>
+</g>
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="445" cy="440" r="24"/>
+<use href="#lfi-pc" x="431" y="426" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="445" y="468">Staff</text>
+<text class="lft-chip lft-c" x="445" y="478" style="fill:var(--v20);">EAP-TLS · V20</text>
+</g>
+<g class="bx-el bx-dev" data-step="11">
+<circle class="bx-ring lft-ring" cx="545" cy="440" r="24"/>
+<use href="#lfi-laptop" x="529" y="428" width="32" height="24" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="545" y="466">Seasonal ×6</text>
+<text class="lft-chip lft-c" x="545" y="476" style="fill:var(--v50);">RDS only · V25</text>
+</g>
+<g class="bx-el bx-dev" data-step="6">
+<circle class="bx-ring lft-ring" cx="640" cy="455" r="24"/>
+<use href="#lfi-laptop" x="624" y="443" width="32" height="24" style="color:var(--accent);"/>
+<text class="lft-name lft-c" x="640" y="481">Unknown laptop</text>
+<text class="lft-chip lft-c" x="640" y="491" style="fill:var(--accent);">no cert · no MAC → nothing</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="9" data-dev="ewc" tabindex="0" role="button" aria-label="Show the configuration of AP + EWC">
+<circle class="bx-ring lft-ring" cx="680" cy="285" r="28"/>
+<circle class="bx-sel" cx="680" cy="285" r="24"/>
+<use href="#lfi-ap" x="663" y="272" width="34" height="26" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="680" y="312">AP + EWC</text>
+<text class="lft-chip lft-c" x="680" y="322" style="fill:var(--body);">2× C9115AXI</text>
+</g>
+<g class="bx-el bx-dev" data-step="9">
+<circle class="bx-ring lft-ring" cx="700" cy="395" r="20"/>
+<use href="#lfi-phone" x="689" y="384" width="22" height="22" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="700" y="420">Clients</text>
+<text class="lft-chip lft-c" x="700" y="430" style="fill:var(--v60);">MEETING · V50</text>
+</g>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 11 steps built</text>
+<text class="lft-chip" x="20" y="548">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="11" value="11" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The Switches: VLANs, Uplinks, DHCP Snooping", "adds": "SW1, SW2"}, {"n": 2, "title": "The Router: One Trunk, Nine Gateways", "adds": "R1, Internet"}, {"n": 3, "title": "Identity: A CA, NPS and Auto-Enrolled Certificates", "adds": "DC · NPS · CA, Files · RDS"}, {"n": 4, "title": "AAA: Teaching the Switches to Ask", "adds": "policy / services"}, {"n": 5, "title": "Monitor Mode: Authenticate Everything, Block Nothing", "adds": "Partner PCs, Staff PCs"}, {"n": 6, "title": "Closed Mode: The VLAN Follows the Identity", "adds": "Unknown laptop"}, {"n": 7, "title": "Phones and Printers: MAB, Done Carefully", "adds": "Phones, Printers"}, {"n": 8, "title": "When NPS Is Down in April: Critical Auth", "adds": "policy / services"}, {"n": 9, "title": "Wi-Fi: The Same Certificate, WPA3-Enterprise", "adds": "AP + EWC, Meeting room"}, {"n": 10, "title": "The Firewall Between the Desks", "adds": "policy / services"}, {"n": 11, "title": "Seasonal Staff, Leavers and Evidence", "adds": "Seasonal temps"}], "devices": {"sw1": "SW1", "sw2": "SW2", "r1": "R1", "ewc": "EWC"}, "configs": {"sw1": [{"step": 1, "title": "The Switches: VLANs, Uplinks, DHCP Snooping", "label": "SW1 — C9200L-24P-4G · ground floor", "text": "hostname SW1\n! keeps its own VLAN list; ignores VTP from the wire\nvtp mode transparent\nspanning-tree mode rapid-pvst\nvlan 10\n name PARTNERS\nvlan 12\n name SERVERS\nvlan 20\n name STAFF\nvlan 25\n name TEMP\nvlan 30\n name VOICE\nvlan 40\n name PRINT\nvlan 50\n name GUEST\nvlan 60\n name CRIT\nvlan 99\n name MGMT\nvlan 999\n name PARKING\n! only the uplinks may answer DHCP; a laptop running a DHCP server is ignored\nip dhcp snooping vlan 10,20,25,30,40,60\nno ip dhcp snooping information option\nip dhcp snooping\ninterface GigabitEthernet1/1/1\n description UPLINK to R1 Gi0/0/1\n switchport mode trunk\n switchport nonegotiate\n switchport trunk allowed vlan 10,12,20,25,30,40,50,60,99\n ip dhcp snooping trust\ninterface GigabitEthernet1/1/2\n description DOWNLINK to SW2 Gi1/1/1\n switchport mode trunk\n switchport nonegotiate\n switchport trunk allowed vlan 10,12,20,25,30,40,50,60,99\n ip dhcp snooping trust\n! comms room: locked, so the servers' ports are static\ninterface range GigabitEthernet1/0/21 - 23\n description SERVERS (DC-NPS-CA, FILES-ACCT, RDS)\n switchport mode access\n switchport access vlan 12\n spanning-tree portfast\ninterface GigabitEthernet1/0/24\n description AP (EWC on the ground floor AP)\n switchport mode trunk\n switchport trunk native vlan 99\n switchport trunk allowed vlan 10,20,25,50,99\n spanning-tree portfast trunk\n! desks: phone + PC. TEMPORARY static VLAN 20, replaced by RADIUS in step 6\ninterface range GigabitEthernet1/0/1 - 20\n description DESK (phone + PC)\n switchport mode access\n switchport access vlan 20\n switchport voice vlan 30\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface Vlan99\n ip address 10.60.99.11 255.255.255.0\nip default-gateway 10.60.99.1"}, {"step": 4, "title": "AAA: Teaching the Switches to Ask", "label": "SW1 — C9200L-24P-4G · ground floor", "text": "! local admin first: aaa new-model applies to the console too\nusername netadmin privilege 15 algorithm-type scrypt secret ********\naaa new-model\nradius server NPS1\n address ipv4 10.60.12.10 auth-port 1812 acct-port 1813\n key ********\n! a test login every few minutes, so a recovered NPS is noticed (step 8)\n automate-tester username radius-probe idle-time 1 probe-on\naaa group server radius NPS\n server name NPS1\n ip radius source-interface Vlan99\naaa authentication login default local\naaa authentication dot1x default group NPS\naaa authorization network default group NPS\naaa accounting identity default start-stop group NPS\n! three silent tries in five seconds = dead; retry after three minutes\nradius-server dead-criteria time 5 tries 3\nradius-server deadtime 3\nradius-server attribute 6 on-for-login-auth\nradius-server attribute 8 include-in-access-req\nradius-server attribute 25 access-request include\nradius-server vsa send authentication\nradius-server vsa send accounting\ndot1x system-auth-control\n! learns each client's IP for the session table and accounting\ndevice-tracking policy DT-NAC\n tracking enable"}, {"step": 5, "title": "Monitor Mode: Authenticate Everything, Block Nothing", "label": "SW1 — C9200L-24P-4G · ground floor", "text": "class-map type control subscriber match-all DOT1X_NO_RESP\n match method dot1x\n match result-type method dot1x agent-not-found\nclass-map type control subscriber match-all DOT1X_FAILED\n match method dot1x\n match result-type method dot1x authoritative\nclass-map type control subscriber match-all MAB_FAILED\n match method mab\n match result-type method mab authoritative\npolicy-map type control subscriber OFFICE-NAC\n event session-started match-all\n  10 class always do-until-failure\n   10 authenticate using dot1x priority 10\n! entry 10 is left free: step 8 puts 'NPS is down' there, ahead of these\n event authentication-failure match-first\n  20 class DOT1X_NO_RESP do-until-failure\n   10 terminate dot1x\n   20 authenticate using mab priority 20\n  30 class DOT1X_FAILED do-until-failure\n   10 terminate dot1x\n   20 authentication-restart 60\n  40 class MAB_FAILED do-until-failure\n   10 terminate mab\n   20 authentication-restart 60\n  50 class always do-until-failure\n   10 terminate dot1x\n   20 terminate mab\n   30 authentication-restart 60\n event agent-found match-all\n  10 class always do-until-failure\n   10 terminate mab\n   20 authenticate using dot1x priority 10\ninterface range GigabitEthernet1/0/1 - 20\n device-tracking attach-policy DT-NAC\n dot1x pae authenticator\n! no answer to 2 x 7 s of EAPOL = not a supplicant: try MAB after ~20 s, not 90\n dot1x timeout tx-period 7\n dot1x max-reauth-req 2\n mab\n access-session host-mode multi-domain\n access-session port-control auto\n! no 'access-session closed' yet: open mode, everything still works while we watch\n service-policy type control subscriber OFFICE-NAC"}, {"step": 6, "title": "Closed Mode: The VLAN Follows the Identity", "label": "SW1 — C9200L-24P-4G · ground floor", "text": "interface range GigabitEthernet1/0/1 - 20\n! an authenticated session with no VLAN from NPS lands in PARKING, not in STAFF\n switchport access vlan 999\n! from now on, nothing but EAPOL until the session is authorised\n access-session closed\n! re-check every session when NPS's Session-Timeout says so (8 h)\n authentication periodic\n authentication timer reauthenticate server"}, {"step": 7, "title": "Phones and Printers: MAB, Done Carefully", "label": "SW1 — C9200L-24P-4G · ground floor", "text": "! phones learn VLAN 30 by LLDP-MED; NPS's device-traffic-class=voice opens it\nlldp run\n! MAB sends the MAC as the user name: aabbccddeeff, no separators, lower case\nmab request format attribute 1 groupsize 12 separator - lowercase\n! printers and phones are normal desk ports: same policy, MAB after dot1x times out"}, {"step": 8, "title": "When NPS Is Down in April: Critical Auth", "label": "SW1 — C9200L-24P-4G · ground floor", "text": "service-template CRIT-DATA\n vlan 60\nclass-map type control subscriber match-all AAA_DOWN_UNAUTHD\n match result-type aaa-timeout\n match authorization-status unauthorized\nclass-map type control subscriber match-all AAA_DOWN_AUTHD\n match result-type aaa-timeout\n match authorization-status authorized\nclass-map type control subscriber match-any IN_CRIT\n match activated-service-template CRIT-DATA\n match activated-service-template DEFAULT_CRITICAL_VOICE_TEMPLATE\npolicy-map type control subscriber OFFICE-NAC\n event authentication-failure match-first\n! NPS unreachable, new device: CRIT VLAN for data, voice keeps working\n  10 class AAA_DOWN_UNAUTHD do-until-failure\n   10 activate service-template CRIT-DATA\n   20 activate service-template DEFAULT_CRITICAL_VOICE_TEMPLATE\n   30 authorize\n   40 pause reauthentication\n! NPS unreachable at reauth time: keep what it already granted\n  15 class AAA_DOWN_AUTHD do-until-failure\n   10 pause reauthentication\n   20 authorize\n event aaa-available match-all\n! NPS is back: throw out the critical sessions so they authenticate properly\n  10 class IN_CRIT do-until-failure\n   10 clear-session\n  20 class always do-until-failure\n   10 resume reauthentication"}, {"step": 11, "title": "Seasonal Staff, Leavers and Evidence", "label": "SW1 — C9200L-24P-4G · ground floor", "text": "! interim accounting: where each session is, every 24 h and on any change\naaa accounting update newinfo periodic 1440\n! session start, success, failure and the reason, to syslog\nepm logging\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\nservice timestamps log datetime msec localtime show-timezone\nntp server 10.60.12.10\nlogging host 10.60.12.10\nlogging trap informational\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}], "sw2": [{"step": 1, "title": "The Switches: VLANs, Uplinks, DHCP Snooping", "label": "SW2 — C9200L-24P-4G · first floor", "text": "hostname SW2\n! keeps its own VLAN list; ignores VTP from the wire\nvtp mode transparent\nspanning-tree mode rapid-pvst\nvlan 10\n name PARTNERS\nvlan 12\n name SERVERS\nvlan 20\n name STAFF\nvlan 25\n name TEMP\nvlan 30\n name VOICE\nvlan 40\n name PRINT\nvlan 50\n name GUEST\nvlan 60\n name CRIT\nvlan 99\n name MGMT\nvlan 999\n name PARKING\n! only the uplinks may answer DHCP; a laptop running a DHCP server is ignored\nip dhcp snooping vlan 10,20,25,30,40,60\nno ip dhcp snooping information option\nip dhcp snooping\ninterface GigabitEthernet1/1/1\n description UPLINK to SW1 Gi1/1/2\n switchport mode trunk\n switchport nonegotiate\n switchport trunk allowed vlan 10,12,20,25,30,40,50,60,99\n ip dhcp snooping trust\ninterface GigabitEthernet1/0/24\n description AP (EWC on the ground floor AP)\n switchport mode trunk\n switchport trunk native vlan 99\n switchport trunk allowed vlan 10,20,25,50,99\n spanning-tree portfast trunk\n! desks: phone + PC. TEMPORARY static VLAN 20, replaced by RADIUS in step 6\ninterface range GigabitEthernet1/0/1 - 20\n description DESK (phone + PC)\n switchport mode access\n switchport access vlan 20\n switchport voice vlan 30\n spanning-tree portfast\n spanning-tree bpduguard enable\ninterface Vlan99\n ip address 10.60.99.12 255.255.255.0\nip default-gateway 10.60.99.1"}, {"step": 4, "title": "AAA: Teaching the Switches to Ask", "label": "SW2 — C9200L-24P-4G · first floor", "text": "! local admin first: aaa new-model applies to the console too\nusername netadmin privilege 15 algorithm-type scrypt secret ********\naaa new-model\nradius server NPS1\n address ipv4 10.60.12.10 auth-port 1812 acct-port 1813\n key ********\n! a test login every few minutes, so a recovered NPS is noticed (step 8)\n automate-tester username radius-probe idle-time 1 probe-on\naaa group server radius NPS\n server name NPS1\n ip radius source-interface Vlan99\naaa authentication login default local\naaa authentication dot1x default group NPS\naaa authorization network default group NPS\naaa accounting identity default start-stop group NPS\n! three silent tries in five seconds = dead; retry after three minutes\nradius-server dead-criteria time 5 tries 3\nradius-server deadtime 3\nradius-server attribute 6 on-for-login-auth\nradius-server attribute 8 include-in-access-req\nradius-server attribute 25 access-request include\nradius-server vsa send authentication\nradius-server vsa send accounting\ndot1x system-auth-control\n! learns each client's IP for the session table and accounting\ndevice-tracking policy DT-NAC\n tracking enable"}, {"step": 5, "title": "Monitor Mode: Authenticate Everything, Block Nothing", "label": "SW2 — C9200L-24P-4G · first floor", "text": "class-map type control subscriber match-all DOT1X_NO_RESP\n match method dot1x\n match result-type method dot1x agent-not-found\nclass-map type control subscriber match-all DOT1X_FAILED\n match method dot1x\n match result-type method dot1x authoritative\nclass-map type control subscriber match-all MAB_FAILED\n match method mab\n match result-type method mab authoritative\npolicy-map type control subscriber OFFICE-NAC\n event session-started match-all\n  10 class always do-until-failure\n   10 authenticate using dot1x priority 10\n! entry 10 is left free: step 8 puts 'NPS is down' there, ahead of these\n event authentication-failure match-first\n  20 class DOT1X_NO_RESP do-until-failure\n   10 terminate dot1x\n   20 authenticate using mab priority 20\n  30 class DOT1X_FAILED do-until-failure\n   10 terminate dot1x\n   20 authentication-restart 60\n  40 class MAB_FAILED do-until-failure\n   10 terminate mab\n   20 authentication-restart 60\n  50 class always do-until-failure\n   10 terminate dot1x\n   20 terminate mab\n   30 authentication-restart 60\n event agent-found match-all\n  10 class always do-until-failure\n   10 terminate mab\n   20 authenticate using dot1x priority 10\ninterface range GigabitEthernet1/0/1 - 20\n device-tracking attach-policy DT-NAC\n dot1x pae authenticator\n! no answer to 2 x 7 s of EAPOL = not a supplicant: try MAB after ~20 s, not 90\n dot1x timeout tx-period 7\n dot1x max-reauth-req 2\n mab\n access-session host-mode multi-domain\n access-session port-control auto\n! no 'access-session closed' yet: open mode, everything still works while we watch\n service-policy type control subscriber OFFICE-NAC"}, {"step": 6, "title": "Closed Mode: The VLAN Follows the Identity", "label": "SW2 — C9200L-24P-4G · first floor", "text": "interface range GigabitEthernet1/0/1 - 20\n! an authenticated session with no VLAN from NPS lands in PARKING, not in STAFF\n switchport access vlan 999\n! from now on, nothing but EAPOL until the session is authorised\n access-session closed\n! re-check every session when NPS's Session-Timeout says so (8 h)\n authentication periodic\n authentication timer reauthenticate server"}, {"step": 7, "title": "Phones and Printers: MAB, Done Carefully", "label": "SW2 — C9200L-24P-4G · first floor", "text": "! phones learn VLAN 30 by LLDP-MED; NPS's device-traffic-class=voice opens it\nlldp run\n! MAB sends the MAC as the user name: aabbccddeeff, no separators, lower case\nmab request format attribute 1 groupsize 12 separator - lowercase\n! printers and phones are normal desk ports: same policy, MAB after dot1x times out"}, {"step": 8, "title": "When NPS Is Down in April: Critical Auth", "label": "SW2 — C9200L-24P-4G · first floor", "text": "service-template CRIT-DATA\n vlan 60\nclass-map type control subscriber match-all AAA_DOWN_UNAUTHD\n match result-type aaa-timeout\n match authorization-status unauthorized\nclass-map type control subscriber match-all AAA_DOWN_AUTHD\n match result-type aaa-timeout\n match authorization-status authorized\nclass-map type control subscriber match-any IN_CRIT\n match activated-service-template CRIT-DATA\n match activated-service-template DEFAULT_CRITICAL_VOICE_TEMPLATE\npolicy-map type control subscriber OFFICE-NAC\n event authentication-failure match-first\n! NPS unreachable, new device: CRIT VLAN for data, voice keeps working\n  10 class AAA_DOWN_UNAUTHD do-until-failure\n   10 activate service-template CRIT-DATA\n   20 activate service-template DEFAULT_CRITICAL_VOICE_TEMPLATE\n   30 authorize\n   40 pause reauthentication\n! NPS unreachable at reauth time: keep what it already granted\n  15 class AAA_DOWN_AUTHD do-until-failure\n   10 pause reauthentication\n   20 authorize\n event aaa-available match-all\n! NPS is back: throw out the critical sessions so they authenticate properly\n  10 class IN_CRIT do-until-failure\n   10 clear-session\n  20 class always do-until-failure\n   10 resume reauthentication"}, {"step": 11, "title": "Seasonal Staff, Leavers and Evidence", "label": "SW2 — C9200L-24P-4G · first floor", "text": "! interim accounting: where each session is, every 24 h and on any change\naaa accounting update newinfo periodic 1440\n! session start, success, failure and the reason, to syslog\nepm logging\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\nservice timestamps log datetime msec localtime show-timezone\nntp server 10.60.12.10\nlogging host 10.60.12.10\nlogging trap informational\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}], "r1": [{"step": 2, "title": "The Router: One Trunk, Nine Gateways", "label": "R1 — C8200-1N-4T", "text": "hostname R1\ninterface GigabitEthernet0/0/0\n description WAN fibre (static /30)\n ip address 203.0.113.18 255.255.255.252\n ip nat outside\ninterface GigabitEthernet0/0/1\n description TRUNK to SW1 Gi1/1/1\n no shutdown\ninterface GigabitEthernet0/0/1.10\n encapsulation dot1Q 10\n description PARTNERS\n ip address 10.60.10.1 255.255.255.0\n ip helper-address 10.60.12.10\n ip nat inside\ninterface GigabitEthernet0/0/1.12\n encapsulation dot1Q 12\n description SERVERS\n ip address 10.60.12.1 255.255.255.0\n ip nat inside\ninterface GigabitEthernet0/0/1.20\n encapsulation dot1Q 20\n description STAFF\n ip address 10.60.20.1 255.255.255.0\n ip helper-address 10.60.12.10\n ip nat inside\ninterface GigabitEthernet0/0/1.25\n encapsulation dot1Q 25\n description TEMP\n ip address 10.60.25.1 255.255.255.0\n ip helper-address 10.60.12.10\n ip nat inside\ninterface GigabitEthernet0/0/1.30\n encapsulation dot1Q 30\n description VOICE\n ip address 10.60.30.1 255.255.255.0\n ip helper-address 10.60.12.10\n ip nat inside\ninterface GigabitEthernet0/0/1.40\n encapsulation dot1Q 40\n description PRINT\n ip address 10.60.40.1 255.255.255.0\n ip helper-address 10.60.12.10\n ip nat inside\ninterface GigabitEthernet0/0/1.50\n encapsulation dot1Q 50\n description GUEST\n ip address 10.60.50.1 255.255.255.0\n ip nat inside\ninterface GigabitEthernet0/0/1.60\n encapsulation dot1Q 60\n description CRIT\n ip address 10.60.60.1 255.255.255.0\n ip helper-address 10.60.12.10\n ip nat inside\ninterface GigabitEthernet0/0/1.99\n encapsulation dot1Q 99 native\n description MGMT\n ip address 10.60.99.1 255.255.255.0\n ip nat inside\n! guests get DHCP from the router, never from the domain controller\nip dhcp excluded-address 10.60.50.1 10.60.50.9\nip dhcp pool GUEST\n network 10.60.50.0 255.255.255.0\n default-router 10.60.50.1\n dns-server 9.9.9.9 149.112.112.112\n lease 0 4\nip access-list standard NAT-IN\n permit 10.60.0.0 0.0.255.255\nip nat inside source list NAT-IN interface GigabitEthernet0/0/0 overload\nip route 0.0.0.0 0.0.0.0 203.0.113.17"}, {"step": 10, "title": "The Firewall Between the Desks", "label": "R1 — C8200-1N-4T", "text": "zone security PARTNERS\nzone security SERVERS\nzone security STAFF\nzone security TEMP\nzone security VOICE\nzone security PRINT\nzone security GUEST\nzone security CRIT\nzone security MGMT\nzone security OUTSIDE\nip access-list extended PARTNERS-SERVERS\n permit ip any 10.60.12.0 0.0.0.255\nclass-map type inspect match-any PARTNERS-SERVERS\n match access-group name PARTNERS-SERVERS\npolicy-map type inspect PARTNERS-SERVERS\n class type inspect PARTNERS-SERVERS\n  inspect\n class class-default\n  drop log\nzone-pair security PARTNERS-SERVERS source PARTNERS destination SERVERS\n service-policy type inspect PARTNERS-SERVERS\nip access-list extended PARTNERS-PRINT\n permit tcp any 10.60.40.0 0.0.0.255 eq 9100\n permit tcp any 10.60.40.0 0.0.0.255 eq 631\n permit tcp any 10.60.40.0 0.0.0.255 eq 443\nclass-map type inspect match-any PARTNERS-PRINT\n match access-group name PARTNERS-PRINT\npolicy-map type inspect PARTNERS-PRINT\n class type inspect PARTNERS-PRINT\n  inspect\n class class-default\n  drop log\nzone-pair security PARTNERS-PRINT source PARTNERS destination PRINT\n service-policy type inspect PARTNERS-PRINT\nip access-list extended PARTNERS-OUTSIDE\n permit ip any any\nclass-map type inspect match-any PARTNERS-OUTSIDE\n match access-group name PARTNERS-OUTSIDE\npolicy-map type inspect PARTNERS-OUTSIDE\n class type inspect PARTNERS-OUTSIDE\n  inspect\n class class-default\n  drop log\nzone-pair security PARTNERS-OUTSIDE source PARTNERS destination OUTSIDE\n service-policy type inspect PARTNERS-OUTSIDE\nip access-list extended STAFF-SERVERS\n remark not the RDS host: that is for temps\n deny ip any host 10.60.12.25\n permit ip any 10.60.12.0 0.0.0.255\nclass-map type inspect match-any STAFF-SERVERS\n match access-group name STAFF-SERVERS\npolicy-map type inspect STAFF-SERVERS\n class type inspect STAFF-SERVERS\n  inspect\n class class-default\n  drop log\nzone-pair security STAFF-SERVERS source STAFF destination SERVERS\n service-policy type inspect STAFF-SERVERS\nip access-list extended STAFF-PRINT\n permit tcp any 10.60.40.0 0.0.0.255 eq 9100\n permit tcp any 10.60.40.0 0.0.0.255 eq 631\n permit tcp any 10.60.40.0 0.0.0.255 eq 443\nclass-map type inspect match-any STAFF-PRINT\n match access-group name STAFF-PRINT\npolicy-map type inspect STAFF-PRINT\n class type inspect STAFF-PRINT\n  inspect\n class class-default\n  drop log\nzone-pair security STAFF-PRINT source STAFF destination PRINT\n service-policy type inspect STAFF-PRINT\nip access-list extended STAFF-OUTSIDE\n permit ip any any\nclass-map type inspect match-any STAFF-OUTSIDE\n match access-group name STAFF-OUTSIDE\npolicy-map type inspect STAFF-OUTSIDE\n class type inspect STAFF-OUTSIDE\n  inspect\n class class-default\n  drop log\nzone-pair security STAFF-OUTSIDE source STAFF destination OUTSIDE\n service-policy type inspect STAFF-OUTSIDE\nip access-list extended TEMP-SERVERS\n remark temps work on the RDS host; client files never reach their laptop\n permit tcp any host 10.60.12.25 eq 3389\n permit udp any host 10.60.12.25 eq 3389\n permit udp any host 10.60.12.10 eq domain\nclass-map type inspect match-any TEMP-SERVERS\n match access-group name TEMP-SERVERS\npolicy-map type inspect TEMP-SERVERS\n class type inspect TEMP-SERVERS\n  inspect\n class class-default\n  drop log\nzone-pair security TEMP-SERVERS source TEMP destination SERVERS\n service-policy type inspect TEMP-SERVERS\nip access-list extended TEMP-OUTSIDE\n permit tcp any any eq 443\n permit tcp any any eq www\nclass-map type inspect match-any TEMP-OUTSIDE\n match access-group name TEMP-OUTSIDE\npolicy-map type inspect TEMP-OUTSIDE\n class type inspect TEMP-OUTSIDE\n  inspect\n class class-default\n  drop log\nzone-pair security TEMP-OUTSIDE source TEMP destination OUTSIDE\n service-policy type inspect TEMP-OUTSIDE\nip access-list extended PRINT-SERVERS\n remark scan-to-folder only\n permit tcp any host 10.60.12.20 eq 445\n permit udp any host 10.60.12.10 eq domain\nclass-map type inspect match-any PRINT-SERVERS\n match access-group name PRINT-SERVERS\npolicy-map type inspect PRINT-SERVERS\n class type inspect PRINT-SERVERS\n  inspect\n class class-default\n  drop log\nzone-pair security PRINT-SERVERS source PRINT destination SERVERS\n service-policy type inspect PRINT-SERVERS\nip access-list extended VOICE-OUTSIDE\n remark SIP trunk provider only\n permit udp any 192.0.2.0 0.0.0.255\nclass-map type inspect match-any VOICE-OUTSIDE\n match access-group name VOICE-OUTSIDE\npolicy-map type inspect VOICE-OUTSIDE\n class type inspect VOICE-OUTSIDE\n  inspect\n class class-default\n  drop log\nzone-pair security VOICE-OUTSIDE source VOICE destination OUTSIDE\n service-policy type inspect VOICE-OUTSIDE\nip access-list extended GUEST-OUTSIDE\n permit tcp any any eq 443\n permit tcp any any eq www\n permit udp any any eq domain\nclass-map type inspect match-any GUEST-OUTSIDE\n match access-group name GUEST-OUTSIDE\npolicy-map type inspect GUEST-OUTSIDE\n class type inspect GUEST-OUTSIDE\n  inspect\n class class-default\n  drop log\nzone-pair security GUEST-OUTSIDE source GUEST destination OUTSIDE\n service-policy type inspect GUEST-OUTSIDE\nip access-list extended CRIT-SERVERS\n remark NPS down: domain controller and the accounting files, nothing else\n permit ip any host 10.60.12.10\n permit ip any host 10.60.12.20\nclass-map type inspect match-any CRIT-SERVERS\n match access-group name CRIT-SERVERS\npolicy-map type inspect CRIT-SERVERS\n class type inspect CRIT-SERVERS\n  inspect\n class class-default\n  drop log\nzone-pair security CRIT-SERVERS source CRIT destination SERVERS\n service-policy type inspect CRIT-SERVERS\nip access-list extended SERVERS-OUTSIDE\n remark updates and the off-site backup\n permit tcp any any eq 443\nclass-map type inspect match-any SERVERS-OUTSIDE\n match access-group name SERVERS-OUTSIDE\npolicy-map type inspect SERVERS-OUTSIDE\n class type inspect SERVERS-OUTSIDE\n  inspect\n class class-default\n  drop log\nzone-pair security SERVERS-OUTSIDE source SERVERS destination OUTSIDE\n service-policy type inspect SERVERS-OUTSIDE\nip access-list extended MGMT-SERVERS\n remark RADIUS, syslog, NTP from switches and the EWC\n permit udp any host 10.60.12.10 eq 1812\n permit udp any host 10.60.12.10 eq 1813\n permit udp any host 10.60.12.10 eq syslog\n permit udp any host 10.60.12.10 eq ntp\nclass-map type inspect match-any MGMT-SERVERS\n match access-group name MGMT-SERVERS\npolicy-map type inspect MGMT-SERVERS\n class type inspect MGMT-SERVERS\n  inspect\n class class-default\n  drop log\nzone-pair security MGMT-SERVERS source MGMT destination SERVERS\n service-policy type inspect MGMT-SERVERS\ninterface GigabitEthernet0/0/1.10\n zone-member security PARTNERS\ninterface GigabitEthernet0/0/1.12\n zone-member security SERVERS\ninterface GigabitEthernet0/0/1.20\n zone-member security STAFF\ninterface GigabitEthernet0/0/1.25\n zone-member security TEMP\ninterface GigabitEthernet0/0/1.30\n zone-member security VOICE\ninterface GigabitEthernet0/0/1.40\n zone-member security PRINT\ninterface GigabitEthernet0/0/1.50\n zone-member security GUEST\ninterface GigabitEthernet0/0/1.60\n zone-member security CRIT\ninterface GigabitEthernet0/0/1.99\n zone-member security MGMT\ninterface GigabitEthernet0/0/0\n zone-member security OUTSIDE"}, {"step": 11, "title": "Seasonal Staff, Leavers and Evidence", "label": "R1 — C8200-1N-4T", "text": "clock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\nservice timestamps log datetime msec localtime show-timezone\nntp server 10.60.12.10\nlogging host 10.60.12.10\nlogging trap informational\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}], "ewc": [{"step": 4, "title": "AAA: Teaching the Switches to Ask", "label": "EWC — on the ground-floor C9115AXI", "text": "! local admin first: aaa new-model applies to the console too\nusername netadmin privilege 15 algorithm-type scrypt secret ********\naaa new-model\nradius server NPS1\n address ipv4 10.60.12.10 auth-port 1812 acct-port 1813\n key ********\n! a test login every few minutes, so a recovered NPS is noticed (step 8)\n automate-tester username radius-probe idle-time 1 probe-on\naaa group server radius NPS\n server name NPS1\n ip radius source-interface Vlan99\naaa authentication login default local\naaa authentication dot1x default group NPS\naaa authorization network default group NPS\naaa accounting identity default start-stop group NPS\n! three silent tries in five seconds = dead; retry after three minutes\nradius-server dead-criteria time 5 tries 3\nradius-server deadtime 3\nradius-server attribute 6 on-for-login-auth\nradius-server attribute 8 include-in-access-req\nradius-server attribute 25 access-request include\nradius-server vsa send authentication\nradius-server vsa send accounting"}, {"step": 9, "title": "Wi-Fi: The Same Certificate, WPA3-Enterprise", "label": "EWC — on the ground-floor C9115AXI", "text": "! the Embedded Wireless Controller runs on the ground-floor C9115AXI\naaa authentication dot1x NPS-DOT1X group NPS\nwlan OFFICE 1 OFFICE\n no security wpa wpa2\n no security wpa akm dot1x\n security wpa wpa3\n security wpa akm dot1x-sha256\n security pmf mandatory\n security dot1x authentication-list NPS-DOT1X\n no shutdown\nwlan MEETING 2 MEETING\n no security wpa wpa2\n no security wpa akm dot1x\n security wpa wpa3\n security wpa akm sae\n security pmf mandatory\n security wpa psk set-key ascii 0 ********\n no shutdown\n! NPS chooses the VLAN per user, exactly as on the wired ports\nwireless profile policy OFFICE-POL\n aaa-override\n vlan 20\n no shutdown\nwireless profile policy MEETING-POL\n vlan 50\n no shutdown\nwireless tag policy OFFICE-TAG\n wlan OFFICE policy OFFICE-POL\n wlan MEETING policy MEETING-POL"}, {"step": 11, "title": "Seasonal Staff, Leavers and Evidence", "label": "EWC — on the ground-floor C9115AXI", "text": "! interim accounting: where each session is, every 24 h and on any change\naaa accounting update newinfo periodic 1440\n! session start, success, failure and the reason, to syslog\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\nservice timestamps log datetime msec localtime show-timezone\nntp server 10.60.12.10\nlogging host 10.60.12.10\nlogging trap informational\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}]}}</script>
+</div>
+  </div>
+
+    <p class="dl-configs" style="font-size:.85rem;margin:-.4rem 0 2rem;"><strong>Download the full config:</strong> <a href="configs/build-accounting-office-mikrotik.rsc" download>MikroTik .rsc</a> · <a href="configs/build-accounting-office-cisco.txt" download>Cisco IOS .txt</a> <span style="color:var(--body);">— illustrative, review before use</span></p>
+
+<div class="thesis-card">
+    <p>This is part 14 of the <a href="build-index.html">Build series</a>. The <a href="build-law-firm.html">law firm</a> and the <a href="build-clinic.html">clinic</a> each turned on 802.1X in one step; here it is the whole design. The office is small enough that one Windows server does everything, and that is the constraint that shapes every choice: NPS as RADIUS, an enterprise CA for the certificates, and an honest plan for what NPS can't do.</p>
+    <p>The order is the lesson. Build the network static, introduce identity in monitor mode, enforce it, and only then write the firewall rules between the VLANs that identity now fills.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="cisco-8021x.html">802.1X on Cisco IOS</a> for the protocol itself; the RouterOS side is <a href="mikrotik-dot1x.html">802.1X on MikroTik</a></li>
+      <li>The <a href="build-law-firm.html">law firm build</a> for the zone-firewall pattern reused in step 10</li>
+      <li>IOS-XE 17.x on Catalyst 9200L and Catalyst 8200; Windows Server 2022 or 2025 with AD DS, AD CS and NPS</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but typical firm: three partners, 21 staff, about 400 business clients, two floors above a shop in the city centre.</em></p>
+
+  <p>The firm keeps its clients' <strong>tax filings, payroll, accounts and bank details</strong> on one Windows server in a comms cupboard, with the accounting software on a second server that seasonal staff use through Remote Desktop. Partners handle payroll exports and the firm's own finances. From March to May six <strong>seasonal accountants</strong> join on loaner laptops. Clients drop by all day and wait in the <strong>meeting room</strong>. Everything has to keep working through the tax-season deadlines, when an hour of downtime is an hour of late filings.</p>
+
+<table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody><tr><td>R1 Only the firm's devices inside</td><td>Professional secrecy and GDPR: client financial data is reachable only from devices the firm owns and manages. A personal laptop on a desk socket gets nothing.</td></tr><tr><td>R2 Partners apart</td><td>Payroll and the partners' files are separated from staff, and staff PCs can't reach partner PCs at all.</td></tr><tr><td>R3 Tax season can't stop</td><td>If the authentication server is down, the firm keeps filing. Strangers still don't get in.</td></tr><tr><td>R4 Seasonal staff</td><td>Three months of access, no client data on their laptops, and it ends by itself on the agreed date.</td></tr><tr><td>R5 Phones and printers</td><td>Devices without 802.1X work on any desk, and only in their own VLANs.</td></tr><tr><td>R6 Clients in the meeting room</td><td>Internet only, never the firm's network, never the firm's authentication server.</td></tr><tr><td>R7 No Monday-morning outage</td><td>Rolling out network authentication must not lock thirty people out on the first day.</td></tr><tr><td>R8 Evidence</td><td>GDPR breach reporting within 72 hours: which device was on which port, when.</td></tr><tr><td>R9 Leavers</td><td>Someone who leaves loses network access the same day.</td></tr></tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>All four start from the server the firm already has.</em></p>
+
+  <h3 class="sub">1 · Certificates, not passwords</h3>
+  <p>Every firm PC gets a machine certificate from the firm's own CA through auto-enrolment, and authenticates with EAP-TLS before anyone logs in. Personal devices can't get a certificate, so R1 holds without asking anyone to type anything.</p>
+
+  <h3 class="sub">2 · The VLAN follows the identity</h3>
+  <p>NPS returns the VLAN with the authorisation: partner PCs to 10, staff to 20, seasonal laptops to 25, printers to 40. Every desk socket is the same, and the firewall rules are written per VLAN, so the identity decision and the access decision are made in two simple places.</p>
+
+  <h3 class="sub">3 · Monitor first, then closed</h3>
+  <p>IBNS 2.0 policies run the same authentication in open mode and closed mode; only one line differs. A week in open mode finds every device that would have been locked out, while nobody is.</p>
+
+  <h3 class="sub">4 · When NPS is down, fail into a small room</h3>
+  <p>Critical authentication puts new sessions into a VLAN that reaches only the domain controller and the accounting share, both of which still ask for credentials. Work continues; a stranger gets nothing usable.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>10.60.&lt;vlan&gt;.0/24 for every VLAN, gateway .1 on R1. Only the servers and management are static.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>VLAN · subnet</th><th>Who lands here, and how</th></tr></thead>
+    <tbody><tr><td>10 PARTNERS · 10.60.10.0/24</td><td>Partner PCs and laptops. NPS policy PARTNER-PCS (EAP-TLS, group Partner-PCs).</td></tr><tr><td>12 SERVERS · 10.60.12.0/24</td><td>DC1 (AD, DNS, DHCP, NTP, CA, NPS) .10 · FILES-ACCT .20 · RDS host .25. Static ports in the comms room.</td></tr><tr><td>20 STAFF · 10.60.20.0/24</td><td>Staff PCs. NPS policy STAFF-PCS.</td></tr><tr><td>25 TEMP · 10.60.25.0/24</td><td>Seasonal loaner laptops. NPS policy SEASONAL-PCS. Reach only the RDS host.</td></tr><tr><td>30 VOICE · 10.60.30.0/24</td><td>Desk phones, MAB, voice domain. SIP trunk to the provider.</td></tr><tr><td>40 PRINT · 10.60.40.0/24</td><td>Multifunction printers, MAB. Scan-to-folder on FILES-ACCT.</td></tr><tr><td>50 GUEST · 10.60.50.0/24</td><td>MEETING Wi-Fi only. DHCP from R1, internet only.</td></tr><tr><td>60 CRIT · 10.60.60.0/24</td><td>Critical auth while NPS is unreachable. DC1 and FILES-ACCT only.</td></tr><tr><td>99 MGMT · 10.60.99.0/24</td><td>R1 .1 · SW1 .11 · SW2 .12 · EWC .20. Native VLAN on the AP trunks.</td></tr><tr><td>999 PARKING</td><td>No subinterface on R1: the access VLAN of every desk port in closed mode.</td></tr></tbody>
+  </table>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start, columns receive. Default deny. Which row a device is in is decided by NPS.</em></p>
+
+  <div class="diagram-wrap">
+<svg viewBox="0 0 760 330" role="img" aria-label="Policy matrix for the accounting office: which VLANs may start connections to the domain controller and files, the terminal server, the partner and staff PCs, the printers, and the internet">
+<text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM ↓  ·  TO →</text>
+<text class="lf-sm lf-c" x="255.0" y="38">DC · files</text>
+<text class="lf-sm lf-c" x="365.0" y="38">RDS host</text>
+<text class="lf-sm lf-c" x="475.0" y="38">Partner / staff PCs</text>
+<text class="lf-sm lf-c" x="585.0" y="38">Printers</text>
+<text class="lf-sm lf-c" x="695.0" y="38">Internet</text>
+<rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="70">Partners · V10</text>
+<rect x="203" y="54" width="104" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="255.0" y="71" style="fill:var(--defender);font-weight:700;">✓</text>
+<rect x="313" y="54" width="104" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="365.0" y="71" style="fill:var(--defender);font-weight:700;">✓</text>
+<rect x="423" y="54" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="54" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="585.0" y="71" style="fill:var(--gotcha);font-weight:700;">◐ print</text>
+<rect x="643" y="54" width="104" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="695.0" y="71" style="fill:var(--defender);font-weight:700;">✓</text>
+<rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="100">Staff · V20</text>
+<rect x="203" y="84" width="104" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="255.0" y="101" style="fill:var(--defender);font-weight:700;">✓</text>
+<rect x="313" y="84" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="365.0" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="423" y="84" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="84" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="585.0" y="101" style="fill:var(--gotcha);font-weight:700;">◐ print</text>
+<rect x="643" y="84" width="104" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="695.0" y="101" style="fill:var(--defender);font-weight:700;">✓</text>
+<rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v50);"/><text class="lf-sm" x="38" y="130">Seasonal · V25</text>
+<rect x="203" y="114" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="255.0" y="131" style="fill:var(--gotcha);font-weight:700;">◐ DNS</text>
+<rect x="313" y="114" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="365.0" y="131" style="fill:var(--gotcha);font-weight:700;">◐ RDP</text>
+<rect x="423" y="114" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="114" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="585.0" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="643" y="114" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="695.0" y="131" style="fill:var(--gotcha);font-weight:700;">◐ web</text>
+<rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v40);"/><text class="lf-sm" x="38" y="160">Printers · V40</text>
+<rect x="203" y="144" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="255.0" y="161" style="fill:var(--gotcha);font-weight:700;">◐ scan SMB</text>
+<rect x="313" y="144" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="365.0" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="423" y="144" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="144" width="104" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="585.0" y="161" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="643" y="144" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="695.0" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="190">Phones · V30</text>
+<rect x="203" y="174" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="255.0" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="313" y="174" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="365.0" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="423" y="174" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="174" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="585.0" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="643" y="174" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="695.0" y="191" style="fill:var(--gotcha);font-weight:700;">◐ SIP trunk</text>
+<rect x="20" y="211" width="10" height="10" rx="2" style="fill:var(--v60);"/><text class="lf-sm" x="38" y="220">Guests · V50</text>
+<rect x="203" y="204" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="255.0" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="313" y="204" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="365.0" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="423" y="204" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="204" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="585.0" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="643" y="204" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="695.0" y="221" style="fill:var(--gotcha);font-weight:700;">◐ web</text>
+<rect x="20" y="241" width="10" height="10" rx="2" style="fill:var(--accent);"/><text class="lf-sm" x="38" y="250">Critical · V60</text>
+<rect x="203" y="234" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="255.0" y="251" style="fill:var(--gotcha);font-weight:700;">◐ DC + files</text>
+<rect x="313" y="234" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="365.0" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="423" y="234" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="234" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="585.0" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="643" y="234" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="695.0" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="20" y="276" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="286">allowed</text>
+<rect x="140" y="276" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="286">limited to the host/port shown</text>
+<rect x="360" y="276" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="286">denied (default)</text>
+<rect x="520" y="276" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="286">same kind / n.a.</text>
+<text class="lf-cap" x="20" y="304">The VLAN a device lands in is decided by NPS from its certificate or MAC; R1's zone firewall then enforces this matrix between VLANs.</text>
+</svg>
+  </div>
+
+  <p>Two rows carry the design. <strong>Seasonal</strong> reaches one host on one port: the accounting software runs on the RDS host and the client files never leave the server. <strong>Critical</strong> exists only while NPS is down and reaches only what the office needs to keep filing.</p>
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+<table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody><tr><td>R1 Only firm devices</td><td><a href="#step-3">step 3</a> · <a href="#step-6">step 6</a></td><td>auto-enrolled machine certs; EAP-TLS; <code>access-session closed</code>; DENY-ALL</td><td>"Personal laptop" drill, <a href="#sec-16">section 16</a></td></tr><tr><td>R2 Partners apart</td><td><a href="#step-6">step 6</a> · <a href="#step-10">step 10</a></td><td>NPS VLAN 10 vs 20; no zone-pair between them</td><td>"Sideways" drill</td></tr><tr><td>R3 Tax season can't stop</td><td><a href="#step-4">step 4</a> · <a href="#step-8">step 8</a></td><td><code>automate-tester</code>; CRIT-DATA service template; CRIT zone-pair</td><td>"NPS down" drill</td></tr><tr><td>R4 Seasonal staff</td><td><a href="#step-10">step 10</a> · <a href="#step-11">step 11</a></td><td>VLAN 25 → RDS 3389 only; account expiry</td><td>"Season over" drill</td></tr><tr><td>R5 Phones and printers</td><td><a href="#step-7">step 7</a></td><td>MAB accounts in AD; <code>device-traffic-class=voice</code>; multi-domain</td><td>"Spoofed printer" drill</td></tr><tr><td>R6 Meeting room</td><td><a href="#step-9">step 9</a> · <a href="#step-10">step 10</a></td><td>MEETING WPA3-SAE → VLAN 50; GUEST-OUTSIDE web only</td><td>"Client in the meeting room" drill</td></tr><tr><td>R7 No Monday outage</td><td><a href="#step-5">step 5</a></td><td>open mode for a week before <code>access-session closed</code></td><td>Monitor-week log review</td></tr><tr><td>R8 Evidence</td><td><a href="#step-4">step 4</a> · <a href="#step-11">step 11</a></td><td>RADIUS accounting; <code>epm logging</code>; NTP; syslog</td><td>"Who was on port 9" drill</td></tr><tr><td>R9 Leavers</td><td><a href="#step-6">step 6</a> · <a href="#step-11">step 11</a></td><td>Session-Timeout 8 h + server reauth; <code>clear access-session</code></td><td>"Leaver" drill</td></tr></tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">Bottom to Top, One Layer at a Time</h2>
+  <p class="section-thesis"><em>Static network first, identity second, policy last. Every step ends with a checkpoint.</em></p>
+  <p>Eleven steps: the switches, the router, the CA and NPS, AAA on the switches, monitor mode, closed mode, phones and printers, critical authentication, Wi-Fi, the firewall between VLANs, and finally seasonal staff, leavers and logging. Each step that adds equipment opens with the topology: built parts solid, the step's additions in orange, later steps faded.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 11</p>
+  <h2 class="section-title">The Switches: VLANs, Uplinks, DHCP Snooping</h2>
+  <p class="section-thesis"><em>Two access switches, one per floor. Every desk port gets a phone VLAN and a temporary data VLAN until NPS takes over.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>Partners and the comms room are on the ground floor; staff, the seasonal desks and the meeting room are upstairs. Each floor has one 24-port PoE switch, chained over a 1G trunk. Every desk carries a phone with a PC behind it, so each desk port has an access VLAN for the PC and a voice VLAN for the phone.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">SW1 — VLANs, uplinks, servers and desk ports</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname SW1
+<span class="cmt">! keeps its own VLAN list; ignores VTP from the wire</span>
+vtp mode transparent
+spanning-tree mode rapid-pvst
+vlan 10
+ name PARTNERS
+vlan 12
+ name SERVERS
+vlan 20
+ name STAFF
+vlan 25
+ name TEMP
+vlan 30
+ name VOICE
+vlan 40
+ name PRINT
+vlan 50
+ name GUEST
+vlan 60
+ name CRIT
+vlan 99
+ name MGMT
+vlan 999
+ name PARKING
+<span class="cmt">! only the uplinks may answer DHCP; a laptop running a DHCP server is ignored</span>
+ip dhcp snooping vlan 10,20,25,30,40,60
+no ip dhcp snooping information option
+ip dhcp snooping
+interface GigabitEthernet1/1/1
+ description UPLINK to R1 Gi0/0/1
+ switchport mode trunk
+ switchport nonegotiate
+ switchport trunk allowed vlan 10,12,20,25,30,40,50,60,99
+ ip dhcp snooping trust
+interface GigabitEthernet1/1/2
+ description DOWNLINK to SW2 Gi1/1/1
+ switchport mode trunk
+ switchport nonegotiate
+ switchport trunk allowed vlan 10,12,20,25,30,40,50,60,99
+ ip dhcp snooping trust
+<span class="cmt">! comms room: locked, so the servers' ports are static</span>
+interface range GigabitEthernet1/0/21 - 23
+ description SERVERS (DC-NPS-CA, FILES-ACCT, RDS)
+ switchport mode access
+ switchport access vlan 12
+ spanning-tree portfast
+interface GigabitEthernet1/0/24
+ description AP (EWC on the ground floor AP)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,25,50,99
+ spanning-tree portfast trunk
+<span class="cmt">! desks: phone + PC. TEMPORARY static VLAN 20, replaced by RADIUS in step 6</span>
+interface range GigabitEthernet1/0/1 - 20
+ description DESK (phone + PC)
+ switchport mode access
+ switchport access vlan 20
+ switchport voice vlan 30
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface Vlan99
+ ip address 10.60.99.11 255.255.255.0
+ip default-gateway 10.60.99.1</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/system identity set name=SW1
+/interface bridge add name=bridge vlan-filtering=no
+/interface bridge port
+add bridge=bridge interface=sfp-sfpplus1 comment="UPLINK to R1" trusted=yes
+add bridge=bridge interface=sfp-sfpplus2 comment="DOWNLINK to SW2" trusted=yes
+add bridge=bridge interface=ether21 pvid=12 comment="DC-NPS-CA"
+add bridge=bridge interface=ether22 pvid=12 comment="FILES-ACCT"
+add bridge=bridge interface=ether23 pvid=12 comment="RDS"
+/interface bridge vlan
+add bridge=bridge vlan-ids=10,12,20,25,30,40,50,60,99 \
+    tagged=bridge,sfp-sfpplus1,sfp-sfpplus2
+<span class="cmt"># desks: TEMPORARY untagged STAFF, replaced by RADIUS in step 6</span>
+:for i from=1 to=20 do={ /interface bridge port add bridge=bridge \
+    interface=("ether" . $i) pvid=20 comment="DESK" }
+<span class="cmt"># DHCP snooping: only 'trusted' ports may answer</span>
+/interface bridge set bridge dhcp-snooping=yes
+/interface vlan add name=mgmt interface=bridge vlan-id=99
+/ip address add address=10.60.99.11/24 interface=mgmt
+/interface bridge set bridge vlan-filtering=yes</pre></div>
+  <p>SW2 is the same template without the server ports, uplinked to SW1's Gi1/1/2. The desk ports start in STAFF (VLAN 20) on purpose: nobody notices the switches going in, and the real decision about which VLAN a desk lands in moves to NPS in step 6.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">DHCP snooping is the quiet prerequisite</span>
+    <p>DHCP snooping builds the binding table of which MAC holds which IP on which port, and blocks rogue DHCP servers on untrusted ports. 802.1X doesn't need it to authenticate anyone, but the session table, accounting and anything that later wants to know a client's IP rely on that table or on device-tracking. Turning it on in step 1, while every port is still static, means its effect can be checked before identity is layered on top.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show vlan brief</code> on both switches: the ten VLANs, desk ports in 20.</li><li><code>show interfaces trunk</code>: Gi1/1/1 on SW1 and SW2 trunking the same nine VLANs.</li><li>A laptop running a DHCP server on a desk port: <code>show ip dhcp snooping statistics</code> counts its offers as dropped.</li></ul>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 11</p>
+  <h2 class="section-title">The Router: One Trunk, Nine Gateways</h2>
+  <p class="section-thesis"><em>Small office, one router: every VLAN's gateway is a subinterface on R1, so every packet between VLANs passes the firewall in step 10.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>With 30 people there is no need for a layer-3 core. R1 routes for every VLAN on one trunk, which is exactly what makes the policy matrix enforceable: no VLAN can reach another without going through R1's zone firewall. DHCP comes from the domain controller through <code>ip helper-address</code>, except for guests, who are served by R1 itself and never talk to the domain controller.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1 — subinterfaces, DHCP relay, guest pool, NAT</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname R1
+interface GigabitEthernet0/0/0
+ description WAN fibre (static /30)
+ ip address 203.0.113.18 255.255.255.252
+ ip nat outside
+interface GigabitEthernet0/0/1
+ description TRUNK to SW1 Gi1/1/1
+ no shutdown
+interface GigabitEthernet0/0/1.10
+ encapsulation dot1Q 10
+ description PARTNERS
+ ip address 10.60.10.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.12
+ encapsulation dot1Q 12
+ description SERVERS
+ ip address 10.60.12.1 255.255.255.0
+ ip nat inside
+interface GigabitEthernet0/0/1.20
+ encapsulation dot1Q 20
+ description STAFF
+ ip address 10.60.20.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.25
+ encapsulation dot1Q 25
+ description TEMP
+ ip address 10.60.25.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.30
+ encapsulation dot1Q 30
+ description VOICE
+ ip address 10.60.30.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.40
+ encapsulation dot1Q 40
+ description PRINT
+ ip address 10.60.40.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.50
+ encapsulation dot1Q 50
+ description GUEST
+ ip address 10.60.50.1 255.255.255.0
+ ip nat inside
+interface GigabitEthernet0/0/1.60
+ encapsulation dot1Q 60
+ description CRIT
+ ip address 10.60.60.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.99
+ encapsulation dot1Q 99 native
+ description MGMT
+ ip address 10.60.99.1 255.255.255.0
+ ip nat inside
+<span class="cmt">! guests get DHCP from the router, never from the domain controller</span>
+ip dhcp excluded-address 10.60.50.1 10.60.50.9
+ip dhcp pool GUEST
+ network 10.60.50.0 255.255.255.0
+ default-router 10.60.50.1
+ dns-server 9.9.9.9 149.112.112.112
+ lease 0 4
+ip access-list standard NAT-IN
+ permit 10.60.0.0 0.0.255.255
+ip nat inside source list NAT-IN interface GigabitEthernet0/0/0 overload
+ip route 0.0.0.0 0.0.0.0 203.0.113.17</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/system identity set name=R1
+/interface vlan
+add name=v10-partners interface=sfp-sfpplus1 vlan-id=10
+add name=v20-staff interface=sfp-sfpplus1 vlan-id=20
+<span class="cmt"># ...and 12, 25, 30, 40, 50, 60, 99 the same way</span>
+/ip address
+add address=203.0.113.18/30 interface=ether1
+add address=10.60.10.1/24 interface=v10-partners
+add address=10.60.20.1/24 interface=v20-staff
+/ip dhcp-relay
+add name=relay-partners interface=v10-partners dhcp-server=10.60.12.10 \
+    local-address=10.60.10.1 disabled=no
+/ip pool add name=guest ranges=10.60.50.10-10.60.50.250
+/ip dhcp-server add name=guest interface=v50-guest address-pool=guest lease-time=4h
+/ip route add dst-address=0.0.0.0/0 gateway=203.0.113.17
+/ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">Everything can talk to everything, for now</span>
+    <p>Until step 10 R1 routes freely between VLANs. That is fine while the network is still static and the users are the same people as yesterday; the order matters because identity (steps 3 to 9) decides which VLAN a device is in, and only then does it make sense to write rules between VLANs.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>A PC on a desk port gets 10.60.20.x from the DC; <code>show ip dhcp relay</code> on R1 counts the relayed packets.</li><li>From that PC: the file server at 10.60.12.20 and the internet both work.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 11</p>
+  <h2 class="section-title">Identity: A CA, NPS and Auto-Enrolled Certificates</h2>
+  <p class="section-thesis"><em>The decision of who is who lives on the domain controller: a certificate authority that hands every firm PC a certificate, and NPS that checks it.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>The office already runs a Windows domain for its accounting software and file shares. That makes the natural RADIUS server <strong>NPS</strong> (Network Policy Server, free with Windows Server), and the natural identity a <strong>machine certificate</strong> issued by an <strong>enterprise CA</strong> and auto-enrolled to every domain-joined PC through Group Policy. A PC proves it belongs to the firm by holding a private key the firm's CA signed. There is no password for anyone to phish, share or type into a personal laptop.</p>
+  <div class="term-wrap"><span class="term-label">DC1 — PowerShell · enterprise CA, auto-enrolment template, NPS and its RADIUS clients</span><pre class="term"><span class="cmt"># on DC1 (Windows Server 2025): domain controller, DHCP, DNS, NTP — and now CA and NPS</span>
+Install-WindowsFeature ADCS-Cert-Authority, NPAS -IncludeManagementTools
+Install-AdcsCertificationAuthority -CAType EnterpriseRootCA -CACommonName "OFFICE-ROOT-CA" `
+    -KeyLength 4096 -HashAlgorithmName SHA256 -ValidityPeriod Years -ValidityPeriodUnits 10
+<span class="cmt"># duplicate the 'Workstation Authentication' template as OFFICE-MACHINE:</span>
+<span class="cmt">#   Domain Computers: Read + Enroll + Autoenroll; publish it; then a GPO on the PCs:</span>
+<span class="cmt">#   Computer Config &gt; Windows Settings &gt; Security Settings &gt; Public Key Policies &gt;</span>
+<span class="cmt">#   Certificate Services Client - Auto-Enrollment = Enabled (renew, update)</span>
+Add-CATemplate -Name "OFFICE-MACHINE" -Force
+<span class="cmt"># NPS needs its own server certificate (RAS and IAS Server template) and to sit in AD</span>
+netsh nps add registeredserver
+New-NpsRadiusClient -Name SW1 -Address 10.60.99.11 -SharedSecret '********'
+New-NpsRadiusClient -Name SW2 -Address 10.60.99.12 -SharedSecret '********'
+New-NpsRadiusClient -Name EWC -Address 10.60.99.20 -SharedSecret '********'</pre></div>
+  <div class="term-wrap"><span class="term-label">Group Policy — the wired 802.1X supplicant on every firm PC</span><pre class="term"><span class="cmt"># the PCs' wired supplicant: a GPO under Computer Config &gt; Windows Settings &gt;</span>
+<span class="cmt">#   Security Settings &gt; Wired Network (IEEE 802.3) Policies</span>
+<span class="cmt">#   Authentication: Microsoft: Smart Card or other certificate (EAP-TLS)</span>
+<span class="cmt">#   Authentication mode: Computer authentication</span>
+<span class="cmt">#   Trusted root: OFFICE-ROOT-CA only; verify the server name NPS1.office.local</span>
+<span class="cmt"># and the service that runs it, set to start automatically:</span>
+Set-Service -Name dot3svc -StartupType Automatic</pre></div>
+  <p>NPS decides in its <strong>network policies</strong>, evaluated top to bottom; the first match wins. The order below is the whole access model of the office:</p>
+  <table class="cheat">
+    <thead><tr><th>#</th><th>NPS network policy</th><th>Match</th><th>Returns</th></tr></thead>
+    <tbody><tr><td>1</td><td>PARTNER-PCS</td><td>EAP-TLS · computer in group <em>Partner-PCs</em></td><td>VLAN 10 (Tunnel-Type VLAN, Tunnel-Medium-Type 802, Tunnel-Private-Group-ID 10)</td></tr><tr><td>2</td><td>SEASONAL-PCS</td><td>EAP-TLS · computer in group <em>Seasonal-PCs</em></td><td>VLAN 25 · Session-Timeout 28800</td></tr><tr><td>3</td><td>STAFF-PCS</td><td>EAP-TLS · computer in group <em>Staff-PCs</em></td><td>VLAN 20 · Session-Timeout 28800</td></tr><tr><td>4</td><td>PHONES-MAB</td><td>PAP/MAB · user in group <em>MAB-Phones</em></td><td><code>cisco-av-pair = device-traffic-class=voice</code></td></tr><tr><td>5</td><td>PRINTERS-MAB</td><td>PAP/MAB · user in group <em>MAB-Printers</em></td><td>VLAN 40</td></tr><tr><td>6</td><td>DENY-ALL</td><td>anything else</td><td>Access-Reject</td></tr></tbody>
+  </table>
+  <div class="callout gotcha">
+    <span class="callout-label">Why not PEAP with the user's password?</span>
+    <p>PEAP-MSCHAPv2 is quicker to set up and it is still what many offices run. It is also crackable offline from a captured exchange, and it lets any device that knows a staff password onto the network, including a personal laptop at home that will be brought in during tax season. EAP-TLS with a machine certificate ties access to a device the firm owns and manages, and the key never leaves it (put it in the TPM with the template's Key Storage Provider setting).</p>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">NPS can do MAB, but only one awkward way</span>
+    <p>NPS has no MAC address list. A MAB request arrives as a PAP login whose user name and password are both the device's MAC, so NPS checks it against Active Directory: each phone and printer needs a <strong>user account</strong> named after its MAC, with the MAC as its password, in a group the policy matches. Put those accounts in their own OU, deny them interactive logon, and expect a fine-grained password policy to be needed because a 12-hex-digit password fails the domain's complexity rules. It works for ten printers and phones; at a hundred, it is the reason people buy ISE or ClearPass.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>certutil -store My</code> on a firm PC after a <code>gpupdate</code>: a certificate from OFFICE-ROOT-CA with Client Authentication in its EKU.</li><li>NPS console: three RADIUS clients, six policies in this order; the NPS server certificate is selected in the EAP-TLS settings of policies 1 to 3.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 11</p>
+  <h2 class="section-title">AAA: Teaching the Switches to Ask</h2>
+  <p class="section-thesis"><em>The switches learn where NPS is, what to send it, and what to do when it stops answering.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">SW1 and SW2 — AAA, RADIUS server, dead detection, device-tracking</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco"><span class="cmt">! local admin first: aaa new-model applies to the console too</span>
+username netadmin privilege 15 algorithm-type scrypt secret ********
+aaa new-model
+radius server NPS1
+ address ipv4 10.60.12.10 auth-port 1812 acct-port 1813
+ key ********
+<span class="cmt">! a test login every few minutes, so a recovered NPS is noticed (step 8)</span>
+ automate-tester username radius-probe idle-time 1 probe-on
+aaa group server radius NPS
+ server name NPS1
+ ip radius source-interface Vlan99
+aaa authentication login default local
+aaa authentication dot1x default group NPS
+aaa authorization network default group NPS
+aaa accounting identity default start-stop group NPS
+<span class="cmt">! three silent tries in five seconds = dead; retry after three minutes</span>
+radius-server dead-criteria time 5 tries 3
+radius-server deadtime 3
+radius-server attribute 6 on-for-login-auth
+radius-server attribute 8 include-in-access-req
+radius-server attribute 25 access-request include
+radius-server vsa send authentication
+radius-server vsa send accounting
+dot1x system-auth-control
+<span class="cmt">! learns each client's IP for the session table and accounting</span>
+device-tracking policy DT-NAC
+ tracking enable</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/radius add service=dot1x,wireless address=10.60.12.10 secret="********" \
+    src-address=10.60.99.11 accounting-port=1813 authentication-port=1812 timeout=1s
+<span class="cmt"># NPS sends no CoA, so the incoming listener stays off (see step 11)</span>
+/radius incoming set accept=no</pre></div>
+  <p>The attribute lines make the switches send what NPS and later investigations need: the calling MAC in every request (attribute 31, the MAC, is sent by default; 8 adds the client's IP once it is known; 25 echoes the Class that NPS returned when a session re-authenticates), and Cisco VSAs so NPS can return <code>device-traffic-class=voice</code> in step 7.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">Write the local user before aaa new-model</span>
+    <p><code>aaa new-model</code> takes effect immediately, including on the console and the VTY lines. With no local user and <code>aaa authentication login default local</code>, the next login fails. The order in the block above is the safe one: local account, then <code>aaa new-model</code>, then the RADIUS server. Keep the SSH session open and test a second login before closing it.</p>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">automate-tester is what makes critical auth recover</span>
+    <p>When NPS stops answering, the switch marks it dead for <code>deadtime</code> minutes and then tries again only when a real request arrives. With <code>automate-tester</code> it sends its own test login for a non-existent user (<code>radius-probe</code>), every minute with <code>idle-time 1</code> (the default is an hour); an Access-Reject proves NPS is alive and raises the <em>aaa-available</em> event that step 8 depends on.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>test aaa group NPS radius-probe x legacy</code>: <em>User rejected</em>, which proves the round trip works.</li><li><code>show aaa servers</code>: NPS1 UP, with the probe's requests counted.</li><li>NPS event log: the probe appears as a denied request from 10.60.99.11, matched by DENY-ALL.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 11</p>
+  <h2 class="section-title">Monitor Mode: Authenticate Everything, Block Nothing</h2>
+  <p class="section-thesis"><em>Turn 802.1X on everywhere, on a Friday, and change nothing that anybody will notice on Monday.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>IBNS 2.0 describes authentication as a policy: what to do when a session starts, when dot1x fails, when a supplicant suddenly appears. The policy below is the standard one for desks: try 802.1X first, fall back to MAB if nothing answers EAPOL, and retry after a minute on any failure.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">SW1 and SW2 — the OFFICE-NAC policy and the desk ports in open mode</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">class-map type control subscriber match-all DOT1X_NO_RESP
+ match method dot1x
+ match result-type method dot1x agent-not-found
+class-map type control subscriber match-all DOT1X_FAILED
+ match method dot1x
+ match result-type method dot1x authoritative
+class-map type control subscriber match-all MAB_FAILED
+ match method mab
+ match result-type method mab authoritative
+policy-map type control subscriber OFFICE-NAC
+ event session-started match-all
+  10 class always do-until-failure
+   10 authenticate using dot1x priority 10
+<span class="cmt">! entry 10 is left free: step 8 puts 'NPS is down' there, ahead of these</span>
+ event authentication-failure match-first
+  20 class DOT1X_NO_RESP do-until-failure
+   10 terminate dot1x
+   20 authenticate using mab priority 20
+  30 class DOT1X_FAILED do-until-failure
+   10 terminate dot1x
+   20 authentication-restart 60
+  40 class MAB_FAILED do-until-failure
+   10 terminate mab
+   20 authentication-restart 60
+  50 class always do-until-failure
+   10 terminate dot1x
+   20 terminate mab
+   30 authentication-restart 60
+ event agent-found match-all
+  10 class always do-until-failure
+   10 terminate mab
+   20 authenticate using dot1x priority 10
+interface range GigabitEthernet1/0/1 - 20
+ device-tracking attach-policy DT-NAC
+ dot1x pae authenticator
+<span class="cmt">! no answer to 2 x 7 s of EAPOL = not a supplicant: try MAB after ~20 s, not 90</span>
+ dot1x timeout tx-period 7
+ dot1x max-reauth-req 2
+ mab
+ access-session host-mode multi-domain
+ access-session port-control auto
+<span class="cmt">! no 'access-session closed' yet: open mode, everything still works while we watch</span>
+ service-policy type control subscriber OFFICE-NAC</pre><pre class="term vt-pane" data-v="mikrotik" hidden><span class="cmt"># RouterOS has no open mode: a dot1x server on a port enforces from the start.</span>
+<span class="cmt"># Monitor the safe way: failures land in STAFF (as today) while you read the logs.</span>
+:for i from=1 to=20 do={ /interface dot1x server add interface=("ether" . $i) \
+    auth-types=dot1x,mac-auth reject-vlan-id=20 accounting=yes interim-update=1h }
+/system logging add topics=dot1x</pre></div>
+  <p>Without <code>access-session closed</code> the ports are in <strong>open mode</strong>: traffic flows before and after authentication, exactly as in step 1, but every device is authenticated and every result is logged. That turns the week after this step into an inventory: the PCs that haven't got a certificate yet, the phone model that sends EAPOL and confuses everything, the forgotten label printer behind the reception desk.</p>
+  <div class="callout defender">
+    <span class="callout-label">What to look for during the monitor week</span>
+    <p><code>show access-session</code> on both switches every morning. Every firm PC should show <code>dot1x</code> with an authorised status. Anything that shows <code>mab</code> but isn't a phone or printer is either a PC without a certificate (fix the GPO) or a device nobody knew about (find it). In NPS, every DENY-ALL hit is a device that would be cut off in closed mode.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show access-session interface Gi1/0/3 details</code>: method dot1x, status Authorized, the VLAN NPS sent (still ignored in open mode).</li><li>NPS accounting log: one start record per desk.</li><li>Unplug and replug a phone: the PC behind it re-authenticates, the phone falls back to MAB after about 20 s.</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 11</p>
+  <h2 class="section-title">Closed Mode: The VLAN Follows the Identity</h2>
+  <p class="section-thesis"><em>One line per port turns the inventory into enforcement. From now on, the certificate decides the VLAN.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="6">▲ Show step 6 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">SW1 and SW2 — closed mode, parking VLAN, server-driven reauth</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface range GigabitEthernet1/0/1 - 20
+<span class="cmt">! an authenticated session with no VLAN from NPS lands in PARKING, not in STAFF</span>
+ switchport access vlan 999
+<span class="cmt">! from now on, nothing but EAPOL until the session is authorised</span>
+ access-session closed
+<span class="cmt">! re-check every session when NPS's Session-Timeout says so (8 h)</span>
+ authentication periodic
+ authentication timer reauthenticate server</pre><pre class="term vt-pane" data-v="mikrotik" hidden><span class="cmt"># closed: a failure now lands in PARKING (999), which goes nowhere</span>
+/interface dot1x server set [find] reject-vlan-id=999
+<span class="cmt"># VLANs arrive from NPS (Tunnel-Private-Group-ID); vlan-filtering must be on</span>
+/interface bridge set bridge vlan-filtering=yes</pre></div>
+  <p>In closed mode a port passes nothing but EAPOL until the session is authorised, then puts it in the VLAN NPS returned: 10 for a partner's PC, 20 for staff. The same wall socket gives a different network depending on whose machine is plugged in, so hot desks during tax season need no repatching.</p>
+  <p>The configured access VLAN changes meaning: it is now what a session gets <em>if NPS authorises it without naming a VLAN</em>, which only happens if a policy is misconfigured. Pointing it at PARKING turns that mistake into "no access" rather than "staff access".</p>
+  <div class="callout gotcha">
+    <span class="callout-label">An unknown laptop gets nothing, not a guest VLAN</span>
+    <p>Older designs send failures to a guest or auth-fail VLAN. Here a laptop that fails 802.1X and MAB gets nothing at all, and the policy retries every 60 seconds so the port recovers by itself once the device is enrolled. Clients who need internet use the MEETING Wi-Fi (step 9), not a wall socket in an office full of client files.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>A personal laptop on a desk port: no link-local traffic gets through, <code>show access-session</code> shows it failing MAB, NPS logs DENY-ALL.</li><li>A partner's laptop on the same port: VLAN 10, an address from 10.60.10.0/24.</li><li>Move a staff PC to a partner's desk: it still lands in VLAN 20.</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 11</p>
+  <h2 class="section-title">Phones and Printers: MAB, Done Carefully</h2>
+  <p class="section-thesis"><em>Phones and printers have no supplicant. They get in by MAC, and only into the VLAN that suits what they are.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">SW1 and SW2 — LLDP for phones, MAB user-name format for NPS</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco"><span class="cmt">! phones learn VLAN 30 by LLDP-MED; NPS's device-traffic-class=voice opens it</span>
+lldp run
+<span class="cmt">! MAB sends the MAC as the user name: aabbccddeeff, no separators, lower case</span>
+mab request format attribute 1 groupsize 12 separator - lowercase
+<span class="cmt">! printers and phones are normal desk ports: same policy, MAB after dot1x times out</span></pre><pre class="term vt-pane" data-v="mikrotik" hidden><span class="cmt"># phones learn voice VLAN 30 from LLDP-MED</span>
+/ip neighbor discovery-settings set protocol=lldp lldp-med-net-policy-vlan=30
+<span class="cmt"># MAB user name: the MAC with no separators, lower case, matches the NPS account</span>
+/interface dot1x server set [find] mac-auth-mode=mac-as-username \
+    radius-mac-format=xxxxxxxxxxxx</pre></div>
+  <p>Each phone and printer has an AD account named after its MAC (see the NPS gotcha in step 3). When dot1x times out, the switch sends that MAC as user name and password; NPS matches it to PHONES-MAB or PRINTERS-MAB. For a phone NPS returns <code>device-traffic-class=voice</code>, which tells the switch to admit the phone on the port's voice VLAN; <code>host-mode multi-domain</code> lets the phone and the PC behind it each have their own session on the same port.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">A MAC is not an identity</span>
+    <p>Anyone can read a printer's MAC off its label and set it on a laptop. That is why PRINT is its own VLAN with the narrowest rules in the office (step 10): a spoofed printer reaches the file server's scan folder over SMB and nothing else. Printers also get a DHCP reservation, and an alert on a second device with the same MAC is cheap to add on the DHCP server.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show access-session interface Gi1/0/5</code>: two sessions, the phone via MAB in the VOICE domain and the PC via dot1x in DATA.</li><li>Set a laptop's MAC to a printer's: it lands in VLAN 40 and can reach only \\files\scans.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 11</p>
+  <h2 class="section-title">When NPS Is Down in April: Critical Auth</h2>
+  <p class="section-thesis"><em>A RADIUS server that reboots for updates on 30 April must not stop thirty people filing tax returns.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="8">▲ Show step 8 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>Without this step, a session that needs to authenticate while NPS is unreachable fails, and the port stays closed. That is the right answer for a bank and the wrong one for an office whose whole year depends on six weeks. <strong>Critical authentication</strong> decides what happens instead.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">SW1 and SW2 — critical VLAN, voice, and recovery when NPS returns</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">service-template CRIT-DATA
+ vlan 60
+class-map type control subscriber match-all AAA_DOWN_UNAUTHD
+ match result-type aaa-timeout
+ match authorization-status unauthorized
+class-map type control subscriber match-all AAA_DOWN_AUTHD
+ match result-type aaa-timeout
+ match authorization-status authorized
+class-map type control subscriber match-any IN_CRIT
+ match activated-service-template CRIT-DATA
+ match activated-service-template DEFAULT_CRITICAL_VOICE_TEMPLATE
+policy-map type control subscriber OFFICE-NAC
+ event authentication-failure match-first
+<span class="cmt">! NPS unreachable, new device: CRIT VLAN for data, voice keeps working</span>
+  10 class AAA_DOWN_UNAUTHD do-until-failure
+   10 activate service-template CRIT-DATA
+   20 activate service-template DEFAULT_CRITICAL_VOICE_TEMPLATE
+   30 authorize
+   40 pause reauthentication
+<span class="cmt">! NPS unreachable at reauth time: keep what it already granted</span>
+  15 class AAA_DOWN_AUTHD do-until-failure
+   10 pause reauthentication
+   20 authorize
+ event aaa-available match-all
+<span class="cmt">! NPS is back: throw out the critical sessions so they authenticate properly</span>
+  10 class IN_CRIT do-until-failure
+   10 clear-session
+  20 class always do-until-failure
+   10 resume reauthentication</pre><pre class="term vt-pane" data-v="mikrotik" hidden><span class="cmt"># NPS unreachable: new sessions go to CRIT (60) instead of being rejected</span>
+/interface dot1x server set [find] server-fail-vlan-id=60</pre></div>
+  <p>Sessions that were already authorised before NPS went away keep their VLAN when their reauthentication fails. New sessions, a PC that was rebooted or a laptop that arrived, go to <strong>CRIT (VLAN 60)</strong>, which can reach only the domain controller and the accounting file server. Phones keep their voice VLAN. When the probe from step 4 gets an answer again, <code>clear-session</code> throws every critical session out so it authenticates properly.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">Critical means anyone, so CRIT must be small</span>
+    <p>While NPS is down the switch can't tell a firm PC from a stranger: everyone who connects gets CRIT. That is why CRIT reaches two servers and no internet, and why both servers still require a domain login; a stranger in CRIT finds a domain controller that asks for Kerberos and a share that asks for credentials. A second NPS on another host would make this rare, and is the first upgrade worth buying.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Stop the NPS service, reboot a staff PC: it comes up in 10.60.60.x, opens the accounting share, and can't browse the web.</li><li>A PC that was already up keeps VLAN 20 through the outage.</li><li>Start NPS: within about a minute <code>show access-session</code> shows nothing left in CRIT; the rebooted PC is back in VLAN 20.</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 11</p>
+  <h2 class="section-title">Wi-Fi: The Same Certificate, WPA3-Enterprise</h2>
+  <p class="section-thesis"><em>Laptops use the same certificate on Wi-Fi, and NPS gives them the same VLAN as on a cable. Clients in the meeting room get a passphrase and the internet.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="9">▲ Show step 9 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>Two Catalyst 9115AX access points, one per floor; one of them runs the <strong>Embedded Wireless Controller</strong>, so there is no separate controller to buy. The OFFICE network is WPA3-Enterprise: the laptop presents the same machine certificate it uses on a cable, NPS answers with the same policy, and <code>aaa-override</code> lets NPS's VLAN replace the default.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">EWC — OFFICE (WPA3-Enterprise) and MEETING (WPA3-SAE)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco"><span class="cmt">! the Embedded Wireless Controller runs on the ground-floor C9115AXI</span>
+aaa authentication dot1x NPS-DOT1X group NPS
+wlan OFFICE 1 OFFICE
+ no security wpa wpa2
+ no security wpa akm dot1x
+ security wpa wpa3
+ security wpa akm dot1x-sha256
+ security pmf mandatory
+ security dot1x authentication-list NPS-DOT1X
+ no shutdown
+wlan MEETING 2 MEETING
+ no security wpa wpa2
+ no security wpa akm dot1x
+ security wpa wpa3
+ security wpa akm sae
+ security pmf mandatory
+ security wpa psk set-key ascii 0 ********
+ no shutdown
+<span class="cmt">! NPS chooses the VLAN per user, exactly as on the wired ports</span>
+wireless profile policy OFFICE-POL
+ aaa-override
+ vlan 20
+ no shutdown
+wireless profile policy MEETING-POL
+ vlan 50
+ no shutdown
+wireless tag policy OFFICE-TAG
+ wlan OFFICE policy OFFICE-POL
+ wlan MEETING policy MEETING-POL</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/interface wifi security
+add name=office authentication-types=wpa3-eap management-protection=required \
+    eap-accounting=yes
+add name=meeting authentication-types=wpa3-psk passphrase="********" \
+    management-protection=required
+/interface wifi configuration
+add name=office ssid=OFFICE security=office datapath.vlan-id=20
+add name=meeting ssid=MEETING security=meeting datapath.vlan-id=50 \
+    datapath.client-isolation=yes</pre></div>
+  <p>The EWC also needs the same AAA and RADIUS lines as the switches (step 4) and an entry as a RADIUS client in NPS (done in step 3). Add a wireless network policy to the PCs' GPO alongside the wired one: SSID OFFICE, WPA3-Enterprise, EAP-TLS, computer authentication, the same trusted root.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">Guests don't touch NPS</span>
+    <p>MEETING is a WPA3 passphrase that reception gives to clients, changed monthly. It lands in VLAN 50, which R1 serves itself, and the firewall lets it out to the web and nowhere else. Keeping guests away from RADIUS entirely means a guest problem can never become an NPS problem during the busiest week of the year.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>A firm laptop joins OFFICE with no prompt and gets VLAN 10 or 20, the same as on its desk cable.</li><li>A phone on MEETING: internet works, 10.60.12.10 doesn't answer.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 11</p>
+  <h2 class="section-title">The Firewall Between the Desks</h2>
+  <p class="section-thesis"><em>Identity decided which VLAN each device is in. Now R1 decides what each VLAN may start.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="10">▲ Show step 10 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>Every VLAN is its own zone on R1, and each allowed arrow in the policy matrix is a zone-pair with one ACL. Anything without a zone-pair is dropped. The generated config is long because it is explicit; it is also easy to review, because each block answers one question: "may A start a connection to B, and on what?"</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">R1 — zones and zone-pairs for the whole matrix</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">zone security PARTNERS
+zone security SERVERS
+zone security STAFF
+zone security TEMP
+zone security VOICE
+zone security PRINT
+zone security GUEST
+zone security CRIT
+zone security MGMT
+zone security OUTSIDE
+ip access-list extended PARTNERS-SERVERS
+ permit ip any 10.60.12.0 0.0.0.255
+class-map type inspect match-any PARTNERS-SERVERS
+ match access-group name PARTNERS-SERVERS
+policy-map type inspect PARTNERS-SERVERS
+ class type inspect PARTNERS-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security PARTNERS-SERVERS source PARTNERS destination SERVERS
+ service-policy type inspect PARTNERS-SERVERS
+ip access-list extended PARTNERS-PRINT
+ permit tcp any 10.60.40.0 0.0.0.255 eq 9100
+ permit tcp any 10.60.40.0 0.0.0.255 eq 631
+ permit tcp any 10.60.40.0 0.0.0.255 eq 443
+class-map type inspect match-any PARTNERS-PRINT
+ match access-group name PARTNERS-PRINT
+policy-map type inspect PARTNERS-PRINT
+ class type inspect PARTNERS-PRINT
+  inspect
+ class class-default
+  drop log
+zone-pair security PARTNERS-PRINT source PARTNERS destination PRINT
+ service-policy type inspect PARTNERS-PRINT
+ip access-list extended PARTNERS-OUTSIDE
+ permit ip any any
+class-map type inspect match-any PARTNERS-OUTSIDE
+ match access-group name PARTNERS-OUTSIDE
+policy-map type inspect PARTNERS-OUTSIDE
+ class type inspect PARTNERS-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security PARTNERS-OUTSIDE source PARTNERS destination OUTSIDE
+ service-policy type inspect PARTNERS-OUTSIDE
+ip access-list extended STAFF-SERVERS
+ remark not the RDS host: that is for temps
+ deny ip any host 10.60.12.25
+ permit ip any 10.60.12.0 0.0.0.255
+class-map type inspect match-any STAFF-SERVERS
+ match access-group name STAFF-SERVERS
+policy-map type inspect STAFF-SERVERS
+ class type inspect STAFF-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security STAFF-SERVERS source STAFF destination SERVERS
+ service-policy type inspect STAFF-SERVERS
+ip access-list extended STAFF-PRINT
+ permit tcp any 10.60.40.0 0.0.0.255 eq 9100
+ permit tcp any 10.60.40.0 0.0.0.255 eq 631
+ permit tcp any 10.60.40.0 0.0.0.255 eq 443
+class-map type inspect match-any STAFF-PRINT
+ match access-group name STAFF-PRINT
+policy-map type inspect STAFF-PRINT
+ class type inspect STAFF-PRINT
+  inspect
+ class class-default
+  drop log
+zone-pair security STAFF-PRINT source STAFF destination PRINT
+ service-policy type inspect STAFF-PRINT
+ip access-list extended STAFF-OUTSIDE
+ permit ip any any
+class-map type inspect match-any STAFF-OUTSIDE
+ match access-group name STAFF-OUTSIDE
+policy-map type inspect STAFF-OUTSIDE
+ class type inspect STAFF-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security STAFF-OUTSIDE source STAFF destination OUTSIDE
+ service-policy type inspect STAFF-OUTSIDE
+ip access-list extended TEMP-SERVERS
+ remark temps work on the RDS host; client files never reach their laptop
+ permit tcp any host 10.60.12.25 eq 3389
+ permit udp any host 10.60.12.25 eq 3389
+ permit udp any host 10.60.12.10 eq domain
+class-map type inspect match-any TEMP-SERVERS
+ match access-group name TEMP-SERVERS
+policy-map type inspect TEMP-SERVERS
+ class type inspect TEMP-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security TEMP-SERVERS source TEMP destination SERVERS
+ service-policy type inspect TEMP-SERVERS
+ip access-list extended TEMP-OUTSIDE
+ permit tcp any any eq 443
+ permit tcp any any eq www
+class-map type inspect match-any TEMP-OUTSIDE
+ match access-group name TEMP-OUTSIDE
+policy-map type inspect TEMP-OUTSIDE
+ class type inspect TEMP-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security TEMP-OUTSIDE source TEMP destination OUTSIDE
+ service-policy type inspect TEMP-OUTSIDE
+ip access-list extended PRINT-SERVERS
+ remark scan-to-folder only
+ permit tcp any host 10.60.12.20 eq 445
+ permit udp any host 10.60.12.10 eq domain
+class-map type inspect match-any PRINT-SERVERS
+ match access-group name PRINT-SERVERS
+policy-map type inspect PRINT-SERVERS
+ class type inspect PRINT-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security PRINT-SERVERS source PRINT destination SERVERS
+ service-policy type inspect PRINT-SERVERS
+ip access-list extended VOICE-OUTSIDE
+ remark SIP trunk provider only
+ permit udp any 192.0.2.0 0.0.0.255
+class-map type inspect match-any VOICE-OUTSIDE
+ match access-group name VOICE-OUTSIDE
+policy-map type inspect VOICE-OUTSIDE
+ class type inspect VOICE-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security VOICE-OUTSIDE source VOICE destination OUTSIDE
+ service-policy type inspect VOICE-OUTSIDE
+ip access-list extended GUEST-OUTSIDE
+ permit tcp any any eq 443
+ permit tcp any any eq www
+ permit udp any any eq domain
+class-map type inspect match-any GUEST-OUTSIDE
+ match access-group name GUEST-OUTSIDE
+policy-map type inspect GUEST-OUTSIDE
+ class type inspect GUEST-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security GUEST-OUTSIDE source GUEST destination OUTSIDE
+ service-policy type inspect GUEST-OUTSIDE
+ip access-list extended CRIT-SERVERS
+ remark NPS down: domain controller and the accounting files, nothing else
+ permit ip any host 10.60.12.10
+ permit ip any host 10.60.12.20
+class-map type inspect match-any CRIT-SERVERS
+ match access-group name CRIT-SERVERS
+policy-map type inspect CRIT-SERVERS
+ class type inspect CRIT-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security CRIT-SERVERS source CRIT destination SERVERS
+ service-policy type inspect CRIT-SERVERS
+ip access-list extended SERVERS-OUTSIDE
+ remark updates and the off-site backup
+ permit tcp any any eq 443
+class-map type inspect match-any SERVERS-OUTSIDE
+ match access-group name SERVERS-OUTSIDE
+policy-map type inspect SERVERS-OUTSIDE
+ class type inspect SERVERS-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security SERVERS-OUTSIDE source SERVERS destination OUTSIDE
+ service-policy type inspect SERVERS-OUTSIDE
+ip access-list extended MGMT-SERVERS
+ remark RADIUS, syslog, NTP from switches and the EWC
+ permit udp any host 10.60.12.10 eq 1812
+ permit udp any host 10.60.12.10 eq 1813
+ permit udp any host 10.60.12.10 eq syslog
+ permit udp any host 10.60.12.10 eq ntp
+class-map type inspect match-any MGMT-SERVERS
+ match access-group name MGMT-SERVERS
+policy-map type inspect MGMT-SERVERS
+ class type inspect MGMT-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security MGMT-SERVERS source MGMT destination SERVERS
+ service-policy type inspect MGMT-SERVERS
+interface GigabitEthernet0/0/1.10
+ zone-member security PARTNERS
+interface GigabitEthernet0/0/1.12
+ zone-member security SERVERS
+interface GigabitEthernet0/0/1.20
+ zone-member security STAFF
+interface GigabitEthernet0/0/1.25
+ zone-member security TEMP
+interface GigabitEthernet0/0/1.30
+ zone-member security VOICE
+interface GigabitEthernet0/0/1.40
+ zone-member security PRINT
+interface GigabitEthernet0/0/1.50
+ zone-member security GUEST
+interface GigabitEthernet0/0/1.60
+ zone-member security CRIT
+interface GigabitEthernet0/0/1.99
+ zone-member security MGMT
+interface GigabitEthernet0/0/0
+ zone-member security OUTSIDE</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/interface list add name=TO-INTERNET
+/interface list member
+add list=TO-INTERNET interface=v10-partners
+add list=TO-INTERNET interface=v20-staff
+add list=TO-INTERNET interface=v50-guest
+/ip firewall address-list
+add list=servers address=10.60.12.0/24
+add list=printers address=10.60.40.0/24
+/ip firewall filter
+add chain=forward connection-state=established,related action=accept
+add chain=forward connection-state=invalid action=drop
+add chain=forward in-interface=v10-partners dst-address-list=servers action=accept
+add chain=forward in-interface=v20-staff dst-address=10.60.12.25 action=drop \
+    comment="RDS host is for temps"
+add chain=forward in-interface=v20-staff dst-address-list=servers action=accept
+add chain=forward in-interface=v25-temp dst-address=10.60.12.25 protocol=tcp \
+    dst-port=3389 action=accept
+add chain=forward in-interface=v40-print dst-address=10.60.12.20 protocol=tcp \
+    dst-port=445 action=accept comment="scan-to-folder"
+add chain=forward in-interface=v60-crit dst-address=10.60.12.10 action=accept
+add chain=forward in-interface=v60-crit dst-address=10.60.12.20 action=accept
+add chain=forward out-interface=ether1 in-interface-list=TO-INTERNET action=accept
+add chain=forward action=drop comment="every other zone pair"</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">RADIUS crosses the firewall too</span>
+    <p>The switches source RADIUS from VLAN 99 and NPS lives in VLAN 12, so <code>MGMT → SERVERS</code> must allow 1812 and 1813, or the moment ZBF is applied every new session hits critical auth. Apply the zone-pairs before the <code>zone-member</code> lines, and apply MGMT and SERVERS first.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Partners and staff never talk directly</span>
+    <p>There is no zone-pair between VLAN 10 and VLAN 20, in either direction. Payroll and the partners' files live on the file server behind share permissions; the network adds that no staff PC can reach a partner's PC at all, so a compromised staff laptop can't move sideways to the machine that holds the payroll export.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show policy-map type inspect zone-pair sessions</code>: sessions only on the pairs in the matrix.</li><li>From a staff PC, <code>Test-NetConnection 10.60.12.25 -Port 3389</code> fails; from a seasonal PC it succeeds.</li><li>NPS keeps working: new sessions on the switches still authenticate.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="step-11">15 · Step 11 of 11</p>
+  <h2 class="section-title">Seasonal Staff, Leavers and Evidence</h2>
+  <p class="section-thesis"><em>Six extra people for three months, someone leaving in the middle of it, and the question every incident starts with: which device was on which port?</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="11">▲ Show step 11 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p><strong>Seasonal staff</strong> get firm-owned loaner laptops, joined to the domain and placed in the <em>Seasonal-PCs</em> group, so they receive a certificate and land in VLAN 25. From there they can reach exactly one thing inside: the RDS host, where the accounting software runs. Client files stay on the server; nothing is ever saved to a loaner. The seasonal computer and user accounts are created with an expiry date of 31 May, so on 1 June their certificates still exist but NPS rejects the disabled accounts, with nobody having to remember.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">SW1, SW2 and the EWC — interim accounting, session logging, time</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco"><span class="cmt">! interim accounting: where each session is, every 24 h and on any change</span>
+aaa accounting update newinfo periodic 1440
+<span class="cmt">! session start, success, failure and the reason, to syslog</span>
+epm logging
+clock timezone EET 2 0
+clock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00
+service timestamps log datetime msec localtime show-timezone
+ntp server 10.60.12.10
+logging host 10.60.12.10
+logging trap informational
+archive
+ log config
+  logging enable
+  notify syslog contenttype plaintext</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/system clock set time-zone-name=Europe/Athens
+/system ntp client set enabled=yes servers=10.60.12.10
+/system logging action add name=dc target=remote remote=10.60.12.10
+/system logging add topics=dot1x action=dc
+/system logging add topics=info,!debug action=dc</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">NPS sends no CoA: plan for leavers with the timer</span>
+    <p>With ISE or ClearPass, disabling an account can immediately push a Change of Authorization that kicks the live session. NPS can't initiate CoA. The session lasts until its next reauthentication, which is why policies 2 and 3 return <code>Session-Timeout 28800</code> and step 6 enables <code>authentication timer reauthenticate server</code>: at most eight hours after an account is disabled, the next check fails. When someone leaves on bad terms, don't wait: disable the computer account, then <code>clear access-session interface</code> on their port and the session re-authenticates and fails at once.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">The evidence GDPR expects you to have</span>
+    <p>A data breach must be reported to the authority within 72 hours, and the first question is always which device was where. Here three logs answer it together: NPS's accounting (machine, MAC, switch, port, start and stop), the switches' EPM log at the DC's syslog, and DHCP leases. All timestamps come from the same NTP source. Keep them for at least a year and test the search before you need it.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Set a seasonal computer account's expiry to yesterday, then <code>clear access-session interface Gi1/0/9</code>: the session fails and the NPS log says the account is disabled or expired.</li><li>NPS accounting shows start and interim records for every desk with the switch IP and port.</li><li>Pick a random hour last week: from the logs, name every device on SW2 at that time.</li></ul>
+  </div>
+
+  <!-- 16 -->
+  <p class="section-num" id="sec-16">16</p>
+  <h2 class="section-title">Verify, Then Break It Before March</h2>
+  <p class="section-thesis"><em>Run these in February, before the seasonal staff arrive. Keep the results: they are the evidence that the controls exist.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody><tr><td>Personal laptop (R1)</td><td>A personal laptop on every kind of desk socket gets no address and no traffic; NPS logs DENY-ALL each time.</td></tr><tr><td>Sideways (R2)</td><td>From a staff PC, a scan of 10.60.10.0/24 finds nothing; from a partner PC, 10.60.20.0/24 the same.</td></tr><tr><td>NPS down (R3)</td><td>Stop NPS, reboot a staff PC: it lands in CRIT, opens the accounting share, can't browse. Start NPS: it is back in VLAN 20 within about a minute.</td></tr><tr><td>Season over (R4)</td><td>Expire a seasonal account: the next reauthentication fails. From a seasonal laptop, only RDP to 10.60.12.25 works.</td></tr><tr><td>Spoofed printer (R5)</td><td>A laptop with a printer's MAC lands in VLAN 40 and reaches only SMB on FILES-ACCT.</td></tr><tr><td>Client in the meeting room (R6)</td><td>On MEETING: internet works, nothing in 10.60.0.0/16 answers.</td></tr><tr><td>Leaver (R9)</td><td>Disable a computer account, <code>clear access-session</code> on its port: it gets nothing.</td></tr><tr><td>Who was on port 9 (R8)</td><td>Pick an hour last week: name every device on SW2 from NPS accounting, EPM logs and DHCP leases.</td></tr></tbody>
+  </table>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">The Attacker's View</h2>
+  <p class="section-thesis"><em>Where the residual risk sits once every port asks for a certificate.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>MAB is the soft spot.</strong> Phones and printers authenticate by MAC, and a MAC is printed on the device. PRINT and VOICE are the two narrowest VLANs in the matrix for exactly that reason.</li>
+    <li><strong>Behind an authorised port.</strong> An attacker with a tap or a small hub between a firm PC and the wall can ride the PC's session in multi-domain mode. MACsec would close it; on this budget, locked desks and cable management are the control, and the switch logs a second MAC on a data domain.</li>
+    <li><strong>The certificate is the identity.</strong> A stolen laptop carries a valid certificate until its computer account is disabled. Report-a-lost-laptop is a five-minute procedure: disable the account, revoke the certificate, clear the session.</li>
+    <li><strong>Critical auth.</strong> During an NPS outage anyone gets CRIT. It reaches two servers that still demand domain credentials, and the outage itself raises an alarm (step 11). A second NPS would shrink this window to almost nothing.</li>
+    <li><strong>One server does everything.</strong> DC, CA and NPS on one Windows host is a single target. It is patched first, backed up off-site, has no internet browsing, and its admin accounts are separate from daily ones.</li>
+  </ul>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">Building It in Packet Tracer</h2>
+  <p class="section-thesis"><em>Packet Tracer can show the switching and routing; the identity layer needs real or virtual Windows and Catalyst images.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>This post</th><th>In Packet Tracer</th></tr></thead>
+    <tbody><tr><td>VLANs, trunks, DHCP snooping, router-on-a-stick, NAT</td><td>All work (2960 or 3650 for the switches, ISR4331 for R1).</td></tr><tr><td>RADIUS and 802.1X</td><td>Packet Tracer has a basic RADIUS server and port-based 802.1X with a single VLAN; no IBNS 2.0 policies, no dynamic VLAN, no MAB fallback.</td></tr><tr><td>ZBF</td><td>Partially, on ISR images; build the full matrix on CML or EVE-NG with Cat8000v.</td></tr><tr><td>Identity layer</td><td>Use CML or EVE-NG with Cat9000v switches and a Windows Server VM running AD CS and NPS, and a Windows client VM as the supplicant.</td></tr></tbody>
+  </table>
+
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody><tr><td>2× C9200L-24P-4G + Network Essentials / DNA term</td><td>3,200 – 4,400</td></tr><tr><td>R1 · C8200-1N-4T</td><td>1,600 – 2,200</td></tr><tr><td>2× C9115AXI (one runs EWC)</td><td>1,200 – 1,600</td></tr><tr><td>Windows Server licences, CALs for 30 devices (if not already owned)</td><td>1,500 – 2,500</td></tr><tr><td>UPS for the comms cupboard</td><td>500 – 800</td></tr><tr><td>Network total</td><td><strong>≈ 8,000 – 11,500</strong>, plus the servers, cabling, and the RDS licences for the seasonal staff</td></tr></tbody>
+  </table>
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on MikroTik</h2>
+  <p class="section-thesis"><em>Same VLANs, same NPS, same certificates. The MikroTik tabs above show each step; this is what changes underneath.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>Role</th><th>This post → MikroTik</th></tr></thead>
+    <tbody><tr><td>SW1, SW2</td><td>2× C9200L-24P-4G → 2× CRS328-24P-4S+ (802.1X server per port)</td></tr><tr><td>R1</td><td>C8200-1N-4T → RB5009UG+S+</td></tr><tr><td>Wi-Fi</td><td>2× C9115AXI with EWC → 2× cAP ax with CAPsMAN</td></tr><tr><td>Indicative total</td><td>≈ 8,000 – 11,500 → ≈ 1,500 – 2,000 EUR ex VAT</td></tr></tbody>
+  </table>
+
+  <table class="cheat">
+    <thead><tr><th>Feature</th><th>This post → MikroTik</th></tr></thead>
+    <tbody><tr><td>Open mode for monitoring</td><td><code>access-session</code> without <code>closed</code> → none; temporarily set <code>reject-vlan-id</code> to the old VLAN</td></tr><tr><td>Closed mode</td><td><code>access-session closed</code> → <code>reject-vlan-id</code> pointing at a dead VLAN</td></tr><tr><td>dot1x → MAB fallback</td><td>IBNS 2.0 policy → <code>auth-types=dot1x,mac-auth</code> on the same port</td></tr><tr><td>Critical auth</td><td>service template + aaa-available event → <code>server-fail-vlan-id</code> (no automatic clear when NPS returns)</td></tr><tr><td>Voice VLAN for phones</td><td><code>device-traffic-class=voice</code> + multi-domain → LLDP-MED network policy; one session per port is the safer assumption</td></tr><tr><td>Firewall between VLANs</td><td>ZBF zone-pairs → stateful forward chain on the RB5009</td></tr></tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>There is no monitor mode</strong>, so the rollout uses the reject-VLAN trick instead and the inventory comes from the dot1x log. <strong>Critical sessions don't clear themselves</strong> when NPS returns; schedule a script that resets them, or accept that they stay in CRIT until the next reauthentication. Check the dot1x properties used in the MikroTik panes against your RouterOS version, as several were added during the 7.x series.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Machine certificates beat passwords.</strong> EAP-TLS with auto-enrolment admits the firm's devices and nothing else, with nothing for a user to type or share.</li>
+      <li><strong>Let identity choose the VLAN, then firewall the VLANs.</strong> Two simple decisions in two places are easier to get right than one complicated one.</li>
+      <li><strong>Roll out in open mode.</strong> A week of authenticating without enforcing finds every forgotten device while nobody is locked out.</li>
+      <li><strong>Decide what "RADIUS is down" means before it happens.</strong> A small critical VLAN keeps the office working without letting strangers in.</li>
+      <li><strong>Know what your RADIUS server can't do.</strong> NPS has no CoA and awkward MAB; a reauthentication timer and a manual <code>clear access-session</code> cover the gap.</li>
+      <li><strong>Seasonal access should end by itself.</strong> Expiring accounts and an RDS-only VLAN make the end of the season a non-event.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 14 of the <a href="build-index.html"><strong>Build series</strong></a>. Earlier: <a href="build-ferry-port.html">the ferry port</a>, <a href="build-law-firm.html">the law firm</a>, <a href="build-clinic.html">the medical clinic</a>.</p>
+
+  <div class="cta-card">
+    <h3>Running an office with client data to protect?</h3>
+    <p>I design and roll out network access control that admits the firm's devices and nothing else, and test it the way an auditor or an intruder would.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>
