@@ -26,14 +26,13 @@ I18N = Path('js/i18n.js')
 
 TITLE = 'Εγκατάσταση Starlink στην Κρήτη — S. Markakis'
 DESCRIPTION = ('Επαγγελματική εγκατάσταση Starlink σε όλη την Κρήτη — Ηράκλειο, Χανιά, '
-               'Ρέθυμνο, Λασίθι. Αυτοψία, τοποθέτηση και πλήρης ενσωμάτωση δικτύου με '
-               'multi-WAN failover, ασφάλεια και απομακρυσμένη διαχείριση.')
-OG_DESC = ('Ολοκληρωμένη εγκατάσταση Starlink και διαχειριζόμενη σύνδεση σε όλη την Κρήτη '
-           '— αυτοψία, τοποθέτηση και ενσωμάτωση δικτύου με failover και '
-           'απομακρυσμένη παρακολούθηση.')
+               'Ρέθυμνο, Λασίθι. Δωρεάν αυτοψία, στέρεη τοποθέτηση, Wi-Fi σε όλο τον χώρο '
+               'και εφεδρική σύνδεση, για να μη μένετε ποτέ χωρίς ίντερνετ.')
+OG_DESC = ('Εγκατάσταση Starlink σε όλη την Κρήτη — αυτοψία, τοποθέτηση, Wi-Fi σε κάθε '
+           'χώρο και υποστήριξη μετά την εγκατάσταση.')
 KEYWORDS = ('Starlink Κρήτη, εγκατάσταση Starlink, Starlink εγκατάσταση Κρήτη, '
             'δορυφορικό ίντερνετ Κρήτη, Starlink Ηράκλειο, Starlink Χανιά, '
-            'Starlink Ρέθυμνο, Starlink Λασίθι, multi-WAN failover, Cisco, MikroTik, UniFi')
+            'Starlink Ρέθυμνο, Starlink Λασίθι, ίντερνετ σε χωριό, Wi-Fi βίλας')
 
 
 def load_el_translations():
@@ -108,7 +107,7 @@ def main():
     t = re.sub(r'<meta name="twitter:title" content="[^"]*">',
                f'<meta name="twitter:title" content="{esc_attr(TITLE)}">', t, count=1)
     t = re.sub(r'<meta name="twitter:description" content="[^"]*">',
-               '<meta name="twitter:description" content="Επαγγελματική εγκατάσταση Starlink &amp; διαχειριζόμενη σύνδεση σε όλη την Κρήτη.">', t, count=1)
+               '<meta name="twitter:description" content="Επαγγελματική εγκατάσταση Starlink &amp; υποστήριξη σε όλη την Κρήτη.">', t, count=1)
     t = t.replace('og/starlink.png', 'og/starlink-el.png')
     t = t.replace('<meta property="og:type" content="website">',
                   '<meta property="og:type" content="website">\n<meta property="og:locale" content="el_GR">', 1)
@@ -127,7 +126,7 @@ def main():
     service = {
         "@context": "https://schema.org",
         "@type": "Service",
-        "serviceType": "Εγκατάσταση Starlink & Διαχειριζόμενη Σύνδεση",
+        "serviceType": "Εγκατάσταση Starlink & Υποστήριξη",
         "name": "Εγκατάσταση Starlink στην Κρήτη",
         "description": OG_DESC,
         "inLanguage": "el",

@@ -40,11 +40,11 @@ PAGES = [
     {
         'name': 'services',
         'title': 'Υπηρεσίες — S. Markakis',
-        'description': ('Υπηρεσίες Cybersecurity & IT από τον S. Markakis — penetration '
-                        'testing, IT consulting & network engineering, εγκατάσταση Starlink '
-                        'και εγκατάσταση καμερών CCTV. Έδρα στην Κρήτη· απομακρυσμένα παγκοσμίως.'),
-        'og_desc': ('Penetration testing, IT consulting & network engineering, εγκατάσταση '
-                    'Starlink και εγκατάσταση καμερών CCTV.'),
+        'description': ('Εγκατάσταση Starlink, Wi-Fi και καμερών ασφαλείας, μηνιαία υποστήριξη '
+                        'δικτύου, συμβουλευτική IT και δοκιμές διείσδυσης (penetration testing). '
+                        'Έδρα στην Κρήτη· και εξ αποστάσεως.'),
+        'og_desc': ('Starlink, Wi-Fi, κάμερες ασφαλείας, υποστήριξη δικτύου και έλεγχοι '
+                    'ασφάλειας — στην Κρήτη.'),
         'keywords': ('υπηρεσίες IT Κρήτη, penetration testing, δικτύωση, network engineering, '
                      'εγκατάσταση Starlink Κρήτη, κάμερες CCTV Κρήτη, IT consulting, Cisco, '
                      'MikroTik, UniFi'),
@@ -55,23 +55,21 @@ PAGES = [
     },
     {
         'name': 'consulting',
-        'title': 'IT Consulting & Δικτύωση — S. Markakis',
-        'description': ('Ανεξάρτητο IT consulting και network engineering — σχεδιασμός δικτύου '
-                        '(Cisco, MikroTik, UniFi), αρχιτεκτονική συστημάτων και cloud, υποδομές '
-                        'και στρατηγική ασφάλειας, με πρακτική υποστήριξη υλοποίησης. '
-                        'Απομακρυσμένα παγκοσμίως, επιτόπου σε όλη την Κρήτη.'),
-        'og_desc': ('Σχεδιασμός δικτύου, αρχιτεκτονική υποδομών, επιλογή τεχνολογίας και '
-                    'στρατηγική ασφάλειας — απομακρυσμένα και επιτόπου στην Κρήτη.'),
+        'title': 'Συμβουλευτική IT & Δίκτυα — S. Markakis',
+        'description': ('Ανεξάρτητη συμβουλευτική IT για επιχειρήσεις — σχεδιασμός δικτύου (Cisco, '
+                        'MikroTik, UniFi), servers, cloud και ασφάλεια, με βοήθεια και στην '
+                        'υλοποίηση. Εξ αποστάσεως παντού, επιτόπου σε όλη την Κρήτη.'),
+        'og_desc': ('Σχεδιασμός δικτύου, servers, επιλογή εξοπλισμού και ασφάλεια — '
+                    'εξ αποστάσεως και επιτόπου στην Κρήτη.'),
         'keywords': ('IT consulting Κρήτη, network engineering, σχεδιασμός δικτύου, Cisco, '
                      'MikroTik, UniFi, αρχιτεκτονική δικτύου, στρατηγική ασφάλειας, '
                      'σύμβουλος IT Κρήτη'),
         'service': {
             'serviceType': 'IT Consulting & Network Engineering',
-            'name': 'IT Consulting & Δικτύωση',
-            'description': ('Ανεξάρτητο IT consulting και network engineering — σχεδιασμός '
-                            'δικτύου (Cisco, MikroTik, UniFi), αρχιτεκτονική συστημάτων και '
-                            'cloud, υποδομές και στρατηγική ασφάλειας, με πρακτική υποστήριξη '
-                            'υλοποίησης. Απομακρυσμένα παγκοσμίως, επιτόπου σε όλη την Κρήτη.'),
+            'name': 'Συμβουλευτική IT & Δίκτυα',
+            'description': ('Ανεξάρτητη συμβουλευτική IT για επιχειρήσεις — σχεδιασμός δικτύου (Cisco, '
+                            'MikroTik, UniFi), servers, cloud και ασφάλεια, με βοήθεια και στην '
+                            'υλοποίηση. Εξ αποστάσεως παντού, επιτόπου σε όλη την Κρήτη.'),
             'catalog_name': 'Υπηρεσίες συμβουλευτικής',
             'offer_keys': ['consulting.pkg.call.t', 'consulting.pkg.project.t',
                            'consulting.pkg.retainer.t'],
@@ -83,12 +81,12 @@ PAGES = [
     {
         'name': 'pentest',
         'title': 'Penetration Testing — S. Markakis',
-        'description': ('Ανεξάρτητο, χειροκίνητο penetration testing για web εφαρμογές, APIs, '
-                        'δίκτυα και cloud — με μεθοδολογία (OWASP, PTES), σαφή και ιεραρχημένη '
+        'description': ('Ανεξάρτητο, χειροκίνητο penetration testing για web εφαρμογές, APIs '
+                        'και δίκτυα — με μεθοδολογία (OWASP, PTES), σαφή και ιεραρχημένη '
                         'αναφορά εστιασμένη στις διορθώσεις, και δωρεάν επανέλεγχο. '
-                        'Απομακρυσμένα παγκοσμίως.'),
-        'og_desc': ('Χειροκίνητο penetration testing για web, API, δίκτυα και cloud — '
-                    'μεθοδολογία OWASP/PTES, σαφής αναφορά και δωρεάν retest.'),
+                        'Εξ αποστάσεως, για πελάτες οπουδήποτε.'),
+        'og_desc': ('Χειροκίνητο penetration testing για web, API και δίκτυα — '
+                    'μεθοδολογία OWASP/PTES, σαφής αναφορά και δωρεάν επανέλεγχος.'),
         'keywords': ('penetration testing Κρήτη, έλεγχος διείσδυσης, pentest, web application '
                      'testing, API security, δοκιμές ασφάλειας, OWASP, PTES, ethical hacking, '
                      'red team, Ελλάδα'),
@@ -96,7 +94,7 @@ PAGES = [
             'serviceType': 'Penetration Testing & Offensive Security',
             'name': 'Υπηρεσίες Penetration Testing',
             'description': ('Ανεξάρτητο, χειροκίνητο penetration testing για web εφαρμογές, '
-                            'APIs, δίκτυα και cloud — με μεθοδολογία (OWASP, PTES), σαφή και '
+                            'APIs και δίκτυα — με μεθοδολογία (OWASP, PTES), σαφή και '
                             'ιεραρχημένη αναφορά εστιασμένη στις διορθώσεις, και δωρεάν '
                             'επανέλεγχο. Απομακρυσμένα παγκοσμίως.'),
             'catalog_name': 'Αναθέσεις penetration testing',
