@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: Dual-Stack Parity — The IPv6 Holes an IPv4 Firewall Leaves — S. Markakis</title>
+<meta name="description" content="Why RouterOS routers with a carefully written IPv4 firewall end up wide open over IPv6: separate tables, empty defaults after no-defaults resets, Starlink handing out a /56 while IPv4 sits behind CGNAT. A 60-second audit, a parity ruleset, port forwards without NAT, and Starlink set up properly.">
+<meta property="og:title" content="MikroTik: Dual-Stack Parity — The IPv6 Holes an IPv4 Firewall Leaves — S. Markakis">
+<meta property="og:description" content="Why RouterOS routers with a carefully written IPv4 firewall end up wide open over IPv6: separate tables, empty defaults after no-defaults resets, Starlink handing out a /56 while IPv4 sits behind CGNAT. A 60-second audit, a parity ruleset, port forwards without NAT, and Starlink set up properly.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-dual-stack-firewall.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-dual-stack-firewall.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-dual-stack-firewall.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-dual-stack-firewall.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Dual-Stack Parity — The IPv6 Holes an IPv4 Firewall Leaves",
+  "description": "Why RouterOS routers with a carefully written IPv4 firewall end up wide open over IPv6: separate tables, empty defaults after no-defaults resets, Starlink handing out a /56 while IPv4 sits behind CGNAT. A 60-second audit, a parity ruleset, port forwards without NAT, and Starlink set up properly.",
+  "datePublished": "2026-11-18",
+  "dateModified": "2026-11-18",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-dual-stack-firewall.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-dual-stack-firewall.png",
+  "keywords": [
+    "mikrotik",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-dual-stack-firewall"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Security Rules &nbsp;·&nbsp; November 2026</p>
+  <h1 class="post-title">Dual-Stack Parity:<br>The IPv6 Holes</h1>
+  <p class="post-subtitle">A typical case: the IPv4 firewall is textbook, with default deny on input and forward, management only from the admin VLAN and a tidy port forward for the NAS. Scan the same router over IPv6 and Winbox, the DNS resolver and the NAS's admin page answer from the internet. Nothing on the IPv4 side is wrong. The IPv6 side has no rules at all.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">IPv6</span>
+    <span class="tag">Firewall</span>
+    <span class="tag">Dual Stack</span>
+    <span class="tag">Starlink</span>
+    <span class="tag">DHCPv6-PD</span>
+    <span class="tag">Auditing</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 230" role="img" aria-label="One router, two address families: IPv4 arrives through CGNAT and a filled filter table, IPv6 arrives with a global prefix and an empty IPv6 filter table, straight to the LAN hosts">
+
+      <rect x="0" y="0" width="720" height="230" style="fill:var(--card);"/>
+      <text x="20" y="28" style="font-family:var(--font-body),sans-serif;font-size:12px;font-weight:700;fill:var(--mid);">Same router, same LAN, two separate firewalls</text>
+      <rect x="250" y="50" width="220" height="150" rx="8" style="fill:none;stroke:var(--rule);stroke-width:1.6;"/>
+      <text x="360" y="70" style="font-family:var(--font-body),sans-serif;font-size:11px;font-weight:700;fill:var(--mid);text-anchor:middle;">RouterOS</text>
+      <rect x="265" y="82" width="190" height="40" rx="4" style="fill:var(--defender);fill-opacity:.15;stroke:var(--defender);"/>
+      <text x="360" y="98" style="font-family:var(--font-mono),monospace;font-size:9.5px;fill:var(--mid);text-anchor:middle;">/ip firewall filter</text>
+      <text x="360" y="112" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--defender);text-anchor:middle;">38 rules · default deny</text>
+      <rect x="265" y="138" width="190" height="40" rx="4" style="fill:var(--accent);fill-opacity:.12;stroke:var(--accent);"/>
+      <text x="360" y="154" style="font-family:var(--font-mono),monospace;font-size:9.5px;fill:var(--mid);text-anchor:middle;">/ipv6 firewall filter</text>
+      <text x="360" y="168" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--accent);text-anchor:middle;">0 rules · accept everything</text>
+      <line x1="40" y1="102" x2="262" y2="102" style="stroke:var(--defender);stroke-width:2;"/>
+      <text x="40" y="94" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);">IPv4 · 100.64.x.x CGNAT</text>
+      <line x1="40" y1="158" x2="262" y2="158" style="stroke:var(--accent);stroke-width:2;"/>
+      <text x="40" y="150" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);">IPv6 · 2a0d:...::/56 global</text>
+      <line x1="458" y1="158" x2="680" y2="158" style="stroke:var(--accent);stroke-width:2;stroke-dasharray:6,4;"/>
+      <text x="570" y="150" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--accent);text-anchor:middle;">NAS · cameras · printer, reachable</text>
+      <text x="360" y="222" style="font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);text-anchor:middle;">Nothing on the IPv4 side is wrong. The IPv6 side simply has no rules, and Starlink hands it a real prefix.</text>
+    </svg>
+  </div>
+
+  <div class="thesis-card">
+    <p>RouterOS keeps two firewalls, one per address family, and they share nothing except interface lists and the connection tracker. A router can be default-deny over IPv4 and accept-all over IPv6 at the same time, and on a Starlink or fibre link with a delegated prefix the second one is reachable from anywhere.</p>
+    <p>This post is about that gap, not about ICMPv6 itself; the full RFC 4890 treatment is in <a href="ipv6-firewall-rfc4890.html">IPv6 in Depth: the firewall, done right</a>. Here: how to spot the gap, the parity ruleset, port forwards without NAT, and Starlink.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-firewall.html">The RouterOS firewall, properly</a></li>
+      <li><a href="mikrotik-ipv6.html">MikroTik IPv6 fundamentals</a></li>
+      <li>A host with IPv6 outside your network to test from</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">How It Happens</h2>
+  <p class="section-thesis"><em>Nobody decides to leave IPv6 open. It happens because two separate firewalls exist and only one of them was written.</em></p>
+
+  <p>On RouterOS 7, IPv6 is part of the main package and enabled by default. Its firewall lives in <code>/ipv6 firewall</code>, entirely separate from <code>/ip firewall</code>: separate filter, separate RAW, separate address lists. The default configuration includes a sensible IPv6 ruleset, which is exactly why the problem is so common: installers who start with <code>/system reset-configuration no-defaults=yes</code> and build their own IPv4 firewall end up with a full IPv4 policy and an empty IPv6 one.</p>
+
+  <p>For years that didn't matter, because many ISPs delivered no IPv6 at all. Then two things changed: fibre ISPs started handing out prefixes, and <strong>Starlink delegates a /56 to every terminal</strong>. The day the WAN gets a prefix, every LAN host gets a global address, and the empty IPv6 filter accepts everything in both directions.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — CGNAT felt like a firewall. IPv6 has no CGNAT.</span>
+    <p>Behind Starlink or most 4G, the router's IPv4 WAN address is in 100.64.0.0/10. Nothing on the internet can start a connection to it, so a missing IPv4 input rule never shows. That habit carries over badly: on the same link, IPv6 is a routable /56 with no NAT anywhere, and the NAS, the cameras and the router's own Winbox are directly addressable.</p>
+  </div>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">The 60-Second Audit</h2>
+  <p class="section-thesis"><em>Five read-only commands tell you whether a router is exposed over IPv6 right now.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — is IPv6 live, and is it filtered? <span class="safe-badge">Safe to Run</span></span>
+    <pre class="term">/ipv6 settings print
+<span class="cmt"># disable-ipv6: no   forward: yes   accept-router-advertisements: yes-if-forwarding-disabled</span>
+/ipv6 address print where global
+<span class="cmt"># a 2a0d:... or 2001:... address on the WAN or the bridge = IPv6 is live</span>
+/ipv6 route print where dst-address=::/0
+/ipv6 firewall filter print count-only
+<span class="cmt"># 0 = everything accepted, in and through</span>
+/ip dns print
+<span class="cmt"># allow-remote-requests: yes = a resolver that also answers on every IPv6 address</span></pre>
+  </div>
+
+  <div class="term-wrap">
+    <span class="term-label">From outside — prove it, don't assume it <span class="safe-badge">Safe to Run</span></span>
+    <pre class="term"><span class="cmt"># from a host with IPv6 (a VPS, a phone hotspot with IPv6):</span>
+nmap -6 -Pn -p 22,53,80,443,8291,8728,8729 2a0d:xxxx:xxxx:xx00::1
+<span class="cmt"># do NOT sweep a /64: find the LAN hosts from the router's neighbour table instead</span>
+/ipv6 neighbor print where status=reachable</pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — You can't scan your way to every host</span>
+    <p>A /64 has 2<sup>64</sup> addresses, so the "nobody will find it" argument sounds convincing. It isn't: addresses leak through DNS, TLS certificate logs, outbound connections and EUI-64 suffixes derived from MACs. The router's neighbour table is how you find what is actually there; the filter is what protects it.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">The Parity Ruleset</h2>
+  <p class="section-thesis"><em>Mirror the intent of the IPv4 firewall, not its text. What changes is ICMPv6, DHCPv6 and the absence of NAT.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — an IPv6 filter that matches a default-deny IPv4 one</span>
+    <pre class="term">/ipv6 firewall address-list
+add list=bad_ipv6 address=::/128 comment="unspecified"
+add list=bad_ipv6 address=::1/128 comment="loopback"
+add list=bad_ipv6 address=fec0::/10 comment="site-local, deprecated"
+add list=bad_ipv6 address=::ffff:0.0.0.0/96 comment="IPv4-mapped"
+add list=bad_ipv6 address=2001:db8::/32 comment="documentation"
+add list=bad_ipv6 address=100::/64 comment="discard-only"
+/ipv6 firewall filter
+add chain=input connection-state=established,related,untracked action=accept
+add chain=input connection-state=invalid action=drop
+add chain=input protocol=icmpv6 action=accept comment="ND, RA, PMTU: see the RFC 4890 post"
+add chain=input protocol=udp dst-port=33434-33534 action=accept comment="traceroute"
+add chain=input protocol=udp src-address=fe80::/10 dst-port=546 action=accept \
+    comment="DHCPv6 replies: the prefix from the ISP"
+add chain=input in-interface-list=LAN action=accept
+add chain=input action=drop comment="FINAL DROP input v6"
+add chain=forward connection-state=established,related,untracked action=accept
+add chain=forward connection-state=invalid action=drop
+add chain=forward src-address-list=bad_ipv6 action=drop
+add chain=forward dst-address-list=bad_ipv6 action=drop
+add chain=forward protocol=icmpv6 hop-limit=equal:1 action=drop \
+    comment="RFC 4890: never forward hop-limit 1"
+add chain=forward protocol=icmpv6 action=accept
+add chain=forward in-interface-list=LAN out-interface-list=WAN action=accept
+add chain=forward action=drop comment="FINAL DROP forward v6"</pre>
+  </div>
+
+  <table class="cheat">
+    <thead><tr><th>IPv4 rule</th><th>IPv6 counterpart</th><th>Note</th></tr></thead>
+    <tbody><tr><td>accept established, related, untracked</td><td>identical</td><td>Same tracker, separate table.</td></tr><tr><td>accept ICMP (limited)</td><td>accept ICMPv6, drop hop-limit 1 in forward</td><td>IPv6 breaks without ND and Packet Too Big. Details in <a href="ipv6-firewall-rfc4890.html">the RFC 4890 post</a>.</td></tr><tr><td>DHCP client on the WAN (udp 68)</td><td>udp 546 from fe80::/10</td><td>Without it the prefix never arrives, or stops renewing.</td></tr><tr><td>address-list <code>mgmt</code>, <code>bogons</code></td><td><code>/ipv6 firewall address-list</code></td><td>Lists are per family: an IPv4 list matches nothing in IPv6.</td></tr><tr><td>interface-list LAN / WAN</td><td>identical</td><td>Interface lists are shared: the one thing you get for free.</td></tr><tr><td>dst-nat port forward</td><td>a forward accept to the host</td><td>No NAT in IPv6: see section 4.</td></tr></tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 Write both rules in the same change</span>
+    <p>The cheapest control is procedural: no IPv4 filter change is complete until its IPv6 counterpart is in the same commit, with the same comment. A "management from these networks" rule that exists only in <code>/ip</code> is half a rule.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">Port Forwards Without NAT</h2>
+  <p class="section-thesis"><em>In IPv4 the port forward was the only way in. In IPv6 every host is already "forwarded", and the filter is the only thing that says no.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — publish one service, not the whole host</span>
+    <pre class="term"><span class="cmt"># IPv4: dst-nat 203.0.113.10:443 -&gt; 192.168.88.10:443, plus the filter rule</span>
+<span class="cmt">#   chain=forward connection-nat-state=dstnat action=accept</span>
+<span class="cmt"># IPv6: no translation; allow exactly the service on exactly the host</span>
+/ipv6 firewall address-list
+add list=published-web address=2a0d:xxxx:xxxx:xx10::10/128 comment="NAS web"
+/ipv6 firewall filter
+add chain=forward in-interface-list=WAN dst-address-list=published-web \
+    protocol=tcp dst-port=443 action=accept \
+    place-before=[find comment="FINAL DROP forward v6"]</pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Delegated prefixes change</span>
+    <p>If the ISP's prefix changes, so does every global address, and an address-list entry with the old prefix silently stops matching. Ask for a static prefix where you publish services, or keep the published hosts on a fixed interface ID and update the list from a script on the DHCPv6 client's prefix change. Starlink prefixes do change.</p>
+  </div>
+
+  <p>Note the absence of a rule for the reverse direction: established replies are already accepted at the top of the chain. Everything the old NAT did "for free", blocking unsolicited inbound connections, is now the job of the final <code>drop</code> in <code>forward</code>.</p>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Starlink, Done Properly</h2>
+  <p class="section-thesis"><em>The terminal in bypass mode gives the router an IPv6 default route by RA and a /56 by DHCPv6-PD. Take both, deliberately.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — IPv6 behind a Starlink in bypass mode</span>
+    <pre class="term"><span class="cmt"># a forwarding router ignores RAs unless told otherwise</span>
+/ipv6 settings set accept-router-advertisements=yes
+/ipv6 dhcp-client add interface=ether1 request=prefix pool-name=starlink6 \
+    pool-prefix-length=64 add-default-route=no use-peer-dns=no
+<span class="cmt"># one /64 from the delegated /56 for the LAN bridge, advertised to clients</span>
+/ipv6 address add interface=bridge from-pool=starlink6 address=::1 advertise=yes
+<span class="cmt"># the parity ruleset from section 3 goes in BEFORE this point</span></pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Order of operations</span>
+    <p>Apply the IPv6 filter first, then add the DHCPv6 client. If the prefix arrives first, there is a window, minutes or months, in which every LAN host has a global address and no filter. On a router you are converting, run the 60-second audit, install the ruleset in Safe Mode, then enable or verify the WAN side.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">The Cisco Side</h2>
+  <p class="section-thesis"><em>IOS has the opposite default, and the same lesson.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Topic</th><th>RouterOS</th><th>IOS / IOS-XE</th></tr></thead>
+    <tbody><tr><td>IPv6 routing by default</td><td>on</td><td>off until <code>ipv6 unicast-routing</code></td></tr><tr><td>Firewall per family</td><td>separate <code>/ipv6 firewall</code></td><td>ACLs separate (<code>ipv6 traffic-filter</code>); zone-based firewall inspects both if the class-maps match IPv6</td></tr><tr><td>Address lists / object-groups</td><td>per family</td><td><code>object-group network</code> per family</td></tr><tr><td>First-hop protection</td><td>bridge filters, RA guard on switch chips</td><td>RA Guard, DHCPv6 Guard, IPv6 Source Guard</td></tr></tbody>
+  </table>
+
+  <p>On IOS, turning on <code>ipv6 unicast-routing</code> without IPv6 ACLs or zone membership produces the same hole. Zone-based firewall helps: an interface in a zone is filtered for both families, as long as the inspect class-maps don't match only IPv4 ACLs.</p>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">Verify It</h2>
+  <p class="section-thesis"><em>The test is the one an attacker would run: from outside, over IPv6.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Test</th><th>Expected</th></tr></thead>
+    <tbody><tr><td><code>nmap -6</code> the router's WAN and LAN addresses from outside</td><td>Everything filtered; ICMPv6 echo may answer.</td></tr><tr><td><code>nmap -6</code> a LAN host's global address from outside</td><td>Filtered, except the published service.</td></tr><tr><td>LAN client: <code>curl -6 https://ifconfig.co</code></td><td>Works: outbound IPv6 is allowed.</td></tr><tr><td><code>/ipv6 firewall filter print stats</code> after the scans</td><td>The final drops counted your probes.</td></tr><tr><td>Renew the prefix (or reboot the Starlink)</td><td>Prefix returns, the filter still applies, published service list updated.</td></tr></tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Two families, two firewalls.</strong> <code>/ip firewall</code> rules do nothing for IPv6; only interface lists and the tracker are shared.</li>
+      <li><strong>No-defaults resets remove the IPv6 ruleset</strong> that the default configuration would have given you.</li>
+      <li><strong>CGNAT is not a firewall, and IPv6 has none.</strong> On Starlink the IPv6 side is globally routable from day one.</li>
+      <li><strong>Mirror intent, not text:</strong> ICMPv6 and DHCPv6 need their own accepts; address lists need IPv6 twins.</li>
+      <li><strong>Without NAT, the final forward drop does what NAT used to.</strong> Publish services by host and port, and watch for prefix changes.</li>
+      <li><strong>Filter first, prefix second.</strong> Never let the WAN hand out a prefix to a router without an IPv6 filter.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">Part of a set on RouterOS security rules: <a href="mikrotik-firewall-structure.html">rule order &amp; performance</a> · <a href="mikrotik-dual-stack-firewall.html">dual-stack parity</a> · <a href="mikrotik-dynamic-defenses.html">dynamic defences</a> · <a href="mikrotik-firewall-templates.html">templates for villas, shops &amp; hotels</a>. Foundations: <a href="mikrotik-firewall.html">the RouterOS firewall, properly</a>.</p>
+
+  <div class="cta-card">
+    <h3>Have you scanned your routers over IPv6?</h3>
+    <p>I audit RouterOS and Cisco edges in both address families, from the outside, and close the IPv6 side to the same standard as the IPv4 one.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

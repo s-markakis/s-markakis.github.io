@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: Firewall Rule Order, Jump Chains & Performance — S. Markakis</title>
+<meta name="description" content="How RouterOS walks a filter chain, how to find shadowed and dead rules from counters, jump chains that decide the direction once, address and interface lists instead of copied rules, measuring firewall CPU, notrack for trusted bulk flows, and a layout someone else can review.">
+<meta property="og:title" content="MikroTik: Firewall Rule Order, Jump Chains & Performance — S. Markakis">
+<meta property="og:description" content="How RouterOS walks a filter chain, how to find shadowed and dead rules from counters, jump chains that decide the direction once, address and interface lists instead of copied rules, measuring firewall CPU, notrack for trusted bulk flows, and a layout someone else can review.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-firewall-structure.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-firewall-structure.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-firewall-structure.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-firewall-structure.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Firewall Rule Order, Jump Chains & Performance",
+  "description": "How RouterOS walks a filter chain, how to find shadowed and dead rules from counters, jump chains that decide the direction once, address and interface lists instead of copied rules, measuring firewall CPU, notrack for trusted bulk flows, and a layout someone else can review.",
+  "datePublished": "2026-11-18",
+  "dateModified": "2026-11-18",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-firewall-structure.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-firewall-structure.png",
+  "keywords": [
+    "mikrotik",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-firewall-structure"
+  },
+  "timeRequired": "PT11M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Security Rules &nbsp;·&nbsp; November 2026</p>
+  <h1 class="post-title">Firewall Rule Order,<br>Jump Chains &amp; Performance</h1>
+  <p class="post-subtitle">Plenty of RouterOS firewalls work, but nobody can say why. They grew one rule at a time: a broad accept that shadows the drop added later, the same interface match copied into thirty rules, a forgotten server still allowed. This post is about the structure: reading counters, finding what never fires, jump chains, lists, and measuring whether the firewall even costs anything.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">Firewall</span>
+    <span class="tag">Jump Chains</span>
+    <span class="tag">Address Lists</span>
+    <span class="tag">Performance</span>
+    <span class="tag">RAW</span>
+    <span class="tag">Auditing</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 250" role="img" aria-label="A flat forward chain where every new packet walks forty rules, compared with a forward chain of four jump rules that sends each packet into a short sub-chain for its direction">
+
+      <rect x="0" y="0" width="720" height="250" style="fill:var(--card);"/>
+      <text x="20" y="28" style="font-family:var(--font-body),sans-serif;font-size:12px;font-weight:700;fill:var(--mid);">FLAT: every new packet walks the whole list</text>
+      <rect x="20" y="40" width="300" height="175" rx="6" style="fill:none;stroke:var(--rule);stroke-width:1.5;"/>
+      <rect x="32" y="50" width="276" height="12" rx="2" style="fill:var(--body);fill-opacity:.18;"/><rect x="32" y="67" width="276" height="12" rx="2" style="fill:var(--body);fill-opacity:.18;"/><rect x="32" y="84" width="276" height="12" rx="2" style="fill:var(--body);fill-opacity:.18;"/><rect x="32" y="101" width="276" height="12" rx="2" style="fill:var(--body);fill-opacity:.18;"/><rect x="32" y="118" width="276" height="12" rx="2" style="fill:var(--body);fill-opacity:.18;"/><rect x="32" y="135" width="276" height="12" rx="2" style="fill:var(--body);fill-opacity:.18;"/><rect x="32" y="152" width="276" height="12" rx="2" style="fill:var(--body);fill-opacity:.18;"/><rect x="32" y="169" width="276" height="12" rx="2" style="fill:var(--body);fill-opacity:.18;"/><rect x="32" y="186" width="276" height="12" rx="2" style="fill:var(--body);fill-opacity:.18;"/>
+      <text x="170" y="234" style="font-family:var(--font-mono),monospace;font-size:10px;fill:var(--accent);text-anchor:middle;">rule 40: drop · guest packet checked 39 times first</text>
+      <text x="380" y="28" style="font-family:var(--font-body),sans-serif;font-size:12px;font-weight:700;fill:var(--mid);">STRUCTURED: decide the direction once, then a short list</text>
+      <rect x="380" y="40" width="130" height="175" rx="6" style="fill:none;stroke:var(--defender);stroke-width:1.5;"/>
+      <text x="445" y="58" style="font-family:var(--font-mono),monospace;font-size:9.5px;fill:var(--defender);text-anchor:middle;">forward</text>
+      <rect x="392" y="70" width="106" height="24" rx="3" style="fill:var(--defender);fill-opacity:.18;"/><text x="445" y="86" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--mid);text-anchor:middle;">est/rel · invalid</text><rect x="392" y="106" width="106" height="24" rx="3" style="fill:var(--defender);fill-opacity:.18;"/><text x="445" y="122" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--mid);text-anchor:middle;">jump → lan-wan</text><rect x="392" y="142" width="106" height="24" rx="3" style="fill:var(--defender);fill-opacity:.18;"/><text x="445" y="158" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--mid);text-anchor:middle;">jump → guest</text><rect x="392" y="178" width="106" height="24" rx="3" style="fill:var(--defender);fill-opacity:.18;"/><text x="445" y="194" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--mid);text-anchor:middle;">jump → wan-in</text>
+      <line x1="498" y1="118" x2="560" y2="73" style="stroke:var(--accent);stroke-width:1.4;"/><rect x="560" y="60" width="140" height="26" rx="3" style="fill:var(--accent);fill-opacity:.12;stroke:var(--accent);"/><text x="630" y="77" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--mid);text-anchor:middle;">lan-wan · 4 rules</text><line x1="498" y1="154" x2="560" y2="128" style="stroke:var(--accent);stroke-width:1.4;"/><rect x="560" y="115" width="140" height="26" rx="3" style="fill:var(--accent);fill-opacity:.12;stroke:var(--accent);"/><text x="630" y="132" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--mid);text-anchor:middle;">guest · 3 rules</text><line x1="498" y1="190" x2="560" y2="183" style="stroke:var(--accent);stroke-width:1.4;"/><rect x="560" y="170" width="140" height="26" rx="3" style="fill:var(--accent);fill-opacity:.12;stroke:var(--accent);"/><text x="630" y="187" style="font-family:var(--font-mono),monospace;font-size:9px;fill:var(--mid);text-anchor:middle;">wan-in · 2 rules</text>
+      <text x="540" y="246" style="font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);text-anchor:middle;">a guest packet now meets at most 6 rules, and each sub-chain reads like a policy</text>
+    </svg>
+  </div>
+
+  <div class="thesis-card">
+    <p><a href="mikrotik-firewall.html">The RouterOS firewall, properly</a> built the two chains from first principles. This post assumes that firewall exists and asks the next questions: is every rule still needed, is it in the right place, and could someone else read it?</p>
+    <p>The tools are all built in: per-rule counters, jump chains, address and interface lists, <code>/tool profile</code> and RAW. None of them change what the firewall allows. They change whether you can trust that it does what you think.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-firewall.html">The RouterOS firewall, properly</a></li>
+      <li><a href="mikrotik-terminal.html">RouterOS terminal</a>, Safe Mode in particular</li>
+      <li>RouterOS 7.x; a CHR or a lab router for the first pass</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">How RouterOS Walks a Chain</h2>
+  <p class="section-thesis"><em>First match wins, and every rule above the match is a cost paid by every packet that reaches it. Order is both correctness and performance.</em></p>
+
+  <p>A filter chain is read top to bottom. The first rule whose matchers all fit decides the packet with <code>accept</code>, <code>drop</code>, <code>reject</code>, or hands it elsewhere with <code>jump</code> and <code>return</code>. A rule that only logs, or only adds to an address list, lets the packet continue to the next rule. Everything that follows comes from those few facts.</p>
+
+  <table class="cheat">
+    <thead><tr><th>Action</th><th>What happens to the packet</th></tr></thead>
+    <tbody><tr><td>accept / drop / reject</td><td>Decision made; nothing below in this chain is evaluated.</td></tr><tr><td>jump jump-target=X</td><td>Evaluated in chain X from the top. If X ends without a decision, the packet comes back to the rule after the jump.</td></tr><tr><td>return</td><td>Leave the current user chain now and continue after the jump that brought the packet here.</td></tr><tr><td>log, add-src-to-address-list, passthrough</td><td>Side effect only; the packet carries on to the next rule.</td></tr></tbody>
+  </table>
+
+  <p>Two consequences matter in practice. A broad <code>accept</code> placed early <strong>shadows</strong> every narrower rule below it, so those rules never fire and their counters stay at zero. And since only <code>connection-state=new</code> packets usually get past the first two rules, the length of the chain they walk is what costs CPU on a busy router.</p>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Find the Rules That Never Fire</h2>
+  <p class="section-thesis"><em>Counters are the only honest description of a firewall. Reset them, wait a week, and read what is actually doing the work.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — reset, wait, read the counters <span class="safe-badge">Safe to Run</span></span>
+    <pre class="term">/ip firewall filter reset-counters-all
+<span class="cmt"># ...a normal business week later:</span>
+/ip firewall filter print stats where chain=forward
+<span class="cmt"># Flags: X - disabled, I - invalid; D - dynamic</span>
+<span class="cmt">#  #   CHAIN     ACTION   BYTES          PACKETS</span>
+<span class="cmt">#  0 D forward   passthrough  ...          ...    &lt;- the dummy FastTrack counter rule</span>
+<span class="cmt">#  1   forward   fasttrack-connection 91 GiB  71 834 112</span>
+<span class="cmt">#  2   forward   accept   3 214 MiB      4 102 774</span>
+<span class="cmt">#  3   forward   drop     88 KiB         1 207</span>
+<span class="cmt">#  7   forward   accept   0              0       &lt;- why is this here?</span>
+<span class="cmt"># 12   forward   drop     0              0       &lt;- shadowed, or nothing ever tries</span></pre>
+  </div>
+
+  <p>A rule at zero after a week is one of three things: <strong>shadowed</strong> by a broader rule above it, <strong>obsolete</strong> (the server it allowed was retired), or a <strong>guard</strong> that should stay at zero, like "drop guest to CCTV". Comment the guards so nobody deletes them, and investigate the rest.</p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — a classic shadow</span>
+    <pre class="term"><span class="cmt"># rule 4 accepts all TCP from the staff VLAN...</span>
+add chain=forward in-interface=vlan20-staff protocol=tcp action=accept
+<span class="cmt"># ...so rule 9, written later to block staff from the CCTV NVR, never matches</span>
+add chain=forward in-interface=vlan20-staff dst-address=10.0.40.10 action=drop \
+    comment=staff-no-nvr
+<span class="cmt"># fix: move the specific drop above the broad accept</span>
+/ip firewall filter move [find comment="staff-no-nvr"] destination=4</pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Dynamic rules are counted too</span>
+    <p>The <code>D</code> rule at the top of the forward chain is the dummy that RouterOS adds to show FastTrack counters; it is not yours and can't be moved. Rules added by scripts or by features such as Hotspot also appear as dynamic. Leave them out when you decide what is dead.</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Jump Chains: Decide the Direction Once</h2>
+  <p class="section-thesis"><em>Instead of forty rules that each repeat in-interface and out-interface, ask once where the packet is going and hand it to a short chain written for exactly that case.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — a forward chain of jumps</span>
+    <pre class="term">/interface list
+add name=WAN
+add name=LAN
+add name=GUEST
+/ip firewall filter
+add chain=forward connection-state=established,related,untracked action=accept
+add chain=forward connection-state=invalid action=drop
+add chain=forward in-interface-list=LAN out-interface-list=WAN action=jump \
+    jump-target=lan-wan comment="LAN to internet"
+add chain=forward in-interface-list=GUEST action=jump jump-target=guest
+add chain=forward in-interface-list=WAN action=jump jump-target=wan-in
+add chain=forward action=drop comment="anything not routed into a sub-chain"
+<span class="cmt"># each sub-chain is a small, readable policy</span>
+add chain=guest out-interface-list=WAN protocol=tcp dst-port=80,443 action=accept
+add chain=guest out-interface-list=WAN protocol=udp dst-port=53,443 action=accept
+add chain=guest action=drop comment="guests: web and DNS out, nothing else"
+add chain=wan-in connection-nat-state=dstnat action=accept comment="port forwards"
+add chain=wan-in action=drop
+add chain=lan-wan src-address-list=no-internet action=drop
+add chain=lan-wan action=accept</pre>
+  </div>
+
+  <p>Each sub-chain ends in its own decision, so a packet never falls back into the main chain by accident. The final <code>drop</code> in <code>forward</code> catches anything that matched none of the jumps: a new interface nobody added to a list, or traffic between two LAN VLANs that should go through its own sub-chain when it is needed.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — A sub-chain without a final decision returns</span>
+    <p>If <code>guest</code> ended after its two accepts, a guest packet to the CCTV subnet would fall off the end of <code>guest</code>, return to <code>forward</code>, continue to the next jump, and possibly be accepted further down. End every sub-chain with an explicit <code>drop</code> or <code>accept</code>, even when it looks redundant.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">One Rule, Many Addresses</h2>
+  <p class="section-thesis"><em>When the same match appears in more than one rule, it belongs in an address list or an interface list. The firewall becomes data you edit, not code you rewrite.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — lists instead of copies</span>
+    <pre class="term">/ip firewall address-list
+add list=mgmt address=10.0.99.0/24 comment="management VLAN"
+add list=mgmt address=10.10.10.0/24 comment="WireGuard admins"
+<span class="cmt"># a DNS name is resolved and kept current by the router itself</span>
+add list=payment address=payments.example-processor.com
+add list=bogons address=0.0.0.0/8
+add list=bogons address=100.64.0.0/10
+add list=bogons address=169.254.0.0/16
+add list=bogons address=192.0.2.0/24
+/ip firewall filter
+add chain=input src-address-list=mgmt protocol=tcp dst-port=22,8291 action=accept</pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Don't put 100.64.0.0/10 in bogons behind Starlink</span>
+    <p>Starlink and many 4G providers give the router a CGNAT address from 100.64.0.0/10, and the gateway sits in that range too. A bogon drop on WAN input or in RAW that includes it cuts the router off from its own ISP. Keep the list per site: include 100.64/10 on fibre with a public address, leave it out on CGNAT links.</p>
+  </div>
+
+  <p>Interface lists do the same for interfaces. A rule that says <code>in-interface-list=LAN</code> keeps working when a new VLAN is added to the list, where <code>in-interface=vlan20</code> would silently leave the new VLAN out of a policy.</p>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Measure Before You Optimise</h2>
+  <p class="section-thesis"><em>Most routers never need firewall tuning. The ones that do show it plainly, and the fix is usually to make fewer packets reach the filter at all.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — is the firewall what costs CPU? <span class="safe-badge">Safe to Run</span></span>
+    <pre class="term">/tool profile duration=10s
+<span class="cmt"># NAME            CPU   USAGE</span>
+<span class="cmt"># networking      all   18%</span>
+<span class="cmt"># firewall        all   41%   &lt;- now it's worth reading on</span>
+<span class="cmt"># ethernet        all    6%</span>
+/ip firewall connection tracking print
+<span class="cmt"># total-entries: 48 112   max-entries: 524 288</span>
+/ip firewall connection print count-only where connection-state=new</pre>
+  </div>
+
+  <table class="cheat">
+    <thead><tr><th>If you see</th><th>Do this</th></tr></thead>
+    <tbody><tr><td>firewall high, chains long</td><td>Jump chains (section 3); move the busiest accepts up; lists instead of copies.</td></tr><tr><td>firewall high, mostly established traffic</td><td>FastTrack for LAN↔WAN, if there is no queue or mangle that needs it (see <a href="mikrotik-firewall.html">the firewall post</a>).</td></tr><tr><td>Huge bulk flows between two internal VLANs</td><td><code>action=notrack</code> in RAW for exactly that pair (below).</td></tr><tr><td>Connection table near max-entries</td><td>A flood, or a misbehaving client: lower UDP timeouts, drop in RAW, find the source.</td></tr></tbody>
+  </table>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — skip tracking for one trusted bulk flow</span>
+    <pre class="term"><span class="cmt"># nightly backup: NAS (VLAN 12) to the off-site replica router, 400 GB</span>
+/ip firewall raw
+add chain=prerouting src-address=10.0.12.20 dst-address=10.0.200.0/24 action=notrack
+add chain=prerouting src-address=10.0.200.0/24 dst-address=10.0.12.20 action=notrack
+<span class="cmt"># untracked packets must be accepted explicitly in filter (defconf already does)</span>
+/ip firewall filter
+add chain=forward connection-state=established,related,untracked action=accept \
+    place-before=0</pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — notrack means no state and no NAT</span>
+    <p>Untracked traffic is not stateful-filtered, not NATed and not FastTracked. Use it only between internal networks you trust, for both directions, and keep the filter rule that accepts <code>untracked</code> narrow if the rest of the network shouldn't inherit it.</p>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">A Layout Someone Else Can Review</h2>
+  <p class="section-thesis"><em>Six months from now the person reading this firewall will be you, under pressure. Write it for them.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Convention</th><th>Why</th></tr></thead>
+    <tbody><tr><td>Every rule has a <code>comment=</code> that states intent, not mechanics</td><td>"guests: web only" survives a review; "tcp 80,443" doesn't say whether that was the goal.</td></tr><tr><td>Fixed order: state → invalid → jumps → final drop</td><td>Anyone can find where a new rule goes.</td></tr><tr><td>Guards commented as guards</td><td>"GUARD: guest→CCTV, expected 0 hits" stops someone deleting a zero-counter rule that is doing its job.</td></tr><tr><td>Add with <code>place-before=</code>, never at the end</td><td>A rule added after the final drop is a rule that never runs.</td></tr><tr><td>Export and diff before and after every change</td><td><code>/ip firewall export terse</code> gives one line per rule: easy to diff, easy to store.</td></tr></tbody>
+  </table>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — the change routine</span>
+    <pre class="term"><span class="cmt"># Safe Mode (Ctrl+X) first; a lost session rolls everything back</span>
+/ip firewall export terse file=fw-before
+/ip firewall filter add place-before=[find comment="FINAL DROP forward"] \
+    chain=lan-wan dst-address-list=blocked-sites action=drop \
+    comment="block list for staff, ticket #214"
+/ip firewall export terse file=fw-after
+<span class="cmt"># compare the two on your laptop, then leave Safe Mode to commit</span></pre>
+  </div>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 The Cisco side of the same idea</span>
+    <p>On IOS, the counters are <code>show access-lists</code> hit counts and <code>show policy-map type inspect zone-pair</code>; object-groups play the part of address lists; and zone-based firewall is already "decide the direction once": each zone-pair is a sub-chain. The habits translate one to one: comment intent, keep guards, read counters before deleting.</p>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">Verify It</h2>
+  <p class="section-thesis"><em>Prove the reorganised firewall makes the same decisions as the old one, before anyone notices you changed it.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Test</th><th>Expected</th></tr></thead>
+    <tbody><tr><td>Guest laptop: browse, then ping 10.0.40.10 (NVR)</td><td>Web works; ping fails; the guard in <code>guest</code> counts the attempt.</td></tr><tr><td>Staff PC to the NVR after the shadow fix</td><td>Dropped by the specific rule, which now has hits.</td></tr><tr><td><code>print stats</code> one week later</td><td>No unexplained zero-hit rules; guards commented.</td></tr><tr><td><code>/tool profile</code> at peak</td><td>Firewall share lower than before, or unchanged on a router that never needed tuning.</td></tr></tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>First match wins.</strong> A broad accept above a narrow drop means the drop never runs; counters show it.</li>
+      <li><strong>Zero hits after a week is a question</strong>: shadowed, obsolete or a guard. Comment the guards.</li>
+      <li><strong>Jump chains decide the direction once</strong> and turn the firewall into short, readable policies. End every sub-chain with a decision.</li>
+      <li><strong>Lists, not copies.</strong> An address or interface list changes in one place and new members inherit the policy.</li>
+      <li><strong>Measure first.</strong> <code>/tool profile</code> tells you whether the firewall costs anything before you optimise it.</li>
+      <li><strong>notrack is a scalpel.</strong> No state, no NAT: only for named internal flows, both directions.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">Part of a set on RouterOS security rules: <a href="mikrotik-firewall-structure.html">rule order &amp; performance</a> · <a href="mikrotik-dual-stack-firewall.html">dual-stack parity</a> · <a href="mikrotik-dynamic-defenses.html">dynamic defences</a> · <a href="mikrotik-firewall-templates.html">templates for villas, shops &amp; hotels</a>. Foundations: <a href="mikrotik-firewall.html">the RouterOS firewall, properly</a>.</p>
+
+  <div class="cta-card">
+    <h3>Does anyone know why your firewall rules are there?</h3>
+    <p>I audit RouterOS firewalls from their counters and exports, remove what never fires, and leave behind a structure your next engineer can read.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

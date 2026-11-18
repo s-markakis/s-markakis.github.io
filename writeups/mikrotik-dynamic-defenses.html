@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: Scan Detection, Port Knocking & Connection Limits — Defence or Theatre? — S. Markakis</title>
+<meta name="description" content="RouterOS firewall rules that rewrite themselves: PSD scan detection and why spoofed sources can turn it against you, port knocking and its weaknesses, management over WireGuard instead, per-source connection limits, and a table of which mechanism is a defence and which is theatre.">
+<meta property="og:title" content="MikroTik: Scan Detection, Port Knocking & Connection Limits — Defence or Theatre? — S. Markakis">
+<meta property="og:description" content="RouterOS firewall rules that rewrite themselves: PSD scan detection and why spoofed sources can turn it against you, port knocking and its weaknesses, management over WireGuard instead, per-source connection limits, and a table of which mechanism is a defence and which is theatre.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-dynamic-defenses.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-dynamic-defenses.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-dynamic-defenses.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-dynamic-defenses.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Scan Detection, Port Knocking & Connection Limits — Defence or Theatre?",
+  "description": "RouterOS firewall rules that rewrite themselves: PSD scan detection and why spoofed sources can turn it against you, port knocking and its weaknesses, management over WireGuard instead, per-source connection limits, and a table of which mechanism is a defence and which is theatre.",
+  "datePublished": "2026-11-18",
+  "dateModified": "2026-11-18",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-dynamic-defenses.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-dynamic-defenses.png",
+  "keywords": [
+    "mikrotik",
+    "security"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-dynamic-defenses"
+  },
+  "timeRequired": "PT9M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Security Rules &nbsp;·&nbsp; November 2026</p>
+  <h1 class="post-title">Scan Detection,<br>Port Knocking &amp; Limits</h1>
+  <p class="post-subtitle">Forum threads are full of RouterOS rules that ban scanners, hide Winbox behind a secret knock and blacklist brute-forcers for weeks. Some of them help. Some of them hide a service that shouldn't be exposed in the first place, and one of them, fed spoofed packets, will happily block your own DNS resolver. This post builds each mechanism properly and then asks what it is actually protecting.</p>
+  <div class="tags">
+    <span class="tag">RouterOS</span>
+    <span class="tag">Firewall</span>
+    <span class="tag">Address Lists</span>
+    <span class="tag">PSD</span>
+    <span class="tag">Port Knocking</span>
+    <span class="tag">WireGuard</span>
+    <span class="tag">Hardening</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="diagram-wrap" style="margin-bottom:2rem;">
+    <svg viewBox="0 0 720 220" role="img" aria-label="A source address moving through address lists: each new SSH attempt promotes it one stage, until the fourth attempt within a minute lands it on a ten-day blacklist that the first rule of the chain drops">
+
+      <rect x="0" y="0" width="720" height="220" style="fill:var(--card);"/>
+      <text x="20" y="28" style="font-family:var(--font-body),sans-serif;font-size:12px;font-weight:700;fill:var(--mid);">A firewall that rewrites itself: one source, four tries, one list</text>
+      <rect x="20" y="70" width="120" height="44" rx="5" style="fill:var(--body);fill-opacity:.15;stroke:var(--body);stroke-width:1.4;"/><text x="80" y="97" style="font-family:var(--font-mono),monospace;font-size:10px;fill:var(--mid);text-anchor:middle;">new SSH</text><rect x="160" y="70" width="120" height="44" rx="5" style="fill:var(--gotcha);fill-opacity:.15;stroke:var(--gotcha);stroke-width:1.4;"/><text x="220" y="97" style="font-family:var(--font-mono),monospace;font-size:10px;fill:var(--mid);text-anchor:middle;">stage1 · 1m</text><rect x="300" y="70" width="120" height="44" rx="5" style="fill:var(--gotcha);fill-opacity:.15;stroke:var(--gotcha);stroke-width:1.4;"/><text x="360" y="97" style="font-family:var(--font-mono),monospace;font-size:10px;fill:var(--mid);text-anchor:middle;">stage2 · 1m</text><rect x="440" y="70" width="120" height="44" rx="5" style="fill:var(--gotcha);fill-opacity:.15;stroke:var(--gotcha);stroke-width:1.4;"/><text x="500" y="97" style="font-family:var(--font-mono),monospace;font-size:10px;fill:var(--mid);text-anchor:middle;">stage3 · 1m</text><rect x="580" y="70" width="120" height="44" rx="5" style="fill:var(--accent);fill-opacity:.15;stroke:var(--accent);stroke-width:1.4;"/><text x="640" y="97" style="font-family:var(--font-mono),monospace;font-size:10px;fill:var(--mid);text-anchor:middle;">blacklist · 10d</text>
+      <line x1="140" y1="92" x2="160" y2="92" style="stroke:var(--body);stroke-width:1.6;"/><line x1="280" y1="92" x2="300" y2="92" style="stroke:var(--body);stroke-width:1.6;"/><line x1="420" y1="92" x2="440" y2="92" style="stroke:var(--body);stroke-width:1.6;"/><line x1="560" y1="92" x2="580" y2="92" style="stroke:var(--body);stroke-width:1.6;"/>
+      <text x="360" y="150" style="font-family:var(--font-body),sans-serif;font-size:10px;fill:var(--body);text-anchor:middle;">The same mechanism blocks a bot, locks out an admin on a hotel Wi-Fi, or, fed spoofed packets, blacklists your own DNS resolver.</text>
+      <text x="360" y="172" style="font-family:var(--font-body),sans-serif;font-size:10px;fill:var(--accent);text-anchor:middle;font-weight:700;">Which of those it does depends on what you point it at.</text>
+    </svg>
+  </div>
+
+  <div class="thesis-card">
+    <p>Address lists with timeouts make the RouterOS firewall self-updating: a rule notices something and adds the source to a list, another rule acts on the list. The same primitive powers brute-force traps, scan detection and port knocking.</p>
+    <p>Each of those is easy to build and easy to overrate. This post builds them correctly, shows how each can fail or be abused, and ends with the one change that makes most of them unnecessary: management only over WireGuard.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="mikrotik-firewall.html">The RouterOS firewall, properly</a>, including its staged SSH trap</li>
+      <li><a href="mikrotik-hardening.html">Securing RouterOS</a></li>
+      <li>A lab router and an outside host (a VPS) to test from</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num">01</p>
+  <h2 class="section-title">The Primitive: A List That Writes Itself</h2>
+  <p class="section-thesis"><em>Every dynamic defence on RouterOS is the same trick: a rule that adds the source to an address list with a timeout, and another rule that matches the list.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — the building block <span class="safe-badge">Safe to Run</span></span>
+    <pre class="term"><span class="cmt"># side effect only: the packet continues to the next rule</span>
+add chain=input protocol=tcp dst-port=22 connection-state=new \
+    action=add-src-to-address-list address-list=ssh_seen address-list-timeout=1m
+<span class="cmt"># a later rule (or an earlier one, on the next packet) acts on membership</span>
+add chain=input src-address-list=ssh_seen ...
+/ip firewall address-list print where list=ssh_seen</pre>
+  </div>
+
+  <p><a href="mikrotik-firewall.html">The firewall post</a> already uses it for the staged SSH trap. This post looks at three bigger uses, port-scan detection, port knocking and connection limits, and at the question that post left open: when is any of this worth having?</p>
+
+  <!-- 02 -->
+  <p class="section-num">02</p>
+  <h2 class="section-title">Scan Detection with PSD</h2>
+  <p class="section-thesis"><em>RouterOS can score a source by how many ports it touches in a short time and list it. It works, and it can be turned against you.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — list and drop port scanners on the WAN</span>
+    <pre class="term">/ip firewall address-list
+add list=never-block address=10.0.0.0/8 comment="our own networks"
+add list=never-block address=9.9.9.9 comment="DNS resolver"
+add list=never-block address=203.0.113.50 comment="monitoring server"
+/ip firewall raw
+add chain=prerouting in-interface-list=WAN src-address-list=port_scanners action=drop
+/ip firewall filter
+<span class="cmt"># psd = weight threshold, delay threshold, low-port weight, high-port weight</span>
+add chain=input in-interface-list=WAN protocol=tcp psd=21,3s,3,1 \
+    src-address-list=!never-block action=add-src-to-address-list \
+    address-list=port_scanners address-list-timeout=1d</pre>
+  </div>
+
+  <p>With these values a source that touches seven privileged ports (weight 3 each) or 21 high ports within three seconds is listed for a day, and RAW drops it before connection tracking spends anything on it.</p>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Spoofed packets list whoever the attacker chooses</span>
+    <p>PSD scores the <em>source address</em> of TCP packets, and a SYN's source is trivial to forge. Anyone who knows the trap exists can send a burst of SYNs "from" your DNS resolver, your monitoring server or your upstream's gateway and make the router drop them for a day. That is why <code>never-block</code> exists, why the timeout is one day and not two weeks, and why PSD belongs only on WAN-facing input where nothing important arrives unsolicited.</p>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Behind CGNAT, PSD has nothing to do</span>
+    <p>On Starlink or most 4G, unsolicited traffic never reaches the router's IPv4 WAN at all. Scan detection there only protects IPv6, which needs the rules in <code>/ipv6 firewall</code> (see <a href="mikrotik-dual-stack-firewall.html">dual-stack parity</a>).</p>
+  </div>
+
+  <!-- 03 -->
+  <p class="section-num">03</p>
+  <h2 class="section-title">Port Knocking</h2>
+  <p class="section-thesis"><em>A secret sequence of packets that opens the management port for your address only. Clever, cheap, and weaker than it looks.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — a three-knock sequence that opens Winbox for an hour</span>
+    <pre class="term">/ip firewall filter
+add chain=input in-interface-list=WAN protocol=udp dst-port=41231 \
+    action=add-src-to-address-list address-list=knock1 address-list-timeout=10s
+add chain=input in-interface-list=WAN protocol=udp dst-port=17702 src-address-list=knock1 \
+    action=add-src-to-address-list address-list=knock2 address-list-timeout=10s
+add chain=input in-interface-list=WAN protocol=udp dst-port=29013 src-address-list=knock2 \
+    action=add-src-to-address-list address-list=knocked address-list-timeout=1h
+add chain=input in-interface-list=WAN protocol=tcp dst-port=8291 src-address-list=knocked \
+    action=accept comment="Winbox after the knock"
+<span class="cmt"># these rules go above the final input drop; the knocks themselves are dropped by it</span></pre>
+  </div>
+
+  <table class="cheat">
+    <thead><tr><th>Weakness</th><th>What it means in practice</th></tr></thead>
+    <tbody><tr><td>The sequence travels in clear</td><td>Anyone on the path (the hotel Wi-Fi you knocked from, an ISP, a compromised router) sees three UDP ports and can replay them.</td></tr><tr><td>It opens an address, not a person</td><td>Knock from a hotel, an airport or any CGNAT network and everybody behind that public address gets Winbox for an hour.</td></tr><tr><td>Out-of-order and noise</td><td>A scan that happens to hit the first port resets nothing; a careless sequence can be stumbled into.</td></tr><tr><td>What it protects is still Winbox</td><td>Behind the knock sits a service with a history of pre-auth vulnerabilities. Knocking hides it; it doesn't fix it.</td></tr></tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 What to use instead: WireGuard</span>
+    <p>A WireGuard interface sends nothing back to a packet that isn't signed by a known peer key, so it is invisible to scanners like a knock, and it is authenticated, encrypted and tied to a key rather than an address. Accept UDP for WireGuard on the WAN, accept management only from the WireGuard interface, and the knock becomes unnecessary.</p>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num">04</p>
+  <h2 class="section-title">The Better Default: Management Over WireGuard</h2>
+  <p class="section-thesis"><em>Ten lines that make every dynamic trap on the management ports unnecessary.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — management reachable only through the tunnel</span>
+    <pre class="term">/interface wireguard add name=wg-admin listen-port=13231
+/interface wireguard peers add interface=wg-admin public-key="&lt;laptop public key&gt;" \
+    allowed-address=10.10.10.2/32 comment="admin laptop"
+/ip address add address=10.10.10.1/24 interface=wg-admin
+/interface list member add list=MGMT interface=wg-admin
+/ip firewall filter
+add chain=input in-interface-list=WAN protocol=udp dst-port=13231 action=accept \
+    comment="WireGuard: silent to anything unsigned" \
+    place-before=[find comment="FINAL DROP input"]
+add chain=input in-interface-list=MGMT action=accept \
+    place-before=[find comment="FINAL DROP input"]
+/ip service set winbox address=10.10.10.0/24,10.0.99.0/24
+/ip service set ssh address=10.10.10.0/24,10.0.99.0/24</pre>
+  </div>
+
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Starlink and CGNAT: the router can't be the listener</span>
+    <p>Behind CGNAT nothing can reach UDP 13231 on the router. Turn it around: the router dials out to a small cloud VPS or a fixed-IP site that acts as the WireGuard hub, with <code>persistent-keepalive</code> so the CGNAT mapping stays open, and admins connect to the hub.</p>
+  </div>
+
+  <!-- 05 -->
+  <p class="section-num">05</p>
+  <h2 class="section-title">Connection Limits</h2>
+  <p class="section-thesis"><em>Not a trap, just arithmetic: no single source should hold hundreds of connections to the router.</em></p>
+
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — cap per-source connections to the router's own services</span>
+    <pre class="term">/ip firewall filter
+<span class="cmt"># more than 10 simultaneous TCP connections from one /32 to the router: drop</span>
+add chain=input protocol=tcp connection-limit=10,32 action=drop \
+    comment="per-source cap" place-before=[find comment="FINAL DROP input"]
+<span class="cmt"># DNS for the LAN: limit new queries per source, protects the resolver from a looping client</span>
+add chain=input in-interface-list=LAN protocol=udp dst-port=53 connection-state=new \
+    dst-limit=50,100,src-address/1m action=accept
+add chain=input in-interface-list=LAN protocol=udp dst-port=53 connection-state=new \
+    action=drop</pre>
+  </div>
+
+  <p><code>connection-limit</code> counts tracked connections per source mask; <code>dst-limit</code> is a token bucket per source (here 50 per second with a burst of 100). Neither needs a list, so neither can be poisoned with spoofed sources the way PSD can.</p>
+
+  <!-- 06 -->
+  <p class="section-num">06</p>
+  <h2 class="section-title">Defence or Theatre?</h2>
+  <p class="section-thesis"><em>Each mechanism is good at one thing. Pointed at the wrong problem, it adds complexity and a new way to lock yourself out.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Threat</th><th>Theatre</th><th>What actually helps</th></tr></thead>
+    <tbody><tr><td>Password guessing on SSH/Winbox from the internet</td><td>Staged brute-force lists on a service that shouldn't be exposed</td><td>Not exposing it: WireGuard (section 4); keys for SSH; services limited by <code>address=</code></td></tr><tr><td>Internet-wide scanning</td><td>PSD on a CGNAT link, two-week blacklists</td><td>A default-deny input chain; nothing listening on the WAN</td></tr><tr><td>Winbox pre-auth bugs</td><td>Port knocking in front of an unpatched router</td><td>Upgrades on the long-term channel, and Winbox off the internet</td></tr><tr><td>A looping or infected LAN client flooding the router</td><td>nothing</td><td><code>connection-limit</code>, <code>dst-limit</code></td></tr><tr><td>Floods towards a public service</td><td>blacklists of spoofed sources</td><td>RAW drops of bogons, upstream filtering, a CDN for the service</td></tr></tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">💡 The Cisco side</span>
+    <p>IOS has its own versions of each: <code>login block-for 120 attempts 3 within 60</code> with a <code>login quiet-mode access-class</code> for admins (the brute-force trap), dynamic ACLs or "lock-and-key" (an older relative of port knocking, with the same weaknesses), and <code>parameter-map type inspect</code> limits on half-open sessions in zone-based firewall (the connection limit). The verdict is the same: keep management off the internet and the traps matter much less.</p>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num">07</p>
+  <h2 class="section-title">Verify It</h2>
+  <p class="section-thesis"><em>Trigger every mechanism from a test host, and make sure you can still get in.</em></p>
+
+  <table class="cheat">
+    <thead><tr><th>Test</th><th>Expected</th></tr></thead>
+    <tbody><tr><td><code>nmap -Pn -p 1-1024 &lt;router WAN&gt;</code> from a VPS</td><td>The VPS appears in <code>port_scanners</code>; further probes are dropped in RAW.</td></tr><tr><td>Spoof a scan from a <code>never-block</code> address in the lab</td><td>Not listed.</td></tr><tr><td>Knock from a phone hotspot, then Winbox</td><td>Winbox opens for that public address only, for one hour.</td></tr><tr><td>WireGuard admin laptop off-site</td><td>Winbox and SSH work through the tunnel; nothing answers on the WAN.</td></tr><tr><td>Open 20 SSH sessions from one LAN host</td><td>The eleventh is dropped; the counter on the cap rule increments.</td></tr></tbody>
+  </table>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Everything here is one primitive:</strong> add the source to a list with a timeout, act on the list.</li>
+      <li><strong>PSD scores source addresses, and sources can be forged.</strong> Keep a never-block list, short timeouts, WAN only.</li>
+      <li><strong>Port knocking hides a service; it doesn't authenticate anyone.</strong> Behind a shared public IP, a knock opens the door for everyone.</li>
+      <li><strong>WireGuard is the knock done right:</strong> silent to strangers, keyed to a person's device. Behind CGNAT, dial out to a hub.</li>
+      <li><strong>Connection limits can't be poisoned</strong> and protect the router from its own LAN.</li>
+      <li><strong>If the management ports aren't on the internet, most traps have nothing left to do.</strong></li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">Part of a set on RouterOS security rules: <a href="mikrotik-firewall-structure.html">rule order &amp; performance</a> · <a href="mikrotik-dual-stack-firewall.html">dual-stack parity</a> · <a href="mikrotik-dynamic-defenses.html">dynamic defences</a> · <a href="mikrotik-firewall-templates.html">templates for villas, shops &amp; hotels</a>. Foundations: <a href="mikrotik-firewall.html">the RouterOS firewall, properly</a>.</p>
+
+  <div class="cta-card">
+    <h3>Is your router defending itself, or performing?</h3>
+    <p>I review RouterOS edges for exposed services and self-inflicted traps, and move management behind WireGuard without anyone losing access.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
