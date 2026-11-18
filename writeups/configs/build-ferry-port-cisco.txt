@@ -1,0 +1,388 @@
+! Build: The Ferry Port Network — full Cisco IOS config
+! s-markakis.github.io/writeups/build-ferry-port.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== CORE-ADMIN — loopback and ring ports =====
+hostname CORE-ADMIN
+! the cores route; a ring of routed ports means no spanning tree across the quay
+ip routing
+interface Loopback0
+ description router-id + management anchor
+ ip address 10.255.0.1 255.255.255.255
+interface TenGigabitEthernet1/1/1
+ description RING to CORE-TERM Te1/1/1
+ no switchport
+ ip address 10.255.1.0 255.255.255.254
+ no shutdown
+interface TenGigabitEthernet1/1/2
+ description RING to CORE-TOWER Te1/1/2
+ no switchport
+ ip address 10.255.1.7 255.255.255.254
+ no shutdown
+interface TenGigabitEthernet1/1/3
+ description RING to CORE-CARGO Te1/1/3 (diagonal)
+ no switchport
+ ip address 10.255.1.8 255.255.255.254
+ no shutdown
+! ===== CORE-ADMIN — OSPF process, area 0 on the ring =====
+router ospf 1
+ router-id 10.255.0.1
+! 100G reference: 10G = cost 10, 1G = cost 100 (the default 100M makes them all 1)
+ auto-cost reference-bandwidth 100000
+! nothing talks OSPF unless named below: no hellos into a user VLAN, ever
+ passive-interface default
+ no passive-interface TenGigabitEthernet1/1/1
+ no passive-interface TenGigabitEthernet1/1/2
+ no passive-interface TenGigabitEthernet1/1/3
+interface Loopback0
+ ip ospf 1 area 0
+interface TenGigabitEthernet1/1/1
+! two routers on a cable: no DR/BDR election, adjacency comes up faster
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+interface TenGigabitEthernet1/1/2
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+interface TenGigabitEthernet1/1/3
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+! ===== CORE-ADMIN — HMAC-SHA-256 key chain on every adjacency =====
+key chain OSPF-KEYS
+ key 1
+  key-string ********
+! RFC 5709: HMAC-SHA-256, not MD5 and never plain text
+  cryptographic-algorithm hmac-sha-256
+interface TenGigabitEthernet1/1/1
+ ip ospf authentication key-chain OSPF-KEYS
+interface TenGigabitEthernet1/1/2
+ ip ospf authentication key-chain OSPF-KEYS
+interface TenGigabitEthernet1/1/3
+ ip ospf authentication key-chain OSPF-KEYS
+router ospf 1
+! drop any OSPF packet that didn't come from a directly connected neighbour
+ ttl-security all-interfaces hops 1
+! ===== CORE-TERM — passenger terminal VLANs, SVIs and access trunk =====
+vlan 101
+ name STAFF
+vlan 102
+ name VOICE
+vlan 103
+ name TICKETING
+vlan 104
+ name CCTV
+vlan 105
+ name ACCESS-CTRL
+vlan 115
+ name MGMT
+! every building's VLAN 1xx lives in 10.<building>.xx.0/24: the plan is the ACL
+interface Vlan101
+ description STAFF
+ ip address 10.20.1.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan102
+ description VOICE
+ ip address 10.20.2.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan103
+ description TICKETING
+ ip address 10.20.3.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan104
+ description CCTV
+ ip address 10.20.4.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan105
+ description ACCESS-CTRL
+ ip address 10.20.5.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan115
+ description MGMT
+ ip address 10.20.15.1 255.255.255.0
+ ip ospf 1 area 0
+interface TenGigabitEthernet1/1/8
+ description TRUNK to ACC-TERM (building access stack)
+ switchport mode trunk
+ switchport nonegotiate
+ switchport trunk allowed vlan 101,102,103,104,105,115
+! ===== EDGE1 — fibre, tracked default, NAT and default origination =====
+hostname EDGE1
+interface Loopback0
+ ip address 10.255.0.11 255.255.255.255
+interface GigabitEthernet0/0/1
+ description LAN to CORE-ADMIN Te1/1/4
+ ip address 10.255.1.11 255.255.255.254
+ ip nat inside
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+ ip ospf authentication key-chain OSPF-KEYS
+key chain OSPF-KEYS
+ key 1
+  key-string ********
+  cryptographic-algorithm hmac-sha-256
+interface GigabitEthernet0/0/0
+ description WAN fibre ISP (static /29)
+ ip address 203.0.113.2 255.255.255.248
+ ip nat outside
+! the probe target is pinned to the ISP so it can't follow OSPF's default
+ip route 9.9.9.9 255.255.255.255 203.0.113.1
+ip sla 1
+ icmp-echo 9.9.9.9 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ delay down 10 up 30
+ip route 0.0.0.0 0.0.0.0 203.0.113.1 track 1
+! the building /20s plus anything unknown inside: never leak 10/8 to the ISP
+ip route 10.0.0.0 255.0.0.0 Null0
+ip access-list extended NAT-OUT
+ permit ip 10.0.1.0 0.255.0.255 any
+ permit ip 10.0.2.0 0.255.0.255 any
+ permit ip 10.20.3.0 0.0.0.255 any
+ permit ip 10.30.6.0 0.0.0.255 any
+ permit ip 10.10.12.0 0.0.0.255 any
+ip nat inside source list NAT-OUT interface GigabitEthernet0/0/0 overload
+router ospf 1
+ router-id 10.255.0.11
+ auto-cost reference-bandwidth 100000
+ passive-interface default
+ no passive-interface GigabitEthernet0/0/1
+ ttl-security all-interfaces hops 1
+! only while this edge's own default is installed (no 'always')
+ default-information originate metric 10 metric-type 1
+interface Loopback0
+ ip ospf 1 area 0
+! ===== EDGE2 — Starlink by DHCP, tracked, and a higher metric =====
+hostname EDGE2
+interface Loopback0
+ ip address 10.255.0.12 255.255.255.255
+interface GigabitEthernet0/0/1
+ description LAN to CORE-TOWER Te1/1/4
+ ip address 10.255.1.13 255.255.255.254
+ ip nat inside
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+ ip ospf authentication key-chain OSPF-KEYS
+key chain OSPF-KEYS
+ key 1
+  key-string ********
+  cryptographic-algorithm hmac-sha-256
+interface GigabitEthernet0/0/0
+ description WAN Starlink (bypass mode, CGNAT)
+! the DHCP default must beat OSPF's E1 default (AD 110) or EDGE2 never originates
+ ip dhcp client default-router distance 100
+ ip dhcp client route track 2
+ ip address dhcp
+ ip nat outside
+ip route 1.1.1.1 255.255.255.255 GigabitEthernet0/0/0 dhcp
+ip sla 2
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 2 life forever start-time now
+track 2 ip sla 2 reachability
+ delay down 10 up 30
+! the building /20s plus anything unknown inside: never leak 10/8 to the ISP
+ip route 10.0.0.0 255.0.0.0 Null0
+ip access-list extended NAT-OUT
+ permit ip 10.0.1.0 0.255.0.255 any
+ permit ip 10.0.2.0 0.255.0.255 any
+ permit ip 10.20.3.0 0.0.0.255 any
+ permit ip 10.30.6.0 0.0.0.255 any
+ permit ip 10.10.12.0 0.0.0.255 any
+ip nat inside source list NAT-OUT interface GigabitEthernet0/0/0 overload
+router ospf 1
+ router-id 10.255.0.12
+ auto-cost reference-bandwidth 100000
+ passive-interface default
+ no passive-interface GigabitEthernet0/0/1
+ ttl-security all-interfaces hops 1
+! only while this edge's own default is installed (no 'always')
+ default-information originate metric 100 metric-type 1
+interface Loopback0
+ ip ospf 1 area 0
+! ===== CORE-ADMIN — the link to EDGE1 (CORE-TOWER does the same towards EDGE2) =====
+interface TenGigabitEthernet1/1/1
+! 3 x 100 ms: a dead neighbour is declared in 300 ms, not 40 s
+ bfd interval 100 min_rx 100 multiplier 3
+interface TenGigabitEthernet1/1/2
+ bfd interval 100 min_rx 100 multiplier 3
+interface TenGigabitEthernet1/1/3
+ bfd interval 100 min_rx 100 multiplier 3
+interface TenGigabitEthernet1/1/4
+ bfd interval 100 min_rx 100 multiplier 3
+router ospf 1
+ bfd all-interfaces
+! react to the first change in 50 ms, back off if the ring starts flapping
+ timers throttle spf 50 200 5000
+ timers throttle lsa 50 200 5000
+ timers lsa arrival 100
+! ===== YARD — IE-3400 in area 20 =====
+hostname YARD
+! IE-3400 needs the Network Advantage licence for OSPF
+ip routing
+interface Loopback0
+ ip address 10.255.0.21 255.255.255.255
+ ip ospf 1 area 20
+interface GigabitEthernet1/1
+ description UPLINK to CORE-CARGO Gi1/0/1
+ no switchport
+ ip address 10.255.1.15 255.255.255.254
+ ip ospf network point-to-point
+ ip ospf 1 area 20
+ ip ospf authentication key-chain OSPF-KEYS
+ bfd interval 100 min_rx 100 multiplier 3
+key chain OSPF-KEYS
+ key 1
+  key-string ********
+  cryptographic-algorithm hmac-sha-256
+vlan 104
+ name CCTV
+vlan 105
+ name ACCESS-CTRL
+vlan 109
+ name FUEL-OT
+vlan 115
+ name MGMT
+interface Vlan104
+ description CCTV
+ ip address 10.50.4.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 20
+interface Vlan105
+ description ACCESS-CTRL
+ ip address 10.50.5.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 20
+interface Vlan109
+ description FUEL-OT
+ ip address 10.50.9.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 20
+interface Vlan115
+ description MGMT
+ ip address 10.50.15.1 255.255.255.0
+ ip ospf 1 area 20
+interface range GigabitEthernet1/3 - 6
+ description GATE CAMERAS + OCR
+ switchport mode access
+ switchport access vlan 104
+interface GigabitEthernet1/7
+ description GATE ACCESS CONTROLLER
+ switchport mode access
+ switchport access vlan 105
+interface range GigabitEthernet1/8 - 10
+ description FUEL DISPENSER PLCs
+ switchport mode access
+ switchport access vlan 109
+router ospf 1
+ router-id 10.255.0.21
+ auto-cost reference-bandwidth 100000
+ passive-interface default
+ no passive-interface GigabitEthernet1/1
+ ttl-security all-interfaces hops 1
+ bfd all-interfaces
+! stub: no external LSAs; the ABR's no-summary makes it totally stubby
+ area 20 stub
+! ===== CORE-CARGO — the ABR side: totally stubby and one summary =====
+interface GigabitEthernet1/0/1
+ ip ospf network point-to-point
+ ip ospf 1 area 20
+ ip ospf authentication key-chain OSPF-KEYS
+ bfd interval 100 min_rx 100 multiplier 3
+router ospf 1
+ no passive-interface GigabitEthernet1/0/1
+! the yard gets one route in (a default) and sends one route out (its /20)
+ area 20 stub no-summary
+ area 20 range 10.50.0.0 255.255.240.0
+! ===== CORE-TERM — the terminal's SVI ACLs (CORE-ADMIN, CARGO, TOWER and YARD use the same ACL text) =====
+ip access-list extended STAFF-IN
+ remark staff: anywhere useful, never into the security or OT segments
+ deny   ip any 10.0.4.0 0.255.0.255
+ deny   ip any 10.0.5.0 0.255.0.255
+ deny   ip any 10.0.8.0 0.255.0.255
+ deny   ip any 10.0.9.0 0.255.0.255
+ deny   ip any 10.0.15.0 0.255.0.255
+ permit ip any any
+ip access-list extended TICKET-IN
+ remark ticket desks + boarding gates: DHCP/DNS/NTP inside, booking platform outside
+ permit udp any eq bootpc any eq bootps
+ permit udp any host 10.10.12.10 eq domain
+ permit udp any host 10.10.12.5 eq ntp
+ deny   ip any 10.0.0.0 0.255.255.255
+ permit tcp any any eq 443
+ip access-list extended CCTV-IN
+ remark cameras answer the NVR, get time, send logs: nothing else
+ permit tcp 10.0.4.0 0.255.0.255 host 10.10.12.30 established
+ permit udp any eq bootpc any eq bootps
+ permit udp 10.0.4.0 0.255.0.255 host 10.10.12.5 eq ntp
+ permit udp 10.0.4.0 0.255.0.255 host 10.10.12.20 eq syslog
+ip access-list extended ACCESS-IN
+ remark door and gate controllers talk to the access-control server only
+ permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 eq 443
+ permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 established
+ permit udp any eq bootpc any eq bootps
+ permit udp 10.0.5.0 0.255.0.255 host 10.10.12.5 eq ntp
+interface Vlan101
+ ip access-group STAFF-IN in
+interface Vlan103
+ ip access-group TICKET-IN in
+interface Vlan104
+ ip access-group CCTV-IN in
+interface Vlan105
+ ip access-group ACCESS-IN in
+! ===== CORE-TOWER, CORE-CARGO, YARD — the segment-specific ACLs =====
+zone security INSIDE
+zone security OUTSIDE
+class-map type inspect match-any INSIDE-TO-INET
+ match access-group name NAT-OUT
+policy-map type inspect INSIDE-TO-INET
+ class type inspect INSIDE-TO-INET
+  inspect
+ class class-default
+  drop log
+zone-pair security IN-OUT source INSIDE destination OUTSIDE
+ service-policy type inspect INSIDE-TO-INET
+! the router itself: replies to its own probes and DHCP from the dish
+ip access-list extended WAN-TO-SELF
+ permit udp any eq bootps any eq bootpc
+ permit icmp any any echo-reply
+ permit icmp any any unreachable
+class-map type inspect match-any WAN-TO-SELF
+ match access-group name WAN-TO-SELF
+policy-map type inspect WAN-TO-SELF
+ class type inspect WAN-TO-SELF
+  pass
+ class class-default
+  drop log
+zone-pair security OUT-SELF source OUTSIDE destination self
+ service-policy type inspect WAN-TO-SELF
+interface GigabitEthernet0/0/1
+ zone-member security INSIDE
+interface GigabitEthernet0/0/0
+ zone-member security OUTSIDE
+! ===== All routers — stub-router behaviour after a reload =====
+router ospf 1
+! after a reboot, carry no transit traffic for 5 minutes (tables and BFD settle first)
+ max-metric router-lsa on-startup 300
+! ===== All routers — time, logging, OSPF state traps, config archive =====
+service timestamps log datetime msec localtime show-timezone
+clock timezone EET 2 0
+clock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00
+ntp server 10.10.12.5
+logging host 10.10.12.20
+logging trap informational
+router ospf 1
+! every neighbour state change, with the reason, to syslog
+ log-adjacency-changes detail
+snmp-server group NOC v3 priv
+snmp-server user nms NOC v3 auth sha ******** priv aes 128 ********
+snmp-server enable traps ospf state-change
+snmp-server host 10.10.12.20 version 3 priv nms
+archive
+ log config
+  logging enable
+  notify syslog contenttype plaintext
