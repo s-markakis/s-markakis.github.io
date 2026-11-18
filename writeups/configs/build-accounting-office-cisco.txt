@@ -1,0 +1,508 @@
+! Build: The Accounting Office Network — full Cisco IOS config
+! s-markakis.github.io/writeups/build-accounting-office.html  ·  illustrative / lab reference, review before use
+! secrets shown as ******** — replace them.
+
+! ===== SW1 — VLANs, uplinks, servers and desk ports =====
+hostname SW1
+! keeps its own VLAN list; ignores VTP from the wire
+vtp mode transparent
+spanning-tree mode rapid-pvst
+vlan 10
+ name PARTNERS
+vlan 12
+ name SERVERS
+vlan 20
+ name STAFF
+vlan 25
+ name TEMP
+vlan 30
+ name VOICE
+vlan 40
+ name PRINT
+vlan 50
+ name GUEST
+vlan 60
+ name CRIT
+vlan 99
+ name MGMT
+vlan 999
+ name PARKING
+! only the uplinks may answer DHCP; a laptop running a DHCP server is ignored
+ip dhcp snooping vlan 10,20,25,30,40,60
+no ip dhcp snooping information option
+ip dhcp snooping
+interface GigabitEthernet1/1/1
+ description UPLINK to R1 Gi0/0/1
+ switchport mode trunk
+ switchport nonegotiate
+ switchport trunk allowed vlan 10,12,20,25,30,40,50,60,99
+ ip dhcp snooping trust
+interface GigabitEthernet1/1/2
+ description DOWNLINK to SW2 Gi1/1/1
+ switchport mode trunk
+ switchport nonegotiate
+ switchport trunk allowed vlan 10,12,20,25,30,40,50,60,99
+ ip dhcp snooping trust
+! comms room: locked, so the servers' ports are static
+interface range GigabitEthernet1/0/21 - 23
+ description SERVERS (DC-NPS-CA, FILES-ACCT, RDS)
+ switchport mode access
+ switchport access vlan 12
+ spanning-tree portfast
+interface GigabitEthernet1/0/24
+ description AP (EWC on the ground floor AP)
+ switchport mode trunk
+ switchport trunk native vlan 99
+ switchport trunk allowed vlan 10,20,25,50,99
+ spanning-tree portfast trunk
+! desks: phone + PC. TEMPORARY static VLAN 20, replaced by RADIUS in step 6
+interface range GigabitEthernet1/0/1 - 20
+ description DESK (phone + PC)
+ switchport mode access
+ switchport access vlan 20
+ switchport voice vlan 30
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface Vlan99
+ ip address 10.60.99.11 255.255.255.0
+ip default-gateway 10.60.99.1
+! ===== R1 — subinterfaces, DHCP relay, guest pool, NAT =====
+hostname R1
+interface GigabitEthernet0/0/0
+ description WAN fibre (static /30)
+ ip address 203.0.113.18 255.255.255.252
+ ip nat outside
+interface GigabitEthernet0/0/1
+ description TRUNK to SW1 Gi1/1/1
+ no shutdown
+interface GigabitEthernet0/0/1.10
+ encapsulation dot1Q 10
+ description PARTNERS
+ ip address 10.60.10.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.12
+ encapsulation dot1Q 12
+ description SERVERS
+ ip address 10.60.12.1 255.255.255.0
+ ip nat inside
+interface GigabitEthernet0/0/1.20
+ encapsulation dot1Q 20
+ description STAFF
+ ip address 10.60.20.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.25
+ encapsulation dot1Q 25
+ description TEMP
+ ip address 10.60.25.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.30
+ encapsulation dot1Q 30
+ description VOICE
+ ip address 10.60.30.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.40
+ encapsulation dot1Q 40
+ description PRINT
+ ip address 10.60.40.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.50
+ encapsulation dot1Q 50
+ description GUEST
+ ip address 10.60.50.1 255.255.255.0
+ ip nat inside
+interface GigabitEthernet0/0/1.60
+ encapsulation dot1Q 60
+ description CRIT
+ ip address 10.60.60.1 255.255.255.0
+ ip helper-address 10.60.12.10
+ ip nat inside
+interface GigabitEthernet0/0/1.99
+ encapsulation dot1Q 99 native
+ description MGMT
+ ip address 10.60.99.1 255.255.255.0
+ ip nat inside
+! guests get DHCP from the router, never from the domain controller
+ip dhcp excluded-address 10.60.50.1 10.60.50.9
+ip dhcp pool GUEST
+ network 10.60.50.0 255.255.255.0
+ default-router 10.60.50.1
+ dns-server 9.9.9.9 149.112.112.112
+ lease 0 4
+ip access-list standard NAT-IN
+ permit 10.60.0.0 0.0.255.255
+ip nat inside source list NAT-IN interface GigabitEthernet0/0/0 overload
+ip route 0.0.0.0 0.0.0.0 203.0.113.17
+! ===== DC1 — PowerShell · enterprise CA, auto-enrolment template, NPS and its RADIUS clients =====
+! local admin first: aaa new-model applies to the console too
+username netadmin privilege 15 algorithm-type scrypt secret ********
+aaa new-model
+radius server NPS1
+ address ipv4 10.60.12.10 auth-port 1812 acct-port 1813
+ key ********
+! a test login every few minutes, so a recovered NPS is noticed (step 8)
+ automate-tester username radius-probe idle-time 1 probe-on
+aaa group server radius NPS
+ server name NPS1
+ ip radius source-interface Vlan99
+aaa authentication login default local
+aaa authentication dot1x default group NPS
+aaa authorization network default group NPS
+aaa accounting identity default start-stop group NPS
+! three silent tries in five seconds = dead; retry after three minutes
+radius-server dead-criteria time 5 tries 3
+radius-server deadtime 3
+radius-server attribute 6 on-for-login-auth
+radius-server attribute 8 include-in-access-req
+radius-server attribute 25 access-request include
+radius-server vsa send authentication
+radius-server vsa send accounting
+dot1x system-auth-control
+! learns each client's IP for the session table and accounting
+device-tracking policy DT-NAC
+ tracking enable
+! ===== SW1 and SW2 — the OFFICE-NAC policy and the desk ports in open mode =====
+class-map type control subscriber match-all DOT1X_NO_RESP
+ match method dot1x
+ match result-type method dot1x agent-not-found
+class-map type control subscriber match-all DOT1X_FAILED
+ match method dot1x
+ match result-type method dot1x authoritative
+class-map type control subscriber match-all MAB_FAILED
+ match method mab
+ match result-type method mab authoritative
+policy-map type control subscriber OFFICE-NAC
+ event session-started match-all
+  10 class always do-until-failure
+   10 authenticate using dot1x priority 10
+! entry 10 is left free: step 8 puts 'NPS is down' there, ahead of these
+ event authentication-failure match-first
+  20 class DOT1X_NO_RESP do-until-failure
+   10 terminate dot1x
+   20 authenticate using mab priority 20
+  30 class DOT1X_FAILED do-until-failure
+   10 terminate dot1x
+   20 authentication-restart 60
+  40 class MAB_FAILED do-until-failure
+   10 terminate mab
+   20 authentication-restart 60
+  50 class always do-until-failure
+   10 terminate dot1x
+   20 terminate mab
+   30 authentication-restart 60
+ event agent-found match-all
+  10 class always do-until-failure
+   10 terminate mab
+   20 authenticate using dot1x priority 10
+interface range GigabitEthernet1/0/1 - 20
+ device-tracking attach-policy DT-NAC
+ dot1x pae authenticator
+! no answer to 2 x 7 s of EAPOL = not a supplicant: try MAB after ~20 s, not 90
+ dot1x timeout tx-period 7
+ dot1x max-reauth-req 2
+ mab
+ access-session host-mode multi-domain
+ access-session port-control auto
+! no 'access-session closed' yet: open mode, everything still works while we watch
+ service-policy type control subscriber OFFICE-NAC
+! ===== SW1 and SW2 — closed mode, parking VLAN, server-driven reauth =====
+interface range GigabitEthernet1/0/1 - 20
+! an authenticated session with no VLAN from NPS lands in PARKING, not in STAFF
+ switchport access vlan 999
+! from now on, nothing but EAPOL until the session is authorised
+ access-session closed
+! re-check every session when NPS's Session-Timeout says so (8 h)
+ authentication periodic
+ authentication timer reauthenticate server
+! ===== SW1 and SW2 — LLDP for phones, MAB user-name format for NPS =====
+! phones learn VLAN 30 by LLDP-MED; NPS's device-traffic-class=voice opens it
+lldp run
+! MAB sends the MAC as the user name: aabbccddeeff, no separators, lower case
+mab request format attribute 1 groupsize 12 separator - lowercase
+! printers and phones are normal desk ports: same policy, MAB after dot1x times out
+! ===== SW1 and SW2 — critical VLAN, voice, and recovery when NPS returns =====
+service-template CRIT-DATA
+ vlan 60
+class-map type control subscriber match-all AAA_DOWN_UNAUTHD
+ match result-type aaa-timeout
+ match authorization-status unauthorized
+class-map type control subscriber match-all AAA_DOWN_AUTHD
+ match result-type aaa-timeout
+ match authorization-status authorized
+class-map type control subscriber match-any IN_CRIT
+ match activated-service-template CRIT-DATA
+ match activated-service-template DEFAULT_CRITICAL_VOICE_TEMPLATE
+policy-map type control subscriber OFFICE-NAC
+ event authentication-failure match-first
+! NPS unreachable, new device: CRIT VLAN for data, voice keeps working
+  10 class AAA_DOWN_UNAUTHD do-until-failure
+   10 activate service-template CRIT-DATA
+   20 activate service-template DEFAULT_CRITICAL_VOICE_TEMPLATE
+   30 authorize
+   40 pause reauthentication
+! NPS unreachable at reauth time: keep what it already granted
+  15 class AAA_DOWN_AUTHD do-until-failure
+   10 pause reauthentication
+   20 authorize
+ event aaa-available match-all
+! NPS is back: throw out the critical sessions so they authenticate properly
+  10 class IN_CRIT do-until-failure
+   10 clear-session
+  20 class always do-until-failure
+   10 resume reauthentication
+! ===== EWC — OFFICE (WPA3-Enterprise) and MEETING (WPA3-SAE) =====
+! the Embedded Wireless Controller runs on the ground-floor C9115AXI
+aaa authentication dot1x NPS-DOT1X group NPS
+wlan OFFICE 1 OFFICE
+ no security wpa wpa2
+ no security wpa akm dot1x
+ security wpa wpa3
+ security wpa akm dot1x-sha256
+ security pmf mandatory
+ security dot1x authentication-list NPS-DOT1X
+ no shutdown
+wlan MEETING 2 MEETING
+ no security wpa wpa2
+ no security wpa akm dot1x
+ security wpa wpa3
+ security wpa akm sae
+ security pmf mandatory
+ security wpa psk set-key ascii 0 ********
+ no shutdown
+! NPS chooses the VLAN per user, exactly as on the wired ports
+wireless profile policy OFFICE-POL
+ aaa-override
+ vlan 20
+ no shutdown
+wireless profile policy MEETING-POL
+ vlan 50
+ no shutdown
+wireless tag policy OFFICE-TAG
+ wlan OFFICE policy OFFICE-POL
+ wlan MEETING policy MEETING-POL
+! ===== R1 — zones and zone-pairs for the whole matrix =====
+zone security PARTNERS
+zone security SERVERS
+zone security STAFF
+zone security TEMP
+zone security VOICE
+zone security PRINT
+zone security GUEST
+zone security CRIT
+zone security MGMT
+zone security OUTSIDE
+ip access-list extended PARTNERS-SERVERS
+ permit ip any 10.60.12.0 0.0.0.255
+class-map type inspect match-any PARTNERS-SERVERS
+ match access-group name PARTNERS-SERVERS
+policy-map type inspect PARTNERS-SERVERS
+ class type inspect PARTNERS-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security PARTNERS-SERVERS source PARTNERS destination SERVERS
+ service-policy type inspect PARTNERS-SERVERS
+ip access-list extended PARTNERS-PRINT
+ permit tcp any 10.60.40.0 0.0.0.255 eq 9100
+ permit tcp any 10.60.40.0 0.0.0.255 eq 631
+ permit tcp any 10.60.40.0 0.0.0.255 eq 443
+class-map type inspect match-any PARTNERS-PRINT
+ match access-group name PARTNERS-PRINT
+policy-map type inspect PARTNERS-PRINT
+ class type inspect PARTNERS-PRINT
+  inspect
+ class class-default
+  drop log
+zone-pair security PARTNERS-PRINT source PARTNERS destination PRINT
+ service-policy type inspect PARTNERS-PRINT
+ip access-list extended PARTNERS-OUTSIDE
+ permit ip any any
+class-map type inspect match-any PARTNERS-OUTSIDE
+ match access-group name PARTNERS-OUTSIDE
+policy-map type inspect PARTNERS-OUTSIDE
+ class type inspect PARTNERS-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security PARTNERS-OUTSIDE source PARTNERS destination OUTSIDE
+ service-policy type inspect PARTNERS-OUTSIDE
+ip access-list extended STAFF-SERVERS
+ remark not the RDS host: that is for temps
+ deny ip any host 10.60.12.25
+ permit ip any 10.60.12.0 0.0.0.255
+class-map type inspect match-any STAFF-SERVERS
+ match access-group name STAFF-SERVERS
+policy-map type inspect STAFF-SERVERS
+ class type inspect STAFF-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security STAFF-SERVERS source STAFF destination SERVERS
+ service-policy type inspect STAFF-SERVERS
+ip access-list extended STAFF-PRINT
+ permit tcp any 10.60.40.0 0.0.0.255 eq 9100
+ permit tcp any 10.60.40.0 0.0.0.255 eq 631
+ permit tcp any 10.60.40.0 0.0.0.255 eq 443
+class-map type inspect match-any STAFF-PRINT
+ match access-group name STAFF-PRINT
+policy-map type inspect STAFF-PRINT
+ class type inspect STAFF-PRINT
+  inspect
+ class class-default
+  drop log
+zone-pair security STAFF-PRINT source STAFF destination PRINT
+ service-policy type inspect STAFF-PRINT
+ip access-list extended STAFF-OUTSIDE
+ permit ip any any
+class-map type inspect match-any STAFF-OUTSIDE
+ match access-group name STAFF-OUTSIDE
+policy-map type inspect STAFF-OUTSIDE
+ class type inspect STAFF-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security STAFF-OUTSIDE source STAFF destination OUTSIDE
+ service-policy type inspect STAFF-OUTSIDE
+ip access-list extended TEMP-SERVERS
+ remark temps work on the RDS host; client files never reach their laptop
+ permit tcp any host 10.60.12.25 eq 3389
+ permit udp any host 10.60.12.25 eq 3389
+ permit udp any host 10.60.12.10 eq domain
+class-map type inspect match-any TEMP-SERVERS
+ match access-group name TEMP-SERVERS
+policy-map type inspect TEMP-SERVERS
+ class type inspect TEMP-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security TEMP-SERVERS source TEMP destination SERVERS
+ service-policy type inspect TEMP-SERVERS
+ip access-list extended TEMP-OUTSIDE
+ permit tcp any any eq 443
+ permit tcp any any eq www
+class-map type inspect match-any TEMP-OUTSIDE
+ match access-group name TEMP-OUTSIDE
+policy-map type inspect TEMP-OUTSIDE
+ class type inspect TEMP-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security TEMP-OUTSIDE source TEMP destination OUTSIDE
+ service-policy type inspect TEMP-OUTSIDE
+ip access-list extended PRINT-SERVERS
+ remark scan-to-folder only
+ permit tcp any host 10.60.12.20 eq 445
+ permit udp any host 10.60.12.10 eq domain
+class-map type inspect match-any PRINT-SERVERS
+ match access-group name PRINT-SERVERS
+policy-map type inspect PRINT-SERVERS
+ class type inspect PRINT-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security PRINT-SERVERS source PRINT destination SERVERS
+ service-policy type inspect PRINT-SERVERS
+ip access-list extended VOICE-OUTSIDE
+ remark SIP trunk provider only
+ permit udp any 192.0.2.0 0.0.0.255
+class-map type inspect match-any VOICE-OUTSIDE
+ match access-group name VOICE-OUTSIDE
+policy-map type inspect VOICE-OUTSIDE
+ class type inspect VOICE-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security VOICE-OUTSIDE source VOICE destination OUTSIDE
+ service-policy type inspect VOICE-OUTSIDE
+ip access-list extended GUEST-OUTSIDE
+ permit tcp any any eq 443
+ permit tcp any any eq www
+ permit udp any any eq domain
+class-map type inspect match-any GUEST-OUTSIDE
+ match access-group name GUEST-OUTSIDE
+policy-map type inspect GUEST-OUTSIDE
+ class type inspect GUEST-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security GUEST-OUTSIDE source GUEST destination OUTSIDE
+ service-policy type inspect GUEST-OUTSIDE
+ip access-list extended CRIT-SERVERS
+ remark NPS down: domain controller and the accounting files, nothing else
+ permit ip any host 10.60.12.10
+ permit ip any host 10.60.12.20
+class-map type inspect match-any CRIT-SERVERS
+ match access-group name CRIT-SERVERS
+policy-map type inspect CRIT-SERVERS
+ class type inspect CRIT-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security CRIT-SERVERS source CRIT destination SERVERS
+ service-policy type inspect CRIT-SERVERS
+ip access-list extended SERVERS-OUTSIDE
+ remark updates and the off-site backup
+ permit tcp any any eq 443
+class-map type inspect match-any SERVERS-OUTSIDE
+ match access-group name SERVERS-OUTSIDE
+policy-map type inspect SERVERS-OUTSIDE
+ class type inspect SERVERS-OUTSIDE
+  inspect
+ class class-default
+  drop log
+zone-pair security SERVERS-OUTSIDE source SERVERS destination OUTSIDE
+ service-policy type inspect SERVERS-OUTSIDE
+ip access-list extended MGMT-SERVERS
+ remark RADIUS, syslog, NTP from switches and the EWC
+ permit udp any host 10.60.12.10 eq 1812
+ permit udp any host 10.60.12.10 eq 1813
+ permit udp any host 10.60.12.10 eq syslog
+ permit udp any host 10.60.12.10 eq ntp
+class-map type inspect match-any MGMT-SERVERS
+ match access-group name MGMT-SERVERS
+policy-map type inspect MGMT-SERVERS
+ class type inspect MGMT-SERVERS
+  inspect
+ class class-default
+  drop log
+zone-pair security MGMT-SERVERS source MGMT destination SERVERS
+ service-policy type inspect MGMT-SERVERS
+interface GigabitEthernet0/0/1.10
+ zone-member security PARTNERS
+interface GigabitEthernet0/0/1.12
+ zone-member security SERVERS
+interface GigabitEthernet0/0/1.20
+ zone-member security STAFF
+interface GigabitEthernet0/0/1.25
+ zone-member security TEMP
+interface GigabitEthernet0/0/1.30
+ zone-member security VOICE
+interface GigabitEthernet0/0/1.40
+ zone-member security PRINT
+interface GigabitEthernet0/0/1.50
+ zone-member security GUEST
+interface GigabitEthernet0/0/1.60
+ zone-member security CRIT
+interface GigabitEthernet0/0/1.99
+ zone-member security MGMT
+interface GigabitEthernet0/0/0
+ zone-member security OUTSIDE
+! ===== SW1, SW2 and the EWC — interim accounting, session logging, time =====
+! interim accounting: where each session is, every 24 h and on any change
+aaa accounting update newinfo periodic 1440
+! session start, success, failure and the reason, to syslog
+epm logging
+clock timezone EET 2 0
+clock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00
+service timestamps log datetime msec localtime show-timezone
+ntp server 10.60.12.10
+logging host 10.60.12.10
+logging trap informational
+archive
+ log config
+  logging enable
+  notify syslog contenttype plaintext
