@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>Build: The Ferry Port Network — S. Markakis</title>
+<meta name="description" content="A regional ferry port on Cisco, built bottom-up in 11 tested steps: four buildings on a routed fibre ring along the quay running authenticated OSPF with BFD, fibre and Starlink edges that originate the default only while they work, a totally stubby area for the fuel yard, ISPS security systems fenced off with SVI ACLs, and maintenance without outages.">
+<meta property="og:title" content="Build: The Ferry Port Network — S. Markakis">
+<meta property="og:description" content="A regional ferry port on Cisco, built bottom-up in 11 tested steps: four buildings on a routed fibre ring along the quay running authenticated OSPF with BFD, fibre and Starlink edges that originate the default only while they work, a totally stubby area for the fuel yard, ISPS security systems fenced off with SVI ACLs, and maintenance without outages.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/build-ferry-port.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/build-ferry-port.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/build-ferry-port.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/build-ferry-port.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"›";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+  .lf-box{fill:var(--bg);stroke:var(--rule);stroke-width:1.5;}
+  .lf-boxa{fill:var(--bg);stroke:var(--accent);stroke-width:1.8;}
+  .lf-boxd{fill:var(--bg);stroke:var(--defender);stroke-width:1.6;}
+  .lf-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:12.5px;fill:var(--mid);letter-spacing:.02em;}
+  .lf-sm{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lf-cap{font-family:var(--font-body),sans-serif;font-size:9.5px;fill:var(--body);}
+  .lf-mono{font-family:var(--font-mono),monospace;font-size:9px;fill:var(--body);}
+  .lf-c{text-anchor:middle;}
+  .lf-e{text-anchor:end;}
+  .lf-link{stroke:var(--body);stroke-width:1.4;fill:none;opacity:.7;}
+  .lf-trunk{stroke:var(--defender);stroke-width:2.6;fill:none;}
+  .lf-dash{stroke:var(--body);stroke-width:1.4;fill:none;stroke-dasharray:5,4;opacity:.8;}
+  .lf-pkt{fill:var(--accent);}
+  .lf-ok{fill:var(--defender);}
+  .lf-no{fill:var(--accent);}
+  .lf-acc{fill:var(--accent);}
+  .lf-def{fill:var(--defender);}
+  .lf-gold{fill:var(--gotcha);}
+  .series-chip{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.15em .6em;margin-right:.5rem;}
+  @media (max-width:600px){.cheat td:first-child{white-space:normal;word-break:break-word;}.cheat th,.cheat td{padding:.4rem .5rem;}}
+  :root{--v10:#b0453a;--v20:#3a7ca5;--v30:#4f8f4c;--v40:#8a5bb5;--v45:#2f8f8f;--v50:#d9822b;--v60:#c08020;--v99:#6f7f8f;}
+  .lft-port{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round;}
+  .lft-name{font-family:var(--font-disp),sans-serif;font-weight:700;font-size:10.5px;fill:var(--mid);}
+  .lft-chip{font-family:var(--font-mono),monospace;font-size:8px;fill:var(--body);}
+  .lft-badge{font-family:var(--font-disp),sans-serif;font-weight:800;font-size:10px;fill:#fff;}
+  .lft-c{text-anchor:middle;}
+  .lft-e{text-anchor:end;}
+  .lft-led{fill:#3fa34d;}
+  .lft-ring{fill:none;stroke:var(--accent);stroke-width:1.6;transform-box:fill-box;transform-origin:center;animation:lftPulse 2.4s ease-out infinite;}
+  .lft-draw{stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .lft-blink{animation:lftBlink 2s ease-in-out infinite;}
+  @keyframes lftPulse{0%{transform:scale(.75);opacity:.9;}100%{transform:scale(1.35);opacity:0;}}
+  @keyframes lftDraw{0%{stroke-dashoffset:100;}35%,100%{stroke-dashoffset:0;}}
+  @keyframes lftBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+  @media (prefers-reduced-motion:reduce){.lft-ring{animation:none;opacity:.6;}.lft-draw{animation:none;stroke-dasharray:none;}.lft-blink{animation:none;}}
+
+  .bx-svg svg .bx-ghost{opacity:.12;}
+  .bx-svg .bx-ring{display:none;}
+  .bx-svg .bx-new .bx-ring{display:block;}
+  .bx-svg .bx-new use{color:var(--accent)!important;}
+  .bx-svg .bx-new .bx-line{stroke:var(--accent)!important;stroke-dasharray:100;animation:lftDraw 6s ease-out infinite;}
+  .bx-svg .bx-new .bx-blink{stroke:var(--accent)!important;animation:lftBlink 2s ease-in-out infinite;}
+  .bx-svg .bx-ghost .bx-led{display:none;}
+  .bx-svg .bx-cfg{cursor:pointer;}
+  .bx-svg .bx-sel{fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:3,3;opacity:0;}
+  .bx-svg .bx-cfg:hover .bx-sel,.bx-svg .bx-cfg:focus .bx-sel{opacity:.6;}
+  .bx-svg .bx-cfg.bx-on .bx-sel{opacity:1;}
+  .bx-svg .bx-cfg:focus{outline:none;}
+  .bx-ctl{display:flex;align-items:center;gap:.5rem;margin:.6rem 0;}
+  .bx-ctl input[type=range]{flex:1;accent-color:var(--accent);}
+  .bx-b{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:4px;padding:.35em .8em;cursor:pointer;}
+  .bx-b:hover{border-color:var(--accent);color:var(--accent);}
+  .bx-title{font-family:var(--font-disp);font-weight:700;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;color:var(--head);margin:.4rem 0 .5rem;}
+  .bx-devs{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.6rem;}
+  .bx-devs button{font-family:var(--font-mono);font-size:.75rem;background:var(--card);color:var(--mid);border:1px solid var(--rule);border-radius:999px;padding:.2em .8em;cursor:pointer;}
+  .bx-devs button.on{border-color:var(--accent);color:var(--accent);}
+  .bx-devs button:disabled{opacity:.35;cursor:default;}
+  pre.bx-cfg{max-height:420px;overflow:auto;}
+  pre.bx-cfg .bx-hdr{color:var(--body);font-style:italic;}
+  pre.bx-cfg .bx-add{display:block;background:rgba(198,61,31,.12);border-left:3px solid var(--accent);margin-left:-1.2rem;padding-left:calc(1.2rem - 3px);}
+  .bx-legend{font-size:.8rem;color:var(--body);margin-top:-.6rem;}
+  .bx-add-key{background:rgba(198,61,31,.15);border-left:3px solid var(--accent);padding:0 .4em;}
+  .bx-jump{font-size:.85rem;margin:.2rem 0 1.2rem;}
+  .bx-jump a{font-weight:600;}
+  .bx-jump span{color:var(--body);}
+  details.cfg summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;background:var(--rule);}
+  details.cfg summary::-webkit-details-marker{display:none;}
+  details.cfg summary .term-label{background:none;border:none;}
+  details.cfg .cfg-meta{font-family:var(--font-mono);font-size:.72rem;color:var(--body);padding:.3rem .9rem;}
+  details.cfg[open] .cfg-meta{color:var(--accent);}
+  .vt-bar{display:flex;gap:0;border-bottom:1px solid var(--rule);background:var(--card);}
+  .vt-btn{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;color:var(--body);padding:.4rem .9rem;cursor:pointer;}
+  .vt-btn.on{color:var(--accent);border-bottom-color:var(--accent);}
+  table.trace td:first-child{white-space:normal;}
+  table.trace td{font-size:.8rem;}
+  table.trace a{white-space:nowrap;}
+  @media (prefers-reduced-motion:reduce){.bx-svg .bx-new .bx-line,.bx-svg .bx-new .bx-blink{animation:none;stroke-dasharray:none;}}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Build: The Ferry Port Network",
+  "description": "A regional ferry port on Cisco, built bottom-up in 11 tested steps: four buildings on a routed fibre ring along the quay running authenticated OSPF with BFD, fibre and Starlink edges that originate the default only while they work, a totally stubby area for the fuel yard, ISPS security systems fenced off with SVI ACLs, and maintenance without outages.",
+  "datePublished": "2026-11-18",
+  "dateModified": "2026-11-18",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/build-ferry-port.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/build-ferry-port.png",
+  "keywords": [
+    "cisco",
+    "build",
+    "routing",
+    "architecture"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#build-ferry-port"
+  },
+  "timeRequired": "PT55M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="lfi-router" viewBox="-23 -16 46 32"><path d="M-20 -6 V6 A20 7 0 0 0 20 6 V-6" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><ellipse cx="0" cy="-6" rx="20" ry="7" style="fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.6;"/><path d="M-11 -9 L-3 -6 M11 -3 L3 -6 M-6 -2 L-1 -5 M6 -10 L1 -7" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l3" viewBox="-19 -19 38 38"><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-17" y="-17" width="34" height="34" rx="4" style="fill:currentColor;fill-opacity:.16;"/><path d="M-10 -10 L-3 -3 M10 10 L3 3 M10 -10 L3 -3 M-10 10 L-3 3 M-10 -10 h4 M-10 -10 v4 M10 10 h-4 M10 10 v-4 M10 -10 h-4 M10 -10 v4 M-10 10 h4 M-10 10 v-4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-l2" viewBox="-25 -11 50 22"><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><rect x="-23" y="-9" width="46" height="18" rx="3" style="fill:currentColor;fill-opacity:.16;"/><path d="M-12 -3 H12 M8 -6 L12 -3 L8 0 M12 3 H-12 M-8 0 L-12 3 L-8 6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-pc" viewBox="-14 -14 28 28"><rect x="-12" y="-12" width="24" height="16" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-9" width="18" height="10" style="fill:currentColor;fill-opacity:.22;"/><path d="M-2 4 V8 M2 4 V8 M-7 10 H7" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-laptop" viewBox="-16 -12 32 24"><rect x="-11" y="-11" width="22" height="14" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-8" y="-8" width="16" height="8" style="fill:currentColor;fill-opacity:.22;"/><path d="M-15 5 H15 L12 9 H-12 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/></symbol>
+<symbol id="lfi-phone" viewBox="-11 -11 22 22"><path d="M-9 -2 H9 L8 9 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M-9 -6 Q0 -11 9 -6 L8 -3 H-8 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 2 h2 M1 2 h2 M-4 5 h2 M1 5 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-printer" viewBox="-15 -13 30 26"><rect x="-8" y="-11" width="16" height="8" style="fill:var(--card);stroke:currentColor;stroke-width:1.4;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:currentColor;fill-opacity:.18;"/><rect x="-7" y="4" width="14" height="6" style="fill:var(--card);stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-server" viewBox="-11 -16 22 32"><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-9" y="-15" width="18" height="30" rx="2" style="fill:currentColor;fill-opacity:.18;"/><path d="M-5 -9 H5 M-5 -5 H5 M-5 -1 H5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="0" cy="9" r="1.8" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-ap" viewBox="-17 -13 34 26"><path d="M-6 -2 A8 8 0 0 1 6 -2 M-10 -6 A13 13 0 0 1 10 -6" style="stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-15" y="2" width="30" height="9" rx="3" style="fill:currentColor;fill-opacity:.2;"/></symbol>
+<symbol id="lfi-camera" viewBox="-14 -11 28 22"><rect x="-12" y="-7" width="19" height="10" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M7 -5 L12 -8 V4 L7 1 Z" style="fill:currentColor;fill-opacity:.35;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;"/><path d="M-4 3 V9 M-8 9 H0" style="stroke:currentColor;stroke-width:1.5;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-modem" viewBox="-17 -9 34 18"><rect x="-15" y="-6" width="30" height="12" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><circle cx="-8" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="-3" cy="0" r="1.6" style="fill:#3fa34d;"/><circle cx="2" cy="0" r="1.6" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-cloud" viewBox="-52 -24 104 48"><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.6;"/><path d="M-36 18 C-52 18 -52 -4 -36 -4 C-36 -20 -12 -24 -4 -12 C4 -26 30 -22 30 -6 C48 -8 50 18 34 18 Z" style="fill:currentColor;fill-opacity:.12;"/></symbol>
+<symbol id="lfi-pinpad" viewBox="-10 -14 20 28"><rect x="-8" y="-12" width="16" height="24" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-9" width="10" height="6" style="fill:currentColor;fill-opacity:.3;"/><path d="M-4 0 h2 M1 0 h2 M-4 3 h2 M1 3 h2 M-4 6 h2 M1 6 h2" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-console" viewBox="-16 -10 32 20"><path d="M-12 -6 H12 Q16 -6 15 0 L13 6 Q11 9 8 6 L5 3 H-5 L-8 6 Q-11 9 -13 6 L-15 0 Q-16 -6 -12 -6 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M-9 -2 h5 M-6.5 -4.5 v5" style="stroke:currentColor;stroke-width:1.4;"/><circle cx="6" cy="-3" r="1.4" style="fill:currentColor;"/><circle cx="9" cy="-1" r="1.4" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-tablet" viewBox="-12 -15 24 30"><rect x="-10" y="-13" width="20" height="26" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-7" y="-10" width="14" height="18" style="fill:currentColor;fill-opacity:.22;"/><circle cx="0" cy="10.5" r="1.2" style="fill:currentColor;"/></symbol>
+<symbol id="lfi-display" viewBox="-19 -14 38 28"><rect x="-17" y="-12" width="34" height="20" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-14" y="-9" width="28" height="14" style="fill:currentColor;fill-opacity:.25;"/><path d="M-5 12 H5 M0 8 V12" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-iot" viewBox="-12 -12 24 24"><rect x="-8" y="-8" width="16" height="16" rx="3" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-4" y="-4" width="8" height="8" style="fill:currentColor;fill-opacity:.35;"/><path d="M-4 -11 v3 M0 -11 v3 M4 -11 v3 M-4 8 v3 M0 8 v3 M4 8 v3 M-11 -4 h3 M-11 0 h3 M-11 4 h3 M8 -4 h3 M8 0 h3 M8 4 h3" style="stroke:currentColor;stroke-width:1.2;"/></symbol>
+<symbol id="lfi-scanner" viewBox="-12 -14 24 28"><path d="M-6 -12 H8 L9 -2 L4 -1 L3 12 H-3 L-4 -1 H-7 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-3" y="-9" width="9" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M9 -10 L14 -12 M9 -7 L14 -7" style="stroke:var(--accent);stroke-width:1.2;"/></symbol>
+<symbol id="lfi-pos" viewBox="-16 -15 32 30"><rect x="-8" y="-13" width="16" height="12" rx="1.5" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-6" y="-11" width="12" height="7" style="fill:currentColor;fill-opacity:.25;"/><path d="M0 -1 V3" style="stroke:currentColor;stroke-width:1.6;"/><rect x="-14" y="3" width="28" height="9" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-8 7.5 H8" style="stroke:currentColor;stroke-width:1.3;"/></symbol>
+<symbol id="lfi-lte" viewBox="-14 -16 28 32"><path d="M0 -6 L-7 14 M0 -6 L7 14 M-4 6 H4" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/><circle cx="0" cy="-7" r="2.4" style="fill:currentColor;"/><path d="M-6 -12 A8 8 0 0 0 -6 -2 M6 -12 A8 8 0 0 1 6 -2" style="stroke:currentColor;stroke-width:1.4;fill:none;stroke-linecap:round;"/></symbol>
+<symbol id="lfi-speaker" viewBox="-12 -12 24 24"><path d="M-8 -4 H-3 L4 -10 V10 L-3 4 H-8 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><path d="M7 -5 A7 7 0 0 1 7 5" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol>
+<symbol id="lfi-scale" viewBox="-15 -12 30 24"><rect x="-13" y="-4" width="26" height="12" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><path d="M-11 -8 H11" style="stroke:currentColor;stroke-width:2;stroke-linecap:round;"/><rect x="2" y="-1" width="8" height="5" style="fill:currentColor;fill-opacity:.3;"/></symbol>
+<symbol id="lfi-dish" viewBox="-14 -14 28 28"><ellipse cx="-1" cy="-3" rx="10" ry="6" transform="rotate(-25)" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><ellipse cx="-1" cy="-3" rx="10" ry="6" transform="rotate(-25)" style="fill:currentColor;fill-opacity:.2;"/><path d="M0 2 V12 M-5 12 H5" style="stroke:currentColor;stroke-width:1.6;stroke-linecap:round;"/></symbol><symbol id="lfi-radar" viewBox="-14 -14 28 28"><path d="M-11 -6 H11 L9 -2 H-9 Z" style="fill:currentColor;fill-opacity:.3;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;"/><path d="M0 -2 V8 M-6 12 L0 8 L6 12" style="stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;"/></symbol><symbol id="lfi-ship" viewBox="-18 -12 36 24"><path d="M-16 2 H16 L11 9 H-11 Z" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;"/><rect x="-8" y="-6" width="14" height="8" style="fill:currentColor;fill-opacity:.25;stroke:currentColor;stroke-width:1.3;"/><path d="M-2 -6 V-10" style="stroke:currentColor;stroke-width:1.5;"/></symbol><symbol id="lfi-fuel" viewBox="-12 -14 24 28"><rect x="-8" y="-11" width="12" height="22" rx="2" style="fill:var(--card);stroke:currentColor;stroke-width:1.5;"/><rect x="-5" y="-8" width="6" height="5" style="fill:currentColor;fill-opacity:.3;"/><path d="M4 -6 H8 V6 Q8 9 5 9" style="stroke:currentColor;stroke-width:1.4;fill:none;"/></symbol></defs></svg>
+  <p class="post-meta"><span>Build Series</span> &nbsp;·&nbsp; Cisco IOS-XE &nbsp;·&nbsp; Real-World Network &nbsp;·&nbsp; November 2026</p>
+  <h1 class="post-title">Build: The<br>Ferry Port Network</h1>
+  <p class="post-subtitle">A regional ferry port on Crete's north coast: an administration building, a passenger terminal, a cargo shed with customs, a control tower running the harbour's radar, and a fuel yard by the gate. Five buildings along a kilometre of quay, where an excavator or a crane can cut a fibre on any working day. We connect them with a routed ring running authenticated OSPF, give the port two ways to the internet that fail over by themselves, and fence the security systems off, in 11 tested steps.</p>
+  <div class="tags">
+    <span class="tag">Build Series</span>
+    <span class="tag">Cisco IOS-XE</span>
+    <span class="tag">OSPF</span>
+    <span class="tag">BFD</span>
+    <span class="tag">Stub Area</span>
+    <span class="tag">ZBF</span>
+    <span class="tag">Starlink</span>
+    <span class="tag">ISPS · NIS2</span>
+  </div>
+  <hr class="title-rule">
+
+  <div style="margin-bottom:2rem;">
+<div class="bx" id="bx">
+<div class="diagram-wrap bx-svg">
+<svg viewBox="0 0 760 610" role="img" aria-label="Interactive topology of the ferry port network: use the step slider to build it up, select a device to see its configuration">
+<g class="bx-el" data-step="2"><rect x="135" y="100" width="490" height="378" rx="14" style="fill:var(--defender);fill-opacity:.05;stroke:var(--defender);stroke-width:1.4;stroke-dasharray:6,5;"/><text class="lft-name" x="147" y="118" style="fill:var(--defender);">OSPF AREA 0</text></g>
+<g class="bx-el" data-step="7"><rect x="632" y="478" width="118" height="126" rx="12" style="fill:var(--gotcha);fill-opacity:.07;stroke:var(--gotcha);stroke-width:1.4;stroke-dasharray:6,5;"/><text class="lft-name" x="641" y="494" style="fill:var(--gotcha);">AREA 20 · stub</text></g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="200" y1="270" x2="200" y2="430" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="206.0" cy="289.2" r="2.4"/>
+<circle class="lft-led bx-led" cx="206.0" cy="410.8" r="2.4"/>
+<text class="lft-port"  x="206.0" y="350.0">10.255.1.0/31 · cost 10</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="200" y1="430" x2="560" y2="430" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="243.2" cy="430.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="516.8" cy="430.0" r="2.4"/>
+<text class="lft-port lft-c" x="380.0" y="444.0">10.255.1.2/31 · cost 10</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="560" y1="430" x2="560" y2="270" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="566.0" cy="410.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="566.0" cy="289.2" r="2.4"/>
+<text class="lft-port " x="566.0" y="350.0">.4/31</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="560" y1="270" x2="200" y2="270" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="516.8" cy="270.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="243.2" cy="270.0" r="2.4"/>
+<text class="lft-port lft-c" x="380.0" y="264.0">10.255.1.6/31 · cost 10</text>
+</g>
+<g class="bx-el" data-step="1">
+<line class="bx-line" pathLength="100" x1="200" y1="270" x2="560" y2="430" style="stroke:var(--defender);stroke-width:2.6;"/>
+<circle class="lft-led bx-led" cx="243.2" cy="289.2" r="2.4"/>
+<circle class="lft-led bx-led" cx="516.8" cy="410.8" r="2.4"/>
+<text class="lft-port lft-c" x="336.8" y="324.8">diagonal .8/31</text>
+</g>
+<g class="bx-el" data-step="6"><text class="lft-port lft-c bx-blink" x="380" y="372" style="fill:var(--accent);">BFD 3 × 100 ms on every ring link</text></g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="200" y1="270" x2="65" y2="270" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="183.8" cy="270.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="81.2" cy="270.0" r="2.4"/>
+<text class="lft-port lft-c" x="132.5" y="265.0">V112</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="200" y1="430" x2="65" y2="430" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="183.8" cy="430.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="81.2" cy="430.0" r="2.4"/>
+<text class="lft-port lft-c" x="132.5" y="425.0">V103</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="560" y1="430" x2="440" y2="545" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="545.6" cy="443.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="454.4" cy="531.2" r="2.4"/>
+<text class="lft-port lft-e" x="494.0" y="493.2">V106</text>
+</g>
+<g class="bx-el" data-step="4">
+<line class="bx-line" pathLength="100" x1="560" y1="270" x2="695" y2="270" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="576.2" cy="270.0" r="2.4"/>
+<circle class="lft-led bx-led" cx="678.8" cy="270.0" r="2.4"/>
+<text class="lft-port lft-c" x="627.5" y="265.0">V108</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="200" y1="140" x2="200" y2="270" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="206.0" cy="155.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="206.0" cy="254.4" r="2.4"/>
+<text class="lft-port " x="206.0" y="205.0">Te1/1/4 ⇄ Gi0/0/1</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="560" y1="140" x2="560" y2="270" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="554.0" cy="155.6" r="2.4"/>
+<circle class="lft-led bx-led" cx="554.0" cy="254.4" r="2.4"/>
+<text class="lft-port lft-e" x="554.0" y="205.0">Te1/1/4 ⇄ Gi0/0/1</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="380" y1="45" x2="200" y2="140" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="358.4" cy="56.4" r="2.4"/>
+<circle class="lft-led bx-led" cx="221.6" cy="128.6" r="2.4"/>
+<text class="lft-port lft-e" x="281.0" y="97.2">fibre · 0/0 E1 metric 10</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-line" pathLength="100" x1="680" y1="70" x2="560" y2="140" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="665.6" cy="78.4" r="2.4"/>
+<circle class="lft-led bx-led" cx="574.4" cy="131.6" r="2.4"/>
+<text class="lft-port lft-e" x="586.4" y="120.6">0/0 E1 metric 100</text>
+</g>
+<g class="bx-el" data-step="5">
+<line class="bx-blink" x1="680" y1="70" x2="380" y2="45" style="stroke:var(--gotcha);stroke-width:1.6;stroke-dasharray:7,4;"/>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="560" y1="430" x2="668" y2="512" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="573.0" cy="439.8" r="2.4"/>
+<circle class="lft-led bx-led" cx="655.0" cy="502.2" r="2.4"/>
+<text class="lft-port"  x="608.6" y="466.9">Gi1/0/1 · 1G LX</text>
+</g>
+<g class="bx-el" data-step="7">
+<line class="bx-line" pathLength="100" x1="668" y1="512" x2="722" y2="566" style="stroke:var(--body);stroke-width:1.6;"/>
+<circle class="lft-led bx-led" cx="674.5" cy="518.5" r="2.4"/>
+<circle class="lft-led bx-led" cx="715.5" cy="559.5" r="2.4"/>
+</g>
+<g class="bx-el bx-dev" data-step="5"><circle class="bx-ring lft-ring" cx="380" cy="45" r="56"/><use href="#lfi-cloud" x="328" y="21" width="104" height="48" style="color:var(--defender);"/><text class="lft-name lft-c" x="380" y="50" style="fill:var(--defender);">Internet</text></g>
+<g class="bx-el bx-dev" data-step="5">
+<circle class="bx-ring lft-ring" cx="680" cy="70" r="24"/>
+<use href="#lfi-dish" x="666" y="56" width="28" height="28" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="680" y="98">Starlink</text>
+<text class="lft-chip lft-c" x="680" y="108" style="fill:var(--body);">tower roof · bypass</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="5" data-dev="e1" tabindex="0" role="button" aria-label="Show the configuration of EDGE1">
+<circle class="bx-ring lft-ring" cx="200" cy="140" r="32"/>
+<circle class="bx-sel" cx="200" cy="140" r="28"/>
+<use href="#lfi-router" x="177" y="124" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name" x="231" y="139">EDGE1</text>
+<text class="lft-chip" x="231" y="149" style="fill:var(--body);">C8200 · fibre /29</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="5" data-dev="e2" tabindex="0" role="button" aria-label="Show the configuration of EDGE2">
+<circle class="bx-ring lft-ring" cx="560" cy="140" r="32"/>
+<circle class="bx-sel" cx="560" cy="140" r="28"/>
+<use href="#lfi-router" x="537" y="124" width="46" height="32" style="color:var(--defender);"/>
+<text class="lft-name lft-e" x="529" y="139">EDGE2</text>
+<text class="lft-chip lft-e" x="529" y="149" style="fill:var(--body);">C8200 · Starlink</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="cadm" tabindex="0" role="button" aria-label="Show the configuration of CORE-ADMIN">
+<circle class="bx-ring lft-ring" cx="200" cy="270" r="30"/>
+<circle class="bx-sel" cx="200" cy="270" r="26"/>
+<use href="#lfi-l3" x="181" y="251" width="38" height="38" style="color:var(--defender);"/>
+<text class="lft-name" x="227" y="269">CORE-ADMIN</text>
+<text class="lft-chip" x="227" y="279" style="fill:var(--body);">10.255.0.1 · bldg 10</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="ctow" tabindex="0" role="button" aria-label="Show the configuration of CORE-TOWER">
+<circle class="bx-ring lft-ring" cx="560" cy="270" r="30"/>
+<circle class="bx-sel" cx="560" cy="270" r="26"/>
+<use href="#lfi-l3" x="541" y="251" width="38" height="38" style="color:var(--defender);"/>
+<text class="lft-name lft-e" x="533" y="269">CORE-TOWER</text>
+<text class="lft-chip lft-e" x="533" y="279" style="fill:var(--body);">10.255.0.4 · bldg 40</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="ccargo" tabindex="0" role="button" aria-label="Show the configuration of CORE-CARGO">
+<circle class="bx-ring lft-ring" cx="560" cy="430" r="30"/>
+<circle class="bx-sel" cx="560" cy="430" r="26"/>
+<use href="#lfi-l3" x="541" y="411" width="38" height="38" style="color:var(--defender);"/>
+<text class="lft-name lft-e" x="533" y="429">CORE-CARGO</text>
+<text class="lft-chip lft-e" x="533" y="439" style="fill:var(--body);">10.255.0.3 · ABR</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="1" data-dev="cterm" tabindex="0" role="button" aria-label="Show the configuration of CORE-TERM">
+<circle class="bx-ring lft-ring" cx="200" cy="430" r="30"/>
+<circle class="bx-sel" cx="200" cy="430" r="26"/>
+<use href="#lfi-l3" x="181" y="411" width="38" height="38" style="color:var(--defender);"/>
+<text class="lft-name" x="227" y="429">CORE-TERM</text>
+<text class="lft-chip" x="227" y="439" style="fill:var(--body);">10.255.0.2 · bldg 20</text>
+</g>
+<g class="bx-el bx-dev bx-cfg" data-step="7" data-dev="yard" tabindex="0" role="button" aria-label="Show the configuration of YARD">
+<circle class="bx-ring lft-ring" cx="668" cy="512" r="30"/>
+<circle class="bx-sel" cx="668" cy="512" r="26"/>
+<use href="#lfi-l2" x="643" y="501" width="50" height="22" style="color:var(--defender);"/>
+<text class="lft-name lft-c" x="668" y="537">YARD</text>
+<text class="lft-chip lft-c" x="668" y="547" style="fill:var(--body);">IE-3400</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="65" cy="270" r="26"/>
+<use href="#lfi-server" x="54" y="254" width="22" height="32" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="65" y="300">Data room</text>
+<text class="lft-chip lft-c" x="65" y="310" style="fill:var(--body);">DHCP·NTP·logs·NVR</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="65" cy="430" r="26"/>
+<use href="#lfi-pos" x="49" y="415" width="32" height="30" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="65" y="459">Ticket desks</text>
+<text class="lft-chip lft-c" x="65" y="469" style="fill:var(--v30);">gates · V103</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="440" cy="545" r="24"/>
+<use href="#lfi-pc" x="426" y="531" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="440" y="573">Customs</text>
+<text class="lft-chip lft-c" x="440" y="583" style="fill:var(--v40);">V106</text>
+</g>
+<g class="bx-el bx-dev" data-step="4">
+<circle class="bx-ring lft-ring" cx="695" cy="270" r="26"/>
+<use href="#lfi-radar" x="681" y="256" width="28" height="28" style="color:var(--mid);"/>
+<text class="lft-name lft-c" x="695" y="298">VTS</text>
+<text class="lft-chip lft-c" x="695" y="308" style="fill:var(--v10);">radar · AIS · V108</text>
+</g>
+<g class="bx-el bx-dev" data-step="7">
+<circle class="bx-ring lft-ring" cx="722" cy="566" r="20"/>
+<use href="#lfi-fuel" x="710" y="552" width="24" height="28" style="color:var(--mid);"/>
+
+<text class="lft-chip lft-e" x="706" y="590" style="fill:var(--v60);">PLCs · V109</text>
+</g>
+<g class="bx-el bx-dev" data-step="4"><rect x="160" y="512" width="160" height="86" rx="8" style="fill:none;stroke:var(--accent);stroke-width:1.4;stroke-dasharray:4,4;"/><use href="#lfi-ap" x="176" y="522" width="34" height="26" style="color:var(--accent);"/><use href="#lfi-ship" x="214" y="524" width="36" height="24" style="color:var(--mid);"/><text class="lft-name" x="170" y="570" style="fill:var(--accent);">Passenger Wi-Fi</text><text class="lft-chip" x="170" y="582">own ISP · own router</text><text class="lft-chip" x="170" y="592" style="fill:var(--accent);">not on the ring</text></g>
+<text class="lft-name" id="bx-steplabel" x="20" y="22" style="fill:var(--accent);">FULL NETWORK</text>
+<text class="lft-chip" id="bx-adds" x="20" y="36">all 11 steps built</text>
+<text class="lft-chip" x="20" y="604">Drag the slider to build the network step by step. Devices with a config are clickable.</text>
+</svg>
+</div>
+<div class="bx-ctl"><button type="button" class="bx-b" data-bx="prev" aria-label="Previous step">◀</button><input type="range" id="bx-range" min="1" max="11" value="11" aria-label="Build step"><button type="button" class="bx-b" data-bx="next" aria-label="Next step">▶</button><button type="button" class="bx-b bx-all" data-bx="all">Full network</button></div>
+<div class="bx-panel"><p class="bx-title" id="bx-title">Full network · all steps built</p><div class="bx-devs" id="bx-devs"></div><div class="term-wrap"><span class="term-label" id="bx-cfglabel">Select a device to see its configuration</span><pre class="term bx-cfg" id="bx-cfg"></pre></div><p class="bx-legend"><span class="bx-add-key">highlighted</span> = lines added in the selected step · earlier steps shown plain · later steps hidden</p></div>
+<script type="application/json" id="bx-data">{"steps": [{"n": 1, "title": "The Ring: Routed Fibre Along the Quay", "adds": "CORE-ADMIN, CORE-TERM, CORE-CARGO, CORE-TOWER, ring fibre"}, {"n": 2, "title": "OSPF Area 0", "adds": "area 0 · adjacencies"}, {"n": 3, "title": "Locking the Routing Domain", "adds": "policy / services"}, {"n": 4, "title": "The Buildings' Networks", "adds": "Servers, Ticket desks, Passenger Wi-Fi (off-ring), Customs, VTS"}, {"n": 5, "title": "Two Ways Out: Fibre and Starlink", "adds": "EDGE1, EDGE2, Internet, Starlink"}, {"n": 6, "title": "Sub-Second Reroute: BFD and SPF Timers", "adds": "policy / services"}, {"n": 7, "title": "The Fuel Yard: A Totally Stubby Area", "adds": "YARD, Fuel PLCs"}, {"n": 8, "title": "Who May Talk to Whom", "adds": "policy / services"}, {"n": 9, "title": "The Edge Firewall", "adds": "policy / services"}, {"n": 10, "title": "Maintenance Without Outages", "adds": "policy / services"}, {"n": 11, "title": "Logs, Time and Traps", "adds": "policy / services"}], "devices": {"cadm": "CORE-ADMIN", "cterm": "CORE-TERM", "ccargo": "CORE-CARGO", "ctow": "CORE-TOWER", "e1": "EDGE1", "e2": "EDGE2", "yard": "YARD"}, "configs": {"cadm": [{"step": 1, "title": "The Ring: Routed Fibre Along the Quay", "label": "CORE-ADMIN — C9300-24S-A", "text": "hostname CORE-ADMIN\n! the cores route; a ring of routed ports means no spanning tree across the quay\nip routing\ninterface Loopback0\n description router-id + management anchor\n ip address 10.255.0.1 255.255.255.255\ninterface TenGigabitEthernet1/1/1\n description RING to CORE-TERM Te1/1/1\n no switchport\n ip address 10.255.1.0 255.255.255.254\n no shutdown\ninterface TenGigabitEthernet1/1/2\n description RING to CORE-TOWER Te1/1/2\n no switchport\n ip address 10.255.1.7 255.255.255.254\n no shutdown\ninterface TenGigabitEthernet1/1/3\n description RING to CORE-CARGO Te1/1/3 (diagonal)\n no switchport\n ip address 10.255.1.8 255.255.255.254\n no shutdown"}, {"step": 2, "title": "OSPF Area 0", "label": "CORE-ADMIN — C9300-24S-A", "text": "router ospf 1\n router-id 10.255.0.1\n! 100G reference: 10G = cost 10, 1G = cost 100 (the default 100M makes them all 1)\n auto-cost reference-bandwidth 100000\n! nothing talks OSPF unless named below: no hellos into a user VLAN, ever\n passive-interface default\n no passive-interface TenGigabitEthernet1/1/1\n no passive-interface TenGigabitEthernet1/1/2\n no passive-interface TenGigabitEthernet1/1/3\ninterface Loopback0\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/1\n! two routers on a cable: no DR/BDR election, adjacency comes up faster\n ip ospf network point-to-point\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/2\n ip ospf network point-to-point\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/3\n ip ospf network point-to-point\n ip ospf 1 area 0"}, {"step": 3, "title": "Locking the Routing Domain", "label": "CORE-ADMIN — C9300-24S-A", "text": "key chain OSPF-KEYS\n key 1\n  key-string ********\n! RFC 5709: HMAC-SHA-256, not MD5 and never plain text\n  cryptographic-algorithm hmac-sha-256\ninterface TenGigabitEthernet1/1/1\n ip ospf authentication key-chain OSPF-KEYS\ninterface TenGigabitEthernet1/1/2\n ip ospf authentication key-chain OSPF-KEYS\ninterface TenGigabitEthernet1/1/3\n ip ospf authentication key-chain OSPF-KEYS\nrouter ospf 1\n! drop any OSPF packet that didn't come from a directly connected neighbour\n ttl-security all-interfaces hops 1"}, {"step": 4, "title": "The Buildings' Networks", "label": "CORE-ADMIN — C9300-24S-A", "text": "vlan 101\n name STAFF\nvlan 102\n name VOICE\nvlan 104\n name CCTV\nvlan 105\n name ACCESS-CTRL\nvlan 112\n name SERVERS\nvlan 115\n name MGMT\n! every building's VLAN 1xx lives in 10.<building>.xx.0/24: the plan is the ACL\ninterface Vlan101\n description STAFF\n ip address 10.10.1.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan102\n description VOICE\n ip address 10.10.2.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan104\n description CCTV\n ip address 10.10.4.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan105\n description ACCESS-CTRL\n ip address 10.10.5.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan112\n description SERVERS\n ip address 10.10.12.1 255.255.255.0\n ip ospf 1 area 0\ninterface Vlan115\n description MGMT\n ip address 10.10.15.1 255.255.255.0\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/8\n description TRUNK to ACC-ADMIN (building access stack)\n switchport mode trunk\n switchport nonegotiate\n switchport trunk allowed vlan 101,102,104,105,115\n! the data room: DHCP, NTP, syslog, NVR and access-control servers\ninterface range GigabitEthernet1/0/13 - 16\n description SERVERS\n switchport mode access\n switchport access vlan 112"}, {"step": 5, "title": "Two Ways Out: Fibre and Starlink", "label": "CORE-ADMIN — C9300-24S-A", "text": "interface TenGigabitEthernet1/1/4\n description EDGE1 Gi0/0/1 (1G optic)\n no switchport\n ip address 10.255.1.10 255.255.255.254\n ip ospf network point-to-point\n ip ospf 1 area 0\n ip ospf authentication key-chain OSPF-KEYS\n no shutdown\nrouter ospf 1\n no passive-interface TenGigabitEthernet1/1/4"}, {"step": 6, "title": "Sub-Second Reroute: BFD and SPF Timers", "label": "CORE-ADMIN — C9300-24S-A", "text": "interface TenGigabitEthernet1/1/1\n! 3 x 100 ms: a dead neighbour is declared in 300 ms, not 40 s\n bfd interval 100 min_rx 100 multiplier 3\ninterface TenGigabitEthernet1/1/2\n bfd interval 100 min_rx 100 multiplier 3\ninterface TenGigabitEthernet1/1/3\n bfd interval 100 min_rx 100 multiplier 3\ninterface TenGigabitEthernet1/1/4\n bfd interval 100 min_rx 100 multiplier 3\nrouter ospf 1\n bfd all-interfaces\n! react to the first change in 50 ms, back off if the ring starts flapping\n timers throttle spf 50 200 5000\n timers throttle lsa 50 200 5000\n timers lsa arrival 100"}, {"step": 8, "title": "Who May Talk to Whom", "label": "CORE-ADMIN — C9300-24S-A", "text": "ip access-list extended STAFF-IN\n remark staff: anywhere useful, never into the security or OT segments\n deny   ip any 10.0.4.0 0.255.0.255\n deny   ip any 10.0.5.0 0.255.0.255\n deny   ip any 10.0.8.0 0.255.0.255\n deny   ip any 10.0.9.0 0.255.0.255\n deny   ip any 10.0.15.0 0.255.0.255\n permit ip any any\nip access-list extended CCTV-IN\n remark cameras answer the NVR, get time, send logs: nothing else\n permit tcp 10.0.4.0 0.255.0.255 host 10.10.12.30 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.5 eq ntp\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.20 eq syslog\nip access-list extended ACCESS-IN\n remark door and gate controllers talk to the access-control server only\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 eq 443\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.5.0 0.255.0.255 host 10.10.12.5 eq ntp\ninterface Vlan101\n ip access-group STAFF-IN in\ninterface Vlan104\n ip access-group CCTV-IN in\ninterface Vlan105\n ip access-group ACCESS-IN in"}, {"step": 10, "title": "Maintenance Without Outages", "label": "CORE-ADMIN — C9300-24S-A", "text": "router ospf 1\n! after a reboot, carry no transit traffic for 5 minutes (tables and BFD settle first)\n max-metric router-lsa on-startup 300"}, {"step": 11, "title": "Logs, Time and Traps", "label": "CORE-ADMIN — C9300-24S-A", "text": "service timestamps log datetime msec localtime show-timezone\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\nntp server 10.10.12.5\nlogging host 10.10.12.20\nlogging trap informational\nrouter ospf 1\n! every neighbour state change, with the reason, to syslog\n log-adjacency-changes detail\nsnmp-server group NOC v3 priv\nsnmp-server user nms NOC v3 auth sha ******** priv aes 128 ********\nsnmp-server enable traps ospf state-change\nsnmp-server host 10.10.12.20 version 3 priv nms\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}], "cterm": [{"step": 1, "title": "The Ring: Routed Fibre Along the Quay", "label": "CORE-TERM — C9300-24S-A", "text": "hostname CORE-TERM\n! the cores route; a ring of routed ports means no spanning tree across the quay\nip routing\ninterface Loopback0\n description router-id + management anchor\n ip address 10.255.0.2 255.255.255.255\ninterface TenGigabitEthernet1/1/1\n description RING to CORE-ADMIN Te1/1/1\n no switchport\n ip address 10.255.1.1 255.255.255.254\n no shutdown\ninterface TenGigabitEthernet1/1/2\n description RING to CORE-CARGO Te1/1/1\n no switchport\n ip address 10.255.1.2 255.255.255.254\n no shutdown"}, {"step": 2, "title": "OSPF Area 0", "label": "CORE-TERM — C9300-24S-A", "text": "router ospf 1\n router-id 10.255.0.2\n! 100G reference: 10G = cost 10, 1G = cost 100 (the default 100M makes them all 1)\n auto-cost reference-bandwidth 100000\n! nothing talks OSPF unless named below: no hellos into a user VLAN, ever\n passive-interface default\n no passive-interface TenGigabitEthernet1/1/1\n no passive-interface TenGigabitEthernet1/1/2\ninterface Loopback0\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/1\n! two routers on a cable: no DR/BDR election, adjacency comes up faster\n ip ospf network point-to-point\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/2\n ip ospf network point-to-point\n ip ospf 1 area 0"}, {"step": 3, "title": "Locking the Routing Domain", "label": "CORE-TERM — C9300-24S-A", "text": "key chain OSPF-KEYS\n key 1\n  key-string ********\n! RFC 5709: HMAC-SHA-256, not MD5 and never plain text\n  cryptographic-algorithm hmac-sha-256\ninterface TenGigabitEthernet1/1/1\n ip ospf authentication key-chain OSPF-KEYS\ninterface TenGigabitEthernet1/1/2\n ip ospf authentication key-chain OSPF-KEYS\nrouter ospf 1\n! drop any OSPF packet that didn't come from a directly connected neighbour\n ttl-security all-interfaces hops 1"}, {"step": 4, "title": "The Buildings' Networks", "label": "CORE-TERM — C9300-24S-A", "text": "vlan 101\n name STAFF\nvlan 102\n name VOICE\nvlan 103\n name TICKETING\nvlan 104\n name CCTV\nvlan 105\n name ACCESS-CTRL\nvlan 115\n name MGMT\n! every building's VLAN 1xx lives in 10.<building>.xx.0/24: the plan is the ACL\ninterface Vlan101\n description STAFF\n ip address 10.20.1.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan102\n description VOICE\n ip address 10.20.2.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan103\n description TICKETING\n ip address 10.20.3.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan104\n description CCTV\n ip address 10.20.4.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan105\n description ACCESS-CTRL\n ip address 10.20.5.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan115\n description MGMT\n ip address 10.20.15.1 255.255.255.0\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/8\n description TRUNK to ACC-TERM (building access stack)\n switchport mode trunk\n switchport nonegotiate\n switchport trunk allowed vlan 101,102,103,104,105,115"}, {"step": 6, "title": "Sub-Second Reroute: BFD and SPF Timers", "label": "CORE-TERM — C9300-24S-A", "text": "interface TenGigabitEthernet1/1/1\n! 3 x 100 ms: a dead neighbour is declared in 300 ms, not 40 s\n bfd interval 100 min_rx 100 multiplier 3\ninterface TenGigabitEthernet1/1/2\n bfd interval 100 min_rx 100 multiplier 3\nrouter ospf 1\n bfd all-interfaces\n! react to the first change in 50 ms, back off if the ring starts flapping\n timers throttle spf 50 200 5000\n timers throttle lsa 50 200 5000\n timers lsa arrival 100"}, {"step": 8, "title": "Who May Talk to Whom", "label": "CORE-TERM — C9300-24S-A", "text": "ip access-list extended STAFF-IN\n remark staff: anywhere useful, never into the security or OT segments\n deny   ip any 10.0.4.0 0.255.0.255\n deny   ip any 10.0.5.0 0.255.0.255\n deny   ip any 10.0.8.0 0.255.0.255\n deny   ip any 10.0.9.0 0.255.0.255\n deny   ip any 10.0.15.0 0.255.0.255\n permit ip any any\nip access-list extended TICKET-IN\n remark ticket desks + boarding gates: DHCP/DNS/NTP inside, booking platform outside\n permit udp any eq bootpc any eq bootps\n permit udp any host 10.10.12.10 eq domain\n permit udp any host 10.10.12.5 eq ntp\n deny   ip any 10.0.0.0 0.255.255.255\n permit tcp any any eq 443\nip access-list extended CCTV-IN\n remark cameras answer the NVR, get time, send logs: nothing else\n permit tcp 10.0.4.0 0.255.0.255 host 10.10.12.30 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.5 eq ntp\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.20 eq syslog\nip access-list extended ACCESS-IN\n remark door and gate controllers talk to the access-control server only\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 eq 443\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.5.0 0.255.0.255 host 10.10.12.5 eq ntp\ninterface Vlan101\n ip access-group STAFF-IN in\ninterface Vlan103\n ip access-group TICKET-IN in\ninterface Vlan104\n ip access-group CCTV-IN in\ninterface Vlan105\n ip access-group ACCESS-IN in"}, {"step": 10, "title": "Maintenance Without Outages", "label": "CORE-TERM — C9300-24S-A", "text": "router ospf 1\n! after a reboot, carry no transit traffic for 5 minutes (tables and BFD settle first)\n max-metric router-lsa on-startup 300"}, {"step": 11, "title": "Logs, Time and Traps", "label": "CORE-TERM — C9300-24S-A", "text": "service timestamps log datetime msec localtime show-timezone\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\nntp server 10.10.12.5\nlogging host 10.10.12.20\nlogging trap informational\nrouter ospf 1\n! every neighbour state change, with the reason, to syslog\n log-adjacency-changes detail\nsnmp-server group NOC v3 priv\nsnmp-server user nms NOC v3 auth sha ******** priv aes 128 ********\nsnmp-server enable traps ospf state-change\nsnmp-server host 10.10.12.20 version 3 priv nms\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}], "ccargo": [{"step": 1, "title": "The Ring: Routed Fibre Along the Quay", "label": "CORE-CARGO — C9300-24S-A", "text": "hostname CORE-CARGO\n! the cores route; a ring of routed ports means no spanning tree across the quay\nip routing\ninterface Loopback0\n description router-id + management anchor\n ip address 10.255.0.3 255.255.255.255\ninterface TenGigabitEthernet1/1/1\n description RING to CORE-TERM Te1/1/2\n no switchport\n ip address 10.255.1.3 255.255.255.254\n no shutdown\ninterface TenGigabitEthernet1/1/2\n description RING to CORE-TOWER Te1/1/1\n no switchport\n ip address 10.255.1.4 255.255.255.254\n no shutdown\ninterface TenGigabitEthernet1/1/3\n description RING to CORE-ADMIN Te1/1/3 (diagonal)\n no switchport\n ip address 10.255.1.9 255.255.255.254\n no shutdown\ninterface GigabitEthernet1/0/1\n description YARD Gi1/1 (area 20, 1G LX)\n no switchport\n ip address 10.255.1.14 255.255.255.254\n no shutdown"}, {"step": 2, "title": "OSPF Area 0", "label": "CORE-CARGO — C9300-24S-A", "text": "router ospf 1\n router-id 10.255.0.3\n! 100G reference: 10G = cost 10, 1G = cost 100 (the default 100M makes them all 1)\n auto-cost reference-bandwidth 100000\n! nothing talks OSPF unless named below: no hellos into a user VLAN, ever\n passive-interface default\n no passive-interface TenGigabitEthernet1/1/1\n no passive-interface TenGigabitEthernet1/1/2\n no passive-interface TenGigabitEthernet1/1/3\ninterface Loopback0\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/1\n! two routers on a cable: no DR/BDR election, adjacency comes up faster\n ip ospf network point-to-point\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/2\n ip ospf network point-to-point\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/3\n ip ospf network point-to-point\n ip ospf 1 area 0"}, {"step": 3, "title": "Locking the Routing Domain", "label": "CORE-CARGO — C9300-24S-A", "text": "key chain OSPF-KEYS\n key 1\n  key-string ********\n! RFC 5709: HMAC-SHA-256, not MD5 and never plain text\n  cryptographic-algorithm hmac-sha-256\ninterface TenGigabitEthernet1/1/1\n ip ospf authentication key-chain OSPF-KEYS\ninterface TenGigabitEthernet1/1/2\n ip ospf authentication key-chain OSPF-KEYS\ninterface TenGigabitEthernet1/1/3\n ip ospf authentication key-chain OSPF-KEYS\nrouter ospf 1\n! drop any OSPF packet that didn't come from a directly connected neighbour\n ttl-security all-interfaces hops 1"}, {"step": 4, "title": "The Buildings' Networks", "label": "CORE-CARGO — C9300-24S-A", "text": "vlan 101\n name STAFF\nvlan 102\n name VOICE\nvlan 104\n name CCTV\nvlan 105\n name ACCESS-CTRL\nvlan 106\n name CUSTOMS\nvlan 115\n name MGMT\n! every building's VLAN 1xx lives in 10.<building>.xx.0/24: the plan is the ACL\ninterface Vlan101\n description STAFF\n ip address 10.30.1.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan102\n description VOICE\n ip address 10.30.2.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan104\n description CCTV\n ip address 10.30.4.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan105\n description ACCESS-CTRL\n ip address 10.30.5.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan106\n description CUSTOMS\n ip address 10.30.6.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan115\n description MGMT\n ip address 10.30.15.1 255.255.255.0\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/8\n description TRUNK to ACC-CARGO (building access stack)\n switchport mode trunk\n switchport nonegotiate\n switchport trunk allowed vlan 101,102,104,105,106,115"}, {"step": 6, "title": "Sub-Second Reroute: BFD and SPF Timers", "label": "CORE-CARGO — C9300-24S-A", "text": "interface TenGigabitEthernet1/1/1\n! 3 x 100 ms: a dead neighbour is declared in 300 ms, not 40 s\n bfd interval 100 min_rx 100 multiplier 3\ninterface TenGigabitEthernet1/1/2\n bfd interval 100 min_rx 100 multiplier 3\ninterface TenGigabitEthernet1/1/3\n bfd interval 100 min_rx 100 multiplier 3\nrouter ospf 1\n bfd all-interfaces\n! react to the first change in 50 ms, back off if the ring starts flapping\n timers throttle spf 50 200 5000\n timers throttle lsa 50 200 5000\n timers lsa arrival 100"}, {"step": 7, "title": "The Fuel Yard: A Totally Stubby Area", "label": "CORE-CARGO — C9300-24S-A", "text": "interface GigabitEthernet1/0/1\n ip ospf network point-to-point\n ip ospf 1 area 20\n ip ospf authentication key-chain OSPF-KEYS\n bfd interval 100 min_rx 100 multiplier 3\nrouter ospf 1\n no passive-interface GigabitEthernet1/0/1\n! the yard gets one route in (a default) and sends one route out (its /20)\n area 20 stub no-summary\n area 20 range 10.50.0.0 255.255.240.0"}, {"step": 8, "title": "Who May Talk to Whom", "label": "CORE-CARGO — C9300-24S-A", "text": "ip access-list extended STAFF-IN\n remark staff: anywhere useful, never into the security or OT segments\n deny   ip any 10.0.4.0 0.255.0.255\n deny   ip any 10.0.5.0 0.255.0.255\n deny   ip any 10.0.8.0 0.255.0.255\n deny   ip any 10.0.9.0 0.255.0.255\n deny   ip any 10.0.15.0 0.255.0.255\n permit ip any any\nip access-list extended CCTV-IN\n remark cameras answer the NVR, get time, send logs: nothing else\n permit tcp 10.0.4.0 0.255.0.255 host 10.10.12.30 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.5 eq ntp\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.20 eq syslog\nip access-list extended ACCESS-IN\n remark door and gate controllers talk to the access-control server only\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 eq 443\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.5.0 0.255.0.255 host 10.10.12.5 eq ntp\nip access-list extended CUSTOMS-IN\n remark customs: own circuit to their systems; here only DNS, time and HTTPS out\n permit udp any host 10.10.12.10 eq domain\n permit udp any host 10.10.12.5 eq ntp\n deny   ip any 10.0.0.0 0.255.255.255\n permit tcp any any eq 443\ninterface Vlan101\n ip access-group STAFF-IN in\ninterface Vlan104\n ip access-group CCTV-IN in\ninterface Vlan105\n ip access-group ACCESS-IN in\ninterface Vlan106\n ip access-group CUSTOMS-IN in"}, {"step": 10, "title": "Maintenance Without Outages", "label": "CORE-CARGO — C9300-24S-A", "text": "router ospf 1\n! after a reboot, carry no transit traffic for 5 minutes (tables and BFD settle first)\n max-metric router-lsa on-startup 300"}, {"step": 11, "title": "Logs, Time and Traps", "label": "CORE-CARGO — C9300-24S-A", "text": "service timestamps log datetime msec localtime show-timezone\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\nntp server 10.10.12.5\nlogging host 10.10.12.20\nlogging trap informational\nrouter ospf 1\n! every neighbour state change, with the reason, to syslog\n log-adjacency-changes detail\nsnmp-server group NOC v3 priv\nsnmp-server user nms NOC v3 auth sha ******** priv aes 128 ********\nsnmp-server enable traps ospf state-change\nsnmp-server host 10.10.12.20 version 3 priv nms\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}], "ctow": [{"step": 1, "title": "The Ring: Routed Fibre Along the Quay", "label": "CORE-TOWER — C9300-24S-A", "text": "hostname CORE-TOWER\n! the cores route; a ring of routed ports means no spanning tree across the quay\nip routing\ninterface Loopback0\n description router-id + management anchor\n ip address 10.255.0.4 255.255.255.255\ninterface TenGigabitEthernet1/1/1\n description RING to CORE-CARGO Te1/1/2\n no switchport\n ip address 10.255.1.5 255.255.255.254\n no shutdown\ninterface TenGigabitEthernet1/1/2\n description RING to CORE-ADMIN Te1/1/2\n no switchport\n ip address 10.255.1.6 255.255.255.254\n no shutdown"}, {"step": 2, "title": "OSPF Area 0", "label": "CORE-TOWER — C9300-24S-A", "text": "router ospf 1\n router-id 10.255.0.4\n! 100G reference: 10G = cost 10, 1G = cost 100 (the default 100M makes them all 1)\n auto-cost reference-bandwidth 100000\n! nothing talks OSPF unless named below: no hellos into a user VLAN, ever\n passive-interface default\n no passive-interface TenGigabitEthernet1/1/1\n no passive-interface TenGigabitEthernet1/1/2\ninterface Loopback0\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/1\n! two routers on a cable: no DR/BDR election, adjacency comes up faster\n ip ospf network point-to-point\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/2\n ip ospf network point-to-point\n ip ospf 1 area 0"}, {"step": 3, "title": "Locking the Routing Domain", "label": "CORE-TOWER — C9300-24S-A", "text": "key chain OSPF-KEYS\n key 1\n  key-string ********\n! RFC 5709: HMAC-SHA-256, not MD5 and never plain text\n  cryptographic-algorithm hmac-sha-256\ninterface TenGigabitEthernet1/1/1\n ip ospf authentication key-chain OSPF-KEYS\ninterface TenGigabitEthernet1/1/2\n ip ospf authentication key-chain OSPF-KEYS\nrouter ospf 1\n! drop any OSPF packet that didn't come from a directly connected neighbour\n ttl-security all-interfaces hops 1"}, {"step": 4, "title": "The Buildings' Networks", "label": "CORE-TOWER — C9300-24S-A", "text": "vlan 101\n name STAFF\nvlan 102\n name VOICE\nvlan 104\n name CCTV\nvlan 105\n name ACCESS-CTRL\nvlan 108\n name VTS\nvlan 115\n name MGMT\n! every building's VLAN 1xx lives in 10.<building>.xx.0/24: the plan is the ACL\ninterface Vlan101\n description STAFF\n ip address 10.40.1.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan102\n description VOICE\n ip address 10.40.2.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan104\n description CCTV\n ip address 10.40.4.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan105\n description ACCESS-CTRL\n ip address 10.40.5.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan108\n description VTS\n ip address 10.40.8.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 0\ninterface Vlan115\n description MGMT\n ip address 10.40.15.1 255.255.255.0\n ip ospf 1 area 0\ninterface TenGigabitEthernet1/1/8\n description TRUNK to ACC-TOWER (building access stack)\n switchport mode trunk\n switchport nonegotiate\n switchport trunk allowed vlan 101,102,104,105,108,115"}, {"step": 5, "title": "Two Ways Out: Fibre and Starlink", "label": "CORE-TOWER — C9300-24S-A", "text": "interface TenGigabitEthernet1/1/4\n description EDGE2 Gi0/0/1 (1G optic)\n no switchport\n ip address 10.255.1.12 255.255.255.254\n ip ospf network point-to-point\n ip ospf 1 area 0\n ip ospf authentication key-chain OSPF-KEYS\n no shutdown\nrouter ospf 1\n no passive-interface TenGigabitEthernet1/1/4"}, {"step": 6, "title": "Sub-Second Reroute: BFD and SPF Timers", "label": "CORE-TOWER — C9300-24S-A", "text": "interface TenGigabitEthernet1/1/1\n! 3 x 100 ms: a dead neighbour is declared in 300 ms, not 40 s\n bfd interval 100 min_rx 100 multiplier 3\ninterface TenGigabitEthernet1/1/2\n bfd interval 100 min_rx 100 multiplier 3\ninterface TenGigabitEthernet1/1/4\n bfd interval 100 min_rx 100 multiplier 3\nrouter ospf 1\n bfd all-interfaces\n! react to the first change in 50 ms, back off if the ring starts flapping\n timers throttle spf 50 200 5000\n timers throttle lsa 50 200 5000\n timers lsa arrival 100"}, {"step": 8, "title": "Who May Talk to Whom", "label": "CORE-TOWER — C9300-24S-A", "text": "ip access-list extended STAFF-IN\n remark staff: anywhere useful, never into the security or OT segments\n deny   ip any 10.0.4.0 0.255.0.255\n deny   ip any 10.0.5.0 0.255.0.255\n deny   ip any 10.0.8.0 0.255.0.255\n deny   ip any 10.0.9.0 0.255.0.255\n deny   ip any 10.0.15.0 0.255.0.255\n permit ip any any\nip access-list extended CCTV-IN\n remark cameras answer the NVR, get time, send logs: nothing else\n permit tcp 10.0.4.0 0.255.0.255 host 10.10.12.30 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.5 eq ntp\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.20 eq syslog\nip access-list extended ACCESS-IN\n remark door and gate controllers talk to the access-control server only\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 eq 443\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.5.0 0.255.0.255 host 10.10.12.5 eq ntp\nip access-list extended VTS-IN\n remark radar, AIS and VHF: local to the tower; time and logs only\n permit udp 10.40.8.0 0.0.0.255 host 10.10.12.5 eq ntp\n permit udp 10.40.8.0 0.0.0.255 host 10.10.12.20 eq syslog\ninterface Vlan101\n ip access-group STAFF-IN in\ninterface Vlan104\n ip access-group CCTV-IN in\ninterface Vlan105\n ip access-group ACCESS-IN in\ninterface Vlan108\n ip access-group VTS-IN in"}, {"step": 10, "title": "Maintenance Without Outages", "label": "CORE-TOWER — C9300-24S-A", "text": "router ospf 1\n! after a reboot, carry no transit traffic for 5 minutes (tables and BFD settle first)\n max-metric router-lsa on-startup 300"}, {"step": 11, "title": "Logs, Time and Traps", "label": "CORE-TOWER — C9300-24S-A", "text": "service timestamps log datetime msec localtime show-timezone\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\nntp server 10.10.12.5\nlogging host 10.10.12.20\nlogging trap informational\nrouter ospf 1\n! every neighbour state change, with the reason, to syslog\n log-adjacency-changes detail\nsnmp-server group NOC v3 priv\nsnmp-server user nms NOC v3 auth sha ******** priv aes 128 ********\nsnmp-server enable traps ospf state-change\nsnmp-server host 10.10.12.20 version 3 priv nms\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}], "e1": [{"step": 5, "title": "Two Ways Out: Fibre and Starlink", "label": "EDGE1 — C8200-1N-4T · fibre", "text": "hostname EDGE1\ninterface Loopback0\n ip address 10.255.0.11 255.255.255.255\ninterface GigabitEthernet0/0/1\n description LAN to CORE-ADMIN Te1/1/4\n ip address 10.255.1.11 255.255.255.254\n ip nat inside\n ip ospf network point-to-point\n ip ospf 1 area 0\n ip ospf authentication key-chain OSPF-KEYS\nkey chain OSPF-KEYS\n key 1\n  key-string ********\n  cryptographic-algorithm hmac-sha-256\ninterface GigabitEthernet0/0/0\n description WAN fibre ISP (static /29)\n ip address 203.0.113.2 255.255.255.248\n ip nat outside\n! the probe target is pinned to the ISP so it can't follow OSPF's default\nip route 9.9.9.9 255.255.255.255 203.0.113.1\nip sla 1\n icmp-echo 9.9.9.9 source-interface GigabitEthernet0/0/0\n frequency 5\nip sla schedule 1 life forever start-time now\ntrack 1 ip sla 1 reachability\n delay down 10 up 30\nip route 0.0.0.0 0.0.0.0 203.0.113.1 track 1\n! the building /20s plus anything unknown inside: never leak 10/8 to the ISP\nip route 10.0.0.0 255.0.0.0 Null0\nip access-list extended NAT-OUT\n permit ip 10.0.1.0 0.255.0.255 any\n permit ip 10.0.2.0 0.255.0.255 any\n permit ip 10.20.3.0 0.0.0.255 any\n permit ip 10.30.6.0 0.0.0.255 any\n permit ip 10.10.12.0 0.0.0.255 any\nip nat inside source list NAT-OUT interface GigabitEthernet0/0/0 overload\nrouter ospf 1\n router-id 10.255.0.11\n auto-cost reference-bandwidth 100000\n passive-interface default\n no passive-interface GigabitEthernet0/0/1\n ttl-security all-interfaces hops 1\n! only while this edge's own default is installed (no 'always')\n default-information originate metric 10 metric-type 1\ninterface Loopback0\n ip ospf 1 area 0"}, {"step": 6, "title": "Sub-Second Reroute: BFD and SPF Timers", "label": "EDGE1 — C8200-1N-4T · fibre", "text": "interface GigabitEthernet0/0/1\n! 3 x 100 ms: a dead neighbour is declared in 300 ms, not 40 s\n bfd interval 100 min_rx 100 multiplier 3\nrouter ospf 1\n bfd all-interfaces\n! react to the first change in 50 ms, back off if the ring starts flapping\n timers throttle spf 50 200 5000\n timers throttle lsa 50 200 5000\n timers lsa arrival 100"}, {"step": 9, "title": "The Edge Firewall", "label": "EDGE1 — C8200-1N-4T · fibre", "text": "zone security INSIDE\nzone security OUTSIDE\nclass-map type inspect match-any INSIDE-TO-INET\n match access-group name NAT-OUT\npolicy-map type inspect INSIDE-TO-INET\n class type inspect INSIDE-TO-INET\n  inspect\n class class-default\n  drop log\nzone-pair security IN-OUT source INSIDE destination OUTSIDE\n service-policy type inspect INSIDE-TO-INET\n! the router itself: replies to its own probes\nip access-list extended WAN-TO-SELF\n permit icmp any any echo-reply\n permit icmp any any unreachable\nclass-map type inspect match-any WAN-TO-SELF\n match access-group name WAN-TO-SELF\npolicy-map type inspect WAN-TO-SELF\n class type inspect WAN-TO-SELF\n  pass\n class class-default\n  drop log\nzone-pair security OUT-SELF source OUTSIDE destination self\n service-policy type inspect WAN-TO-SELF\ninterface GigabitEthernet0/0/1\n zone-member security INSIDE\ninterface GigabitEthernet0/0/0\n zone-member security OUTSIDE"}, {"step": 10, "title": "Maintenance Without Outages", "label": "EDGE1 — C8200-1N-4T · fibre", "text": "router ospf 1\n! after a reboot, carry no transit traffic for 5 minutes (tables and BFD settle first)\n max-metric router-lsa on-startup 300"}, {"step": 11, "title": "Logs, Time and Traps", "label": "EDGE1 — C8200-1N-4T · fibre", "text": "service timestamps log datetime msec localtime show-timezone\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\n! the NTP server sits behind the cores; edges source from the loopback\nntp source Loopback0\nntp server 10.10.12.5\nlogging host 10.10.12.20\nlogging trap informational\nrouter ospf 1\n! every neighbour state change, with the reason, to syslog\n log-adjacency-changes detail\nsnmp-server group NOC v3 priv\nsnmp-server user nms NOC v3 auth sha ******** priv aes 128 ********\nsnmp-server enable traps ospf state-change\nsnmp-server host 10.10.12.20 version 3 priv nms\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}], "e2": [{"step": 5, "title": "Two Ways Out: Fibre and Starlink", "label": "EDGE2 — C8200-1N-4T · Starlink", "text": "hostname EDGE2\ninterface Loopback0\n ip address 10.255.0.12 255.255.255.255\ninterface GigabitEthernet0/0/1\n description LAN to CORE-TOWER Te1/1/4\n ip address 10.255.1.13 255.255.255.254\n ip nat inside\n ip ospf network point-to-point\n ip ospf 1 area 0\n ip ospf authentication key-chain OSPF-KEYS\nkey chain OSPF-KEYS\n key 1\n  key-string ********\n  cryptographic-algorithm hmac-sha-256\ninterface GigabitEthernet0/0/0\n description WAN Starlink (bypass mode, CGNAT)\n! the DHCP default must beat OSPF's E1 default (AD 110) or EDGE2 never originates\n ip dhcp client default-router distance 100\n ip dhcp client route track 2\n ip address dhcp\n ip nat outside\nip route 1.1.1.1 255.255.255.255 GigabitEthernet0/0/0 dhcp\nip sla 2\n icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0\n frequency 5\nip sla schedule 2 life forever start-time now\ntrack 2 ip sla 2 reachability\n delay down 10 up 30\n! the building /20s plus anything unknown inside: never leak 10/8 to the ISP\nip route 10.0.0.0 255.0.0.0 Null0\nip access-list extended NAT-OUT\n permit ip 10.0.1.0 0.255.0.255 any\n permit ip 10.0.2.0 0.255.0.255 any\n permit ip 10.20.3.0 0.0.0.255 any\n permit ip 10.30.6.0 0.0.0.255 any\n permit ip 10.10.12.0 0.0.0.255 any\nip nat inside source list NAT-OUT interface GigabitEthernet0/0/0 overload\nrouter ospf 1\n router-id 10.255.0.12\n auto-cost reference-bandwidth 100000\n passive-interface default\n no passive-interface GigabitEthernet0/0/1\n ttl-security all-interfaces hops 1\n! only while this edge's own default is installed (no 'always')\n default-information originate metric 100 metric-type 1\ninterface Loopback0\n ip ospf 1 area 0"}, {"step": 6, "title": "Sub-Second Reroute: BFD and SPF Timers", "label": "EDGE2 — C8200-1N-4T · Starlink", "text": "interface GigabitEthernet0/0/1\n! 3 x 100 ms: a dead neighbour is declared in 300 ms, not 40 s\n bfd interval 100 min_rx 100 multiplier 3\nrouter ospf 1\n bfd all-interfaces\n! react to the first change in 50 ms, back off if the ring starts flapping\n timers throttle spf 50 200 5000\n timers throttle lsa 50 200 5000\n timers lsa arrival 100"}, {"step": 9, "title": "The Edge Firewall", "label": "EDGE2 — C8200-1N-4T · Starlink", "text": "zone security INSIDE\nzone security OUTSIDE\nclass-map type inspect match-any INSIDE-TO-INET\n match access-group name NAT-OUT\npolicy-map type inspect INSIDE-TO-INET\n class type inspect INSIDE-TO-INET\n  inspect\n class class-default\n  drop log\nzone-pair security IN-OUT source INSIDE destination OUTSIDE\n service-policy type inspect INSIDE-TO-INET\n! the router itself: replies to its own probes and DHCP from the dish\nip access-list extended WAN-TO-SELF\n permit udp any eq bootps any eq bootpc\n permit icmp any any echo-reply\n permit icmp any any unreachable\nclass-map type inspect match-any WAN-TO-SELF\n match access-group name WAN-TO-SELF\npolicy-map type inspect WAN-TO-SELF\n class type inspect WAN-TO-SELF\n  pass\n class class-default\n  drop log\nzone-pair security OUT-SELF source OUTSIDE destination self\n service-policy type inspect WAN-TO-SELF\ninterface GigabitEthernet0/0/1\n zone-member security INSIDE\ninterface GigabitEthernet0/0/0\n zone-member security OUTSIDE"}, {"step": 10, "title": "Maintenance Without Outages", "label": "EDGE2 — C8200-1N-4T · Starlink", "text": "router ospf 1\n! after a reboot, carry no transit traffic for 5 minutes (tables and BFD settle first)\n max-metric router-lsa on-startup 300"}, {"step": 11, "title": "Logs, Time and Traps", "label": "EDGE2 — C8200-1N-4T · Starlink", "text": "service timestamps log datetime msec localtime show-timezone\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\n! the NTP server sits behind the cores; edges source from the loopback\nntp source Loopback0\nntp server 10.10.12.5\nlogging host 10.10.12.20\nlogging trap informational\nrouter ospf 1\n! every neighbour state change, with the reason, to syslog\n log-adjacency-changes detail\nsnmp-server group NOC v3 priv\nsnmp-server user nms NOC v3 auth sha ******** priv aes 128 ********\nsnmp-server enable traps ospf state-change\nsnmp-server host 10.10.12.20 version 3 priv nms\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}], "yard": [{"step": 7, "title": "The Fuel Yard: A Totally Stubby Area", "label": "YARD — IE-3400-8P2S · area 20", "text": "hostname YARD\n! IE-3400 needs the Network Advantage licence for OSPF\nip routing\ninterface Loopback0\n ip address 10.255.0.21 255.255.255.255\n ip ospf 1 area 20\ninterface GigabitEthernet1/1\n description UPLINK to CORE-CARGO Gi1/0/1\n no switchport\n ip address 10.255.1.15 255.255.255.254\n ip ospf network point-to-point\n ip ospf 1 area 20\n ip ospf authentication key-chain OSPF-KEYS\n bfd interval 100 min_rx 100 multiplier 3\nkey chain OSPF-KEYS\n key 1\n  key-string ********\n  cryptographic-algorithm hmac-sha-256\nvlan 104\n name CCTV\nvlan 105\n name ACCESS-CTRL\nvlan 109\n name FUEL-OT\nvlan 115\n name MGMT\ninterface Vlan104\n description CCTV\n ip address 10.50.4.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 20\ninterface Vlan105\n description ACCESS-CTRL\n ip address 10.50.5.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 20\ninterface Vlan109\n description FUEL-OT\n ip address 10.50.9.1 255.255.255.0\n ip helper-address 10.10.12.10\n ip ospf 1 area 20\ninterface Vlan115\n description MGMT\n ip address 10.50.15.1 255.255.255.0\n ip ospf 1 area 20\ninterface range GigabitEthernet1/3 - 6\n description GATE CAMERAS + OCR\n switchport mode access\n switchport access vlan 104\ninterface GigabitEthernet1/7\n description GATE ACCESS CONTROLLER\n switchport mode access\n switchport access vlan 105\ninterface range GigabitEthernet1/8 - 10\n description FUEL DISPENSER PLCs\n switchport mode access\n switchport access vlan 109\nrouter ospf 1\n router-id 10.255.0.21\n auto-cost reference-bandwidth 100000\n passive-interface default\n no passive-interface GigabitEthernet1/1\n ttl-security all-interfaces hops 1\n bfd all-interfaces\n! stub: no external LSAs; the ABR's no-summary makes it totally stubby\n area 20 stub"}, {"step": 8, "title": "Who May Talk to Whom", "label": "YARD — IE-3400-8P2S · area 20", "text": "ip access-list extended CCTV-IN\n remark cameras answer the NVR, get time, send logs: nothing else\n permit tcp 10.0.4.0 0.255.0.255 host 10.10.12.30 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.5 eq ntp\n permit udp 10.0.4.0 0.255.0.255 host 10.10.12.20 eq syslog\nip access-list extended ACCESS-IN\n remark door and gate controllers talk to the access-control server only\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 eq 443\n permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 established\n permit udp any eq bootpc any eq bootps\n permit udp 10.0.5.0 0.255.0.255 host 10.10.12.5 eq ntp\nip access-list extended FUEL-IN\n remark fuel PLCs answer the fuel-management server's polls; nothing they start\n permit tcp 10.50.9.0 0.0.0.255 host 10.10.12.50 established\n permit udp 10.50.9.0 0.0.0.255 host 10.10.12.5 eq ntp\ninterface Vlan104\n ip access-group CCTV-IN in\ninterface Vlan105\n ip access-group ACCESS-IN in\ninterface Vlan109\n ip access-group FUEL-IN in"}, {"step": 10, "title": "Maintenance Without Outages", "label": "YARD — IE-3400-8P2S · area 20", "text": "router ospf 1\n! after a reboot, carry no transit traffic for 5 minutes (tables and BFD settle first)\n max-metric router-lsa on-startup 300"}, {"step": 11, "title": "Logs, Time and Traps", "label": "YARD — IE-3400-8P2S · area 20", "text": "service timestamps log datetime msec localtime show-timezone\nclock timezone EET 2 0\nclock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00\nntp server 10.10.12.5\nlogging host 10.10.12.20\nlogging trap informational\nrouter ospf 1\n! every neighbour state change, with the reason, to syslog\n log-adjacency-changes detail\nsnmp-server group NOC v3 priv\nsnmp-server user nms NOC v3 auth sha ******** priv aes 128 ********\nsnmp-server enable traps ospf state-change\nsnmp-server host 10.10.12.20 version 3 priv nms\narchive\n log config\n  logging enable\n  notify syslog contenttype plaintext"}]}}</script>
+</div>
+  </div>
+
+    <p class="dl-configs" style="font-size:.85rem;margin:-.4rem 0 2rem;"><strong>Download the full config:</strong> <a href="configs/build-ferry-port-mikrotik.rsc" download>MikroTik .rsc</a> · <a href="configs/build-ferry-port-cisco.txt" download>Cisco IOS .txt</a> <span style="color:var(--body);">— illustrative, review before use</span></p>
+
+<div class="thesis-card">
+    <p>This is part 13 of the <a href="build-index.html">Build series</a>, and the first one where dynamic routing is the point of the design. Every earlier build had one core and one way to each building. A port has five buildings strung along the waterfront, ducts that get dug up, and systems such as the harbour radar that can't wait for someone to re-patch a cable.</p>
+    <p>OSPF is the tool that turns "there is another fibre" into "traffic is already using it". The rest of the post is about making that safe: who is allowed to speak OSPF, how quickly it reacts, how to keep a small outdoor cabinet out of the backbone's business, and how to work on the network while ships are boarding.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li><a href="cisco-routing-ospf.html">Static routing &amp; OSPF on IOS</a> and the <a href="cisco-lab-ospf-areas.html">multi-area OSPF lab</a>; the RouterOS side is in <a href="mikrotik-ospf.html">OSPF on RouterOS 7</a></li>
+      <li>The <a href="build-supermarket.html">supermarket build</a> for the SVI ACL and zone-firewall patterns reused here</li>
+      <li>IOS-XE 17.x on Catalyst 9300 (Network Advantage) and Catalyst 8200; the ring, areas and ACLs also run in Packet Tracer (section 18)</li>
+    </ul>
+  </div>
+
+  <!-- 01 -->
+  <p class="section-num" id="sec-01">01</p>
+  <h2 class="section-title">The Brief</h2>
+  <p class="section-thesis"><em>A fictional but typical regional port: two ferry lines, ro-ro freight, about 600,000 passengers a year, almost all of them between May and October.</em></p>
+
+  <p>The port authority runs <strong>five sites</strong> on one property. The <strong>administration building</strong> holds the offices, the data room and the fibre ISP. The <strong>passenger terminal</strong> has the ticket desks and the boarding gates. The <strong>cargo shed</strong> houses customs and the freight office. The <strong>control tower</strong> at the root of the breakwater runs the vessel traffic service (VTS): radar, AIS and recorded VHF. The <strong>fuel and cargo gate yard</strong> behind the cargo shed has the gate cameras, the barrier and the fuel dispensers. All of them have CCTV and card-access doors, required by the port facility security plan under the ISPS Code.</p>
+
+<table class="cheat">
+    <thead><tr><th>Requirement</th><th>Where it comes from, and what it forces</th></tr></thead>
+    <tbody><tr><td>R1 Survive a cut duct</td><td>Works on the quay are constant. Losing any one fibre must not stop any building, and traffic must move in under a second, before the ticketing app or a camera stream notices.</td></tr><tr><td>R2 Two ways out</td><td>Ticketing and email must keep working when the fibre ISP fails. A Starlink dish on the tower is the backup, and the switch-over is automatic in both directions.</td></tr><tr><td>R3 Security systems fenced off</td><td>ISPS Code and NIS2: CCTV, access control, VTS and the fuel PLCs are reachable only from their own servers, and have no internet path.</td></tr><tr><td>R4 The tower stands alone</td><td>The VTS keeps working with every fibre to the tower cut. Nothing it needs during a watch may depend on another building.</td></tr><tr><td>R5 No one joins the routing</td><td>Contractors, ship crews and technicians plug into whatever port is nearest. A device on a user port must not be able to influence routing.</td></tr><tr><td>R6 A small yard, a small footprint</td><td>The yard cabinet holds an industrial switch. It should not have to carry or process the port's full routing table.</td></tr><tr><td>R7 Work during the season</td><td>Fibre splicing, upgrades and reboots happen while ferries are boarding. Maintenance must move traffic away first, not cause the outage.</td></tr><tr><td>R8 Evidence</td><td>NIS2 incident reporting within 24 hours: routing changes, config changes and security events logged centrally with synchronised time.</td></tr><tr><td>R9 Passengers stay outside</td><td>Thousands of passenger phones a day never touch the authority's network.</td></tr></tbody>
+  </table>
+
+  <!-- 02 -->
+  <p class="section-num" id="sec-02">02</p>
+  <h2 class="section-title">Four Design Decisions</h2>
+  <p class="section-thesis"><em>All four come from the same fact: the port is long and thin, and things along it get broken.</em></p>
+
+  <h3 class="sub">1 · Every building routes for itself</h3>
+  <p>One Catalyst 9300 per building is the default gateway for that building's VLANs, and the links between buildings are routed /31s. No VLAN crosses the quay, so there is no spanning tree to wait for and no broadcast domain that spans five buildings. It is also what makes R4 true: the tower's VLANs are routed inside the tower.</p>
+
+  <h3 class="sub">2 · A ring with a diagonal, in two ducts</h3>
+  <p>The four cores form a ring: two sides in the quay duct, two in the access-road duct, plus a diagonal from administration to cargo. Any single fibre can fail with every building still connected, and the diagonal gives the busiest pair (data room and cargo) a direct path. OSPF with BFD finds the new path in under a second.</p>
+
+  <h3 class="sub">3 · One backbone area, one stub</h3>
+  <p>Four cores and two edges are far too few to need multiple backbone areas: area 0 covers them all, and every router sees the same topology. The yard gets <strong>area 20, totally stubby</strong>, because it is a single outdoor cabinet that only needs a default route. That decision is about the IE-3400's workload and blast radius, not about scale.</p>
+
+  <h3 class="sub">4 · Defaults that follow health, not configuration</h3>
+  <p>Neither edge injects a default unconditionally. Each one originates it only while its own uplink passes a probe, with a lower metric for fibre than for Starlink. Failover and recovery need no human and no script: OSPF already knows which exit works.</p>
+
+  <!-- 03 -->
+  <p class="section-num" id="sec-03">03</p>
+  <h2 class="section-title">The Address &amp; VLAN Plan</h2>
+  <p class="section-thesis"><em>Each building gets a /20; inside it, VLAN 1xx is always the .xx subnet. Infrastructure lives in 10.255.0.0/16.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>Block · VLAN</th><th>What lives there</th></tr></thead>
+    <tbody><tr><td>10.&lt;b&gt;.0.0/20</td><td>One per building: ADMIN 10.10, TERM 10.20, CARGO 10.30, TOWER 10.40, YARD 10.50.</td></tr><tr><td>101 STAFF · .1.0/24</td><td>Office PCs and laptops in every building. DHCP from the data room via the core.</td></tr><tr><td>102 VOICE · .2.0/24</td><td>IP phones, all buildings. SIP trunk to the provider through NAT.</td></tr><tr><td>103 TICKETING · 10.20.3.0/24</td><td>Ticket desks and boarding-gate readers in the terminal. Reach the booking platform over HTTPS.</td></tr><tr><td>104 CCTV · .4.0/24</td><td>Cameras in every building and the yard's gate cameras. NVR in the data room (10.10.12.30).</td></tr><tr><td>105 ACCESS-CTRL · .5.0/24</td><td>Door and gate controllers. Access-control server 10.10.12.40.</td></tr><tr><td>106 CUSTOMS · 10.30.6.0/24</td><td>Customs office PCs in the cargo shed (their own systems arrive on their own circuit).</td></tr><tr><td>108 VTS · 10.40.8.0/24</td><td>Radar processors, AIS receivers, VHF recorders and operator consoles in the tower.</td></tr><tr><td>109 FUEL-OT · 10.50.9.0/24</td><td>Fuel dispenser PLCs in the yard. Polled by the fuel-management server 10.10.12.50.</td></tr><tr><td>112 SERVERS · 10.10.12.0/24</td><td>Data room: DHCP/DNS .10, NTP .5, syslog/SNMP .20, NVR .30, access control .40, fuel management .50.</td></tr><tr><td>115 MGMT · .15.0/24</td><td>Switch and AP management in every building.</td></tr><tr><td>10.255.0.0/24</td><td>Loopbacks: cores .1–.4, EDGE1 .11, EDGE2 .12, YARD .21.</td></tr><tr><td>10.255.1.0/24</td><td>Point-to-point /31s: ring .0–.9, EDGE1 .10/.11, EDGE2 .12/.13, yard .14/.15.</td></tr></tbody>
+  </table>
+
+  <div class="diagram-wrap">
+<svg viewBox="0 0 760 300" role="img" aria-label="Site plan of the ferry port: the administration building landside, the passenger terminal and cargo shed along the quay, the control tower at the root of the breakwater, the fuel and cargo gate yard behind the cargo shed; the fibre ring runs in one duct along the quay and another along the port access road, with a diagonal from administration to the cargo shed">
+<rect x="0" y="232" width="760" height="68" style="fill:var(--v20);fill-opacity:.10;"/>
+<text class="lf-cap" x="16" y="292">HARBOUR BASIN</text>
+<path d="M20 230 H690 L745 160" style="fill:none;stroke:var(--mid);stroke-width:3;"/>
+<text class="lf-cap" x="690" y="248">breakwater</text>
+<path d="M100 92 V216 H676 V102" style="fill:none;stroke:var(--defender);stroke-width:2.6;"/>
+<path d="M300 216 V202 M520 216 V202" style="fill:none;stroke:var(--defender);stroke-width:2.6;"/>
+<path d="M170 62 H190 V114 H660 V102" style="fill:none;stroke:var(--defender);stroke-width:2.6;"/>
+<path d="M190 124 H505 V140" style="fill:none;stroke:var(--defender);stroke-width:2;stroke-dasharray:6,4;"/>
+<path d="M535 86 V140" style="fill:none;stroke:var(--gotcha);stroke-width:2;"/>
+<rect x="30" y="32" width="140" height="60" rx="5" style="fill:var(--card);stroke:var(--mid);stroke-width:1.4;"/><text class="lf-name lf-c" x="100.0" y="56">ADMINISTRATION</text><text class="lf-mono lf-c" x="100.0" y="71">bldg 10 · data room</text><text class="lf-mono lf-c" x="100.0" y="83">EDGE1 · fibre ISP</text>
+<rect x="210" y="142" width="180" height="60" rx="5" style="fill:var(--card);stroke:var(--mid);stroke-width:1.4;"/><text class="lf-name lf-c" x="300.0" y="166">PASSENGER TERMINAL</text><text class="lf-mono lf-c" x="300.0" y="181">bldg 20 · tickets · gates</text><text class="lf-mono lf-c" x="300.0" y="193" style="fill:var(--accent);">passenger Wi-Fi: own ISP</text>
+<rect x="440" y="142" width="160" height="60" rx="5" style="fill:var(--card);stroke:var(--mid);stroke-width:1.4;"/><text class="lf-name lf-c" x="520.0" y="166">CARGO SHED</text><text class="lf-mono lf-c" x="520.0" y="181">bldg 30 · customs</text><text class="lf-mono lf-c" x="520.0" y="193">ABR to the yard</text>
+<rect x="625" y="42" width="105" height="60" rx="5" style="fill:var(--card);stroke:var(--mid);stroke-width:1.4;"/><text class="lf-name lf-c" x="677.5" y="66">TOWER</text><text class="lf-mono lf-c" x="677.5" y="81">bldg 40 · VTS</text><text class="lf-mono lf-c" x="677.5" y="93">EDGE2 · Starlink</text>
+<rect x="430" y="26" width="170" height="60" rx="5" style="fill:var(--v50);fill-opacity:.12;stroke:var(--v50);stroke-width:1.4;"/><text class="lf-name lf-c" x="515.0" y="50">FUEL &amp; GATE YARD</text><text class="lf-mono lf-c" x="515.0" y="65">bldg 50 · outdoor cabinet</text><text class="lf-mono lf-c" x="515.0" y="77">area 20</text>
+<text class="lf-mono" x="200" y="108" style="fill:var(--defender);">ring duct B · port access road</text>
+<text class="lf-mono" x="200" y="136" style="fill:var(--defender);">diagonal · ADMIN ⇄ CARGO</text>
+<text class="lf-mono" x="110" y="212" style="fill:var(--defender);">ring duct A · along the quay</text>
+<text class="lf-cap lf-c" x="380" y="256">Two ducts on different routes: a crane or an excavator can cut one side of the ring, never both.</text>
+</svg>
+  </div>
+
+  <!-- 04 -->
+  <p class="section-num" id="sec-04">04</p>
+  <h2 class="section-title">The Policy Matrix</h2>
+  <p class="section-thesis"><em>Rows start, columns receive. Default deny. Routing reaches everything; this is what is allowed to use it.</em></p>
+
+  <div class="diagram-wrap">
+<svg viewBox="0 0 760 330" role="img" aria-label="Policy matrix for the ferry port: which segments may start connections to core services, the security and fuel servers, staff networks, the security and OT VLANs, and the internet">
+<text class="lf-mono" x="20" y="38" style="fill:var(--mid);font-weight:700;">FROM ↓  ·  TO →</text>
+<text class="lf-sm lf-c" x="255.0" y="38">Core services</text>
+<text class="lf-sm lf-c" x="365.0" y="38">Security &amp; fuel servers</text>
+<text class="lf-sm lf-c" x="475.0" y="38">Staff (any bldg)</text>
+<text class="lf-sm lf-c" x="585.0" y="38">Security / OT VLANs</text>
+<text class="lf-sm lf-c" x="695.0" y="38">Internet</text>
+<rect x="20" y="61" width="10" height="10" rx="2" style="fill:var(--v20);"/><text class="lf-sm" x="38" y="70">Staff · V101</text>
+<rect x="203" y="54" width="104" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="255.0" y="71" style="fill:var(--defender);font-weight:700;">✓</text>
+<rect x="313" y="54" width="104" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="365.0" y="71" style="fill:var(--defender);font-weight:700;">✓ UIs</text>
+<rect x="423" y="54" width="104" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="475.0" y="71" style="fill:var(--defender);font-weight:700;">✓</text>
+<rect x="533" y="54" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="585.0" y="71" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="643" y="54" width="104" height="26" rx="3" style="fill:var(--defender);fill-opacity:.22;"/><text class="lf-mono lf-c" x="695.0" y="71" style="fill:var(--defender);font-weight:700;">✓</text>
+<rect x="20" y="91" width="10" height="10" rx="2" style="fill:var(--v30);"/><text class="lf-sm" x="38" y="100">Ticketing · V103</text>
+<rect x="203" y="84" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="255.0" y="101" style="fill:var(--gotcha);font-weight:700;">◐ DHCP·DNS·NTP</text>
+<rect x="313" y="84" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="365.0" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="423" y="84" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="84" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="585.0" y="101" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="643" y="84" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="695.0" y="101" style="fill:var(--gotcha);font-weight:700;">◐ 443</text>
+<rect x="20" y="121" width="10" height="10" rx="2" style="fill:var(--v40);"/><text class="lf-sm" x="38" y="130">Customs · V106</text>
+<rect x="203" y="114" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="255.0" y="131" style="fill:var(--gotcha);font-weight:700;">◐ DNS·NTP</text>
+<rect x="313" y="114" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="365.0" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="423" y="114" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="114" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="585.0" y="131" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="643" y="114" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="695.0" y="131" style="fill:var(--gotcha);font-weight:700;">◐ 443</text>
+<rect x="20" y="151" width="10" height="10" rx="2" style="fill:var(--v60);"/><text class="lf-sm" x="38" y="160">CCTV · V104</text>
+<rect x="203" y="144" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="255.0" y="161" style="fill:var(--gotcha);font-weight:700;">◐ NTP·logs</text>
+<rect x="313" y="144" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="365.0" y="161" style="fill:var(--gotcha);font-weight:700;">◐ NVR replies</text>
+<rect x="423" y="144" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="144" width="104" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="585.0" y="161" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="643" y="144" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="695.0" y="161" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="20" y="181" width="10" height="10" rx="2" style="fill:var(--v45);"/><text class="lf-sm" x="38" y="190">Access ctrl · V105</text>
+<rect x="203" y="174" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="255.0" y="191" style="fill:var(--gotcha);font-weight:700;">◐ NTP</text>
+<rect x="313" y="174" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="365.0" y="191" style="fill:var(--gotcha);font-weight:700;">◐ ACS 443</text>
+<rect x="423" y="174" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="174" width="104" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="585.0" y="191" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="643" y="174" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="695.0" y="191" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="20" y="211" width="10" height="10" rx="2" style="fill:var(--v10);"/><text class="lf-sm" x="38" y="220">VTS · V108</text>
+<rect x="203" y="204" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="255.0" y="221" style="fill:var(--gotcha);font-weight:700;">◐ NTP·logs</text>
+<rect x="313" y="204" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="365.0" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="423" y="204" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="204" width="104" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="585.0" y="221" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="643" y="204" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="695.0" y="221" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="20" y="241" width="10" height="10" rx="2" style="fill:var(--v50);"/><text class="lf-sm" x="38" y="250">Fuel OT · V109</text>
+<rect x="203" y="234" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="255.0" y="251" style="fill:var(--gotcha);font-weight:700;">◐ NTP</text>
+<rect x="313" y="234" width="104" height="26" rx="3" style="fill:var(--gotcha);fill-opacity:.25;"/><text class="lf-mono lf-c" x="365.0" y="251" style="fill:var(--gotcha);font-weight:700;">◐ poll replies</text>
+<rect x="423" y="234" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="475.0" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="533" y="234" width="104" height="26" rx="3" style="fill:var(--rule);fill-opacity:.6;"/><text class="lf-mono lf-c" x="585.0" y="251" style="fill:var(--body);font-weight:700;">—</text>
+<rect x="643" y="234" width="104" height="26" rx="3" style="fill:var(--accent);fill-opacity:.14;"/><text class="lf-mono lf-c" x="695.0" y="251" style="fill:var(--accent);font-weight:700;">✕</text>
+<rect x="20" y="276" width="14" height="12" rx="2" style="fill:var(--defender);fill-opacity:.22;stroke:var(--defender);"/><text class="lf-cap" x="40" y="286">allowed</text>
+<rect x="140" y="276" width="14" height="12" rx="2" style="fill:var(--gotcha);fill-opacity:.25;stroke:var(--gotcha);"/><text class="lf-cap" x="160" y="286">limited to the host/port shown</text>
+<rect x="360" y="276" width="14" height="12" rx="2" style="fill:var(--accent);fill-opacity:.14;stroke:var(--accent);"/><text class="lf-cap" x="380" y="286">denied (default)</text>
+<rect x="520" y="276" width="14" height="12" rx="2" style="fill:var(--rule);fill-opacity:.6;stroke:var(--rule);"/><text class="lf-cap" x="540" y="286">same kind / n.a.</text>
+<text class="lf-cap" x="20" y="304">Enforced inbound on every SVI of every core, by the same seven ACLs. Internet egress is further limited by NAT-OUT on both edges.</text>
+</svg>
+  </div>
+
+  <p>The interesting column is <strong>Security / OT VLANs</strong>: nothing may start a connection into it. The NVR, the access-control server and the fuel-management server reach their devices because the devices' ACLs let <em>replies</em> out, not because anything is allowed in. A compromised staff PC has no route through the policy to a camera, a door controller or a fuel PLC, even though OSPF has a route to all of them.</p>
+
+  <!-- traceability -->
+  <p class="section-num" id="trace">04b</p>
+  <h2 class="section-title">Requirements Traceability</h2>
+  <p class="section-thesis"><em>Every requirement from the brief, the steps that implement it, the config that does it, and the test that proves it.</em></p>
+
+<table class="cheat trace">
+    <thead><tr><th>Requirement</th><th>Implemented in</th><th>Key config</th><th>Proven by</th></tr></thead>
+    <tbody><tr><td>R1 Survive a cut duct</td><td><a href="#step-1">step 1</a> · <a href="#step-2">step 2</a> · <a href="#step-6">step 6</a></td><td>ring + diagonal; p2p adjacencies; BFD 3×100 ms; SPF throttle 50 ms</td><td>"Cut a duct" drill, <a href="#sec-16">section 16</a></td></tr><tr><td>R2 Two ways out</td><td><a href="#step-5">step 5</a></td><td>tracked statics; <code>default-information originate</code> E1 10 / 100; DHCP distance 100</td><td>"Fibre ISP down" drill</td></tr><tr><td>R3 Security systems fenced off</td><td><a href="#step-8">step 8</a> · <a href="#step-9">step 9</a></td><td>seven SVI ACLs; NAT-OUT excludes CCTV/ACCESS/VTS/FUEL</td><td>"Staff scan" drill</td></tr><tr><td>R4 The tower stands alone</td><td><a href="#step-4">step 4</a></td><td>tower VLANs routed on CORE-TOWER; NTP/logs only</td><td>"Tower island" drill</td></tr><tr><td>R5 No one joins the routing</td><td><a href="#step-2">step 2</a> · <a href="#step-3">step 3</a></td><td><code>passive-interface default</code>; HMAC-SHA-256 key chain; TTL security</td><td>"Rogue router" drill</td></tr><tr><td>R6 Small yard footprint</td><td><a href="#step-7">step 7</a></td><td>area 20 stub / no-summary; <code>area 20 range</code></td><td><code>show ip route</code> on YARD</td></tr><tr><td>R7 Work during the season</td><td><a href="#step-10">step 10</a></td><td><code>max-metric router-lsa on-startup 300</code>; cost-out runbook</td><td>"Reload a core" drill</td></tr><tr><td>R8 Evidence</td><td><a href="#step-11">step 11</a></td><td>NTP; syslog; <code>log-adjacency-changes detail</code>; OSPF traps; config archive</td><td>Log review after every drill</td></tr><tr><td>R9 Passengers stay outside</td><td><a href="#step-4">step 4</a></td><td>separate router, ISP and fibre pairs</td><td>Physical audit</td></tr></tbody>
+  </table>
+
+  <!-- build order -->
+  <p class="section-num">The build</p>
+  <h2 class="section-title">Bottom to Top, One Layer at a Time</h2>
+  <p class="section-thesis"><em>Fibre first, routing second, policy last. Every step ends with a checkpoint.</em></p>
+  <p>Eleven steps: the routed ring, OSPF area 0, authentication, the buildings' networks, the two edges, fast failure detection, the yard's stub area, the security ACLs, the edge firewall, maintenance behaviour, and logging. Each step that adds equipment opens with the topology: built parts solid, the step's additions in orange, later steps faded.</p>
+
+  <!-- 05 -->
+  <p class="section-num" id="step-1">05 · Step 1 of 11</p>
+  <h2 class="section-title">The Ring: Routed Fibre Along the Quay</h2>
+  <p class="section-thesis"><em>Four core switches, five fibre links, no spanning tree anywhere along the quay.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="1">▲ Show step 1 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>Each building has one Catalyst 9300 that routes for the whole building. The links between them are <strong>routed ports with /31 addresses</strong>: no VLAN stretches from one building to another, so a loop or a broadcast storm in the cargo shed stays in the cargo shed. The four cores form a ring along two different duct routes (the quay and the port access road), plus one diagonal from administration to cargo through the access road, so every core has at least two ways to every other core.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE-ADMIN — loopback and ring ports</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname CORE-ADMIN
+<span class="cmt">! the cores route; a ring of routed ports means no spanning tree across the quay</span>
+ip routing
+interface Loopback0
+ description router-id + management anchor
+ ip address 10.255.0.1 255.255.255.255
+interface TenGigabitEthernet1/1/1
+ description RING to CORE-TERM Te1/1/1
+ no switchport
+ ip address 10.255.1.0 255.255.255.254
+ no shutdown
+interface TenGigabitEthernet1/1/2
+ description RING to CORE-TOWER Te1/1/2
+ no switchport
+ ip address 10.255.1.7 255.255.255.254
+ no shutdown
+interface TenGigabitEthernet1/1/3
+ description RING to CORE-CARGO Te1/1/3 (diagonal)
+ no switchport
+ ip address 10.255.1.8 255.255.255.254
+ no shutdown</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/system identity set name=CORE-ADMIN
+<span class="cmt"># a loopback is just an empty bridge with a /32 on it</span>
+/interface bridge add name=lo comment="router-id + management anchor"
+/ip address add address=10.255.0.1/32 interface=lo
+/interface ethernet
+set sfp-sfpplus1 comment="RING to CORE-TERM"
+set sfp-sfpplus2 comment="RING to CORE-TOWER"
+set sfp-sfpplus3 comment="RING to CORE-CARGO (diagonal)"
+<span class="cmt"># RouterOS 7 accepts /31 point-to-point addressing</span>
+/ip address
+add address=10.255.1.0/31 interface=sfp-sfpplus1
+add address=10.255.1.7/31 interface=sfp-sfpplus2
+add address=10.255.1.8/31 interface=sfp-sfpplus3</pre></div>
+  <table class="cheat">
+    <thead><tr><th>Core</th><th>Loopback</th><th>Ring ports (local address)</th></tr></thead>
+    <tbody><tr><td>CORE-ADMIN</td><td>10.255.0.1</td><td>Te1/1/1 → TERM .0 · Te1/1/2 → TOWER .7 · Te1/1/3 → CARGO .8</td></tr><tr><td>CORE-TERM</td><td>10.255.0.2</td><td>Te1/1/1 → ADMIN .1 · Te1/1/2 → CARGO .2</td></tr><tr><td>CORE-CARGO</td><td>10.255.0.3</td><td>Te1/1/1 → TERM .3 · Te1/1/2 → TOWER .4 · Te1/1/3 → ADMIN .9</td></tr><tr><td>CORE-TOWER</td><td>10.255.0.4</td><td>Te1/1/1 → CARGO .5 · Te1/1/2 → ADMIN .6</td></tr></tbody>
+  </table>
+  <p>The other three cores follow the same template; click any of them in the explorer above for its exact config.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">Why /31s, and why routed ports instead of a VLAN ring</span>
+    <p>A /31 (RFC 3021) is the natural size for a link with exactly two ends: no network or broadcast address to waste, and the address plan for the whole ring fits in one /28. Both IOS-XE and RouterOS 7 accept it.</p><p>The alternative, trunking a "core VLAN" round the ring and letting spanning tree block one side, is how many ports were built. It works until someone plugs a loop into a container office, and then four buildings go down together. Routed ports turn every building into its own failure domain.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show ip interface brief | include Te1/1</code>: every ring port up/up with its /31.</li><li>From CORE-ADMIN, <code>ping 10.255.1.1</code>, <code>.6</code> and <code>.9</code>: each directly connected neighbour answers.</li><li>From CORE-ADMIN, <code>ping 10.255.0.3</code> fails. Nothing knows the loopbacks yet; that is the next step.</li></ul>
+  </div>
+
+  <!-- 06 -->
+  <p class="section-num" id="step-2">06 · Step 2 of 11</p>
+  <h2 class="section-title">OSPF Area 0</h2>
+  <p class="section-thesis"><em>One area for the backbone, point-to-point adjacencies, and silence on every port that has no router behind it.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="2">▲ Show step 2 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>The whole ring and both edges are <strong>area 0</strong>. With four core routers there is no reason for more areas in the backbone: the link-state database is a few dozen LSAs, and one area means every router computes the same picture of the port. The only other area is the fuel yard in step 7, which exists for a different reason.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE-ADMIN — OSPF process, area 0 on the ring</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">router ospf 1
+ router-id 10.255.0.1
+<span class="cmt">! 100G reference: 10G = cost 10, 1G = cost 100 (the default 100M makes them all 1)</span>
+ auto-cost reference-bandwidth 100000
+<span class="cmt">! nothing talks OSPF unless named below: no hellos into a user VLAN, ever</span>
+ passive-interface default
+ no passive-interface TenGigabitEthernet1/1/1
+ no passive-interface TenGigabitEthernet1/1/2
+ no passive-interface TenGigabitEthernet1/1/3
+interface Loopback0
+ ip ospf 1 area 0
+interface TenGigabitEthernet1/1/1
+<span class="cmt">! two routers on a cable: no DR/BDR election, adjacency comes up faster</span>
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+interface TenGigabitEthernet1/1/2
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+interface TenGigabitEthernet1/1/3
+ ip ospf network point-to-point
+ ip ospf 1 area 0</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/routing ospf instance add name=ospf1 version=2 router-id=10.255.0.1
+/routing ospf area add name=backbone area-id=0.0.0.0 instance=ospf1
+<span class="cmt"># no reference bandwidth on RouterOS: set the cost the Cisco side computes (10G = 10)</span>
+/routing ospf interface-template
+add area=backbone interfaces=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3 \
+    type=ptp cost=10
+add area=backbone networks=10.255.0.1/32 passive</pre></div>
+  <p>Three choices in those few lines matter more than they look:</p>
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;"><li><strong>Interface-mode OSPF</strong> (<code>ip ospf 1 area 0</code> on each interface) instead of <code>network</code> statements: what runs OSPF is visible on the interface itself, and a new SVI can't join by accident because its address happens to fall inside a wildcard.</li><li><strong>Network type point-to-point</strong> on every ring link: a fibre with two routers on it doesn't need a designated router. The adjacency skips the DR election wait and comes up as soon as the hellos match.</li><li><strong><code>passive-interface default</code></strong>: every interface is silent unless explicitly named. The user VLANs are still advertised, but no hello is ever sent into them, so a laptop running an OSPF daemon on the staff network finds nobody to talk to.</li></ul>
+  <div class="callout gotcha">
+    <span class="callout-label">The reference bandwidth must be the same on every router</span>
+    <p>IOS defaults to a 100 Mb/s reference, so a 1G link and a 10G link both cost 1 and OSPF can't tell them apart. With <code>auto-cost reference-bandwidth 100000</code>, 10G costs 10 and the 1G links to the edges and the yard cost 100. Set it on one router and forget another, and that router computes different costs and can choose paths the others don't expect. RouterOS has no reference bandwidth at all, so on a mixed network the MikroTik side sets <code>cost=</code> explicitly to the value Cisco computes.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show ip ospf neighbor</code> on CORE-ADMIN: three neighbours, all <code>FULL/  -</code> (the dash means point-to-point, no DR).</li><li><code>show ip route ospf</code>: the other three loopbacks, each learned directly from its own neighbour (CORE-ADMIN is one 10G hop from every core).</li><li>From CORE-ADMIN, <code>traceroute 10.255.0.3</code> goes direct over the diagonal; shut Te1/1/3 and it goes round through TERM or TOWER.</li></ul>
+  </div>
+
+  <!-- 07 -->
+  <p class="section-num" id="step-3">07 · Step 3 of 11</p>
+  <h2 class="section-title">Locking the Routing Domain</h2>
+  <p class="section-thesis"><em>A routing protocol that believes every packet it hears is an open door. Close it before any user port goes live.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="3">▲ Show step 3 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>OSPF trusts its neighbours completely: one forged LSA can pull a building's traffic towards a laptop, or blackhole the default route. A port is exactly where that risk is real: contractors, ship crews and visiting technicians plug into whatever socket is nearest. Passive interfaces already keep OSPF off user VLANs; authentication and TTL security make sure that even on a ring port, only a router with the key that is physically one hop away is believed.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE-ADMIN — HMAC-SHA-256 key chain on every adjacency</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">key chain OSPF-KEYS
+ key 1
+  key-string ********
+<span class="cmt">! RFC 5709: HMAC-SHA-256, not MD5 and never plain text</span>
+  cryptographic-algorithm hmac-sha-256
+interface TenGigabitEthernet1/1/1
+ ip ospf authentication key-chain OSPF-KEYS
+interface TenGigabitEthernet1/1/2
+ ip ospf authentication key-chain OSPF-KEYS
+interface TenGigabitEthernet1/1/3
+ ip ospf authentication key-chain OSPF-KEYS
+router ospf 1
+<span class="cmt">! drop any OSPF packet that didn't come from a directly connected neighbour</span>
+ ttl-security all-interfaces hops 1</pre><pre class="term vt-pane" data-v="mikrotik" hidden><span class="cmt"># HMAC-SHA-256 on every adjacency-forming template (key id must match the Cisco key 1)</span>
+/routing ospf interface-template
+set [find where !passive] auth=sha256 auth-id=1 auth-key="********"
+<span class="cmt"># no TTL-security knob: drop OSPF from anything that isn't a ring port instead</span>
+/interface list add name=RING
+/interface list member
+add list=RING interface=sfp-sfpplus1
+add list=RING interface=sfp-sfpplus2
+add list=RING interface=sfp-sfpplus3
+add list=RING interface=sfp-sfpplus4
+/ip firewall filter
+add chain=input protocol=ospf in-interface-list=!RING action=drop \
+    comment="OSPF only on ring ports"</pre></div>
+  <p><code>ttl-security all-interfaces hops 1</code> makes the router send OSPF with TTL 255 and accept only packets that still have 255 (or 254 with <code>hops 1</code>), so OSPF packets injected from further away than a directly connected neighbour are dropped before they are processed. RouterOS has no equivalent knob, so the MikroTik pane gets the same effect with an input-chain rule that accepts OSPF only on ring ports.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">Plan the key rollover before you need it</span>
+    <p>A key chain can hold two keys with overlapping lifetimes. To rotate, add <code>key 2</code> on every router with a <code>send-lifetime</code> starting at an agreed time, wait until the moment passes, then remove <code>key 1</code>. Because each router accepts both keys during the overlap, the adjacencies never drop. Changing the single key-string on one router at a time drops each adjacency for as long as the two ends disagree.</p>
+  </div>
+  <div class="callout didnt-work">
+    <span class="callout-label">In Packet Tracer</span>
+    <p>Packet Tracer supports only MD5 authentication (<code>ip ospf message-digest-key 1 md5</code> with <code>ip ospf authentication message-digest</code>) and has no key chains or TTL security. Use MD5 there to see an adjacency refuse a wrong key; build the SHA-256 version on CML or EVE-NG.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show ip ospf interface Te1/1/1</code>: <code>Cryptographic authentication enabled</code>, key id 1, algorithm HMAC-SHA-256.</li><li>Change the key-string on one side of one link: that adjacency drops within the dead interval, the others stay FULL, and <code>debug ip ospf adj</code> shows the authentication mismatch. Put it back.</li><li><code>show ip ospf neighbor</code> on every core still shows all neighbours FULL.</li></ul>
+  </div>
+
+  <!-- 08 -->
+  <p class="section-num" id="step-4">08 · Step 4 of 11</p>
+  <h2 class="section-title">The Buildings' Networks</h2>
+  <p class="section-thesis"><em>Every building routes its own VLANs locally, advertises them passively, and gets DHCP from the data room across the ring.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="4">▲ Show step 4 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>Each core carries the VLANs its building needs and is their default gateway. A cut on the ring therefore never affects traffic inside a building: the tower's radar consoles keep talking to each other with every fibre down. Each core connects to its building's access switch stack over one 10G trunk.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE-TERM — passenger terminal VLANs, SVIs and access trunk</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">vlan 101
+ name STAFF
+vlan 102
+ name VOICE
+vlan 103
+ name TICKETING
+vlan 104
+ name CCTV
+vlan 105
+ name ACCESS-CTRL
+vlan 115
+ name MGMT
+<span class="cmt">! every building's VLAN 1xx lives in 10.&lt;building&gt;.xx.0/24: the plan is the ACL</span>
+interface Vlan101
+ description STAFF
+ ip address 10.20.1.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan102
+ description VOICE
+ ip address 10.20.2.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan103
+ description TICKETING
+ ip address 10.20.3.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan104
+ description CCTV
+ ip address 10.20.4.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan105
+ description ACCESS-CTRL
+ ip address 10.20.5.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 0
+interface Vlan115
+ description MGMT
+ ip address 10.20.15.1 255.255.255.0
+ ip ospf 1 area 0
+interface TenGigabitEthernet1/1/8
+ description TRUNK to ACC-TERM (building access stack)
+ switchport mode trunk
+ switchport nonegotiate
+ switchport trunk allowed vlan 101,102,103,104,105,115</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/interface bridge add name=br-lan vlan-filtering=yes
+/interface bridge port add bridge=br-lan interface=ether12 comment="TRUNK to ACC-TERM"
+/interface bridge vlan add bridge=br-lan vlan-ids=101,102,103,104,105,115 \
+    tagged=br-lan,ether12
+/interface vlan
+add name=vl101-staff interface=br-lan vlan-id=101
+add name=vl103-ticketing interface=br-lan vlan-id=103
+<span class="cmt"># ...and the same for 102, 104, 105 and 115</span>
+/ip address
+add address=10.20.1.1/24 interface=vl101-staff
+add address=10.20.3.1/24 interface=vl103-ticketing
+<span class="cmt"># one passive template covers the whole building /20</span>
+/routing ospf interface-template add area=backbone networks=10.20.0.0/20 passive
+/ip dhcp-relay add name=relay101 interface=vl101-staff dhcp-server=10.10.12.10 \
+    local-address=10.20.1.1 disabled=no</pre></div>
+  <div class="callout defender">
+    <span class="callout-label">The address plan is the ACL</span>
+    <p>VLAN <code>1xx</code> is always <code>10.&lt;building&gt;.xx.0/24</code>: CCTV is VLAN 104 and the .4 subnet in every building. That makes one wildcard match every camera at the port, <code>10.0.4.0 0.255.0.255</code>, and it is why step 8 needs only seven ACLs for five buildings. Each building's /20 (<code>10.10.0.0/20</code> for administration, <code>10.20.0.0/20</code> for the terminal) also means each core could be summarised as one route if the port ever grows to the point where that matters.</p>
+  </div>
+  <p>DHCP for every building comes from one server in the data room (<code>10.10.12.10</code>). <code>ip helper-address</code> turns each client's broadcast into a unicast from the SVI's address, which OSPF already knows how to route back. The server keeps one scope per building VLAN.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">The passengers are not on this network at all</span>
+    <p>The terminal's passenger and tenant Wi-Fi (thousands of phones a day in summer, the café, the car-rental desks) runs on its own router with its own ISP line, on separate fibre pairs, and is not connected to the ring. Putting it in a VRF across the ring would also work, but it would make the port's routers handle traffic for people with no business there, and an ISP-managed passenger service is what most port operators buy anyway. The cleanest segmentation is no connection.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show ip ospf interface brief</code> on CORE-TERM: each SVI listed, and <code>show ip ospf interface Vlan101</code> says <code>No Hellos (Passive interface)</code>.</li><li>From a terminal ticket desk, DHCP gives 10.20.3.x with gateway 10.20.3.1; the lease appears on the server in the data room.</li><li>On CORE-TOWER, <code>show ip route 10.20.3.0</code>: learned by OSPF from 10.255.0.2.</li></ul>
+  </div>
+
+  <!-- 09 -->
+  <p class="section-num" id="step-5">09 · Step 5 of 11</p>
+  <h2 class="section-title">Two Ways Out: Fibre and Starlink</h2>
+  <p class="section-thesis"><em>Each edge advertises a way out only while its own way out works. Fibre is preferred; Starlink waits on the tower roof.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="5">▲ Show step 5 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>EDGE1 in the administration building has the fibre line with a static /29. EDGE2 in the tower has a Starlink dish on the roof in bypass mode. Both join area 0 over a 1G routed link to their core, and both inject a default route into OSPF, but only while their own uplink passes a health check.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">EDGE1 — fibre, tracked default, NAT and default origination</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname EDGE1
+interface Loopback0
+ ip address 10.255.0.11 255.255.255.255
+interface GigabitEthernet0/0/1
+ description LAN to CORE-ADMIN Te1/1/4
+ ip address 10.255.1.11 255.255.255.254
+ ip nat inside
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+ ip ospf authentication key-chain OSPF-KEYS
+key chain OSPF-KEYS
+ key 1
+  key-string ********
+  cryptographic-algorithm hmac-sha-256
+interface GigabitEthernet0/0/0
+ description WAN fibre ISP (static /29)
+ ip address 203.0.113.2 255.255.255.248
+ ip nat outside
+<span class="cmt">! the probe target is pinned to the ISP so it can't follow OSPF's default</span>
+ip route 9.9.9.9 255.255.255.255 203.0.113.1
+ip sla 1
+ icmp-echo 9.9.9.9 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 1 life forever start-time now
+track 1 ip sla 1 reachability
+ delay down 10 up 30
+ip route 0.0.0.0 0.0.0.0 203.0.113.1 track 1
+<span class="cmt">! the building /20s plus anything unknown inside: never leak 10/8 to the ISP</span>
+ip route 10.0.0.0 255.0.0.0 Null0
+ip access-list extended NAT-OUT
+ permit ip 10.0.1.0 0.255.0.255 any
+ permit ip 10.0.2.0 0.255.0.255 any
+ permit ip 10.20.3.0 0.0.0.255 any
+ permit ip 10.30.6.0 0.0.0.255 any
+ permit ip 10.10.12.0 0.0.0.255 any
+ip nat inside source list NAT-OUT interface GigabitEthernet0/0/0 overload
+router ospf 1
+ router-id 10.255.0.11
+ auto-cost reference-bandwidth 100000
+ passive-interface default
+ no passive-interface GigabitEthernet0/0/1
+ ttl-security all-interfaces hops 1
+<span class="cmt">! only while this edge's own default is installed (no 'always')</span>
+ default-information originate metric 10 metric-type 1
+interface Loopback0
+ ip ospf 1 area 0</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/system identity set name=EDGE1
+/ip address
+add address=203.0.113.2/29 interface=ether1 comment="WAN fibre"
+add address=10.255.1.11/31 interface=sfp-sfpplus1
+<span class="cmt"># the default exists only while the ISP gateway answers</span>
+/ip route add dst-address=0.0.0.0/0 gateway=203.0.113.1 check-gateway=ping
+/ip route add dst-address=10.0.0.0/8 blackhole comment="never leak 10/8"
+/routing ospf instance add name=ospf1 router-id=10.255.0.11 \
+    originate-default=if-installed out-filter-chain=ospf-out
+/routing ospf area add name=backbone area-id=0.0.0.0 instance=ospf1
+/routing ospf interface-template add area=backbone interfaces=sfp-sfpplus1 \
+    type=ptp cost=100 auth=sha256 auth-id=1 auth-key="********"
+/routing filter rule add chain=ospf-out \
+    rule="if (dst==0.0.0.0/0) { set ospf-ext-type type1; set ospf-ext-metric 10; accept }"
+/ip firewall address-list
+add list=nat-out address=10.10.12.0/24
+add list=nat-out address=10.20.3.0/24
+add list=nat-out address=10.30.6.0/24
+<span class="cmt"># no wildcard masks on RouterOS; STAFF (.1) + VOICE (.2) are adjacent, so one range each</span>
+add list=nat-out address=10.10.1.0-10.10.2.255
+add list=nat-out address=10.20.1.0-10.20.2.255
+add list=nat-out address=10.30.1.0-10.30.2.255
+add list=nat-out address=10.40.1.0-10.40.2.255
+/ip firewall nat add chain=srcnat out-interface=ether1 src-address-list=nat-out \
+    action=masquerade</pre></div>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">EDGE2 — Starlink by DHCP, tracked, and a higher metric</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname EDGE2
+interface Loopback0
+ ip address 10.255.0.12 255.255.255.255
+interface GigabitEthernet0/0/1
+ description LAN to CORE-TOWER Te1/1/4
+ ip address 10.255.1.13 255.255.255.254
+ ip nat inside
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+ ip ospf authentication key-chain OSPF-KEYS
+key chain OSPF-KEYS
+ key 1
+  key-string ********
+  cryptographic-algorithm hmac-sha-256
+interface GigabitEthernet0/0/0
+ description WAN Starlink (bypass mode, CGNAT)
+<span class="cmt">! the DHCP default must beat OSPF's E1 default (AD 110) or EDGE2 never originates</span>
+ ip dhcp client default-router distance 100
+ ip dhcp client route track 2
+ ip address dhcp
+ ip nat outside
+ip route 1.1.1.1 255.255.255.255 GigabitEthernet0/0/0 dhcp
+ip sla 2
+ icmp-echo 1.1.1.1 source-interface GigabitEthernet0/0/0
+ frequency 5
+ip sla schedule 2 life forever start-time now
+track 2 ip sla 2 reachability
+ delay down 10 up 30
+<span class="cmt">! the building /20s plus anything unknown inside: never leak 10/8 to the ISP</span>
+ip route 10.0.0.0 255.0.0.0 Null0
+ip access-list extended NAT-OUT
+ permit ip 10.0.1.0 0.255.0.255 any
+ permit ip 10.0.2.0 0.255.0.255 any
+ permit ip 10.20.3.0 0.0.0.255 any
+ permit ip 10.30.6.0 0.0.0.255 any
+ permit ip 10.10.12.0 0.0.0.255 any
+ip nat inside source list NAT-OUT interface GigabitEthernet0/0/0 overload
+router ospf 1
+ router-id 10.255.0.12
+ auto-cost reference-bandwidth 100000
+ passive-interface default
+ no passive-interface GigabitEthernet0/0/1
+ ttl-security all-interfaces hops 1
+<span class="cmt">! only while this edge's own default is installed (no 'always')</span>
+ default-information originate metric 100 metric-type 1
+interface Loopback0
+ ip ospf 1 area 0</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/system identity set name=EDGE2
+<span class="cmt"># Starlink in bypass mode hands out a CGNAT address by DHCP</span>
+/ip dhcp-client add interface=ether1 add-default-route=yes default-route-distance=100 \
+    use-peer-dns=no check-gateway=ping
+/routing ospf instance add name=ospf1 router-id=10.255.0.12 \
+    originate-default=if-installed out-filter-chain=ospf-out
+/routing filter rule add chain=ospf-out \
+    rule="if (dst==0.0.0.0/0) { set ospf-ext-type type1; set ospf-ext-metric 100; accept }"</pre></div>
+  <div class="term-wrap"><span class="term-label">CORE-ADMIN — the link to EDGE1 (CORE-TOWER does the same towards EDGE2)</span><pre class="term">interface TenGigabitEthernet1/1/4
+ description EDGE1 Gi0/0/1 (1G optic)
+ no switchport
+ ip address 10.255.1.10 255.255.255.254
+ ip ospf network point-to-point
+ ip ospf 1 area 0
+ ip ospf authentication key-chain OSPF-KEYS
+ no shutdown
+router ospf 1
+ no passive-interface TenGigabitEthernet1/1/4</pre></div>
+  <p>Without the <code>always</code> keyword, <code>default-information originate</code> injects a default only while the router has a default route of its own from something other than this OSPF process. On EDGE1 that is the tracked static: when the ISP stops answering, the track goes down, the static disappears, and the E1 default from EDGE1 is withdrawn. Every core then uses EDGE2's default.</p>
+  <p>Both defaults are <strong>type E1</strong>, so each core adds its own path cost to the advertised metric. With 10 against 100, EDGE1 always wins while it is alive; with E2 the internal cost would be ignored and only the 10 against 100 would count. That would give the same result here, but E1 is the one that still behaves sensibly if a third exit is ever added.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">EDGE2's DHCP default needs a distance lower than 110</span>
+    <p>A DHCP-learned default has an administrative distance of 254. EDGE2 also hears EDGE1's default through OSPF at distance 110, so OSPF's route wins, the DHCP default never enters the routing table, and EDGE2 has nothing of its own to originate. It only starts originating after EDGE1 dies and its OSPF default has been withdrawn, which adds seconds to the failover. <code>ip dhcp client default-router distance 100</code> keeps the Starlink default installed all the time, so EDGE2's E1 default is always in the database, ready to take over.</p>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">Pin the probe target, and accept that sessions reset</span>
+    <p>The IP SLA probe has a host route to its target through the ISP. Without it, when the fibre default is withdrawn the probe follows OSPF's default out through Starlink, succeeds, and brings the fibre route back up: a flap every few seconds. Each edge also does its own NAT, so an edge failover resets every open connection. For a port that is acceptable: ticketing retries, email reconnects, and nothing important lives in a long TCP session.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show ip route 0.0.0.0</code> on CORE-TERM: <code>O*E1</code> via the ring towards 10.255.0.11, metric 10 + path.</li><li><code>show ip ospf database external</code> on any core: two type-5 defaults, from 10.255.0.11 (metric 10) and 10.255.0.12 (metric 100).</li><li>Unplug EDGE1's fibre: within about 25 s (5 s probe, 10 s down delay, OSPF reflood) the cores' default points at 10.255.0.12, and a staff laptop browses again via Starlink.</li></ul>
+  </div>
+
+  <!-- 10 -->
+  <p class="section-num" id="step-6">10 · Step 6 of 11</p>
+  <h2 class="section-title">Sub-Second Reroute: BFD and SPF Timers</h2>
+  <p class="section-thesis"><em>Light leaving a fibre is noticed instantly. A neighbour that stops answering through a media converter is not, unless you ask.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="6">▲ Show step 6 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>A cleanly cut fibre takes the port down and OSPF reacts immediately. The failures that hurt are the quiet ones: a media converter that keeps the link up but stops passing frames, a switch that hangs, a unidirectional fibre after a crane catches a duct. OSPF's own dead interval is 40 seconds on these links. <strong>BFD</strong> detects the same failure in 300 ms and tells OSPF.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE-ADMIN — BFD on every adjacency, faster SPF</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface TenGigabitEthernet1/1/1
+<span class="cmt">! 3 x 100 ms: a dead neighbour is declared in 300 ms, not 40 s</span>
+ bfd interval 100 min_rx 100 multiplier 3
+interface TenGigabitEthernet1/1/2
+ bfd interval 100 min_rx 100 multiplier 3
+interface TenGigabitEthernet1/1/3
+ bfd interval 100 min_rx 100 multiplier 3
+interface TenGigabitEthernet1/1/4
+ bfd interval 100 min_rx 100 multiplier 3
+router ospf 1
+ bfd all-interfaces
+<span class="cmt">! react to the first change in 50 ms, back off if the ring starts flapping</span>
+ timers throttle spf 50 200 5000
+ timers throttle lsa 50 200 5000
+ timers lsa arrival 100</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/routing bfd configuration
+add interfaces=sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3,sfp-sfpplus4 \
+    min-rx=100ms min-tx=100ms multiplier=3
+/routing ospf interface-template set [find where !passive] use-bfd=yes</pre></div>
+  <p>The throttle timers decide how quickly a router recomputes after a change: the first SPF runs 50 ms after the trigger, then waits at least 200 ms before the next one, doubling up to 5 s if changes keep coming. That gives a fast first reaction and protection against a flapping link making every router recompute non-stop.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">Why not just set the hello timers to one second?</span>
+    <p><code>ip ospf dead-interval minimal hello-multiplier 4</code> also detects failure in under a second, but it does it by sending full OSPF hellos every 250 ms on every link, each one processed by the routing process. BFD is a small protocol built for exactly this job, and one BFD session per neighbour can serve OSPF and any other protocol that registers with it. Leave OSPF's timers at their defaults and let BFD do the fast part.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show bfd neighbors</code> on CORE-ADMIN: one session per ring and edge neighbour, state Up, registered for OSPF.</li><li>Start a continuous ping from a TERM laptop to the data room, then pull only the receive fibre of CORE-TERM's Te1/1/1 at the patch panel, so the far end still sees light: BFD declares the neighbour down in about 300 ms and the ping loses no more than a few packets at 100 ms intervals.</li><li><code>show ip ospf statistics</code>: the last SPF ran within milliseconds of the event.</li></ul>
+  </div>
+
+  <!-- 11 -->
+  <p class="section-num" id="step-7">11 · Step 7 of 11</p>
+  <h2 class="section-title">The Fuel Yard: A Totally Stubby Area</h2>
+  <p class="section-thesis"><em>An outdoor cabinet by the fuel tanks needs one route in and has one route to give out.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="7">▲ Show step 7 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>The fuel and cargo gate yard sits behind the cargo shed: the gate cameras with number-plate recognition, the gate barrier controller, and the PLCs on the fuel dispensers that refuel the ferries. Everything there is in an IP-rated cabinet with an industrial IE-3400 switch that routes for the yard and connects to CORE-CARGO over 1G single-mode fibre.</p>
+  <p>The yard is <strong>area 20, totally stubby</strong>. CORE-CARGO is the area border router. It gives the yard exactly one route, a default, and gives area 0 exactly one route for the yard, its /20. The IE-3400 never has to process the port's external routes, and a change in the yard can only ever add or remove one prefix in the backbone.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">YARD — IE-3400 in area 20</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">hostname YARD
+<span class="cmt">! IE-3400 needs the Network Advantage licence for OSPF</span>
+ip routing
+interface Loopback0
+ ip address 10.255.0.21 255.255.255.255
+ ip ospf 1 area 20
+interface GigabitEthernet1/1
+ description UPLINK to CORE-CARGO Gi1/0/1
+ no switchport
+ ip address 10.255.1.15 255.255.255.254
+ ip ospf network point-to-point
+ ip ospf 1 area 20
+ ip ospf authentication key-chain OSPF-KEYS
+ bfd interval 100 min_rx 100 multiplier 3
+key chain OSPF-KEYS
+ key 1
+  key-string ********
+  cryptographic-algorithm hmac-sha-256
+vlan 104
+ name CCTV
+vlan 105
+ name ACCESS-CTRL
+vlan 109
+ name FUEL-OT
+vlan 115
+ name MGMT
+interface Vlan104
+ description CCTV
+ ip address 10.50.4.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 20
+interface Vlan105
+ description ACCESS-CTRL
+ ip address 10.50.5.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 20
+interface Vlan109
+ description FUEL-OT
+ ip address 10.50.9.1 255.255.255.0
+ ip helper-address 10.10.12.10
+ ip ospf 1 area 20
+interface Vlan115
+ description MGMT
+ ip address 10.50.15.1 255.255.255.0
+ ip ospf 1 area 20
+interface range GigabitEthernet1/3 - 6
+ description GATE CAMERAS + OCR
+ switchport mode access
+ switchport access vlan 104
+interface GigabitEthernet1/7
+ description GATE ACCESS CONTROLLER
+ switchport mode access
+ switchport access vlan 105
+interface range GigabitEthernet1/8 - 10
+ description FUEL DISPENSER PLCs
+ switchport mode access
+ switchport access vlan 109
+router ospf 1
+ router-id 10.255.0.21
+ auto-cost reference-bandwidth 100000
+ passive-interface default
+ no passive-interface GigabitEthernet1/1
+ ttl-security all-interfaces hops 1
+ bfd all-interfaces
+<span class="cmt">! stub: no external LSAs; the ABR's no-summary makes it totally stubby</span>
+ area 20 stub</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/system identity set name=YARD
+/ip address
+add address=10.255.0.21/32 interface=lo
+add address=10.255.1.15/31 interface=sfp-sfpplus1
+/routing ospf instance add name=ospf1 version=2 router-id=10.255.0.21
+/routing ospf area add name=yard area-id=0.0.0.20 type=stub instance=ospf1
+/routing ospf interface-template
+add area=yard interfaces=sfp-sfpplus1 type=ptp cost=100 use-bfd=yes \
+    auth=sha256 auth-id=1 auth-key="********"
+add area=yard networks=10.50.0.0/20,10.255.0.21/32 passive</pre></div>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE-CARGO — the ABR side: totally stubby and one summary</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">interface GigabitEthernet1/0/1
+ ip ospf network point-to-point
+ ip ospf 1 area 20
+ ip ospf authentication key-chain OSPF-KEYS
+ bfd interval 100 min_rx 100 multiplier 3
+router ospf 1
+ no passive-interface GigabitEthernet1/0/1
+<span class="cmt">! the yard gets one route in (a default) and sends one route out (its /20)</span>
+ area 20 stub no-summary
+ area 20 range 10.50.0.0 255.255.240.0</pre><pre class="term vt-pane" data-v="mikrotik" hidden><span class="cmt"># on CORE-CARGO, the ABR</span>
+/routing ospf area add name=yard area-id=0.0.0.20 type=stub no-summaries=yes instance=ospf1
+/routing ospf area range add area=yard prefix=10.50.0.0/20 advertise=yes
+/routing ospf interface-template add area=yard interfaces=sfp-sfpplus4 type=ptp \
+    cost=100 use-bfd=yes auth=sha256 auth-id=1 auth-key="********"</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">Both ends must agree on the area type</span>
+    <p>A stub area is signalled in the hello packets (the E-bit). If the IE-3400 says <code>area 20 stub</code> and CORE-CARGO doesn't, their hellos don't match and the adjacency never forms; <code>debug ip ospf hello</code> shows <code>Mismatched stub/transit area option bit</code>. <code>no-summary</code> is different: it only belongs on the ABR, because it changes what the ABR sends, not what the hellos say.</p>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">One uplink is a single point of failure, on purpose</span>
+    <p>The yard has one fibre to the cargo shed. A second uplink to the tower would need a new duct across the cargo apron, and the yard's systems all fail safe: barriers stay shut, the PLCs keep a local interlock, the cameras record to an SD card. Write that decision down in the risk register (section 17) rather than leaving it to be discovered.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show ip route</code> on YARD: connected routes, its own loopback, and a single <code>O*IA 0.0.0.0/0</code>. No other inter-area routes, no externals.</li><li><code>show ip route 10.50.0.0</code> on CORE-ADMIN: one <code>O IA 10.50.0.0/20</code> summary, not four /24s.</li><li><code>show ip ospf</code> on CORE-CARGO: <code>It is an area border router</code>; area 20 is <code>stub area, no summary LSA in this area</code>.</li></ul>
+  </div>
+
+  <!-- 12 -->
+  <p class="section-num" id="step-8">12 · Step 8 of 11</p>
+  <h2 class="section-title">Who May Talk to Whom</h2>
+  <p class="section-thesis"><em>Routing makes every subnet reachable from every other. The ACLs decide which of those paths may actually be used.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="8">▲ Show step 8 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>OSPF has done its job: every building can reach every other. Now the ISPS Code's port facility security plan, and NIS2 for a port operator, need the security systems separated from everything else. CCTV, door and gate access control, the VTS radar and AIS, and the fuel PLCs must not be reachable from staff PCs, and must not start connections to anything except the few servers they report to.</p>
+  <p>The policy is enforced <strong>inbound on every SVI</strong>, on the core that owns it, so traffic is filtered at the first router hop and never crosses the ring if it would be dropped. Thanks to the address plan, the same seven ACLs are pasted on all five routers.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">CORE-TERM — the terminal's SVI ACLs (CORE-ADMIN, CARGO, TOWER and YARD use the same ACL text)</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">ip access-list extended STAFF-IN
+ remark staff: anywhere useful, never into the security or OT segments
+ deny   ip any 10.0.4.0 0.255.0.255
+ deny   ip any 10.0.5.0 0.255.0.255
+ deny   ip any 10.0.8.0 0.255.0.255
+ deny   ip any 10.0.9.0 0.255.0.255
+ deny   ip any 10.0.15.0 0.255.0.255
+ permit ip any any
+ip access-list extended TICKET-IN
+ remark ticket desks + boarding gates: DHCP/DNS/NTP inside, booking platform outside
+ permit udp any eq bootpc any eq bootps
+ permit udp any host 10.10.12.10 eq domain
+ permit udp any host 10.10.12.5 eq ntp
+ deny   ip any 10.0.0.0 0.255.255.255
+ permit tcp any any eq 443
+ip access-list extended CCTV-IN
+ remark cameras answer the NVR, get time, send logs: nothing else
+ permit tcp 10.0.4.0 0.255.0.255 host 10.10.12.30 established
+ permit udp any eq bootpc any eq bootps
+ permit udp 10.0.4.0 0.255.0.255 host 10.10.12.5 eq ntp
+ permit udp 10.0.4.0 0.255.0.255 host 10.10.12.20 eq syslog
+ip access-list extended ACCESS-IN
+ remark door and gate controllers talk to the access-control server only
+ permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 eq 443
+ permit tcp 10.0.5.0 0.255.0.255 host 10.10.12.40 established
+ permit udp any eq bootpc any eq bootps
+ permit udp 10.0.5.0 0.255.0.255 host 10.10.12.5 eq ntp
+interface Vlan101
+ ip access-group STAFF-IN in
+interface Vlan103
+ ip access-group TICKET-IN in
+interface Vlan104
+ ip access-group CCTV-IN in
+interface Vlan105
+ ip access-group ACCESS-IN in</pre><pre class="term vt-pane" data-v="mikrotik" hidden><span class="cmt"># stateful, so the reply rules disappear: only who may START a connection</span>
+/ip firewall address-list
+add list=cctv address=10.10.4.0/24
+add list=cctv address=10.20.4.0/24
+add list=cctv address=10.30.4.0/24
+add list=cctv address=10.40.4.0/24
+add list=cctv address=10.50.4.0/24
+<span class="cmt"># CCTV (.4) and ACCESS (.5) are adjacent: one /23 per building covers both</span>
+add list=secot address=10.10.4.0/23
+add list=secot address=10.20.4.0/23
+add list=secot address=10.30.4.0/23
+add list=secot address=10.40.4.0/23
+add list=secot address=10.40.8.0/24 comment=VTS
+add list=secot address=10.50.0.0/20 comment="the whole yard"
+/ip firewall filter
+add chain=forward connection-state=established,related action=accept
+add chain=forward connection-state=invalid action=drop
+add chain=forward src-address=10.10.12.30 dst-address-list=cctv action=accept \
+    comment="NVR pulls the streams"
+add chain=forward src-address-list=cctv dst-address=10.10.12.5 protocol=udp \
+    dst-port=123 action=accept
+add chain=forward src-address-list=cctv action=drop comment="cameras start nothing else"
+add chain=forward in-interface=vl101-staff dst-address-list=secot action=drop
+add chain=forward in-interface=vl101-staff action=accept</pre></div>
+  <div class="term-wrap"><span class="term-label">CORE-TOWER, CORE-CARGO, YARD — the segment-specific ACLs</span><pre class="term"><span class="cmt">! CORE-TOWER Vlan108</span>
+ip access-list extended VTS-IN
+ remark radar, AIS and VHF: local to the tower; time and logs only
+ permit udp 10.40.8.0 0.0.0.255 host 10.10.12.5 eq ntp
+ permit udp 10.40.8.0 0.0.0.255 host 10.10.12.20 eq syslog
+<span class="cmt">! CORE-CARGO Vlan106</span>
+ip access-list extended CUSTOMS-IN
+ remark customs: own circuit to their systems; here only DNS, time and HTTPS out
+ permit udp any host 10.10.12.10 eq domain
+ permit udp any host 10.10.12.5 eq ntp
+ deny   ip any 10.0.0.0 0.255.255.255
+ permit tcp any any eq 443
+<span class="cmt">! YARD Vlan109</span>
+ip access-list extended FUEL-IN
+ remark fuel PLCs answer the fuel-management server's polls; nothing they start
+ permit tcp 10.50.9.0 0.0.0.255 host 10.10.12.50 established
+ permit udp 10.50.9.0 0.0.0.255 host 10.10.12.5 eq ntp</pre></div>
+  <div class="callout gotcha">
+    <span class="callout-label">Stateless ACLs and the word "established"</span>
+    <p>Catalyst SVI ACLs have no connection state. <code>established</code> matches TCP segments with ACK or RST set, which is what replies look like, so <code>CCTV-IN</code> lets cameras answer the NVR's RTSP sessions but not open new connections of their own. UDP replies have no such flag, which is why the cameras' NTP and syslog are permitted by explicit port. On the MikroTik pane the same policy is shorter, because a stateful firewall only has to describe who may start a connection.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Why the VTS has no internet path, at all</span>
+    <p>The tower's radar, AIS receivers and VHF recorders are the systems that keep ships from colliding in the approach channel. Their only network needs are time and logging; their data goes to the coast guard over the authority's own circuit, outside this design. <code>VTS-IN</code> therefore has two permits and an implicit deny, and NAT-OUT on the edges doesn't include the VTS subnet, so even a mistake in one place can't give the radar a route to the internet.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>From a staff laptop in administration, <code>nmap -sn 10.40.8.0/24</code> finds nothing; <code>show access-lists STAFF-IN</code> counts the denies.</li><li>The NVR still records every camera, including the yard's gate cameras across the ABR.</li><li>From a ticket desk, <code>curl https://</code> the booking platform works; <code>ping 10.10.1.20</code> (a staff PC) doesn't.</li></ul>
+  </div>
+
+  <!-- 13 -->
+  <p class="section-num" id="step-9">13 · Step 9 of 11</p>
+  <h2 class="section-title">The Edge Firewall</h2>
+  <p class="section-thesis"><em>Both edges get the same zone firewall: inside may go out if NAT-OUT says so, and nothing from the internet starts anything.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="9">▲ Show step 9 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">EDGE2 — zones, inspection, and a self zone that answers only its own probes</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">zone security INSIDE
+zone security OUTSIDE
+class-map type inspect match-any INSIDE-TO-INET
+ match access-group name NAT-OUT
+policy-map type inspect INSIDE-TO-INET
+ class type inspect INSIDE-TO-INET
+  inspect
+ class class-default
+  drop log
+zone-pair security IN-OUT source INSIDE destination OUTSIDE
+ service-policy type inspect INSIDE-TO-INET
+<span class="cmt">! the router itself: replies to its own probes and DHCP from the dish</span>
+ip access-list extended WAN-TO-SELF
+ permit udp any eq bootps any eq bootpc
+ permit icmp any any echo-reply
+ permit icmp any any unreachable
+class-map type inspect match-any WAN-TO-SELF
+ match access-group name WAN-TO-SELF
+policy-map type inspect WAN-TO-SELF
+ class type inspect WAN-TO-SELF
+  pass
+ class class-default
+  drop log
+zone-pair security OUT-SELF source OUTSIDE destination self
+ service-policy type inspect WAN-TO-SELF
+interface GigabitEthernet0/0/1
+ zone-member security INSIDE
+interface GigabitEthernet0/0/0
+ zone-member security OUTSIDE</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/ip firewall filter
+add chain=input connection-state=established,related action=accept
+add chain=input connection-state=invalid action=drop
+add chain=input in-interface=ether1 action=drop comment="nothing starts on the WAN"
+add chain=forward connection-state=established,related action=accept
+add chain=forward connection-state=invalid action=drop
+add chain=forward src-address-list=nat-out out-interface=ether1 action=accept
+add chain=forward action=drop comment="everything else, both directions"</pre></div>
+  <p>The class that allows traffic out reuses <code>NAT-OUT</code>, so "what may reach the internet" is written once and used for both translation and inspection. EDGE1 has the same config without the DHCP line. OSPF to the core is traffic between the INSIDE zone and the router itself, and with no INSIDE↔self zone-pair configured, IOS allows it. That is exactly what we want here: the core side is trusted and already filtered by step 3.</p>
+  <div class="callout gotcha">
+    <span class="callout-label">The self zone needs its own policy, in one direction only</span>
+    <p>Defining <code>OUTSIDE → self</code> means everything arriving on the WAN for the router is dropped unless a class passes it. The router's own IP SLA probes and EDGE2's DHCP renewals start from the router, so their replies have to be passed explicitly: <code>pass</code> is stateless, which is fine for ICMP echo-replies and DHCP. Leave <code>self → OUTSIDE</code> undefined so the router can still originate them.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li><code>show policy-map type inspect zone-pair IN-OUT sessions</code>: staff sessions inspected; the VTS subnet never appears.</li><li>An external port scan of 203.0.113.2 shows every port filtered, and <code>show policy-map type inspect zone-pair OUT-SELF</code> counts the drops.</li><li>The IP SLA on both edges stays Up, so the defaults stay in OSPF.</li></ul>
+  </div>
+
+  <!-- 14 -->
+  <p class="section-num" id="step-10">14 · Step 10 of 11</p>
+  <h2 class="section-title">Maintenance Without Outages</h2>
+  <p class="section-thesis"><em>A core reloads, or a fibre gets spliced, while ferries are boarding. Move the traffic away first.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="10">▲ Show step 10 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>When a core boots, OSPF can form adjacencies before BFD, the routing table and the line cards are fully programmed, and for a few seconds the ring sends transit traffic through a router that drops it. <code>max-metric router-lsa on-startup 300</code> makes a freshly booted core advertise its transit links at the maximum metric for five minutes: its own building's networks are still reachable through it, but nobody uses it as a shortcut until it has settled.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">All routers — stub-router behaviour after a reload</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">router ospf 1
+<span class="cmt">! after a reboot, carry no transit traffic for 5 minutes (tables and BFD settle first)</span>
+ max-metric router-lsa on-startup 300</pre><pre class="term vt-pane" data-v="mikrotik" hidden><span class="cmt"># no max-metric on RouterOS: drain a router by raising every adjacency's cost</span>
+/routing ospf interface-template set [find where !passive] cost=65535
+<span class="cmt"># ...do the work, then put the real costs back</span>
+/routing ospf interface-template set [find where !passive] cost=10</pre></div>
+  <table class="cheat">
+    <thead><tr><th>Maintenance task</th><th>Runbook</th></tr></thead>
+    <tbody><tr><td>Splice or replace one ring fibre</td><td><code>ip ospf cost 65535</code> on both ends of that link: traffic moves to the other side of the ring with no loss. Do the work, then <code>no ip ospf cost</code>.</td></tr><tr><td>Upgrade or reload a core</td><td><code>router ospf 1</code> → <code>max-metric router-lsa</code> (no timer): the ring stops sending transit through it. Its own building still loses connectivity for the reload. Remove the command afterwards.</td></tr><tr><td>Replace an edge</td><td>Shut the WAN interface first: the track drops, its default is withdrawn, and the other edge carries everything.</td></tr><tr><td>Before and after every change</td><td><code>show ip ospf neighbor</code>, <code>show bfd neighbors</code>, <code>show ip route 0.0.0.0</code> on two cores, saved to the change ticket.</td></tr></tbody>
+  </table>
+  <div class="callout gotcha">
+    <span class="callout-label">max-metric does not hide the router's own networks</span>
+    <p>Stub-router mode raises the cost of a router's links to other routers, not of its connected subnets. That is what we want: the tower's VLANs stay reachable while CORE-TOWER is being drained, and only transit traffic goes round the other way. <code>include-stub</code> would hide the tower's own subnets too, which is only useful when moving them to a different router.</p>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Reload CORE-TERM in the lab: for five minutes <code>show ip ospf database router 10.255.0.2</code> shows its ring links at metric 65535, and traceroutes from ADMIN to CARGO avoid it.</li><li>Cost-out the ADMIN–CARGO diagonal during a continuous ping between those buildings: no loss.</li></ul>
+  </div>
+
+  <!-- 15 -->
+  <p class="section-num" id="step-11">15 · Step 11 of 11</p>
+  <h2 class="section-title">Logs, Time and Traps</h2>
+  <p class="section-thesis"><em>When something happens at 03:00 in August, the evidence has to exist already, with timestamps that agree.</em></p>
+
+  <p class="bx-jump"><a href="#bx" data-bx-step="11">▲ Show step 11 in the interactive topology</a><span> · see what this step adds, and click any device for its config</span></p>
+
+  <p>As a port operator, the authority is an essential entity under NIS2 and must report significant incidents within 24 hours. That only works if every router logs to one place, with the same clock, and records every routing change and every configuration change with the user who made it.</p>
+  <div class="term-wrap vt" data-vt data-own="cisco"><span class="term-label">All routers — time, logging, OSPF state traps, config archive</span><div class="vt-bar" role="tablist"><button type="button" class="vt-btn on" data-v="cisco" role="tab">Cisco IOS-XE</button><button type="button" class="vt-btn" data-v="mikrotik" role="tab">MikroTik RouterOS</button></div><pre class="term vt-pane" data-v="cisco">service timestamps log datetime msec localtime show-timezone
+clock timezone EET 2 0
+clock summer-time EEST recurring last Sun Mar 3:00 last Sun Oct 4:00
+ntp server 10.10.12.5
+logging host 10.10.12.20
+logging trap informational
+router ospf 1
+<span class="cmt">! every neighbour state change, with the reason, to syslog</span>
+ log-adjacency-changes detail
+snmp-server group NOC v3 priv
+snmp-server user nms NOC v3 auth sha ******** priv aes 128 ********
+snmp-server enable traps ospf state-change
+snmp-server host 10.10.12.20 version 3 priv nms
+archive
+ log config
+  logging enable
+  notify syslog contenttype plaintext</pre><pre class="term vt-pane" data-v="mikrotik" hidden>/system clock set time-zone-name=Europe/Athens
+/system ntp client set enabled=yes servers=10.10.12.5
+/system logging action add name=noc target=remote remote=10.10.12.20
+/system logging add topics=ospf action=noc
+/system logging add topics=info,!debug action=noc
+/snmp community set [find default=yes] disabled=yes
+/snmp community add name=noc security=private authentication-protocol=SHA1 \
+    encryption-protocol=AES authentication-password="********" \
+    encryption-password="********"
+/snmp set enabled=yes trap-target=10.10.12.20 trap-version=3 trap-community=noc</pre></div>
+  <p><code>log-adjacency-changes detail</code> logs every state transition, not only FULL and DOWN, so a neighbour stuck in EXSTART (an MTU mismatch) or flapping between INIT and 2WAY (a one-way fibre) shows up in the log with a reason. The OSPF state-change traps let the monitoring system raise an alarm on a lost adjacency within seconds instead of discovering it at the next poll.</p>
+  <div class="callout defender">
+    <span class="callout-label">Checkpoint: test this before building the next step</span>
+    <ul class="prereqs-list"><li>Shut a ring port: the syslog server receives <code>%OSPF-5-ADJCHG ... from FULL to DOWN, Neighbor Down: BFD node down</code> from both ends, with matching timestamps.</li><li>A config change on CORE-CARGO appears at the collector with the username and the exact command.</li><li><code>show ntp associations</code>: synchronised on all seven routers.</li></ul>
+  </div>
+
+  <!-- 16 -->
+  <p class="section-num" id="sec-16">16</p>
+  <h2 class="section-title">Verify, Then Break It Before the Season</h2>
+  <p class="section-thesis"><em>Run these in April, before the timetable gets busy. Record each result with date and time; they are also the evidence the port facility security plan asks for.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>Drill (requirement)</th><th>What must happen</th></tr></thead>
+    <tbody><tr><td>Cut a duct (R1)</td><td>Pull both fibres of the quay duct between TERM and CARGO during a continuous ping and a live camera stream: under 1 s of loss, the stream doesn't freeze, and the syslog shows <code>BFD node down</code> from both ends.</td></tr><tr><td>Fibre ISP down (R2)</td><td>Unplug EDGE1's WAN: staff browsing resumes via Starlink within ~25 s. Plug it back: traffic returns to fibre 30 s after the probe recovers.</td></tr><tr><td>Staff scan (R3)</td><td>From a staff laptop in every building, scan 10.0.4–9.x: nothing answers. From a ticket desk, only HTTPS out and DNS/NTP inside work.</td></tr><tr><td>Tower island (R4)</td><td>Shut both of CORE-TOWER's ring ports: radar, AIS and VHF recording continue; operators keep their consoles; only NTP and logs pause.</td></tr><tr><td>Rogue router (R5)</td><td>Plug a laptop running FRR with OSPF into a staff port and into a spare ring-side port in the lab: no adjacency in either case; the second attempt logs an authentication failure.</td></tr><tr><td>Yard footprint (R6)</td><td>On YARD, <code>show ip route</code> has one OSPF route; on CORE-ADMIN, the yard is one /20.</td></tr><tr><td>Reload a core (R7)</td><td>Reload CORE-CARGO during a ping between ADMIN and TERM: no loss when it goes down or when it comes back.</td></tr><tr><td>Log review (R8)</td><td>Every drill above appears at the collector with timestamps within a second of each other across routers.</td></tr></tbody>
+  </table>
+
+  <!-- 17 -->
+  <p class="section-num" id="sec-17">17</p>
+  <h2 class="section-title">The Attacker's View</h2>
+  <p class="section-thesis"><em>Where the residual risk sits once routing and segmentation are in place, and what covers it.</em></p>
+
+  <ul class="prereqs-list" style="margin-bottom:1.2rem;">
+    <li><strong>Route injection.</strong> The classic attack on an OSPF network is joining it: a laptop that speaks OSPF on a user VLAN can advertise a better default and capture traffic. Passive interfaces mean no hello is ever answered on a user VLAN, and SHA-256 authentication plus TTL security protects the ring ports themselves.</li>
+    <li><strong>Physical access to the ring.</strong> Ducts run along a public quay and cabinets sit in public areas. A ring fibre spliced to a rogue device still needs the OSPF key, and BFD and adjacency logs make an unexplained link flap visible. Cabinets are locked and alarmed through the access-control system.</li>
+    <li><strong>The key itself.</strong> One shared OSPF key on every router means one leaked config is enough. Keep configs out of email and tickets (the archive goes to the syslog server, which only the NOC can read) and rotate the key with the overlapping-lifetime procedure in step 3.</li>
+    <li><strong>Legacy security devices.</strong> Cameras, door controllers and fuel PLCs run old firmware for a decade. They are reachable only from their servers, can't start connections, and have no internet path; their servers are where patching effort goes.</li>
+    <li><strong>The single yard uplink.</strong> One fibre serves the yard. Its systems fail safe, and the decision is recorded with an owner and a review date, not left implicit.</li>
+    <li><strong>Starlink as a path in.</strong> The dish is in bypass mode behind EDGE2's zone firewall with nothing open from outside; CGNAT means there is no inbound reachability anyway.</li>
+  </ul>
+
+  <!-- 18 -->
+  <p class="section-num" id="sec-18">18</p>
+  <h2 class="section-title">Building It in Packet Tracer</h2>
+  <p class="section-thesis"><em>The routing core of this post runs well in Packet Tracer. The fast-failure and edge features need CML or EVE-NG.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>This post</th><th>In Packet Tracer</th></tr></thead>
+    <tbody><tr><td>Four cores, ring, /31s</td><td>3650-24PS with <code>ip routing</code> and <code>no switchport</code> ports. /31 masks are accepted.</td></tr><tr><td>OSPF area 0, p2p, passive default, reference bandwidth</td><td>All work. Watch the adjacencies come up and <code>show ip ospf neighbor</code> show no DR.</td></tr><tr><td>Authentication</td><td>MD5 only (<code>ip ospf message-digest-key</code>); no key chains, no SHA, no TTL security.</td></tr><tr><td>Stub area, no-summary, area range</td><td>Work on routers (use an ISR4331 or 2911 in place of the IE-3400).</td></tr><tr><td>Default origination, tracked statics</td><td><code>default-information originate</code> works; IP SLA tracking is partial and varies by version.</td></tr><tr><td>Not available</td><td>BFD, SPF/LSA throttle timers, <code>max-metric</code>, ZBF on the edges, DHCP client distance. Build these on CML or EVE-NG with Cat9000v and Cat8000v images.</td></tr></tbody>
+  </table>
+
+  <!-- 19 -->
+  <p class="section-num" id="sec-19">19</p>
+  <h2 class="section-title">Bill of Materials</h2>
+  <p class="section-thesis"><em>Indicative EU street prices, late 2026, excluding VAT. Public bodies buy through framework contracts and pricing varies.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>Item</th><th>Indicative (EUR, ex VAT)</th></tr></thead>
+    <tbody><tr><td>4× C9300-24S-A + C9300-NM-8X, Network Advantage</td><td>30,000 – 38,000</td></tr><tr><td>2× C8200-1N-4T (EDGE1, EDGE2)</td><td>3,200 – 4,400</td></tr><tr><td>IE-3400-8P2S + Network Advantage, IP66 cabinet with heater</td><td>3,500 – 4,800</td></tr><tr><td>Optics: 12× 10G-LR, 6× 1G-LX</td><td>1,800 – 2,800</td></tr><tr><td>Starlink Standard kit, pole mount on the tower</td><td>450 – 600, plus the Business plan</td></tr><tr><td>UPS in each building and the yard cabinet</td><td>4,000 – 6,000</td></tr><tr><td>Network total</td><td><strong>≈ 43,000 – 57,000</strong>, plus access switches per building, the ducts and fibre (usually the largest cost), and the security systems themselves</td></tr></tbody>
+  </table>
+
+  <!-- vendor appendix -->
+  <p class="section-num" id="other-vendor">Appendix</p>
+  <h2 class="section-title">The Same Design on MikroTik</h2>
+  <p class="section-thesis"><em>Same ring, same areas, same addresses, for a fraction of the hardware. The MikroTik tabs on the config blocks above show each step side by side; this is what changes underneath.</em></p>
+
+<table class="cheat">
+    <thead><tr><th>Role</th><th>This post → MikroTik</th></tr></thead>
+    <tbody><tr><td>Four cores</td><td>C9300-24S-A → CCR2116-12G-4S+ (4× SFP+ for ring and edge, ether12 trunk to the access stack)</td></tr><tr><td>EDGE1, EDGE2</td><td>C8200-1N-4T → CCR2004-16G-2S+</td></tr><tr><td>YARD</td><td>IE-3400-8P2S → RB5009UPr+S+ in the same IP66 cabinet (not industrially rated: add a heater and surge protection)</td></tr><tr><td>Indicative total</td><td>≈ 43,000 – 57,000 → ≈ 6,000 – 8,000 EUR ex VAT</td></tr></tbody>
+  </table>
+
+  <table class="cheat">
+    <thead><tr><th>Feature</th><th>This post → MikroTik</th></tr></thead>
+    <tbody><tr><td>OSPF per interface</td><td><code>ip ospf 1 area 0</code> → <code>/routing ospf interface-template</code> by interface or network</td></tr><tr><td>Reference bandwidth</td><td><code>auto-cost reference-bandwidth</code> → none; set <code>cost=</code> on each template</td></tr><tr><td>Authentication</td><td>key chain HMAC-SHA-256 → <code>auth=sha256 auth-id=1 auth-key=</code> (interoperates with the Cisco key id)</td></tr><tr><td>TTL security</td><td><code>ttl-security all-interfaces</code> → input-chain rule: OSPF only from ring ports</td></tr><tr><td>Conditional default</td><td><code>default-information originate</code> + tracked static → <code>originate-default=if-installed</code> + <code>check-gateway=ping</code></td></tr><tr><td>Default metric/type</td><td><code>metric 10 metric-type 1</code> → routing filter <code>set ospf-ext-metric</code> / <code>ospf-ext-type type1</code></td></tr><tr><td>Stub-router on startup</td><td><code>max-metric router-lsa</code> → no equivalent; drain by raising template costs</td></tr><tr><td>SVI ACLs</td><td>stateless, on each core → stateful forward chain, shorter but evaluated in software unless offloaded</td></tr></tbody>
+  </table>
+
+  <div class="callout defender">
+    <span class="callout-label">What actually changes in the design</span>
+    <p><strong>Forwarding moves into software</strong> on the CCR routers, which is fine at port traffic levels but means the ring's throughput is the router's, not a switch ASIC's. <strong>There is no stub-router mode</strong>, so maintenance relies on the cost-out runbook. And on a mixed network the MikroTik side must set its costs by hand to match what the Cisco side computes, or the two halves of the ring will disagree about the best path.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Route between buildings, switch inside them.</strong> Routed /31s turn each building into its own failure domain and let OSPF, not spanning tree, decide paths.</li>
+      <li><strong>Silence first, then authenticate.</strong> <code>passive-interface default</code> keeps OSPF off every user port; SHA-256 and TTL security protect the ports that remain.</li>
+      <li><strong>Let BFD detect, let OSPF compute.</strong> Sub-second failover comes from BFD plus throttled SPF, not from aggressive hello timers.</li>
+      <li><strong>A default route should follow health.</strong> Conditional origination with tracked statics, E1 metrics and the right administrative distance makes failover a property of the routing, not a script.</li>
+      <li><strong>Stub areas are about blast radius, not size.</strong> One small cabinet gets one route in and gives one route out.</li>
+      <li><strong>Plan the maintenance, not just the failure.</strong> Stub-router on startup and a cost-out runbook move traffic away before anyone touches a fibre.</li>
+    </ol>
+  </div>
+
+  <p style="font-size:.9rem;">This is part 13 of the <a href="build-index.html"><strong>Build series</strong></a>. Earlier: <a href="build-resort-hotel.html">the resort hotel</a>, <a href="build-marina.html">the marina</a>, <a href="build-cafe-chain.html">the café chain</a>.</p>
+
+  <div class="cta-card">
+    <h3>Running a multi-building site in Crete?</h3>
+    <p>Ports, campuses, resorts and industrial sites: I design routed networks that survive a cut fibre and test the failover before it is needed.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+<script src="../js/build-explorer.js" defer></script>
+</body>
+</html>
