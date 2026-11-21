@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: Telegram Alerts from RouterOS — S. Markakis</title>
+<meta name="description" content="Push alerts straight from RouterOS to Telegram with /tool fetch — one reusable $tgSend function, a WAN netwatch trigger, and polled CPU/temperature with hysteresis. Plus the three things that silently break it: device-mode, TLS trust, and a token you must not commit.">
+<meta property="og:title" content="MikroTik: Telegram Alerts from RouterOS — S. Markakis">
+<meta property="og:description" content="Push alerts straight from RouterOS to Telegram with /tool fetch — one reusable $tgSend function, a WAN netwatch trigger, and polled CPU/temperature with hysteresis. Plus the three things that silently break it: device-mode, TLS trust, and a token you must not commit.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-telegram-alerts.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-telegram-alerts.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-telegram-alerts.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-telegram-alerts.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"\203A";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: Telegram Alerts from RouterOS",
+  "description": "Push alerts straight from RouterOS to Telegram with /tool fetch — one reusable $tgSend function, a WAN netwatch trigger, and polled CPU/temperature with hysteresis. Plus the three things that silently break it: device-mode, TLS trust, and a token you must not commit.",
+  "datePublished": "2026-11-21",
+  "dateModified": "2026-11-21",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-telegram-alerts.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-telegram-alerts.png",
+  "keywords": [
+    "mikrotik",
+    "monitoring"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-telegram-alerts"
+  },
+  "timeRequired": "PT7M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Monitoring &nbsp;·&nbsp; November 2026</p>
+  <h1 class="post-title">MikroTik<br>Telegram Alerts</h1>
+  <p class="post-subtitle">A RouterOS box can send its own alerts to your phone — no collector, no middleware. <code>/tool fetch</code> POSTs to the Telegram Bot API, and from there any netwatch, scheduler, or script fires a message. The trick is to write the notifier <strong>once</strong>, as a reusable function, then wire triggers to it. The three things that quietly stop it working aren't code — they're <strong>device-mode</strong>, <strong>TLS trust</strong>, and a <strong>token you must keep out of your configs</strong>. For the durable, filtered record see <a href="mikrotik-syslog.html">Logging &amp; Remote Syslog</a>; for graphs and thresholds over time, <a href="mikrotik-prometheus.html">MikroTik + Prometheus</a>.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">Telegram</span>
+    <span class="tag">Alerting</span>
+    <span class="tag">Netwatch</span>
+    <span class="tag">RouterOS</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>On-device alerting answers a narrow question: <em>something just changed on this router and no one is watching the dashboard.</em> A dropped WAN at 02:00, a CPU pegged at 100%, a temperature climbing in a hot cabinet. You don't need a monitoring stack for that — RouterOS can reach out to Telegram itself with one HTTPS request.</p>
+    <p>This is <strong>complementary</strong> to a real collector, not a replacement. Telegram push is for the handful of events a human should see <em>now</em>; <a href="mikrotik-syslog.html">syslog</a> and <a href="mikrotik-prometheus.html">metrics</a> are for the full record and the trends. Think of the router as the fallback alarm when the operator box is unreachable — or when there is no operator box at all.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>A Telegram bot from <strong>@BotFather</strong> — you get a <code>token</code> — and your numeric <code>chat_id</code> (message the bot, then read <code>getUpdates</code>)</li>
+      <li><code>fetch</code> and <code>scheduler</code> enabled in <strong>device-mode</strong> (a physical step — see §2)</li>
+      <li>A <strong>synced clock</strong> — TLS certificate validation fails on a wrong date, so NTP first</li>
+    </ul>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 208" role="img" aria-label="Animated flow: a RouterOS event (netwatch down or a CPU/temp poll) calls the tgSend function, which POSTs over HTTPS to the Telegram Bot API, which delivers the message to your phone">
+      <style>
+        .tgbox{fill:var(--card);stroke:var(--rule);stroke-width:1.5;}
+        .tgsrc{fill:var(--card);stroke:var(--accent);stroke-width:1.5;}
+        .tgfn{fill:var(--card);stroke:var(--defender);stroke-width:1.5;}
+        .tglbl{fill:var(--mid);font-family:var(--font-disp),sans-serif;font-weight:700;font-size:13px;letter-spacing:.03em;}
+        .tgsub{fill:var(--body);font-family:var(--font-mono),monospace;font-size:9px;}
+        .tgarr{stroke:var(--accent);stroke-width:2;fill:none;opacity:.4;}
+        .tgcap{fill:var(--body);font-family:var(--font-body),sans-serif;font-size:9px;}
+        @keyframes tgrun{0%{offset-distance:0%;opacity:0;}6%{opacity:1;}94%{opacity:1;}100%{offset-distance:100%;opacity:0;}}
+        .tgpkt{fill:var(--accent);offset-path:path('M 150 104 L 300 104 L 450 104 L 600 104 L 690 104');animation:tgrun 3.4s ease-in-out infinite;}
+        @media (prefers-reduced-motion:reduce){
+          .tgpkt{animation:none;offset-distance:52%;opacity:1;}
+          .tgarr{opacity:.75;}
+        }
+      </style>
+      <defs><marker id="tgah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--accent)"/></marker></defs>
+      <rect class="tgsrc" x="14" y="72" width="140" height="64" rx="6"/>
+      <text class="tglbl" x="84" y="98" text-anchor="middle">EVENT</text>
+      <text class="tgsub" x="84" y="114" text-anchor="middle">netwatch · poll</text>
+      <rect class="tgfn" x="246" y="78" width="116" height="52" rx="6"/>
+      <text class="tglbl" x="304" y="100" text-anchor="middle">$tgSend</text>
+      <text class="tgsub" x="304" y="116" text-anchor="middle">function</text>
+      <rect class="tgbox" x="430" y="78" width="140" height="52" rx="6"/>
+      <text class="tglbl" x="500" y="100" text-anchor="middle">/tool fetch</text>
+      <text class="tgsub" x="500" y="116" text-anchor="middle">HTTPS POST</text>
+      <rect class="tgbox" x="602" y="72" width="144" height="64" rx="6"/>
+      <text class="tglbl" x="674" y="98" text-anchor="middle">TELEGRAM</text>
+      <text class="tgsub" x="674" y="114" text-anchor="middle">Bot API → phone</text>
+      <path class="tgarr" d="M156,104 L244,104" marker-end="url(#tgah)"/>
+      <path class="tgarr" d="M364,104 L428,104" marker-end="url(#tgah)"/>
+      <path class="tgarr" d="M572,104 L600,104" marker-end="url(#tgah)"/>
+      <text class="tgcap" x="500" y="150" text-anchor="middle">JSON body · chat_id + text</text>
+      <circle class="tgpkt" r="5.5"/>
+    </svg>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">Write the Notifier Once</h2>
+  <p class="section-thesis"><em>Register a global function <code>$tgSend</code>. Every trigger calls it with a string. It builds the Bot API request, escapes the body, and sends it — so the Telegram plumbing lives in exactly one place.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — a reusable $tgSend, armed by a script you run once</span>
+    <pre class="term"><span class="cmt"># Secrets come from globals you set elsewhere (see §2) — never hardcode them.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/script/add name=tg-init dont-require-permissions=yes \</span>
+<span class="pc"></span> <span class="out">  policy=read,write,test source={</span>
+<span class="out">    :global tgToken; :global tgChat</span>
+<span class="out">    :global tgSend do={</span>
+<span class="out">      :global tgToken; :global tgChat</span>
+<span class="out">      :local m [:tostr $1]</span>
+<span class="cmt">      # JSON-escape the message body: backslash, double-quote, newline</span>
+<span class="out">      :local e ""</span>
+<span class="out">      :for i from=0 to=([:len $m] - 1) do={</span>
+<span class="out">        :local c [:pick $m $i]</span>
+<span class="out">        :if ($c = "\\") do={ :set e ($e . "\\\\") } else={</span>
+<span class="out">        :if ($c = "\"") do={ :set e ($e . "\\\"") } else={</span>
+<span class="out">        :if ($c = "\n") do={ :set e ($e . "\\n")  } else={ :set e ($e . $c) }}}</span>
+<span class="out">      }</span>
+<span class="out">      :local url ("https://api.telegram.org/bot" . $tgToken . "/sendMessage")</span>
+<span class="out">      :local body ("{\"chat_id\":\"" . $tgChat . "\",\"text\":\"" . $e . "\"}")</span>
+<span class="out">      :do {</span>
+<span class="out">        /tool/fetch http-method=post url=$url check-certificate=yes-without-crl \</span>
+<span class="out">          http-header-field="Content-Type: application/json" \</span>
+<span class="out">          http-data=$body output=none as-value</span>
+<span class="out">      } on-error={ :log warning "tgSend: fetch failed" }</span>
+<span class="out">    }</span>
+<span class="out">  }</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/script/run tg-init</span>   <span class="cmt"># arm it (globals live until reboot)</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Why a function, and why POST</span>
+    <p>Globals in RouterOS are lost on reboot, so <code>$tgSend</code> has to be re-registered at startup — a one-line <code>/system/scheduler</code> with <code>start-time=startup</code> running <code>tg-init</code> does it. And prefer <strong>POST with a JSON body</strong> over a GET query string: the message rides in the body, so you escape for JSON (three characters) instead of URL-encoding every space and symbol in the text. The small <code>:for</code> loop above is the entire escaper.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">The Three Things That Silently Break It</h2>
+  <p class="section-thesis"><em>None of these throw a clear error. The fetch just fails, or never runs. Clear all three before you wire any trigger.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — device-mode, the clock, and the secret</span>
+    <pre class="term"><span class="cmt"># (1) DEVICE-MODE: fetch + scheduler are gated off by default on RouterOS 7.13+.</span>
+<span class="cmt">#     This prints a prompt that needs a COLD power-cycle / reset-button press</span>
+<span class="cmt">#     physically at the device — by design, so no one arms it remotely.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/device-mode/update fetch=yes scheduler=yes</span>
+
+<span class="cmt"># (2) CLOCK: TLS cert validation fails on a wrong date. NTP by IP so it</span>
+<span class="cmt">#     doesn't depend on DNS. Confirm status: synchronized before testing fetch.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/ntp/client/set enabled=yes servers=10.0.0.1</span>
+
+<span class="cmt"># (3) SECRET: set the token/chat as globals from a file you DON'T commit,</span>
+<span class="cmt">#     not inline in your exported config. Keep them out of version control.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">:global tgToken "123456:AA...bot-token..."</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">:global tgChat "111111111"</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — RouterOS Ships No Root CAs</span>
+    <p>Out of the box there is no trusted CA store, so an HTTPS <code>/tool/fetch</code> to <code>api.telegram.org</code> fails certificate verification and your alert silently never sends. Two honest choices: <strong>import the CA chain</strong> (<code>/certificate import</code>) and keep <code>check-certificate=yes-without-crl</code> — the right answer for anything production — or set <code>check-certificate=no</code>, which works instantly but sends your bot token over a connection whose server identity you never verified. Don't ship <code>no</code> to a client site; it's a lab shortcut. Either way, a wrong clock defeats a valid cert, so fix NTP first.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">Trigger 1 — WAN Up/Down via Netwatch</h2>
+  <p class="section-thesis"><em>Netwatch pings a host and runs a script on each state change — not on every probe. That edge-triggering is exactly what you want: one message when the link drops, one when it comes back.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — alert only on the transition</span>
+    <pre class="term"><span class="cmt"># host = what "WAN up" means to you. 1.1.1.1 tests real reachability;</span>
+<span class="cmt"># your ISP gateway tests the link only. up/down scripts call the function.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/tool/netwatch/add name=wan-tg host=1.1.1.1 type=simple \</span>
+<span class="pc"></span> <span class="out">  interval=10s timeout=2s \</span>
+<span class="pc"></span> <span class="out">  up-script=":global tgSend; \$tgSend (\"WAN UP - 1.1.1.1 reachable\")" \</span>
+<span class="pc"></span> <span class="out">  down-script=":global tgSend; \$tgSend (\"WAN DOWN - 1.1.1.1 unreachable\")"</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Watch the Internet, Not Your Own Gateway</span>
+    <p>If you point <code>host</code> at the next-hop gateway, you'll catch a dead cable but miss the far more common failure: the link is up but the internet is gone (upstream outage, PPPoE down, CGNAT black hole). Ping something past your ISP — a public resolver — to alert on <em>reachability</em>. For a dual-WAN box, set <code>src-address</code> to pin the probe to the uplink you actually want to test, so a healthy backup doesn't mask a failed primary.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">Trigger 2 — CPU &amp; Temperature, Polled</h2>
+  <p class="section-thesis"><em>There's no event for "CPU got busy," so you poll on a scheduler. The discipline that makes it usable is hysteresis: alert once when it crosses high, once when it recovers — never a message per tick.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — threshold crossing with a per-metric flag</span>
+    <pre class="term"><span class="cmt"># A script the scheduler runs every minute. The flag turns a level into an edge.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/script/add name=tg-health dont-require-permissions=yes \</span>
+<span class="pc"></span> <span class="out">  policy=read,test source={</span>
+<span class="out">    :global tgSend; :global tgCpuHot</span>
+<span class="out">    :local cpu [/system/resource/get cpu-load]</span>
+<span class="out">    :if ($cpu &gt; 90) do={</span>
+<span class="out">      :if ($tgCpuHot != true) do={</span>
+<span class="out">        $tgSend ("CPU HIGH - " . $cpu . "%"); :set tgCpuHot true }</span>
+<span class="out">    } else={</span>
+<span class="out">      :if ($cpu &lt; 70 and $tgCpuHot = true) do={</span>
+<span class="out">        $tgSend ("CPU recovered - " . $cpu . "%"); :set tgCpuHot false }</span>
+<span class="out">    }</span>
+<span class="cmt">    # Temperature only if the board has a sensor (many small hAPs don't).</span>
+<span class="out">    :if ([:len [/system/health/find where name=temperature]] &gt; 0) do={</span>
+<span class="out">      :local t [/system/health/get [find where name=temperature] value]</span>
+<span class="out">      :if ($t &gt; 70) do={ $tgSend ("TEMP HIGH - " . $t . "C") }</span>
+<span class="out">    }</span>
+<span class="out">  }</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/scheduler/add name=tg-health interval=1m \</span>
+<span class="pc"></span> <span class="out">  on-event="/system/script/run tg-health" policy=read,test</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — A Bare Threshold Floods You at the Boundary</span>
+    <p>Without the flag, a CPU hovering at 89–91% sends an alert every single poll as it jitters across the line. The fix is <strong>two thresholds</strong>: fire at <code>&gt; 90</code>, and only re-arm once it drops back under <code>70</code> (<code>tgClear</code>). That gap is the hysteresis band — the same idea as a thermostat's deadband. It's also why <code>temperature</code> needs its own flag, not a shared one: a hot CPU and a hot board are different alarms. And guard the temperature read with <code>find where name=temperature</code> — calling <code>get</code> on a board with no sensor errors out and kills the whole script.</p>
+  </div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Verify <span class="safe-badge">Safe to Run</span></h2>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — prove each layer before you trust it</span>
+    <pre class="term"><span class="cmt"># 1. The function itself — you should get a Telegram message instantly.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">:global tgSend; $tgSend ("test alert from edge")</span>
+
+<span class="cmt"># 2. Device-mode actually enabled (fetch: yes, scheduler: yes).</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/device-mode/print</span>
+
+<span class="cmt"># 3. Force a threshold low to confirm the health trigger fires, then restore.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/system/script/run tg-health</span>   <span class="cmt"># temporarily drop 90→1 while testing</span>
+
+<span class="cmt"># 4. Watch for failures — a failed fetch logs, it doesn't shout.</span>
+<span class="pc">[admin@edge] &gt;</span> <span class="out">/log/print where message~"tgSend"</span></pre>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>Write the notifier once</strong> as a global <code>$tgSend</code> function; wire every trigger to it. Re-register it at startup, because globals don't survive a reboot.</li>
+      <li><strong>POST a JSON body</strong>, not a GET query string — you escape three characters instead of URL-encoding the whole message.</li>
+      <li><strong>Device-mode gates <code>fetch</code> and <code>scheduler</code></strong> on RouterOS 7.13+; enabling them needs a physical power-cycle. It can't be fully provisioned over SSH alone.</li>
+      <li><strong>RouterOS trusts no CA by default</strong> and a wrong clock breaks TLS — import the CA and sync NTP, or accept an unverified link only in a lab.</li>
+      <li><strong>Edge-trigger, don't level-trigger</strong>: netwatch already fires on transitions; for polled CPU/temp add a hysteresis flag so a value jittering at the threshold doesn't flood you.</li>
+      <li><strong>Keep the bot token out of your configs</strong> — set it as a global from a file you never commit.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Routers that tell you when something's wrong?</h3>
+    <p>A dropped WAN or a dying link shouldn't wait for someone to notice. I wire RouterOS fleets to alert on the events that matter — uplink, load, config change, auth — pushed to Telegram and backed by proper logging and metrics, so small sites stay watched without a NOC. Let's set yours up.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>

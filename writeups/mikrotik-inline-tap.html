@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; worker-src 'self' blob:;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>.writeup-back-link:hover{transform:translateX(-2px);background:rgba(26,26,24,1)!important;}</style>
+<title>MikroTik: A Transparent Inline Tap — S. Markakis</title>
+<meta name="description" content="Turn a spare MikroTik into a transparent inline tap between two switches — a silent in-path bridge that mirrors the link to a capture box at line rate. The bridge setup, the switch-chip copy, and the honest limits that separate it from a real passive tap. Authorized use only.">
+<meta property="og:title" content="MikroTik: A Transparent Inline Tap — S. Markakis">
+<meta property="og:description" content="Turn a spare MikroTik into a transparent inline tap between two switches — a silent in-path bridge that mirrors the link to a capture box at line rate. The bridge setup, the switch-chip copy, and the honest limits that separate it from a real passive tap. Authorized use only.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://s-markakis.github.io/writeups/mikrotik-inline-tap.html">
+<meta property="og:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-inline-tap.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://s-markakis.github.io/writeups/assets/og/mikrotik-inline-tap.png">
+<link rel="canonical" href="https://s-markakis.github.io/writeups/mikrotik-inline-tap.html">
+
+<link rel="stylesheet" href="../fonts/inter.css">
+<link rel="stylesheet" href="../fonts/display.css">
+<link rel="stylesheet" href="../style.css">
+<style>
+  :root{--bg:#f0efe9;--card:#fff;--code-bg:#e8e6e0;--term-bg:#e8e6e0;--rule:#e0deda;--body:#5e5a52;--mid:#0f0f0f;--head:#0f0f0f;--accent:#c63d1f;--gotcha:#c08020;--defender:#3a5a78;--font-disp:'Barlow Condensed',sans-serif;--font-body:'Inter',-apple-system,sans-serif;--font-mono:'JetBrains Mono',monospace;}
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html{font-size:16px;background:var(--bg);color:var(--body);}
+  body{font-family:var(--font-body);font-weight:400;line-height:1.7;background:var(--bg);min-height:100vh;}
+  a{color:var(--accent);text-decoration:none;}a:hover{text-decoration:underline;}
+  .wrap{position:relative;z-index:1;width:100%;max-width:760px;margin:0 auto;padding:3rem 1.5rem 5rem;}
+  .post-meta{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--body);margin-bottom:.8rem;}
+  .post-meta span{color:var(--accent);font-weight:600;}
+  h1.post-title{font-family:var(--font-disp);font-weight:900;font-size:3rem;line-height:1.05;color:var(--head);text-transform:uppercase;letter-spacing:.02em;margin-bottom:1rem;}
+  .post-subtitle{font-size:1.05rem;color:var(--mid);font-weight:400;margin-bottom:1.4rem;line-height:1.5;}
+  .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:2rem;}
+  .tag{font-family:var(--font-body);font-weight:600;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--head);border-radius:999px;padding:.18em .75em;color:var(--mid);}
+  hr.title-rule{border:none;border-top:1px solid var(--rule);margin-bottom:2rem;}
+  .thesis-card{background:var(--card);border-radius:6px;border-left:3px solid var(--accent);padding:1.6rem 1.8rem;margin-bottom:2.6rem;}
+  .thesis-card p{color:var(--mid);font-size:.98rem;line-height:1.7;}
+  .thesis-card p+p{margin-top:.8rem;}
+  .prereqs-label{font-family:var(--font-disp);font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-top:1.2rem;margin-bottom:.5rem;}
+  .prereqs-list{list-style:none;padding:0;}
+  .prereqs-list li{font-size:.88rem;color:var(--mid);padding:.15rem 0 .15rem 1rem;position:relative;}
+  .prereqs-list li::before{content:"\203A";position:absolute;left:0;color:var(--accent);font-weight:700;}
+  .section-num{font-family:var(--font-disp);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.2rem;margin-top:2.8rem;}
+  h2.section-title{font-family:var(--font-disp);font-weight:800;font-size:1.9rem;color:var(--head);text-transform:uppercase;letter-spacing:.03em;line-height:1.1;margin-bottom:.5rem;}
+  .section-thesis{font-style:italic;color:var(--mid);font-size:.95rem;margin-bottom:1.4rem;line-height:1.6;border-bottom:1px solid var(--rule);padding-bottom:.8rem;}
+  h3.sub{font-family:var(--font-disp);font-weight:700;font-size:1.15rem;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;margin:1.6rem 0 .5rem;}
+  p{margin-bottom:1rem;color:var(--body);font-size:.96rem;}
+  strong{color:var(--mid);font-weight:600;}
+  .term-wrap{background:var(--term-bg);border-radius:5px;border:1px solid var(--rule);margin:1.2rem 0;overflow-x:auto;}
+  .term-label{font-family:var(--font-disp);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--body);background:var(--rule);padding:.3rem .9rem;display:block;border-bottom:1px solid var(--rule);}
+  pre.term{font-family:var(--font-mono);font-size:.82rem;line-height:1.75;padding:1rem 1.2rem;white-space:pre;color:var(--mid);background:none;border:none;margin:0;}
+  span.pc{color:var(--accent);font-weight:500;}
+  span.out{color:var(--mid);}
+  span.cmt{color:var(--body);font-style:italic;}
+  span.key{color:var(--accent);font-weight:600;font-style:normal;}
+  code{font-family:var(--font-mono);font-size:.82em;background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;padding:.1em .4em;color:var(--mid);}
+  .callout{border-radius:5px;padding:1rem 1.2rem;margin:1.4rem 0;font-size:.9rem;}
+  .callout-label{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.4rem;}
+  .callout p{margin:0;font-size:.9rem;}
+  .callout p+p{margin-top:.5rem;}
+  .gotcha{background:var(--card);border-left:3px solid var(--gotcha);}
+  .gotcha .callout-label{color:var(--gotcha);}
+  .didnt-work{background:var(--code-bg);border-left:3px solid var(--rule);}
+  .didnt-work .callout-label{color:var(--body);}
+  .defender{background:var(--card);border-left:3px solid var(--defender);}
+  .defender .callout-label{color:var(--defender);}
+  .diagram-wrap{margin:1.6rem 0;border-radius:6px;border:1px solid var(--rule);overflow:hidden;background:var(--card);}
+  .diagram-wrap svg{display:block;width:100%;height:auto;}
+  kbd{display:inline-block;font-family:var(--font-mono);font-size:.75em;background:var(--head);color:#eae8e3;border-radius:4px;padding:.1em .5em;margin:0 .1em;font-weight:500;letter-spacing:.02em;}
+  .cheat{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.85rem;}
+  .cheat th{font-family:var(--font-disp);font-weight:700;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;background:var(--rule);color:var(--mid);padding:.4rem .8rem;text-align:left;}
+  .cheat td{padding:.4rem .8rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  .cheat tr:nth-child(even) td{background:var(--card);}
+  .cheat td:first-child{font-family:var(--font-mono);font-size:.8rem;color:var(--accent);white-space:nowrap;}
+  .cheat td:last-child{color:var(--body);font-size:.82rem;}
+  .safe-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:#3a5a78;color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .danger-badge{display:inline-block;font-family:var(--font-disp);font-weight:700;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:3px;padding:.1em .5em;margin-left:.4rem;vertical-align:middle;}
+  .takeaways{background:var(--card);border-radius:6px;padding:1.6rem 1.8rem;margin:2.4rem 0;}
+  .takeaways-title{font-family:var(--font-disp);font-weight:800;font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--head);margin-bottom:1rem;}
+  .takeaways ol{padding-left:1.4rem;}
+  .takeaways li{font-size:.92rem;color:var(--mid);margin-bottom:.55rem;line-height:1.55;}
+  .cta-card{background:var(--card);border-radius:6px;border-top:3px solid var(--accent);padding:1.8rem 2rem;margin-top:2.8rem;text-align:center;}
+  .cta-card h3{font-family:var(--font-disp);font-weight:800;font-size:1.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--head);margin-bottom:.6rem;}
+  .cta-card p{font-size:.93rem;color:var(--mid);max-width:520px;margin:0 auto 1.2rem;}
+  .cta-btn{display:inline-block;background:var(--accent);color:#fff;font-family:var(--font-disp);font-weight:700;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;padding:.65em 1.8em;border-radius:4px;transition:opacity .15s;}
+  .cta-btn:hover{opacity:.88;text-decoration:none;}
+  footer{border-top:1px solid var(--rule);margin-top:4rem;padding:1.2rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--body);letter-spacing:.04em;}
+  footer a{color:var(--body);}footer a:hover{color:var(--accent);}
+</style>
+<script src="../js/theme.js"></script>
+<style>
+  body.dark {
+    --bg:#0f0f0f; --card:#1a1a1a; --code-bg:#161616; --term-bg:#161616; --rule:#2a2a2a;
+    --body:#959086; --mid:#f4f3ef; --head:#f4f3ef; --accent:#c63d1f;
+    --gotcha:#d9a441; --defender:#6f9fc9;
+  }
+</style>
+<script id="sp1r4-jsonld" type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MikroTik: A Transparent Inline Tap",
+  "description": "Turn a spare MikroTik into a transparent inline tap between two switches — a silent in-path bridge that mirrors the link to a capture box at line rate. The bridge setup, the switch-chip copy, and the honest limits that separate it from a real passive tap. Authorized use only.",
+  "datePublished": "2026-11-21",
+  "dateModified": "2026-11-21",
+  "author": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "publisher": {
+    "@type": "Person",
+    "name": "S. Markakis",
+    "url": "https://s-markakis.github.io/"
+  },
+  "url": "https://s-markakis.github.io/writeups/mikrotik-inline-tap.html",
+  "image": "https://s-markakis.github.io/writeups/assets/og/mikrotik-inline-tap.png",
+  "keywords": [
+    "mikrotik",
+    "monitoring"
+  ],
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://s-markakis.github.io/blog.html#mikrotik-inline-tap"
+  },
+  "timeRequired": "PT8M"
+}
+</script>
+</head>
+<body class="has-nav">
+<nav id="site-nav"></nav>
+<a href="../blog.html" class="writeup-back-link" style="position:fixed;top:66px;left:18px;z-index:51;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(26,26,24,0.92);color:#eae8e3;font-family:'Inter',-apple-system,sans-serif;font-size:12px;font-weight:500;letter-spacing:0.04em;text-decoration:none;border-radius:4px;border:0.5px solid rgba(234,232,227,0.15);backdrop-filter:blur(8px);transition:transform 0.18s,background 0.18s;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to blog</a>
+
+<div class="wrap">
+  <p class="post-meta"><span>MikroTik / RouterOS</span> &nbsp;·&nbsp; Monitoring &nbsp;·&nbsp; November 2026</p>
+  <h1 class="post-title">MikroTik<br>Inline Tap</h1>
+  <p class="post-subtitle">Sometimes the two devices you need to watch are talking directly to each other and neither will give you a SPAN port. You can cut a spare MikroTik into the link as a <strong>transparent bridge</strong> — the two switches keep talking as if nothing changed, while a third port mirrors every frame to a capture box at line rate. This is the in-path cousin of <a href="mikrotik-sniffer-mirror.html">Packet Sniffer &amp; Port Mirror</a>: there you mirror a port on a switch you own; here you insert a silent bystander between two you don't. <strong>Authorized engagements and your own lab only</strong> — see §5.</p>
+  <div class="tags">
+    <span class="tag">MikroTik</span>
+    <span class="tag">Tap</span>
+    <span class="tag">SPAN</span>
+    <span class="tag">Capture</span>
+    <span class="tag">RouterOS</span>
+  </div>
+  <hr class="title-rule">
+
+  <div class="thesis-card">
+    <p>A tap does one job: copy a conversation without disturbing it. A real hardware tap is passive — it splits the signal and keeps forwarding even if it loses power. A MikroTik can't do that, but it can do the next best thing: <strong>bridge two of its ports</strong> so traffic flows straight through, give that bridge <strong>no IP and no voice of its own</strong>, and have the switch chip <strong>copy the link to a third port</strong>. The two switches see a dumb cable; you see every packet.</p>
+    <p>The whole value is in being invisible and staying out of the way. That means three deliberate choices — a bridge with no L3 presence, no spanning-tree or discovery chatter of your own, and a copy done in <em>hardware</em> so the box keeps up. Everything else in this post is about the ways that invisibility leaks, and the limits you accept by using a router instead of a real tap.</p>
+    <div class="prereqs-label">Prerequisites</div>
+    <ul class="prereqs-list">
+      <li>A spare MikroTik with <strong>3+ Ethernet ports on one switch chip</strong> (e.g. hAP series, hEX) — two for the link, one to mirror out</li>
+      <li><strong>Written authorization</strong> to intercept the link, and a <strong>maintenance window</strong> — inserting the tap breaks the link briefly</li>
+      <li>A capture host (laptop / Pi / mini-PC) and, ideally, a managed switch's own SPAN as the less invasive option first</li>
+    </ul>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 760 232" role="img" aria-label="Animated inline tap: traffic flows between Switch A and Switch B straight through a transparent MikroTik bridge, while a copy of each frame branches out of a third mirror port to a capture box">
+      <style>
+        .tpbox{fill:var(--card);stroke:var(--rule);stroke-width:1.5;}
+        .tpbr{fill:var(--card);stroke:var(--accent);stroke-width:1.5;}
+        .tpcap{fill:var(--card);stroke:var(--defender);stroke-width:1.5;}
+        .tplbl{fill:var(--mid);font-family:var(--font-disp),sans-serif;font-weight:700;font-size:13px;letter-spacing:.03em;}
+        .tpsub{fill:var(--body);font-family:var(--font-mono),monospace;font-size:9px;}
+        .tpwire{stroke:var(--rule);stroke-width:2;fill:none;}
+        .tpspur{stroke:var(--defender);stroke-width:2;fill:none;opacity:.5;stroke-dasharray:4 3;}
+        .tpcapt{fill:var(--body);font-family:var(--font-body),sans-serif;font-size:9px;}
+        @keyframes tpthru{0%{offset-distance:0%;}100%{offset-distance:100%;}}
+        @keyframes tpcopy{0%{offset-distance:0%;opacity:0;}20%{opacity:0;}24%{opacity:1;}100%{offset-distance:100%;opacity:1;}}
+        .tpp1{fill:var(--accent);offset-path:path('M 150 96 L 330 96 L 430 96 L 610 96');animation:tpthru 3s linear infinite;}
+        .tpp2{fill:var(--defender);offset-path:path('M 380 112 L 380 180 L 610 180');animation:tpcopy 3s linear infinite;}
+        @media (prefers-reduced-motion:reduce){
+          .tpp1{animation:none;offset-distance:50%;}
+          .tpp2{animation:none;offset-distance:60%;opacity:1;}
+        }
+      </style>
+      <rect class="tpbox" x="14" y="68" width="136" height="56" rx="6"/>
+      <text class="tplbl" x="82" y="92" text-anchor="middle">SWITCH A</text>
+      <text class="tpsub" x="82" y="108" text-anchor="middle">production</text>
+      <rect class="tpbr" x="330" y="70" width="100" height="84" rx="6"/>
+      <text class="tplbl" x="380" y="96" text-anchor="middle">BRIDGE</text>
+      <text class="tpsub" x="380" y="112" text-anchor="middle">no IP · silent</text>
+      <text class="tpsub" x="380" y="126" text-anchor="middle">ether1 · ether2</text>
+      <rect class="tpbox" x="610" y="68" width="136" height="56" rx="6"/>
+      <text class="tplbl" x="678" y="92" text-anchor="middle">SWITCH B</text>
+      <text class="tpsub" x="678" y="108" text-anchor="middle">production</text>
+      <rect class="tpcap" x="596" y="160" width="150" height="56" rx="6"/>
+      <text class="tplbl" x="671" y="184" text-anchor="middle">CAPTURE BOX</text>
+      <text class="tpsub" x="671" y="200" text-anchor="middle">ether3 · no IP</text>
+      <path class="tpwire" d="M150,96 L330,96"/>
+      <path class="tpwire" d="M430,96 L610,96"/>
+      <path class="tpspur" d="M380,154 L380,180 L596,180"/>
+      <text class="tpcapt" x="490" y="172" text-anchor="middle">mirror copy</text>
+      <circle class="tpp1" r="5.5"/>
+      <circle class="tpp2" r="5"/>
+    </svg>
+  </div>
+
+  <p class="section-num">01</p>
+  <h2 class="section-title">The Transparent Bridge</h2>
+  <p class="section-thesis"><em>Two ports, one bridge, no IP. The point is that the MikroTik forwards the link like a wire and announces nothing — so the switches on either side never know it's there.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — an L2 bridge with no presence of its own</span>
+    <pre class="term"><span class="cmt"># Bridge the two in-path ports. protocol-mode=none: don't run STP ourselves</span>
+<span class="cmt"># (BPDUs still pass through), so we add no spanning-tree identity to the link.</span>
+<span class="pc">[admin@tap] &gt;</span> <span class="out">/interface/bridge/add name=tap protocol-mode=none \</span>
+<span class="pc"></span> <span class="out">    igmp-snooping=no dhcp-snooping=no</span>
+<span class="pc">[admin@tap] &gt;</span> <span class="out">/interface/bridge/port/add bridge=tap interface=ether1 hw=yes</span>
+<span class="pc">[admin@tap] &gt;</span> <span class="out">/interface/bridge/port/add bridge=tap interface=ether2 hw=yes</span>
+
+<span class="cmt"># Silence everything that would reveal us: no IP on the bridge, radios off,</span>
+<span class="cmt"># discovery + management pinned OFF the tapped path (use a separate mgmt port).</span>
+<span class="pc">[admin@tap] &gt;</span> <span class="out">/interface/wifi/disable [find]</span>
+<span class="pc">[admin@tap] &gt;</span> <span class="out">/ip/neighbor/discovery-settings/set discover-interface-list=none</span>
+<span class="pc">[admin@tap] &gt;</span> <span class="out">/tool/mac-server/set allowed-interface-list=none</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — A Bridge IP or MNDP Gives You Away</span>
+    <p>The instant you put an IP on the <code>tap</code> bridge, the box answers ARP and shows up as a hop — not transparent any more. Likewise RouterOS runs <strong>MNDP</strong> (MikroTik's neighbour discovery) and can emit DHCP/LLDP by default; any of those puts a frame onto the wire with your MAC on it, which a switch's MAC table — or a watchful defender — will notice. Keep <em>all</em> management on a fourth port with its own subnet, and verify the tapped ports are emitting nothing with a quick capture before you trust the tap to be quiet.</p>
+  </div>
+
+  <p class="section-num">02</p>
+  <h2 class="section-title">Copy the Link — in Hardware</h2>
+  <p class="section-thesis"><em>Mirror one of the bridged ports to the capture port using the switch chip, so the copy happens at line rate with the CPU idle. Mirroring one direction's port catches the whole conversation, because everything A↔B crosses it.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — switch-chip mirror (source + target on the same chip)</span>
+    <pre class="term"><span class="cmt"># ether1 is the mirror SOURCE (rx+tx), ether3 the TARGET -> capture box.</span>
+<span class="cmt"># Both ports must sit on the same switch chip or the chip refuses it.</span>
+<span class="pc">[admin@tap] &gt;</span> <span class="out">/interface/ethernet/switch/set switch1 \</span>
+<span class="pc"></span> <span class="out">    mirror-source=ether1 mirror-target=ether3</span></pre>
+  </div>
+  <p>The mirror mechanics — switch-chip vs. CPU, <code>/tool sniffer</code> filters, and streaming into Wireshark over TZSP — are the same ones from <a href="mikrotik-sniffer-mirror.html">Packet Sniffer &amp; Port Mirror</a>; the only new thing here is that the source port is one leg of an in-path bridge instead of an access port you administer.</p>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Filter the Mirror So You Don't Overflow It</span>
+    <p>A gigabit link running full in both directions is up to 2&nbsp;Gbps of traffic, and a 1&nbsp;Gbps mirror port can't carry that — it drops <em>mirrored</em> frames (never the production traffic) and you capture an incomplete picture. If you only need part of the conversation, push the selection into the switch chip with a mirror rule — <code>/interface ethernet switch rule</code> with <code>mirror=yes copy-to-cpu=no</code> and a match like a VLAN or a host pair — so only what you care about lands on the capture port. Confirm the rule is actually matching in Wireshark; the match fields a chip supports in hardware vary by model.</p>
+  </div>
+
+  <p class="section-num">03</p>
+  <h2 class="section-title">The Capture Box</h2>
+  <p class="section-thesis"><em>The mirror port is useless without something recording it. The capture host should be as silent as the tap: a NIC that listens and never speaks on the mirrored segment.</em></p>
+  <div class="term-wrap">
+    <span class="term-label">Linux — a passive capture NIC + rotating pcap</span>
+    <pre class="term"><span class="cmt"># Bring the capture NIC up with NO IP, promiscuous — it must not transmit.</span>
+<span class="pc">capbox#</span> <span class="out">ip link set eth1 up promisc on arp off</span>
+<span class="pc">capbox#</span> <span class="out">sysctl -w net.ipv6.conf.eth1.disable_ipv6=1</span>   <span class="cmt"># no SLAAC/DAD chatter</span>
+
+<span class="cmt"># Rotating ring: new file hourly, keep 48 -> ~2 days, then overwrite oldest.</span>
+<span class="pc">capbox#</span> <span class="out">tcpdump -i eth1 -nn -s0 -G 3600 -W 48 -w tap-%Y%m%d-%H%M%S.pcap</span>
+
+<span class="cmt"># Management/exfil goes over a SEPARATE uplink (eth0 / LTE), never eth1.</span></pre>
+  </div>
+  <div class="callout defender">
+    <span class="callout-label">💡 Pro Tip — Analyse, Don't Just Hoard pcap</span>
+    <p>For anything beyond a quick look, point <strong>Zeek</strong> at the capture NIC and let it turn the stream into conn/dns/http/tls logs — you'll search "who talked to what" instead of scrolling frames. Keep the management interface on its own network with a <code>darkreader</code>-style discipline: the capture NIC has no IP and no routes, so even a compromised analysis box can't use it to reach back onto the tapped segment. That one-way split is what keeps a tap a tap.</p>
+  </div>
+
+  <p class="section-num">04</p>
+  <h2 class="section-title">What a MikroTik Tap Is <em>Not</em></h2>
+  <p class="section-thesis"><em>A router pressed into tap duty has real limits. Know them before you cut into a link that matters — some of these will take the whole segment down, not just your capture.</em></p>
+  <table class="cheat">
+    <thead><tr><th>Limit</th><th>What it means in practice</th></tr></thead>
+    <tbody>
+      <tr><td>not fail-open</td><td>Lose power and the link <strong>goes down</strong>. A real passive tap keeps forwarding; this doesn't. Never inline it on a link that must not drop.</td></tr>
+      <tr><td>insertion flap</td><td>Cabling it in <strong>bounces the link</strong> and may trigger an STP reconverge on both switches — hence the maintenance window.</td></tr>
+      <tr><td>oversubscription</td><td>A saturated full-duplex link exceeds a single mirror port; mirrored frames drop under load (production traffic is fine).</td></tr>
+      <tr><td>reserved multicast</td><td><strong>LACP, 802.1X/EAPOL, LLDP</strong> use <code>01:80:C2:00:00:0x</code> addresses a bridge may not forward — don't tap a LAG or a port-authenticated link without testing first.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Gotcha — Test the Link Type Before the Engagement, Not During</span>
+    <p>If the A↔B link is a <strong>port-channel (LACP)</strong> or runs <strong>802.1X</strong>, inserting a transparent bridge can silently break it: the control-plane frames that keep the bundle or the authenticated session alive may not cross your bridge, and the link drops or deauthenticates the moment you insert. Find this out in the lab on the same gear, not in front of the client. When in doubt, a managed switch's native SPAN (or a real passive/aggregating tap) is the safer instrument — reach for the MikroTik when those aren't available.</p>
+  </div>
+
+  <p class="section-num">05</p>
+  <h2 class="section-title">Verify &amp; Authorize <span class="safe-badge">Read Me</span></h2>
+  <div class="term-wrap">
+    <span class="term-label">RouterOS — confirm it forwards, confirm it's silent</span>
+    <pre class="term"><span class="pc">[admin@tap] &gt;</span> <span class="out">/interface/bridge/port/print</span>       <span class="cmt"># ether1+ether2 on tap, hw=yes</span>
+<span class="pc">[admin@tap] &gt;</span> <span class="out">/interface/ethernet/switch/print</span>     <span class="cmt"># mirror-source/target set</span>
+<span class="pc">[admin@tap] &gt;</span> <span class="out">/ip/address/print</span>                     <span class="cmt"># NO address on the tap bridge</span>
+<span class="cmt"># On the capture box: tcpdump -i eth1 -c 5 — both switches' traffic appears.</span>
+<span class="cmt"># And prove silence: capture should show ZERO frames sourced from our MACs.</span></pre>
+  </div>
+  <div class="callout gotcha">
+    <span class="callout-label">⚠ Authorization — This Intercepts Someone's Traffic</span>
+    <p>Tapping a link copies whatever crosses it, which in most jurisdictions is interception and is lawful only with clear authority: your own lab, or a signed engagement scope that names the segment. Get it <strong>in writing</strong>, tap only what the scope covers, keep the captured data encrypted and short-lived, and destroy it on close-out. The technique is neutral; the authorization is what makes using it legitimate. If you can't point to the permission, don't cut the cable.</p>
+  </div>
+
+  <div class="takeaways">
+    <p class="takeaways-title">Takeaways</p>
+    <ol>
+      <li><strong>A tap is a transparent bridge:</strong> two ports bridged, <code>protocol-mode=none</code>, no IP, radios off, discovery and management kept off the tapped path.</li>
+      <li><strong>Copy in hardware</strong> with a switch-chip mirror (source + target on the same chip) so the box keeps up at line rate; mirroring one bridged port catches both directions.</li>
+      <li><strong>Filter the mirror</strong> when the link is busy, or a 1&nbsp;Gbps mirror port drops frames a 2&nbsp;Gbps full-duplex link overruns.</li>
+      <li><strong>Keep the capture box silent too</strong> — a no-IP promiscuous NIC, management on a separate uplink, Zeek for analysis.</li>
+      <li><strong>It is not a real tap:</strong> not fail-open, it flaps the link on insertion, and LACP/802.1X/LLDP may not cross. Test the link type in the lab first.</li>
+      <li><strong>Authorization is the whole game</strong> — tap only your lab or a signed, scoped engagement, and destroy the capture on close-out.</li>
+    </ol>
+  </div>
+
+  <div class="cta-card">
+    <h3>Need eyes on a link that won't give you a SPAN port?</h3>
+    <p>Troubleshooting a flaky VoIP trunk, verifying what a black-box appliance really sends, validating a segmentation boundary — I build and run authorized capture setups on RouterOS and managed switches, with the analysis and the clean-up that go with them. Let's scope it properly.</p>
+    <a class="cta-btn" href="https://s-markakis.github.io/services.html">Book a Discovery Call →</a>
+  </div>
+
+
+</div>
+<footer>
+  <span>© 2026 S. Markakis</span>
+  <a href="https://s-markakis.github.io/blog.html">← All writeups</a>
+</footer>
+<script src="../js/i18n.js" defer></script>
+<script src="../js/nav.js" defer></script>
+<script src="../js/writeup-sidebar.js" defer></script>
+<script src="../js/writeup-enhance.js" defer></script>
+</body>
+</html>
